@@ -67,10 +67,12 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    users: User;
-    media: Media;
     posts: Post;
     pages: Page;
+    categories: Category;
+    tags: Tag;
+    media: Media;
+    users: User;
     search: Search;
     redirects: Redirect;
     forms: Form;
@@ -85,10 +87,12 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
@@ -105,8 +109,14 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    navigation: Navigation;
+    'site-settings': SiteSetting;
+  };
+  globalsSelect: {
+    navigation: NavigationSelect<false> | NavigationSelect<true>;
+    'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -144,10 +154,105 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  title: string;
+  /**
+   * Generated from title when left empty. You can edit it.
+   */
+  slug: string;
+  excerpt?: string | null;
+  content: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  featuredImage?: (number | null) | Media;
+  author: number | User;
+  categories?: (number | Category)[] | null;
+  tags?: (number | Tag)[] | null;
+  publishedAt?: string | null;
+  featured?: boolean | null;
+  allowComments?: boolean | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
   id: number;
+  /**
+   * Only enabled profiles appear on the public author route.
+   */
+  profilePublic?: boolean | null;
+  displayName?: string | null;
+  /**
+   * Generated from displayName when left empty. You can edit it.
+   */
+  slug?: string | null;
+  profilePhoto?: (number | null) | Media;
+  shortBio?: string | null;
+  biography?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  website?: string | null;
+  twitterURL?: string | null;
+  youtubeURL?: string | null;
+  facebookURL?: string | null;
+  instagramURL?: string | null;
+  githubURL?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -169,59 +274,34 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "categories".
  */
-export interface Media {
+export interface Category {
   id: number;
-  alt: string;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  image?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts".
+ * via the `definition` "tags".
  */
-export interface Post {
+export interface Tag {
   id: number;
-  title: string;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
   slug: string;
-  content: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  excerpt?: string | null;
-  publishedAt?: string | null;
-  author?: (number | null) | User;
-  featuredImage?: (number | null) | Media;
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
+  description?: string | null;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -230,6 +310,9 @@ export interface Post {
 export interface Page {
   id: number;
   title: string;
+  /**
+   * Generated from title when left empty. You can edit it.
+   */
   slug: string;
   content: {
     root: {
@@ -690,20 +773,28 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'users';
-        value: number | User;
-      } | null)
-    | ({
-        relationTo: 'media';
-        value: number | Media;
-      } | null)
-    | ({
         relationTo: 'posts';
         value: number | Post;
       } | null)
     | ({
         relationTo: 'pages';
         value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'search';
@@ -765,54 +856,20 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
-  content?: T;
   excerpt?: T;
-  publishedAt?: T;
-  author?: T;
+  content?: T;
   featuredImage?: T;
+  author?: T;
+  categories?: T;
+  tags?: T;
+  publishedAt?: T;
+  featured?: T;
+  allowComments?: T;
   meta?:
     | T
     | {
@@ -851,6 +908,79 @@ export interface PagesSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  image?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  profilePublic?: T;
+  displayName?: T;
+  slug?: T;
+  profilePhoto?: T;
+  shortBio?: T;
+  biography?: T;
+  website?: T;
+  twitterURL?: T;
+  youtubeURL?: T;
+  facebookURL?: T;
+  instagramURL?: T;
+  githubURL?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1161,6 +1291,183 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation".
+ */
+export interface Navigation {
+  id: number;
+  /**
+   * Drag items to change their display order.
+   */
+  primary?:
+    | {
+        label: string;
+        linkType: 'internal' | 'external';
+        page?: (number | null) | Page;
+        url?: string | null;
+        newTab?: boolean | null;
+        enabled?: boolean | null;
+        children?:
+          | {
+              label: string;
+              linkType: 'internal' | 'external';
+              page?: (number | null) | Page;
+              url?: string | null;
+              newTab?: boolean | null;
+              enabled?: boolean | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Drag items to change their display order.
+   */
+  footer?:
+    | {
+        label: string;
+        linkType: 'internal' | 'external';
+        page?: (number | null) | Page;
+        url?: string | null;
+        newTab?: boolean | null;
+        enabled?: boolean | null;
+        children?:
+          | {
+              label: string;
+              linkType: 'internal' | 'external';
+              page?: (number | null) | Page;
+              url?: string | null;
+              newTab?: boolean | null;
+              enabled?: boolean | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings".
+ */
+export interface SiteSetting {
+  id: number;
+  siteName: string;
+  siteTagline?: string | null;
+  siteDescription?: string | null;
+  logo?: (number | null) | Media;
+  darkLogo?: (number | null) | Media;
+  favicon?: (number | null) | Media;
+  /**
+   * Hex color, for example #18243a.
+   */
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  defaultSeoTitle?: string | null;
+  defaultSeoDescription?: string | null;
+  defaultSocialImage?: (number | null) | Media;
+  twitterURL?: string | null;
+  youtubeURL?: string | null;
+  facebookURL?: string | null;
+  instagramURL?: string | null;
+  discordURL?: string | null;
+  githubURL?: string | null;
+  footerDescription?: string | null;
+  copyrightText?: string | null;
+  contactEmail?: string | null;
+  contactInformation?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation_select".
+ */
+export interface NavigationSelect<T extends boolean = true> {
+  primary?:
+    | T
+    | {
+        label?: T;
+        linkType?: T;
+        page?: T;
+        url?: T;
+        newTab?: T;
+        enabled?: T;
+        children?:
+          | T
+          | {
+              label?: T;
+              linkType?: T;
+              page?: T;
+              url?: T;
+              newTab?: T;
+              enabled?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  footer?:
+    | T
+    | {
+        label?: T;
+        linkType?: T;
+        page?: T;
+        url?: T;
+        newTab?: T;
+        enabled?: T;
+        children?:
+          | T
+          | {
+              label?: T;
+              linkType?: T;
+              page?: T;
+              url?: T;
+              newTab?: T;
+              enabled?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-settings_select".
+ */
+export interface SiteSettingsSelect<T extends boolean = true> {
+  siteName?: T;
+  siteTagline?: T;
+  siteDescription?: T;
+  logo?: T;
+  darkLogo?: T;
+  favicon?: T;
+  primaryColor?: T;
+  secondaryColor?: T;
+  accentColor?: T;
+  defaultSeoTitle?: T;
+  defaultSeoDescription?: T;
+  defaultSocialImage?: T;
+  twitterURL?: T;
+  youtubeURL?: T;
+  facebookURL?: T;
+  instagramURL?: T;
+  discordURL?: T;
+  githubURL?: T;
+  footerDescription?: T;
+  copyrightText?: T;
+  contactEmail?: T;
+  contactInformation?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "collections_widget".
  */
 export interface CollectionsWidget {
@@ -1179,10 +1486,12 @@ export interface TaskCreateCollectionExport {
     name: string;
     batchSize?: number | null;
     collectionSlug:
-      | 'users'
-      | 'media'
       | 'posts'
       | 'pages'
+      | 'categories'
+      | 'tags'
+      | 'media'
+      | 'users'
       | 'search'
       | 'redirects'
       | 'forms'

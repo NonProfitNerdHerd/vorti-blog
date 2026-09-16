@@ -18,6 +18,10 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Posts } from './collections/Posts'
 import { Pages } from './collections/Pages'
+import { Categories } from './collections/Categories'
+import { Tags } from './collections/Tags'
+import { Navigation } from './globals/Navigation'
+import { SiteSettings } from './globals/SiteSettings'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -71,7 +75,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Posts, Pages],
+  collections: [Posts, Pages, Categories, Tags, Media, Users],
+  globals: [Navigation, SiteSettings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -89,18 +94,18 @@ export default buildConfig({
     }),
     searchPlugin({
       collections: ['posts', 'pages'],
-      searchOverrides: { admin: { group: 'Tools / Site' } },
+      searchOverrides: { admin: { group: 'Content' } },
       syncDrafts: false,
       deleteDrafts: true,
     }),
     redirectsPlugin({
       collections: ['posts', 'pages'],
-      overrides: { admin: { group: 'Tools / Site' } },
+      overrides: { admin: { group: 'Site' } },
     }),
     formBuilderPlugin({
       redirectRelationships: ['pages'],
-      formOverrides: { admin: { group: 'Tools / Site' } },
-      formSubmissionOverrides: { admin: { group: 'Tools / Site' } },
+      formOverrides: { admin: { group: 'Site' } },
+      formSubmissionOverrides: { admin: { group: 'Site' } },
     }),
     importExportPlugin({
       collections: [

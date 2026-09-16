@@ -38,4 +38,24 @@ test.describe('Admin Panel', () => {
     const editViewArtifact = page.locator('input[name="email"]')
     await expect(editViewArtifact).toBeVisible()
   })
+
+  test('can open categories and tags', async () => {
+    await page.goto('http://localhost:3000/admin/collections/categories')
+    await expect(page).toHaveURL('http://localhost:3000/admin/collections/categories')
+    await expect(page.getByRole('heading', { name: 'Categories' })).toBeVisible()
+
+    await page.goto('http://localhost:3000/admin/collections/tags')
+    await expect(page).toHaveURL('http://localhost:3000/admin/collections/tags')
+    await expect(page.getByRole('heading', { name: 'Tags' })).toBeVisible()
+  })
+
+  test('can open navigation and site settings', async () => {
+    await page.goto('http://localhost:3000/admin/globals/navigation')
+    await expect(page).toHaveURL('http://localhost:3000/admin/globals/navigation')
+    await expect(page.getByText('Primary navigation')).toBeVisible()
+
+    await page.goto('http://localhost:3000/admin/globals/site-settings')
+    await expect(page).toHaveURL('http://localhost:3000/admin/globals/site-settings')
+    await expect(page.getByText('Site Name')).toBeVisible()
+  })
 })

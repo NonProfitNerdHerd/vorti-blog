@@ -1,12 +1,20 @@
 import type { CollectionConfig } from 'payload'
+import { authenticated, publishedOrAuthenticated } from '../access/content'
+import { slugField } from '../fields/slug'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
-  admin: { group: 'Content', useAsTitle: 'title' },
+  admin: { group: 'Content', useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
+  access: {
+    read: publishedOrAuthenticated,
+    create: authenticated,
+    update: authenticated,
+    delete: authenticated,
+  },
   versions: { drafts: true },
   fields: [
     { name: 'title', type: 'text', required: true },
-    { name: 'slug', type: 'text', required: true, unique: true, index: true },
+    slugField('title'),
     { name: 'content', type: 'richText', required: true },
   ],
 }
