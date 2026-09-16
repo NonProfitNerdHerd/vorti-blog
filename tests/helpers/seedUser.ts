@@ -35,12 +35,20 @@ export async function seedTestUser(): Promise<void> {
 export async function cleanupTestUser(): Promise<void> {
   const payload = await getPayload({ config })
 
-  await payload.delete({
-    collection: 'users',
-    where: {
-      email: {
-        equals: testUser.email,
-      },
-    },
-  })
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await payload.delete({
+        collection: 'users',
+        where: {
+          email: {
+            equals: testUser.email,
+          },
+        },
+      })
+      return
+    } catch (error) {
+      if (attempt === 4 || !String(error).includes('SQLITE_BUSY')) throw error
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)))
+    }
+  }
 }
