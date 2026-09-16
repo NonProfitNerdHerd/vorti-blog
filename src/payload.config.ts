@@ -7,9 +7,17 @@ import { fileURLToPath } from 'url'
 import { CloudflareContext, getCloudflareContext } from '@opennextjs/cloudflare'
 import { GetPlatformProxyOptions } from 'wrangler'
 import { r2Storage } from '@payloadcms/storage-r2'
+import { seoPlugin } from '@payloadcms/plugin-seo'
+import { searchPlugin } from '@payloadcms/plugin-search'
+import { redirectsPlugin } from '@payloadcms/plugin-redirects'
+import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { importExportPlugin } from '@payloadcms/plugin-import-export'
+import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Posts } from './collections/Posts'
+import { Pages } from './collections/Pages'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -63,7 +71,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Posts, Pages],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -72,9 +80,38 @@ export default buildConfig({
   db: sqliteD1Adapter({ binding: cloudflare.env.D1 }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
+    seoPlugin({
+      collections: ['posts', 'pages'],
+      uploadsCollection: 'media',
+      generateTitle: ({ doc }) => `${doc?.title ?? ''} | Vorti`,
+      generateDescription: ({ doc }) => doc?.excerpt ?? '',
+      generateImage: ({ doc }) => doc?.featuredImage,
+    }),
+    searchPlugin({
+      collections: ['posts', 'pages'],
+      searchOverrides: { admin: { group: 'Tools / Site' } },
+      syncDrafts: false,
+      deleteDrafts: true,
+    }),
+    redirectsPlugin({
+      collections: ['posts', 'pages'],
+      overrides: { admin: { group: 'Tools / Site' } },
+    }),
+    formBuilderPlugin({
+      redirectRelationships: ['pages'],
+      formOverrides: { admin: { group: 'Tools / Site' } },
+      formSubmissionOverrides: { admin: { group: 'Tools / Site' } },
+    }),
+    importExportPlugin({
+      collections: [
+        { slug: 'posts', export: { disableJobsQueue: true }, import: { disableJobsQueue: true } },
+        { slug: 'pages', export: { disableJobsQueue: true }, import: { disableJobsQueue: true } },
+      ],
+    }),
+    nestedDocsPlugin({ collections: ['pages'] }),
     r2Storage({
       bucket: cloudflare.env.R2,
-      collections: { media: true },
+      collections: { media: true, exports: true, imports: true },
     }),
   ],
 })
