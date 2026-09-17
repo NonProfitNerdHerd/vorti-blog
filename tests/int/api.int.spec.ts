@@ -1,6 +1,7 @@
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
 import { getPublicAuthorProfile, getPublicSiteData } from '@/lib/publicContent'
+import { getPublishedPage, getPublishedPost, getPublishedPosts } from '@/lib/frontend'
 
 import { describe, it, beforeAll, expect } from 'vitest'
 
@@ -152,6 +153,39 @@ describe('API', () => {
       expect(publishedRead.docs).toHaveLength(1)
     } finally {
       await payload.delete({ collection: 'pages', id: page.id })
+    }
+  })
+
+  it('looks up only published Pages and Posts for the public frontend', async () => {
+    const content = {
+      root: {
+        type: 'root', format: '' as const, indent: 0, version: 1,
+        direction: 'ltr' as const,
+        children: [{ type: 'paragraph', format: '' as const, indent: 0, version: 1, direction: 'ltr' as const,
+          children: [{ type: 'text', text: 'Visible body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }],
+      },
+    }
+    const author = await payload.create({ collection: 'users', data: {
+      email: 'frontend-validation@example.invalid', password: 'local-validation-password',
+    } })
+    const page = await payload.create({ collection: 'pages', draft: true, data: {
+      title: 'Frontend Validation Page', slug: 'frontend-validation-page', content,
+    } })
+    const post = await payload.create({ collection: 'posts', draft: true, data: {
+      title: 'Frontend Validation Post', slug: 'frontend-validation-post', content, author: author.id,
+    } })
+    try {
+      expect(await getPublishedPage(page.slug)).toBeNull()
+      expect(await getPublishedPost(post.slug)).toBeNull()
+      await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } })
+      await payload.update({ collection: 'posts', id: post.id, data: { _status: 'published' } })
+      expect((await getPublishedPage(page.slug))?.title).toBe(page.title)
+      expect((await getPublishedPost(post.slug))?.title).toBe(post.title)
+      expect((await getPublishedPosts(1, 5)).docs.map((doc) => doc.id)).toContain(post.id)
+    } finally {
+      await payload.delete({ collection: 'posts', id: post.id })
+      await payload.delete({ collection: 'pages', id: page.id })
+      await payload.delete({ collection: 'users', id: author.id })
     }
   })
 })
