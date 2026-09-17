@@ -33,7 +33,6 @@ export const Posts: CollectionConfig = {
         {
           label: 'Organization',
           fields: [
-            { name: 'author', type: 'relationship', relationTo: 'users', required: true },
             { name: 'categories', type: 'relationship', relationTo: 'categories', hasMany: true },
             { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
           ],
@@ -41,6 +40,7 @@ export const Posts: CollectionConfig = {
         {
           label: 'Publishing',
           fields: [
+            { name: 'author', type: 'relationship', relationTo: 'users', required: true },
             { name: 'publishedAt', type: 'date' },
             { name: 'featured', type: 'checkbox', defaultValue: false },
             { name: 'allowComments', type: 'checkbox', defaultValue: false },

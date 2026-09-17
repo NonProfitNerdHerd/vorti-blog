@@ -13,8 +13,20 @@ export const Pages: CollectionConfig = {
   },
   versions: { drafts: true },
   fields: [
-    { name: 'title', type: 'text', required: true },
-    slugField('title'),
-    { name: 'content', type: 'richText', required: true },
+    {
+      type: 'tabs',
+      tabs: [
+        {
+          label: 'Content',
+          fields: [
+            { name: 'title', type: 'text', required: true },
+            slugField('title'),
+            { name: 'content', type: 'richText', required: true },
+          ],
+        },
+        { label: 'Organization', fields: [] },
+        { label: 'Publishing', fields: [] },
+      ],
+    },
   ],
 }

@@ -22,6 +22,7 @@ import { Categories } from './collections/Categories'
 import { Tags } from './collections/Tags'
 import { Navigation } from './globals/Navigation'
 import { SiteSettings } from './globals/SiteSettings'
+import { organizePageHierarchy } from './plugins/organizePageHierarchy'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -87,6 +88,7 @@ export default buildConfig({
   plugins: [
     seoPlugin({
       collections: ['posts', 'pages'],
+      tabbedUI: true,
       uploadsCollection: 'media',
       generateTitle: ({ doc }) => `${doc?.title ?? ''} | Vorti`,
       generateDescription: ({ doc }) => doc?.excerpt ?? '',
@@ -114,6 +116,7 @@ export default buildConfig({
       ],
     }),
     nestedDocsPlugin({ collections: ['pages'] }),
+    organizePageHierarchy,
     r2Storage({
       bucket: cloudflare.env.R2,
       collections: { media: true, exports: true, imports: true },
