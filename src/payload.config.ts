@@ -72,6 +72,21 @@ const cloudflare =
 export default buildConfig({
   admin: {
     user: Users.slug,
+    livePreview: {
+      collections: ['posts', 'pages'],
+      url: ({ collectionConfig, data }) => {
+        if (!collectionConfig || !['posts', 'pages'].includes(collectionConfig.slug)) return null
+        const slug = typeof data.slug === 'string' && data.slug ? data.slug : '__preview__'
+        const path = collectionConfig.slug === 'posts' ? `/posts/${encodeURIComponent(slug)}` : `/${encodeURIComponent(slug)}`
+        const id = typeof data.id === 'number' || typeof data.id === 'string' ? data.id : 'new'
+        return `${path}?livePreview=${encodeURIComponent(String(id))}`
+      },
+      breakpoints: [
+        { label: 'Desktop', name: 'desktop', width: 1440, height: 900 },
+        { label: 'Tablet', name: 'tablet', width: 768, height: 1024 },
+        { label: 'Mobile', name: 'mobile', width: 390, height: 844 },
+      ],
+    },
     importMap: {
       baseDir: path.resolve(dirname),
     },

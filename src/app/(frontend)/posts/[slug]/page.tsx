@@ -1,37 +1,40 @@
-import { RichText } from '@payloadcms/richtext-lexical/react'
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { contentMetadata, getPublishedPost, getSiteSettings, mediaURL } from '@/lib/frontend'
+import { LivePostPreview } from '@/components/LivePostPreview'
+import { PostArticle } from '@/components/PostArticle'
+import { contentMetadata, getAuthenticatedPreview, getPublishedPost, getSiteSettings, isAuthenticatedPreviewEditor } from '@/lib/frontend'
+import type { Post } from '@/payload-types'
 
 export const dynamic = 'force-dynamic'
-type Props = { params: Promise<{ slug: string }> }
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePreview?: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
-  const post = await getPublishedPost(slug)
-  if (!post) return {}
-  return contentMetadata(post, await getSiteSettings())
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+  if ((await searchParams).livePreview) return { robots: { index: false, follow: false } }
+  const post = await getPublishedPost((await params).slug)
+  return post ? contentMetadata(post, await getSiteSettings()) : {}
 }
 
-export default async function PostPage({ params }: Props) {
-  const { slug } = await params
-  const post = await getPublishedPost(slug)
+export default async function PostPage({ params, searchParams }: Props) {
+  const previewID = (await searchParams).livePreview
+  if (previewID) {
+    const post = previewID === 'new'
+      ? await isAuthenticatedPreviewEditor() ? emptyPost : null
+      : await getAuthenticatedPreview('posts', previewID)
+    if (!post) notFound()
+    return <LivePostPreview initialData={post} />
+  }
+  const post = await getPublishedPost((await params).slug)
   if (!post) notFound()
-  const image = mediaURL(post.featuredImage)
-  const author = typeof post.author === 'object' && post.author.profilePublic ? post.author : null
-  return (
-    <article className="container article">
-      <header>
-        <h1>{post.title}</h1>
-        {post.publishedAt && <time dateTime={post.publishedAt}>{new Date(post.publishedAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</time>}
-        {author?.displayName && <p>By {author.displayName}</p>}
-        {post.excerpt && <p className="lead">{post.excerpt}</p>}
-        {!!post.categories?.length && <p className="taxonomy">Categories: {post.categories.map((category) => typeof category === 'object' ? category.name : null).filter(Boolean).join(' · ')}</p>}
-        {!!post.tags?.length && <p className="taxonomy">Tags: {post.tags.map((tag) => typeof tag === 'object' ? tag.name : null).filter(Boolean).join(' · ')}</p>}
-      </header>
-      {image && <Image unoptimized className="hero-image" src={image} width={1200} height={675} alt={typeof post.featuredImage === 'object' ? post.featuredImage?.alt || '' : ''} />}
-      <RichText data={post.content} className="rich-text" />
-    </article>
-  )
+  return <PostArticle post={post} />
+}
+
+const emptyPost: Post = {
+  id: 0,
+  title: '',
+  slug: '',
+  content: { root: { type: 'root', children: [], direction: null, format: '', indent: 0, version: 1 } },
+  author: 0,
+  updatedAt: '',
+  createdAt: '',
+  _status: 'draft',
 }

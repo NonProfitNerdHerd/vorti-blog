@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import { getPayload } from 'payload'
+import { headers } from 'next/headers'
 import config from '@/payload.config'
-import type { Media, Page, Post, SiteSetting } from '@/payload-types'
+import type { Page, Post, SiteSetting } from '@/payload-types'
+import { mediaURL } from './media'
+
+export { mediaURL } from './media'
 
 const payload = () => getPayload({ config })
-
-export function mediaURL(value: number | Media | null | undefined): string | null {
-  return value && typeof value === 'object' ? value.url || null : null
-}
 
 export async function getPublishedPage(slug: string): Promise<Page | null> {
   const result = await (await payload()).find({
@@ -32,6 +32,30 @@ export async function getPublishedPosts(page = 1, limit = 10) {
     collection: 'posts', where: { _status: { equals: 'published' } },
     depth: 1, limit, page, sort: '-publishedAt', draft: false, overrideAccess: false,
   })
+}
+
+export async function getAuthenticatedPreview(collection: 'posts', id: string): Promise<Post | null>
+export async function getAuthenticatedPreview(collection: 'pages', id: string): Promise<Page | null>
+export async function getAuthenticatedPreview(collection: 'posts' | 'pages', id: string): Promise<Page | Post | null> {
+  const client = await payload()
+  const { user } = await client.auth({ headers: await headers() })
+  if (!user || user.collection !== 'users') return null
+  if (id === 'new') return null
+  const numericID = Number(id)
+  if (!Number.isSafeInteger(numericID) || numericID < 1) return null
+  try {
+    if (collection === 'posts') {
+      return await client.findByID({ collection, id: numericID, draft: true, depth: 2, overrideAccess: false, user })
+    }
+    return await client.findByID({ collection, id: numericID, draft: true, depth: 1, overrideAccess: false, user })
+  } catch {
+    return null
+  }
+}
+
+export async function isAuthenticatedPreviewEditor(): Promise<boolean> {
+  const { user } = await (await payload()).auth({ headers: await headers() })
+  return Boolean(user && user.collection === 'users')
 }
 
 export async function getSiteSettings(): Promise<SiteSetting> {

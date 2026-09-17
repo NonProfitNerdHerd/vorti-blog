@@ -112,4 +112,92 @@ test.describe('Admin Panel', () => {
       await payload.delete({ collection: 'pages', id: pageDoc.id })
     }
   })
+
+  test('offers native Live Preview for Posts and Pages', async ({ browser }) => {
+    const payload = await getPayload({ config })
+    const users = await payload.find({ collection: 'users', where: { email: { equals: testUser.email } }, limit: 1 })
+    const content = { root: { type: 'root', format: '' as const, indent: 0, version: 1, direction: 'ltr' as const,
+      children: [{ type: 'paragraph', format: '' as const, indent: 0, version: 1, direction: 'ltr' as const,
+        children: [{ type: 'text', text: 'Preview body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }],
+    } }
+    const post = await payload.create({ collection: 'posts', data: {
+      title: 'Published Preview Post', slug: 'published-preview-post', author: users.docs[0].id,
+      content, _status: 'published',
+    } })
+    const pageDoc = await payload.create({ collection: 'pages', data: {
+      title: 'Published Preview Page', slug: 'published-preview-page', content, _status: 'published',
+    } })
+    const imageData = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/jz8AAAAASUVORK5CYII=', 'base64')
+    const media = await payload.create({ collection: 'media', data: { alt: 'Live preview test image' },
+      file: { data: imageData, name: 'live-preview-test.png', mimetype: 'image/png', size: imageData.length } })
+    try {
+      for (const [collection, id, title, route] of [
+        ['posts', post.id, 'Published Preview Post', '/posts/published-preview-post'],
+        ['pages', pageDoc.id, 'Published Preview Page', '/published-preview-page'],
+      ] as const) {
+        await page.goto(`http://localhost:3000/admin/collections/${collection}/${id}`)
+        await page.waitForLoadState('networkidle')
+        await expect(page.getByRole('button', { name: 'Live Preview' })).toBeVisible()
+        await page.getByRole('button', { name: 'Live Preview' }).click()
+        await expect(page.locator('iframe')).toBeVisible()
+        await expect(page.frameLocator('iframe').getByRole('heading', { name: title })).toBeVisible()
+        await page.getByRole('textbox', { name: 'Title *' }).fill(`Edited ${title}`)
+        await expect(page.frameLocator('iframe').getByRole('heading', { name: `Edited ${title}` })).toBeVisible()
+        await page.locator('[contenteditable="true"]').first().fill('Edited live body')
+        await expect(page.frameLocator('iframe').getByText('Edited live body')).toBeVisible()
+        if (collection === 'posts') {
+          await page.getByRole('button', { name: 'Choose from existing' }).click()
+          await page.getByRole('row', { name: /live-preview-test.png/ }).getByRole('button').click()
+          await expect(page.frameLocator('iframe').getByRole('img', { name: 'Live preview test image' })).toBeVisible()
+        }
+        const anonymous = await browser.newPage()
+        try {
+          await anonymous.goto(`http://localhost:3000${route}`)
+          await expect(anonymous.getByRole('heading', { name: title })).toBeVisible()
+          const iframeURL = await page.locator('iframe').getAttribute('src')
+          if (iframeURL) expect((await anonymous.goto(new URL(iframeURL, 'http://localhost:3000').toString()))?.status()).toBe(404)
+        } finally {
+          await anonymous.close()
+        }
+      }
+      const unpublished = await payload.create({ collection: 'posts', draft: true, data: {
+        title: 'Unpublished Preview Post', slug: 'unpublished-preview-post', author: users.docs[0].id, content,
+      } })
+      try {
+        await page.goto(`http://localhost:3000/admin/collections/posts/${unpublished.id}`)
+        await page.waitForLoadState('networkidle')
+        await page.getByRole('button', { name: 'Live Preview' }).click()
+        await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Unpublished Preview Post' })).toBeVisible()
+        const anonymous = await browser.newPage()
+        try {
+          expect((await anonymous.goto('http://localhost:3000/posts/unpublished-preview-post'))?.status()).toBe(404)
+        } finally {
+          await anonymous.close()
+        }
+      } finally {
+        await payload.delete({ collection: 'posts', id: unpublished.id })
+      }
+      const unpublishedPage = await payload.create({ collection: 'pages', draft: true, data: {
+        title: 'Unpublished Preview Page', slug: 'unpublished-preview-page', content,
+      } })
+      try {
+        await page.goto(`http://localhost:3000/admin/collections/pages/${unpublishedPage.id}`)
+        await page.waitForLoadState('networkidle')
+        await page.getByRole('button', { name: 'Live Preview' }).click()
+        await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Unpublished Preview Page' })).toBeVisible()
+        const anonymous = await browser.newPage()
+        try {
+          expect((await anonymous.goto('http://localhost:3000/unpublished-preview-page'))?.status()).toBe(404)
+        } finally {
+          await anonymous.close()
+        }
+      } finally {
+        await payload.delete({ collection: 'pages', id: unpublishedPage.id })
+      }
+    } finally {
+      await payload.delete({ collection: 'posts', id: post.id })
+      await payload.delete({ collection: 'pages', id: pageDoc.id })
+      await payload.delete({ collection: 'media', id: media.id })
+    }
+  })
 })
