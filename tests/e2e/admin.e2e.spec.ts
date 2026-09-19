@@ -65,13 +65,93 @@ test.describe('Admin Panel', () => {
     await expect(page.getByRole('heading', { name: 'Templates' })).toBeVisible()
   })
 
-  test('previews the saved Standard Article Template', async () => {
+  test('opens Standard Article in the friendly Template Builder', async () => {
     const response = await page.context().request.get('http://localhost:3000/api/design-templates?where[slug][equals]=standard-article&limit=1&depth=0')
     const body = await response.json() as { docs: Array<{ id: number }> }
     expect(body.docs).toHaveLength(1)
     await page.goto(`http://localhost:3000/admin/collections/design-templates/${body.docs[0].id}`)
-    await page.getByRole('button', { name: 'Preview saved draft' }).click()
-    await expect(page.getByRole('heading', { name: 'Example Hero Headline' })).toBeVisible()
+    const builder = page.getByTestId('template-builder')
+    await expect(builder.getByRole('heading', { name: 'STANDARD ARTICLE' })).toBeVisible()
+    await expect(builder.getByRole('heading', { name: 'HERO' })).toBeVisible()
+    await expect(builder.getByText('Hero Board', { exact: true })).toBeVisible()
+    await expect(builder.getByText(/Default Design: Hero Board -/)).toBeVisible()
+    await expect(page.locator('input[name="slug"]')).toBeHidden()
+    await expect(page.locator('[data-path="sections"]')).toHaveCount(0)
+  })
+
+  test('creates, configures, saves, reorders, and publishes a Template through the builder', async () => {
+    test.setTimeout(240_000)
+    const api = page.context().request
+    const suffix = Date.now().toString(36)
+    const name = `Newsletter ${suffix}`
+    let templateID: number | undefined
+    try {
+      await page.goto('http://localhost:3000/admin/collections/design-templates/create')
+      const builder = page.getByTestId('template-builder')
+      await expect(builder.getByRole('heading', { name: 'Create Template' })).toBeVisible()
+      await expect(builder.getByText('No sections have been added yet.')).toBeVisible()
+      await expect(page.locator('input[name="slug"]')).toBeHidden()
+      await builder.getByRole('textbox', { name: 'Name' }).fill(name)
+      await builder.getByRole('textbox', { name: 'Description' }).fill('Newsletter layout')
+      await builder.getByRole('checkbox', { name: 'Posts' }).check()
+      const createResponse = page.waitForResponse((response) => response.url().includes('/api/design-templates') && response.request().method() === 'POST')
+      await builder.getByRole('button', { name: 'Save Draft' }).click()
+      const created = await createResponse
+      expect(created.ok(), await created.text()).toBe(true)
+      templateID = (await created.json() as { doc: { id: number } }).doc.id
+      await expect(page).toHaveURL(new RegExp(`/admin/collections/design-templates/${templateID}`))
+      let stored = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as { slug: string; sections: unknown[]; _status: string }
+      expect(stored.slug).toBe(name.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+      expect(stored.sections).toEqual([])
+      expect(stored._status).toBe('draft')
+
+      await builder.getByRole('button', { name: '+ Add Section' }).click()
+      await expect(builder.getByRole('heading', { name: 'Choose a Block Type' })).toBeVisible()
+      await expect(builder.getByRole('heading', { name: 'Hero Board' })).toBeVisible()
+      await expect(builder.getByText('Gallery')).toHaveCount(0)
+      await builder.getByRole('button', { name: 'Add Hero Board' }).click()
+      await builder.getByRole('textbox', { name: 'Section Name' }).fill('Hero')
+      await builder.getByRole('combobox', { name: 'Default Design' }).selectOption({ label: 'Hero Board - Feature' })
+      await builder.getByRole('checkbox', { name: 'Required' }).check()
+      await builder.getByRole('checkbox', { name: 'Allow content editor to change design' }).check()
+      await builder.getByRole('button', { name: 'Add to Template' }).click()
+      await expect(builder.getByRole('heading', { name: 'HERO' })).toBeVisible()
+      await expect(builder.getByText('Default Design: Hero Board - Feature')).toBeVisible()
+      await expect(builder.getByRole('button', { name: 'Move Up' })).toBeDisabled()
+      await expect(builder.getByRole('button', { name: 'Move Down' })).toBeDisabled()
+      await builder.getByRole('button', { name: '+ Add Section' }).click()
+      await builder.getByRole('button', { name: 'Add Hero Board' }).click()
+      await builder.getByRole('textbox', { name: 'Section Name' }).fill('Secondary Hero')
+      await builder.getByRole('combobox', { name: 'Default Design' }).selectOption({ label: 'Hero Board - Centered' })
+      await builder.getByRole('button', { name: 'Add to Template' }).click()
+      const structureCards = builder.locator('section[aria-labelledby="template-structure-heading"] article')
+      await expect(structureCards).toHaveCount(2)
+      await structureCards.nth(1).getByRole('button', { name: 'Move Up' }).click()
+      await expect(structureCards.nth(0).getByRole('heading', { name: 'SECONDARY HERO' })).toBeVisible()
+      await structureCards.nth(0).getByRole('button', { name: 'Remove' }).click()
+      await expect(structureCards).toHaveCount(1)
+      await expect(structureCards.getByRole('heading', { name: 'HERO' })).toBeVisible()
+      const draftResponse = page.waitForResponse((response) => response.url().includes(`/api/design-templates/${templateID}`) && response.request().method() === 'PATCH')
+      await builder.getByRole('button', { name: 'Save Draft' }).click()
+      expect((await draftResponse).ok()).toBe(true)
+      stored = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as typeof stored & { sections: Array<{ key: string; name: string; required: boolean; allowDesignOverride: boolean }> }
+      expect(stored._status).toBe('draft')
+      expect(stored.sections).toEqual([expect.objectContaining({ key: 'hero', name: 'Hero', required: true, allowDesignOverride: true })])
+
+      const publishResponse = page.waitForResponse((response) => response.url().includes(`/api/design-templates/${templateID}`) && response.request().method() === 'PATCH')
+      await builder.getByRole('button', { name: 'Publish Template' }).click()
+      expect((await publishResponse).ok()).toBe(true)
+      const published = await (await api.get(`${apiURL}/design-templates/${templateID}?depth=0`)).json() as { _status: string; status: string }
+      expect(published._status).toBe('published')
+      expect(published.status).toBe('published')
+
+      await page.goto('http://localhost:3000/admin/collections/posts/create')
+      const templateSelect = page.locator('#field-designTemplate [role="combobox"]')
+      await templateSelect.fill(name)
+      await expect(page.getByRole('option', { name })).toBeVisible()
+    } finally {
+      if (templateID) await api.delete(`${apiURL}/design-templates/${templateID}`)
+    }
   })
 
   test('edits Template Hero values on a Post', async () => {

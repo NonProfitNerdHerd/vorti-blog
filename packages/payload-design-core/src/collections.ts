@@ -8,6 +8,7 @@ import { validateFieldDefinitions } from './validation'
 
 export type DesignCollectionsOptions = {
   contentCollections: string[]
+  registeredRendererKeys?: string[]
   canManage?: Access
   isDesignManager?: (user: unknown) => boolean
   onPublish?: DesignEventHandler
@@ -123,15 +124,32 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
     ...common,
     slug: slugs.templates,
     labels: { singular: 'Template', plural: 'Templates' },
-    admin: { group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor },
+    admin: {
+      group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
+      components: { edit: {
+        SaveButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
+        SaveDraftButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
+        PublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
+        UnpublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
+      } },
+    },
     hooks: {
       beforeChange: [async ({ data, originalDoc, req }) => {
+        if (!data.slug && data.name) data.slug = String(data.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        if (!data.status) data.status = 'draft'
         if (data.status === 'archived' && originalDoc?.status === 'published' && originalDoc.id) {
           await assertTemplateCanDelete(createPayloadDependencySource(req.payload, options.contentCollections, req), originalDoc.id)
         }
         if (Array.isArray(data.sections)) {
           const keys = new Set<string>()
-          for (const section of data.sections) {
+          for (const [index, section] of data.sections.entries()) {
+            if (!section.key && section.name) {
+              const base = String(section.name).trim().replace(/[^a-zA-Z0-9]+(.)/g, (_match: string, next: string) => next.toUpperCase()).replace(/^[^a-z]+/i, '').replace(/^./, (letter: string) => letter.toLowerCase()) || 'section'
+              let key = base
+              let suffix = 2
+              while (keys.has(key)) key = `${base}${suffix++}`
+              data.sections[index].key = key
+            }
             if (!/^[a-z][a-zA-Z0-9]*$/.test(section.key) || keys.has(section.key)) throw new Error('Template section keys must be unique stable camelCase identifiers')
             keys.add(section.key)
             const id = typeof section.blockDesign === 'object' ? section.blockDesign.id : section.blockDesign
@@ -158,12 +176,12 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
       return Response.json(await getTemplateDependencies(createPayloadDependencySource(req.payload, options.contentCollections, req), id))
     } }],
     fields: [
-      { name: 'name', type: 'text', required: true },
-      { name: 'slug', type: 'text', required: true, unique: true },
-      { name: 'description', type: 'textarea' },
-      { name: 'status', type: 'select', required: true, defaultValue: 'draft', options: ['draft', 'published', 'archived'] },
-      { name: 'allowedCollections', type: 'select', hasMany: true, options: options.contentCollections.map((slug) => ({ label: slug, value: slug })) },
-      { name: 'sections', type: 'array', admin: { description: 'Add and reorder sections here. Published changes apply to every linked content item.' }, fields: [
+      { name: 'name', type: 'text', required: true, admin: { hidden: true } },
+      { name: 'slug', type: 'text', required: true, unique: true, admin: { hidden: true } },
+      { name: 'description', type: 'textarea', admin: { hidden: true } },
+      { name: 'status', type: 'select', required: true, defaultValue: 'draft', options: ['draft', 'published', 'archived'], admin: { hidden: true } },
+      { name: 'allowedCollections', type: 'select', hasMany: true, options: options.contentCollections.map((slug) => ({ label: slug, value: slug })), admin: { hidden: true } },
+      { name: 'sections', type: 'array', admin: { hidden: true }, fields: [
         { name: 'key', type: 'text', required: true },
         { name: 'name', type: 'text', required: true },
         { name: 'blockType', type: 'relationship', relationTo: slugs.blockTypes as CollectionSlug, required: true },
@@ -177,7 +195,7 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
         { name: 'required', type: 'checkbox', defaultValue: false },
         { name: 'allowDesignOverride', type: 'checkbox', defaultValue: false },
       ] },
-      { name: 'templateImpact', type: 'ui', admin: { components: { Field: '@design-system/payload-design-core/admin#TemplateImpactPanel' } } },
+      { name: 'templateBuilder', type: 'ui', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateBuilder', clientProps: { configuredCollections: options.contentCollections, registeredRendererKeys: options.registeredRendererKeys ?? [] } } } } },
     ],
   }
   return [blockTypes, blockDesigns, templates]

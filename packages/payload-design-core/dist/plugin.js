@@ -15,7 +15,7 @@ export function designSystemPlugin(options = {}) {
         for (const slug of contentCollections)
             if (!existing.has(slug))
                 throw new Error(`Unknown templatable collection: ${slug}`);
-        const added = createDesignCollections({ contentCollections, canManage: options.canManage, isDesignManager: options.isDesignManager, onPublish: options.onPublish });
+        const added = createDesignCollections({ contentCollections, registeredRendererKeys: options.blockPacks?.map((pack) => pack.rendererKey), canManage: options.canManage, isDesignManager: options.isDesignManager, onPublish: options.onPublish });
         const collections = [...(config.collections ?? []), ...added.filter((collection) => collection.slug === slugs.blockTypes ||
                 (options.blockCreator !== false && collection.slug === slugs.blockDesigns) ||
                 (options.templates !== false && collection.slug === slugs.templates))];

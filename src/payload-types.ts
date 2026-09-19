@@ -347,9 +347,6 @@ export interface DesignTemplate {
   description?: string | null;
   status: 'draft' | 'published' | 'archived';
   allowedCollections?: 'posts'[] | null;
-  /**
-   * Add and reorder sections here. Published changes apply to every linked content item.
-   */
   sections?:
     | {
         key: string;
