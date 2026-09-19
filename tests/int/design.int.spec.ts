@@ -17,6 +17,20 @@ describe('Design Core integration', () => {
   let templateID: number
   const values = { hero: { headline: 'Original Headline', subheadline: 'Unchanged summary', primaryCTA: { label: 'Learn More', url: '/example' } } }
 
+  it('renders structured Template Lexical content without exposing JSON', () => {
+    const lexical = { root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [
+      { type: 'heading', tag: 'h2', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', text: 'Newsletter Heading', format: 0, detail: 0, mode: 'normal', style: '', version: 1 }] },
+      { type: 'paragraph', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', text: 'Bold words', format: 1, detail: 0, mode: 'normal', style: '', version: 1 }, { type: 'link', version: 3, fields: { linkType: 'custom', url: '/story', newTab: false }, children: [{ type: 'text', text: ' linked story', format: 0, detail: 0, mode: 'normal', style: '', version: 1 }], direction: 'ltr', format: '', indent: 0 }] },
+      { type: 'list', listType: 'bullet', tag: 'ul', start: 1, version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'listitem', value: 1, version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', text: 'List item', format: 0, detail: 0, mode: 'normal', style: '', version: 1 }] }] },
+    ] } }
+    const markup = renderToStaticMarkup(createElement(PostDesignSections, { sections: [{ key: 'story', kind: 'field', fieldType: 'richText', label: 'Story', value: lexical }] }))
+    expect(markup).toContain('<h2>Newsletter Heading</h2>')
+    expect(markup).toContain('<strong>Bold words</strong>')
+    expect(markup).toContain('href="/story"')
+    expect(markup).toContain('<ul')
+    expect(markup).not.toContain('&quot;root&quot;')
+  })
+
   beforeAll(async () => {
     payload = await getPayload({ config })
     const type = await payload.create({ collection: 'design-block-types', data: {

@@ -347,6 +347,15 @@ export interface DesignTemplate {
   description?: string | null;
   status: 'draft' | 'published' | 'archived';
   allowedCollections?: 'posts'[] | null;
+  layout?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   sections?:
     | {
         key: string;
@@ -1196,6 +1205,7 @@ export interface DesignTemplatesSelect<T extends boolean = true> {
   description?: T;
   status?: T;
   allowedCollections?: T;
+  layout?: T;
   sections?:
     | T
     | {

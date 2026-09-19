@@ -1,227 +1,80 @@
 'use client'
+/* eslint-disable react-hooks/refs -- dnd-kit exposes callback refs and reactive drag state as hook return values. */
 
+import { DndContext, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ID } from '../types'
+import { useEffect, useRef, useState } from 'react'
+import { insertTemplateNode, moveTemplateNode, moveTemplateNodeTo, removeTemplateNode, updateTemplateNode } from '../template-tree'
+import type { FieldDefinition, ID, TemplateBlockNode, TemplateField, TemplateFieldKind, TemplateLayoutKind, TemplateLayoutNode, TemplateNode } from '../types'
 
-type BlockTypeOption = { id: ID; name: string; description?: string; rendererKey?: string }
+type BlockTypeOption = { id: ID; name: string; description?: string; rendererKey?: string; fields?: FieldDefinition[] }
 type DesignOption = { id: ID; name: string; blockType: ID }
-type TemplateSection = {
-  key: string
-  name: string
-  blockType: ID
-  blockDesign: ID
-  required?: boolean
-  allowDesignOverride?: boolean
-}
 type Impact = { collection: string; id: ID; status?: string }
+type LegacySection = { key: string; name: string; blockType: ID; blockDesign: ID }
+type LibraryItem = { kind: 'layout' | 'field' | 'block'; value: string; label: string }
 
-const fieldStyle = { display: 'grid', gap: '0.4rem' } as const
-const panelStyle = { border: '1px solid var(--theme-elevation-150)', borderRadius: '8px', padding: '1.25rem' } as const
+const layoutItems: LibraryItem[] = ['container', 'row', 'columns', 'stack', 'spacer', 'divider'].map((value) => ({ kind: 'layout', value, label: value[0].toUpperCase() + value.slice(1) }))
+const fieldItems: LibraryItem[] = [
+  ['shortText', 'Short Text'], ['longText', 'Long Text'], ['richText', 'Rich Text'], ['image', 'Image'], ['images', 'Images / Gallery'], ['videoURL', 'Video URL'], ['link', 'URL / Link'], ['date', 'Date'], ['number', 'Number'], ['select', 'Select'], ['toggle', 'Toggle'], ['relationship', 'Relationship'],
+].map(([value, label]) => ({ kind: 'field', value, label }))
+const panel = { border: '1px solid var(--theme-elevation-150)', borderRadius: 8, padding: '1rem' } as const
+const relationID = (value: unknown): ID | undefined => typeof value === 'string' || typeof value === 'number' ? value : value && typeof value === 'object' && 'id' in value ? (value as { id?: ID }).id : undefined
+const uid = (prefix: string) => `${prefix}_${crypto.randomUUID()}`
+async function fetchDocs<T>(url: string): Promise<T[]> { const response = await fetch(url, { credentials: 'same-origin' }); if (!response.ok) return []; const body = await response.json() as { docs?: T[] }; return body.docs ?? [] }
 
-function relationID(value: unknown): ID | undefined {
-  if (typeof value === 'string' || typeof value === 'number') return value
-  if (value && typeof value === 'object' && 'id' in value) return (value as { id?: ID }).id
+function LibraryButton({ item, add }: { item: LibraryItem; add: () => void }) {
+  const drag = useDraggable({ id: `library:${item.kind}:${item.value}`, data: { library: item } })
+  return <div ref={drag.setNodeRef} style={{ display: 'flex', gap: 4, marginBottom: 4, opacity: drag.isDragging ? .5 : 1 }}><button type="button" {...drag.listeners} {...drag.attributes} aria-label={`Drag ${item.label}`}>⠿</button><button type="button" onClick={add} style={{ flex: 1, textAlign: 'left' }}>{item.label}</button></div>
 }
-
-function makeSectionKey(name: string, sections: TemplateSection[]) {
-  const base = name.trim().replace(/[^a-zA-Z0-9]+(.)/g, (_, next: string) => next.toUpperCase()).replace(/^[^a-z]+/i, '').replace(/^./, (letter) => letter.toLowerCase()) || 'section'
-  const used = new Set(sections.map((section) => section.key))
-  if (!used.has(base)) return base
-  let suffix = 2
-  while (used.has(`${base}${suffix}`)) suffix += 1
-  return `${base}${suffix}`
+function DropArea({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+  const drop = useDroppable({ id: `container:${id}`, data: { containerID: id } })
+  return <div ref={drop.setNodeRef} aria-label={label} style={{ minHeight: 60, padding: 8, border: `1px dashed ${drop.isOver ? 'var(--theme-success-500)' : 'var(--theme-elevation-250)'}`, borderRadius: 6 }}>{children}</div>
+}
+type TreeActions = { edit: (node: TemplateNode) => void; move: (id: string, direction: -1 | 1) => void; remove: (id: string) => void }
+function Tree({ nodes, actions }: { nodes: TemplateNode[]; actions: TreeActions }) { return <div style={{ display: 'grid', gap: 8 }}>{nodes.map((node) => <CanvasNode key={node.id} node={node} siblings={nodes} actions={actions} />)}</div> }
+function CanvasNode({ node, siblings, actions }: { node: TemplateNode; siblings: TemplateNode[]; actions: TreeActions }) {
+  const drag = useDraggable({ id: `node:${node.id}`, data: { nodeID: node.id } }); const index = siblings.findIndex((item) => item.id === node.id)
+  const title = node.type === 'field' ? node.label : node.type === 'block' ? node.name : node.layout
+  const controls = <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><button type="button" {...drag.listeners} {...drag.attributes} aria-label={`Drag ${title}`}>⠿</button><button type="button" onClick={() => actions.edit(node)}>Edit</button><button type="button" disabled={index <= 0} onClick={() => actions.move(node.id, -1)}>Move Up</button><button type="button" disabled={index === siblings.length - 1} onClick={() => actions.move(node.id, 1)}>Move Down</button><button type="button" onClick={() => actions.remove(node.id)}>Remove</button></div>
+  if (node.type === 'field') return <article ref={drag.setNodeRef} style={panel}><strong>{node.label}</strong><p>{fieldItems.find((item) => item.value === node.fieldType)?.label}{node.required ? ' · Required' : ''}</p>{controls}</article>
+  if (node.type === 'block') return <article ref={drag.setNodeRef} style={panel}><strong>{node.name}</strong><p>Designed Block · {node.fields.length} mapped field{node.fields.length === 1 ? '' : 's'}</p>{controls}</article>
+  return <article ref={drag.setNodeRef} style={panel}><strong>{node.layout === 'columns' ? `Columns · ${node.columns?.map((column) => column.width).join(' / ')}` : title}</strong>{controls}{node.layout === 'columns' ? <div style={{ display: 'grid', gridTemplateColumns: node.columns?.map((column) => `${column.width}fr`).join(' '), gap: 8, marginTop: 8 }}>{node.columns?.map((column, i) => <DropArea key={column.id} id={column.id} label={`Column ${i + 1}`}><Tree nodes={column.children} actions={actions} /></DropArea>)}</div> : !['spacer', 'divider'].includes(node.layout) ? <div style={{ marginTop: 8 }}><DropArea id={node.id} label={`${node.layout} contents`}><Tree nodes={node.children ?? []} actions={actions} /></DropArea></div> : null}</article>
 }
 
 export function TemplateBuilder({ configuredCollections = ['posts'], registeredRendererKeys = ['hero-board'] }: { configuredCollections?: string[]; registeredRendererKeys?: string[] }) {
-  const { id, hasPublishedDoc } = useDocumentInfo()
-  const { submit, disabled } = useForm()
-  const { value: nameValue, setValue: setName } = useField<string>({ path: 'name' })
-  const { value: descriptionValue, setValue: setDescription } = useField<string>({ path: 'description' })
-  const { value: slugValue } = useField<string>({ path: 'slug' })
-  const { value: collectionsValue, setValue: setCollections } = useField<string[]>({ path: 'allowedCollections' })
-  const { value: sectionsValue, setValue: setSections } = useField<TemplateSection[]>({ path: 'sections' })
-  const { value: documentStatus } = useField<string>({ path: '_status' })
-  const name = nameValue ?? ''
-  const description = descriptionValue ?? ''
-  const collections = Array.isArray(collectionsValue) ? collectionsValue : []
-  const sections = Array.isArray(sectionsValue) ? sectionsValue : []
-  const [blockTypes, setBlockTypes] = useState<BlockTypeOption[]>([])
-  const [designs, setDesigns] = useState<DesignOption[]>([])
-  const [impact, setImpact] = useState<Impact[]>([])
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const [selectedType, setSelectedType] = useState<BlockTypeOption | null>(null)
-  const [sectionName, setSectionName] = useState('Hero')
-  const [selectedDesign, setSelectedDesign] = useState<ID | ''>('')
-  const [required, setRequired] = useState(true)
-  const [allowOverride, setAllowOverride] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [existingTemplateLoaded, setExistingTemplateLoaded] = useState(false)
-  const sectionsModified = useRef(false)
-  const publishedImpact = impact.filter((item) => item.status === 'published').length
+  const { id, hasPublishedDoc } = useDocumentInfo(); const { submit, disabled } = useForm()
+  const nameField = useField<string>({ path: 'name' }); const descriptionField = useField<string>({ path: 'description' }); const slugField = useField<string>({ path: 'slug' }); const collectionsField = useField<string[]>({ path: 'allowedCollections' }); const layoutField = useField<TemplateNode[]>({ path: 'layout' }); const sectionsField = useField<LegacySection[]>({ path: 'sections' }); const statusField = useField<string>({ path: '_status' })
+  const name = nameField.value ?? ''; const collections = Array.isArray(collectionsField.value) ? collectionsField.value : []; const nodes = Array.isArray(layoutField.value) ? layoutField.value : []; const legacy = Array.isArray(sectionsField.value) ? sectionsField.value : []
+  const [types, setTypes] = useState<BlockTypeOption[]>([]); const [designs, setDesigns] = useState<DesignOption[]>([]); const [impact, setImpact] = useState<Impact[]>([]); const [editing, setEditing] = useState<TemplateNode | null>(null); const [adding, setAdding] = useState<LibraryItem | null>(null); const [target, setTarget] = useState('root'); const [error, setError] = useState<string | null>(null)
+  const modified = useRef(false); const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }))
+  useEffect(() => { Promise.all([
+    fetchDocs<BlockTypeOption>('/api/design-block-types?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published'),
+    fetchDocs<DesignOption>('/api/design-block-designs?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published'),
+  ]).then(([typeDocs, designDocs]) => { setTypes(typeDocs.filter((item) => item.rendererKey && registeredRendererKeys.includes(item.rendererKey))); setDesigns(designDocs) }).catch(() => setError('Could not load the registered design library.')) }, [registeredRendererKeys])
+  useEffect(() => { if (!id) return
+    async function load() { try { const response = await fetch(`/api/design-templates/${id}?draft=true&depth=0`, { credentials: 'same-origin' }); const doc = response.ok ? await response.json() as { layout?: TemplateNode[]; sections?: LegacySection[] } : null; if (!modified.current) { if (Array.isArray(doc?.layout)) layoutField.setValue(doc.layout); if (Array.isArray(doc?.sections)) sectionsField.setValue(doc.sections) } } catch { /* keep current form data */ }
+      try { const response = await fetch(`/api/design-templates/${id}/dependencies`, { credentials: 'same-origin' }); const body = response.ok ? await response.json() as Impact[] : []; setImpact(Array.isArray(body) ? body : []) } catch { setImpact([]) } }
+    void load()
+  }, [id, layoutField, sectionsField])
+  const setNodes = (next: TemplateNode[]) => { modified.current = true; layoutField.setValue(next) }
+  const startAdd = (item: LibraryItem, container = 'root') => { setAdding(item); setTarget(container); setEditing(null) }
+  const actions: TreeActions = { edit: setEditing, move: (nodeID, direction) => setNodes(moveTemplateNode(nodes, nodeID, direction)), remove: (nodeID) => { if (!hasPublishedDoc || !impact.length || window.confirm(`This Template is used by ${impact.length} content items. Removed field values remain stored. Continue?`)) setNodes(removeTemplateNode(nodes, nodeID)) } }
+  function dragEnd(event: DragEndEvent) { const container = event.over?.data.current?.containerID as string | undefined; if (!container) return; const library = event.active.data.current?.library as LibraryItem | undefined; if (library) startAdd(library, container); else { const nodeID = event.active.data.current?.nodeID as string | undefined; if (nodeID) setNodes(moveTemplateNodeTo(nodes, nodeID, container)) } }
+  async function save(publish: boolean) { if (!name.trim() || !collections.length) { setError('Name and Use With are required.'); return } await submit({ overrides: { slug: slugField.value || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), status: publish ? 'published' : 'draft', _status: publish ? 'published' : 'draft' } }) }
+  return <DndContext id="template-builder-dnd" sensors={sensors} onDragEnd={dragEnd}><div data-testid="template-builder" style={{ display: 'grid', gap: 16 }}><header><h1>{name || 'Create Template'}</h1><strong>{statusField.value === 'published' ? 'Published' : 'Draft'}</strong>{id && <p>Used by: {impact.length} content item{impact.length === 1 ? '' : 's'}</p>}</header>
+    <section style={panel}><label>Name<input aria-label="Name" value={name} onChange={(e) => nameField.setValue(e.target.value)} /></label><label style={{ display: 'block' }}>Description<textarea aria-label="Description" value={descriptionField.value ?? ''} onChange={(e) => descriptionField.setValue(e.target.value)} /></label><fieldset><legend>Use With</legend>{configuredCollections.map((slug) => <label key={slug}><input type="checkbox" checked={collections.includes(slug)} onChange={() => collectionsField.setValue(collections.includes(slug) ? collections.filter((item) => item !== slug) : [...collections, slug])} /> {slug[0].toUpperCase() + slug.slice(1)}</label>)}</fieldset></section>
+    <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 16 }}><aside style={panel} aria-label="Element Library"><h2>Element Library</h2><h3>Layout</h3>{layoutItems.map((item) => <LibraryButton key={item.value} item={item} add={() => startAdd(item)} />)}<h3>Fields</h3>{fieldItems.map((item) => <LibraryButton key={item.value} item={item} add={() => startAdd(item)} />)}<h3>Designed Blocks</h3>{types.map((type) => { const item: LibraryItem = { kind: 'block', value: String(type.id), label: type.name }; return <LibraryButton key={type.id} item={item} add={() => startAdd(item)} /> })}</aside>
+      <main aria-label="Template Canvas"><h2>Template Canvas</h2><DropArea id="root" label="Template Canvas drop area">{!nodes.length && !legacy.length && <p>Drag or add an element to begin.</p>}<Tree nodes={nodes} actions={actions} />{legacy.length > 0 && <section><h3>Existing Designed Blocks</h3>{legacy.map((section) => <article key={section.key} style={panel}><strong>{section.name}</strong><p>Legacy live reference retained. Rebuild on the canvas when ready.</p></article>)}</section>}</DropArea></main></div>
+    {(adding || editing) && <NodeEditor item={adding} node={editing} types={types} designs={designs} cancel={() => { setAdding(null); setEditing(null) }} create={(node) => { setNodes(insertTemplateNode(nodes, target, node)); setAdding(null) }} update={(node) => { setNodes(updateTemplateNode(nodes, node.id, () => node)); setEditing(null) }} />}{error && <p role="alert">{error}</p>}<footer><button type="button" disabled={disabled} onClick={() => void save(false)}>Save Draft</button> <button type="button" disabled={disabled} onClick={() => void save(true)}>{hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}</button></footer></div></DndContext>
+}
 
-  useEffect(() => {
-    fetch('/api/design-block-types?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published', { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : Promise.resolve({ docs: [] }))
-      .then((body: { docs?: BlockTypeOption[] }) => setBlockTypes((body.docs ?? []).filter((item) => item.rendererKey && registeredRendererKeys.includes(item.rendererKey))))
-      .catch(() => setBlockTypes([]))
-    fetch('/api/design-block-designs?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published', { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : Promise.resolve({ docs: [] }))
-      .then((body: { docs?: DesignOption[] }) => setDesigns(body.docs ?? []))
-      .catch(() => setDesigns([]))
-  }, [registeredRendererKeys])
-
-  useEffect(() => {
-    if (!id) return
-    fetch(`/api/design-templates/${id}?draft=true&depth=0`, { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : null)
-      .then((body: { sections?: TemplateSection[] } | null) => {
-        if (!sectionsModified.current && body && Array.isArray(body.sections)) setSections(body.sections)
-        setExistingTemplateLoaded(true)
-      })
-      .catch(() => setExistingTemplateLoaded(true))
-    fetch(`/api/design-templates/${id}/dependencies`, { credentials: 'same-origin' })
-      .then((response) => response.ok ? response.json() : Promise.resolve([]))
-      .then((body) => setImpact(Array.isArray(body) ? body as Impact[] : []))
-      .catch(() => setImpact([]))
-  }, [id, setSections])
-
-  const designNames = useMemo(() => new Map(designs.map((design) => [String(design.id), design.name])), [designs])
-
-  function toggleCollection(slug: string) {
-    setCollections(collections.includes(slug) ? collections.filter((item) => item !== slug) : [...collections, slug])
-  }
-
-  function beginAdd(type: BlockTypeOption) {
-    setSelectedType(type)
-    setEditingIndex(null)
-    setSectionName(type.rendererKey === 'hero-board' ? 'Hero' : type.name)
-    setSelectedDesign('')
-    setRequired(true)
-    setAllowOverride(true)
-    setPickerOpen(false)
-    setError(null)
-  }
-
-  function beginEdit(index: number) {
-    const section = sections[index]
-    const typeID = relationID(section.blockType)
-    const type = blockTypes.find((item) => String(item.id) === String(typeID))
-    if (!type) { setError('This section uses a Block Type that is not currently available.'); return }
-    setSelectedType(type)
-    setEditingIndex(index)
-    setSectionName(section.name)
-    setSelectedDesign(relationID(section.blockDesign) ?? '')
-    setRequired(Boolean(section.required))
-    setAllowOverride(Boolean(section.allowDesignOverride))
-    setPickerOpen(false)
-    setError(null)
-  }
-
-  function saveSection() {
-    if (!selectedType || !sectionName.trim() || !selectedDesign) { setError('Section Name and Default Design are required.'); return }
-    const prior = editingIndex === null ? undefined : sections[editingIndex]
-    const next: TemplateSection = {
-      key: prior?.key ?? makeSectionKey(sectionName, sections), name: sectionName.trim(), blockType: selectedType.id,
-      blockDesign: selectedDesign, required, allowDesignOverride: allowOverride,
-    }
-    sectionsModified.current = true
-    setSections(editingIndex === null ? [...sections, next] : sections.map((section, index) => index === editingIndex ? next : section))
-    setSelectedType(null)
-    setEditingIndex(null)
-    setError(null)
-  }
-
-  function move(index: number, direction: -1 | 1) {
-    const target = index + direction
-    if (target < 0 || target >= sections.length) return
-    const next = [...sections]
-    ;[next[index], next[target]] = [next[target], next[index]]
-    sectionsModified.current = true
-    setSections(next)
-  }
-
-  function remove(index: number) {
-    if (hasPublishedDoc && impact.length > 0 && !window.confirm(`This Template is used by ${impact.length} content item${impact.length === 1 ? '' : 's'}. Removing the section from the draft preserves historical content values. Continue?`)) return
-    sectionsModified.current = true
-    setSections(sections.filter((_, current) => current !== index))
-  }
-
-  async function save(publish: boolean) {
-    setError(null)
-    if (!name.trim()) { setError('Name is required.'); return }
-    if (!collections.length) { setError('Choose at least one collection under Use With.'); return }
-    const generatedSlug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    await submit({ overrides: { slug: slugValue || generatedSlug, status: publish ? 'published' : 'draft', _status: publish ? 'published' : 'draft' } })
-  }
-
-  return <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '960px' }} data-testid="template-builder">
-    <header>
-      <h1 style={{ marginBottom: '0.25rem', textTransform: id ? 'uppercase' : undefined }}>{name || 'Create Template'}</h1>
-      <strong>{documentStatus === 'published' ? 'Published' : 'Draft'}</strong>
-      {id && <p>Used by: {impact.length} {collections.includes('posts') ? 'Post' : 'content item'}{impact.length === 1 ? '' : 's'}</p>}
-      {publishedImpact > 0 && <p role="status">Publishing changes to this Template may affect {publishedImpact} published content item{publishedImpact === 1 ? '' : 's'}.</p>}
-    </header>
-
-    <section style={panelStyle} aria-label="Template details">
-      <div style={{ display: 'grid', gap: '1rem' }}>
-        <label style={fieldStyle}>Name<input aria-label="Name" disabled={disabled} value={name} onChange={(event) => setName(event.target.value)} /></label>
-        <label style={fieldStyle}>Description<textarea aria-label="Description" disabled={disabled} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-        <fieldset disabled={disabled} style={{ border: 0, padding: 0 }}><legend>Use With</legend>
-          {configuredCollections.map((slug) => <label key={slug} style={{ display: 'block', marginTop: '0.5rem' }}>
-            <input type="checkbox" checked={collections.includes(slug)} onChange={() => toggleCollection(slug)} /> {slug[0].toUpperCase() + slug.slice(1)}
-          </label>)}
-        </fieldset>
-      </div>
-    </section>
-
-    <section aria-labelledby="template-structure-heading">
-      <h2 id="template-structure-heading">Template Structure</h2>
-      {id && !existingTemplateLoaded ? <div style={panelStyle}><p>Loading Template structure…</p></div> : !sections.length && <div style={panelStyle}><p>No sections have been added yet.</p></div>}
-      <div style={{ display: 'grid', gap: '1rem' }}>{sections.map((section, index) => {
-        const type = blockTypes.find((item) => String(item.id) === String(relationID(section.blockType)))
-        const designName = designNames.get(String(relationID(section.blockDesign)))
-        return <article key={section.key} style={panelStyle}>
-          <h3 style={{ marginTop: 0, textTransform: 'uppercase' }}>{section.name}</h3>
-          <p>{type?.name ?? 'Registered Block Type'}</p>
-          <p>Default Design: {designName ?? 'Loading design…'}</p>
-          <p>{section.required ? 'Required' : 'Optional'}</p>
-          <p>{section.allowDesignOverride ? 'Editor may change design' : 'Editor uses Template design'}</p>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => beginEdit(index)}>Edit</button>
-            <button type="button" disabled={index === 0} onClick={() => move(index, -1)}>Move Up</button>
-            <button type="button" disabled={index === sections.length - 1} onClick={() => move(index, 1)}>Move Down</button>
-            <button type="button" onClick={() => remove(index)}>Remove</button>
-          </div>
-        </article>
-      })}</div>
-      {!selectedType && <button type="button" style={{ marginTop: '1rem' }} onClick={() => setPickerOpen(true)}>+ Add Section</button>}
-    </section>
-
-    {pickerOpen && <section style={panelStyle} aria-label="Choose a Block Type"><h2>Choose a Block Type</h2>
-      {!blockTypes.length && <p>No published registered Block Types are available.</p>}
-      {blockTypes.map((type) => <article key={type.id}><h3>{type.name}</h3><p>{type.description || 'Prominent introductory area for a page or article.'}</p><button type="button" onClick={() => beginAdd(type)}>Add {type.name}</button></article>)}
-      <button type="button" onClick={() => setPickerOpen(false)}>Cancel</button>
-    </section>}
-
-    {selectedType && <section style={panelStyle} aria-label="Configure section"><h2>{editingIndex === null ? 'Add' : 'Edit'} Section</h2>
-      <div style={{ display: 'grid', gap: '1rem' }}>
-        <label style={fieldStyle}>Section Name<input aria-label="Section Name" value={sectionName} onChange={(event) => setSectionName(event.target.value)} /></label>
-        <p><strong>Block</strong><br />{selectedType.name}</p>
-        <label style={fieldStyle}>Default Design<select aria-label="Default Design" value={String(selectedDesign)} onChange={(event) => setSelectedDesign(designs.find((design) => String(design.id) === event.target.value)?.id ?? '')}>
-          <option value="">Choose a published Design</option>{designs.filter((design) => String(relationID(design.blockType)) === String(selectedType.id)).map((design) => <option key={design.id} value={String(design.id)}>{design.name}</option>)}
-        </select></label>
-        <label><input type="checkbox" checked={required} onChange={(event) => setRequired(event.target.checked)} /> Required</label>
-        <label><input type="checkbox" checked={allowOverride} onChange={(event) => setAllowOverride(event.target.checked)} /> Allow content editor to change design</label>
-        <div style={{ display: 'flex', gap: '0.5rem' }}><button type="button" onClick={saveSection}>{editingIndex === null ? 'Add to Template' : 'Update Section'}</button><button type="button" onClick={() => setSelectedType(null)}>Cancel</button></div>
-      </div>
-    </section>}
-
-    {error && <p role="alert">{error}</p>}
-    <footer style={{ display: 'flex', gap: '0.75rem' }}>
-      <button type="button" disabled={disabled} onClick={() => void save(false)}>Save Draft</button>
-      <button type="button" disabled={disabled} onClick={() => void save(true)}>{hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}</button>
-    </footer>
-  </div>
+function NodeEditor({ item, node, types, designs, cancel, create, update }: { item: LibraryItem | null; node: TemplateNode | null; types: BlockTypeOption[]; designs: DesignOption[]; cancel: () => void; create: (node: TemplateNode) => void; update: (node: TemplateNode) => void }) {
+  const kind = item?.kind ?? node?.type; const value = item?.value ?? (node?.type === 'field' ? node.fieldType : node?.type === 'layout' ? node.layout : node?.type === 'block' ? String(relationID(node.blockType)) : '')
+  const [label, setLabel] = useState(node?.type === 'field' ? node.label : item?.label ?? ''); const [required, setRequired] = useState(node?.type === 'field' && !!node.required); const [help, setHelp] = useState(node?.type === 'field' ? node.helpText ?? '' : ''); const [placeholder, setPlaceholder] = useState(node?.type === 'field' ? node.placeholder ?? '' : '')
+  const [ratio, setRatio] = useState(node?.type === 'layout' && node.layout === 'columns' ? node.columns?.map((column) => column.width).join('/') ?? '50/50' : '50/50'); const type = types.find((option) => String(option.id) === value); const block = node?.type === 'block' ? node : null
+  const [design, setDesign] = useState<ID | ''>(relationID(block?.blockDesign) ?? ''); const [allowOverride, setAllowOverride] = useState(!!block?.allowDesignOverride); const [fields, setFields] = useState<TemplateField[]>(block?.fields ?? []); const [mappings, setMappings] = useState<Record<string, string>>(block?.slotMappings ?? {})
+  function finish() { let next: TemplateNode; if (kind === 'layout') { const layout = value as TemplateLayoutKind; next = { id: node?.id ?? uid('layout'), type: 'layout', layout, ...(layout === 'columns' ? { columns: ratio.split('/').map((width) => ({ id: uid('column'), width: Number(width), children: [] as TemplateNode[] })) } : ['spacer', 'divider'].includes(layout) ? {} : { children: node?.type === 'layout' ? node.children ?? [] : [] as TemplateNode[] }) } as TemplateLayoutNode } else if (kind === 'field') next = { id: node?.id ?? uid('field'), type: 'field', fieldType: value as TemplateFieldKind, label: label || item?.label || 'Untitled', required, helpText: help, placeholder } as TemplateField; else { if (!type || !design) return; next = { id: node?.id ?? uid('block'), type: 'block', name: type.name, blockType: type.id, blockDesign: design, allowDesignOverride: allowOverride, fields, slotMappings: mappings } as TemplateBlockNode } if (node) update(next); else create(next) }
+  function mapSlot(slot: FieldDefinition) { const old = mappings[slot.key]; if (old) { setMappings(Object.fromEntries(Object.entries(mappings).filter(([key]) => key !== slot.key))); setFields(fields.filter((field) => field.id !== old)); return } const field: TemplateField = { id: uid('field'), type: 'field', fieldType: slot.kind === 'media' ? 'image' : slot.kind === 'textarea' ? 'longText' : slot.kind === 'boolean' ? 'toggle' : 'shortText', label: slot.label, required: !!slot.required }; setFields([...fields, field]); setMappings({ ...mappings, [slot.key]: field.id }) }
+  return <section style={panel} aria-label="Configure element"><h2>Configure {item?.label ?? (node?.type === 'field' ? node.label : node?.type === 'block' ? node.name : node?.layout)}</h2>{kind === 'field' && <div><label>Field Label<input aria-label="Field Label" value={label} onChange={(e) => setLabel(e.target.value)} /></label><label><input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Required</label><label>Help Text<input aria-label="Help Text" value={help} onChange={(e) => setHelp(e.target.value)} /></label><label>Placeholder<input aria-label="Placeholder" value={placeholder} onChange={(e) => setPlaceholder(e.target.value)} /></label><p>Stable identity is generated automatically and survives moving and renaming.</p></div>}{kind === 'layout' && value === 'columns' && <label>Column Layout<select aria-label="Column Layout" value={ratio} onChange={(e) => setRatio(e.target.value)}>{['100','50/50','60/40','40/60','70/30','30/70','33/33/34','50/25/25','25/50/25','25/25/50','25/25/25/25'].map((option) => <option key={option}>{option}</option>)}</select></label>}{kind === 'block' && type && <div><p>Component: <strong>{type.name}</strong></p><label>Design<select aria-label="Design" value={String(design)} onChange={(e) => setDesign(designs.find((option) => String(option.id) === e.target.value)?.id ?? '')}><option value="">Choose Design</option>{designs.filter((option) => String(relationID(option.blockType)) === String(type.id)).map((option) => <option key={option.id} value={String(option.id)}>{option.name}</option>)}</select></label><label><input type="checkbox" checked={allowOverride} onChange={(e) => setAllowOverride(e.target.checked)} /> Allow editor to change Design</label><h3>Hero Content</h3>{(type.fields ?? []).map((slot) => { const mapped = fields.find((field) => field.id === mappings[slot.key]); return <div key={slot.key}><strong>{slot.label}</strong> <button type="button" onClick={() => mapSlot(slot)}>{mapped ? 'Remove mapped field' : 'Add / Map Field'}</button>{mapped && <><label> Field Label<input aria-label={`${slot.label} Field Label`} value={mapped.label} onChange={(event) => setFields(fields.map((field) => field.id === mapped.id ? { ...field, label: event.target.value } : field))} /></label><label><input type="checkbox" checked={!!mapped.required} onChange={(event) => setFields(fields.map((field) => field.id === mapped.id ? { ...field, required: event.target.checked } : field))} /> Required</label></>}</div> })}</div>}<div><button type="button" onClick={finish}>Save Element</button> <button type="button" onClick={cancel}>Cancel</button></div></section>
 }

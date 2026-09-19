@@ -9,5 +9,6 @@ export { getBlockDesignDependencies, getTemplateDependencies, assertDesignCanDel
 export { exportBlockDesign, exportTemplate, validateExport } from './serialization'
 export { slugs } from './types'
 export { validateContentValues, validateFieldDefinitions, validateTemplatedContent } from './validation'
+export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, removeTemplateNode, moveTemplateNode, collectFieldIDs, extractTemplateNode, insertTemplateNode, moveTemplateNodeTo } from './template-tree'
 export type { ValidationIssue } from './validation'
 export type * from './types'

@@ -35,8 +35,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
-    reuseExistingServer: true,
+    command: 'pnpm exec tsx tests/helpers/seedUser.cli.ts && pnpm dev',
+    reuseExistingServer: false,
     url: 'http://localhost:3000',
   },
 })

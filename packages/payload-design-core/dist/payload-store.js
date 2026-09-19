@@ -1,4 +1,5 @@
 import { slugs } from './types.js';
+import { walkTemplate } from './template-tree.js';
 export function createPayloadDesignStore(payload, req) {
     async function get(collection, id, mode) {
         try {
@@ -17,8 +18,17 @@ export function createPayloadDesignStore(payload, req) {
 export function createPayloadDependencySource(payload, contentCollections, req) {
     return {
         async templatesUsingDesign(id) {
-            const result = await payload.find({ collection: slugs.templates, where: { 'sections.blockDesign': { equals: id } }, depth: 0, limit: 1000, pagination: false, overrideAccess: true, req });
-            return result.docs.map((doc) => ({ id: doc.id, name: String(doc.name) }));
+            const result = await payload.find({ collection: slugs.templates, depth: 0, limit: 1000, pagination: false, overrideAccess: true, req });
+            return result.docs.filter((doc) => {
+                const template = doc;
+                const legacyMatch = template.sections?.some((section) => String(typeof section.blockDesign === 'object' ? section.blockDesign.id : section.blockDesign) === String(id));
+                let layoutMatch = false;
+                walkTemplate(template.layout ?? [], (node) => {
+                    if (node.type === 'block' && String(typeof node.blockDesign === 'object' ? node.blockDesign.id : node.blockDesign) === String(id))
+                        layoutMatch = true;
+                });
+                return legacyMatch || layoutMatch;
+            }).map((doc) => ({ id: doc.id, name: String(doc.name) }));
         },
         async contentUsingTemplate(id) {
             const results = await Promise.all(contentCollections.map(async (collection) => {

@@ -1,6 +1,7 @@
 import { assertDesignCanDelete, assertTemplateCanDelete, getBlockDesignDependencies, getTemplateDependencies } from './dependencies.js';
 import { createPayloadDependencySource } from './payload-store.js';
 import { slugs } from './types.js';
+import { walkTemplate } from './template-tree.js';
 import { validateFieldDefinitions } from './validation.js';
 const authenticated = ({ req }) => Boolean(req.user);
 const primitiveOptions = ['text', 'textarea', 'number', 'boolean', 'select', 'media', 'url', 'date', 'group'];
@@ -157,6 +158,46 @@ export function createDesignCollections(options) {
                                 throw new Error(`Publish the Block Design for section ${section.name ?? section.key} first`);
                         }
                     }
+                    if (Array.isArray(data.layout)) {
+                        const ids = new Set();
+                        const fields = new Set();
+                        const blocks = [];
+                        walkTemplate(data.layout, (node) => {
+                            if (!node.id || ids.has(node.id))
+                                throw new Error('Template element IDs must be present and unique');
+                            ids.add(node.id);
+                            if (node.type === 'field')
+                                fields.add(node.id);
+                            if (node.type === 'block') {
+                                blocks.push(node);
+                            }
+                            if (node.type === 'layout' && node.layout === 'columns') {
+                                const width = (node.columns ?? []).reduce((sum, column) => sum + Number(column.width), 0);
+                                if (!node.columns?.length || width !== 100)
+                                    throw new Error('Template column widths must total 100');
+                                for (const column of node.columns) {
+                                    if (!column.id || ids.has(column.id))
+                                        throw new Error('Template column IDs must be present and unique');
+                                    ids.add(column.id);
+                                }
+                            }
+                        });
+                        for (const block of blocks) {
+                            const designID = typeof block.blockDesign === 'object' ? block.blockDesign.id : block.blockDesign;
+                            const blockTypeID = typeof block.blockType === 'object' ? block.blockType.id : block.blockType;
+                            const design = await req.payload.findByID({ collection: slugs.blockDesigns, id: designID, depth: 0, overrideAccess: true, req });
+                            const selectedType = design.blockType;
+                            const designTypeID = typeof selectedType === 'object' ? selectedType.id : selectedType;
+                            if (String(designTypeID) !== String(blockTypeID))
+                                throw new Error(`Design for ${block.name} must belong to its Block Type`);
+                            if (data.status === 'published' && (design.status !== 'published' || design._status !== 'published'))
+                                throw new Error(`Publish the Block Design for ${block.name} first`);
+                            for (const [slot, fieldID] of Object.entries(block.slotMappings ?? {})) {
+                                if (!fields.has(fieldID))
+                                    throw new Error(`Field mapped to ${slot} in ${block.name} does not exist in this Template`);
+                            }
+                        }
+                    }
                     return data;
                 }],
             beforeDelete: [async ({ id, req }) => assertTemplateCanDelete(createPayloadDependencySource(req.payload, options.contentCollections, req), id)],
@@ -180,6 +221,7 @@ export function createDesignCollections(options) {
             { name: 'description', type: 'textarea', admin: { hidden: true } },
             { name: 'status', type: 'select', required: true, defaultValue: 'draft', options: ['draft', 'published', 'archived'], admin: { hidden: true } },
             { name: 'allowedCollections', type: 'select', hasMany: true, options: options.contentCollections.map((slug) => ({ label: slug, value: slug })), admin: { hidden: true } },
+            { name: 'layout', type: 'json', defaultValue: [], admin: { hidden: true } },
             { name: 'sections', type: 'array', admin: { hidden: true }, fields: [
                     { name: 'key', type: 'text', required: true },
                     { name: 'name', type: 'text', required: true },

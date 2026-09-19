@@ -1,156 +1,145 @@
 'use client';
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+/* eslint-disable react-hooks/refs -- dnd-kit exposes callback refs and reactive drag state as hook return values. */
+import { DndContext, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
-const fieldStyle = { display: 'grid', gap: '0.4rem' };
-const panelStyle = { border: '1px solid var(--theme-elevation-150)', borderRadius: '8px', padding: '1.25rem' };
-function relationID(value) {
-    if (typeof value === 'string' || typeof value === 'number')
-        return value;
-    if (value && typeof value === 'object' && 'id' in value)
-        return value.id;
+import { useEffect, useRef, useState } from 'react';
+import { insertTemplateNode, moveTemplateNode, moveTemplateNodeTo, removeTemplateNode, updateTemplateNode } from '../template-tree.js';
+const layoutItems = ['container', 'row', 'columns', 'stack', 'spacer', 'divider'].map((value) => ({ kind: 'layout', value, label: value[0].toUpperCase() + value.slice(1) }));
+const fieldItems = [
+    ['shortText', 'Short Text'], ['longText', 'Long Text'], ['richText', 'Rich Text'], ['image', 'Image'], ['images', 'Images / Gallery'], ['videoURL', 'Video URL'], ['link', 'URL / Link'], ['date', 'Date'], ['number', 'Number'], ['select', 'Select'], ['toggle', 'Toggle'], ['relationship', 'Relationship'],
+].map(([value, label]) => ({ kind: 'field', value, label }));
+const panel = { border: '1px solid var(--theme-elevation-150)', borderRadius: 8, padding: '1rem' };
+const relationID = (value) => typeof value === 'string' || typeof value === 'number' ? value : value && typeof value === 'object' && 'id' in value ? value.id : undefined;
+const uid = (prefix) => `${prefix}_${crypto.randomUUID()}`;
+async function fetchDocs(url) { const response = await fetch(url, { credentials: 'same-origin' }); if (!response.ok)
+    return []; const body = await response.json(); return body.docs ?? []; }
+function LibraryButton({ item, add }) {
+    const drag = useDraggable({ id: `library:${item.kind}:${item.value}`, data: { library: item } });
+    return _jsxs("div", { ref: drag.setNodeRef, style: { display: 'flex', gap: 4, marginBottom: 4, opacity: drag.isDragging ? .5 : 1 }, children: [_jsx("button", { type: "button", ...drag.listeners, ...drag.attributes, "aria-label": `Drag ${item.label}`, children: "\u283F" }), _jsx("button", { type: "button", onClick: add, style: { flex: 1, textAlign: 'left' }, children: item.label })] });
 }
-function makeSectionKey(name, sections) {
-    const base = name.trim().replace(/[^a-zA-Z0-9]+(.)/g, (_, next) => next.toUpperCase()).replace(/^[^a-z]+/i, '').replace(/^./, (letter) => letter.toLowerCase()) || 'section';
-    const used = new Set(sections.map((section) => section.key));
-    if (!used.has(base))
-        return base;
-    let suffix = 2;
-    while (used.has(`${base}${suffix}`))
-        suffix += 1;
-    return `${base}${suffix}`;
+function DropArea({ id, label, children }) {
+    const drop = useDroppable({ id: `container:${id}`, data: { containerID: id } });
+    return _jsx("div", { ref: drop.setNodeRef, "aria-label": label, style: { minHeight: 60, padding: 8, border: `1px dashed ${drop.isOver ? 'var(--theme-success-500)' : 'var(--theme-elevation-250)'}`, borderRadius: 6 }, children: children });
+}
+function Tree({ nodes, actions }) { return _jsx("div", { style: { display: 'grid', gap: 8 }, children: nodes.map((node) => _jsx(CanvasNode, { node: node, siblings: nodes, actions: actions }, node.id)) }); }
+function CanvasNode({ node, siblings, actions }) {
+    const drag = useDraggable({ id: `node:${node.id}`, data: { nodeID: node.id } });
+    const index = siblings.findIndex((item) => item.id === node.id);
+    const title = node.type === 'field' ? node.label : node.type === 'block' ? node.name : node.layout;
+    const controls = _jsxs("div", { style: { display: 'flex', gap: 4, flexWrap: 'wrap' }, children: [_jsx("button", { type: "button", ...drag.listeners, ...drag.attributes, "aria-label": `Drag ${title}`, children: "\u283F" }), _jsx("button", { type: "button", onClick: () => actions.edit(node), children: "Edit" }), _jsx("button", { type: "button", disabled: index <= 0, onClick: () => actions.move(node.id, -1), children: "Move Up" }), _jsx("button", { type: "button", disabled: index === siblings.length - 1, onClick: () => actions.move(node.id, 1), children: "Move Down" }), _jsx("button", { type: "button", onClick: () => actions.remove(node.id), children: "Remove" })] });
+    if (node.type === 'field')
+        return _jsxs("article", { ref: drag.setNodeRef, style: panel, children: [_jsx("strong", { children: node.label }), _jsxs("p", { children: [fieldItems.find((item) => item.value === node.fieldType)?.label, node.required ? ' · Required' : ''] }), controls] });
+    if (node.type === 'block')
+        return _jsxs("article", { ref: drag.setNodeRef, style: panel, children: [_jsx("strong", { children: node.name }), _jsxs("p", { children: ["Designed Block \u00B7 ", node.fields.length, " mapped field", node.fields.length === 1 ? '' : 's'] }), controls] });
+    return _jsxs("article", { ref: drag.setNodeRef, style: panel, children: [_jsx("strong", { children: node.layout === 'columns' ? `Columns · ${node.columns?.map((column) => column.width).join(' / ')}` : title }), controls, node.layout === 'columns' ? _jsx("div", { style: { display: 'grid', gridTemplateColumns: node.columns?.map((column) => `${column.width}fr`).join(' '), gap: 8, marginTop: 8 }, children: node.columns?.map((column, i) => _jsx(DropArea, { id: column.id, label: `Column ${i + 1}`, children: _jsx(Tree, { nodes: column.children, actions: actions }) }, column.id)) }) : !['spacer', 'divider'].includes(node.layout) ? _jsx("div", { style: { marginTop: 8 }, children: _jsx(DropArea, { id: node.id, label: `${node.layout} contents`, children: _jsx(Tree, { nodes: node.children ?? [], actions: actions }) }) }) : null] });
 }
 export function TemplateBuilder({ configuredCollections = ['posts'], registeredRendererKeys = ['hero-board'] }) {
     const { id, hasPublishedDoc } = useDocumentInfo();
     const { submit, disabled } = useForm();
-    const { value: nameValue, setValue: setName } = useField({ path: 'name' });
-    const { value: descriptionValue, setValue: setDescription } = useField({ path: 'description' });
-    const { value: slugValue } = useField({ path: 'slug' });
-    const { value: collectionsValue, setValue: setCollections } = useField({ path: 'allowedCollections' });
-    const { value: sectionsValue, setValue: setSections } = useField({ path: 'sections' });
-    const { value: documentStatus } = useField({ path: '_status' });
-    const name = nameValue ?? '';
-    const description = descriptionValue ?? '';
-    const collections = Array.isArray(collectionsValue) ? collectionsValue : [];
-    const sections = Array.isArray(sectionsValue) ? sectionsValue : [];
-    const [blockTypes, setBlockTypes] = useState([]);
+    const nameField = useField({ path: 'name' });
+    const descriptionField = useField({ path: 'description' });
+    const slugField = useField({ path: 'slug' });
+    const collectionsField = useField({ path: 'allowedCollections' });
+    const layoutField = useField({ path: 'layout' });
+    const sectionsField = useField({ path: 'sections' });
+    const statusField = useField({ path: '_status' });
+    const name = nameField.value ?? '';
+    const collections = Array.isArray(collectionsField.value) ? collectionsField.value : [];
+    const nodes = Array.isArray(layoutField.value) ? layoutField.value : [];
+    const legacy = Array.isArray(sectionsField.value) ? sectionsField.value : [];
+    const [types, setTypes] = useState([]);
     const [designs, setDesigns] = useState([]);
     const [impact, setImpact] = useState([]);
-    const [pickerOpen, setPickerOpen] = useState(false);
-    const [editingIndex, setEditingIndex] = useState(null);
-    const [selectedType, setSelectedType] = useState(null);
-    const [sectionName, setSectionName] = useState('Hero');
-    const [selectedDesign, setSelectedDesign] = useState('');
-    const [required, setRequired] = useState(true);
-    const [allowOverride, setAllowOverride] = useState(true);
+    const [editing, setEditing] = useState(null);
+    const [adding, setAdding] = useState(null);
+    const [target, setTarget] = useState('root');
     const [error, setError] = useState(null);
-    const [existingTemplateLoaded, setExistingTemplateLoaded] = useState(false);
-    const sectionsModified = useRef(false);
-    const publishedImpact = impact.filter((item) => item.status === 'published').length;
+    const modified = useRef(false);
+    const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
     useEffect(() => {
-        fetch('/api/design-block-types?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published', { credentials: 'same-origin' })
-            .then((response) => response.ok ? response.json() : Promise.resolve({ docs: [] }))
-            .then((body) => setBlockTypes((body.docs ?? []).filter((item) => item.rendererKey && registeredRendererKeys.includes(item.rendererKey))))
-            .catch(() => setBlockTypes([]));
-        fetch('/api/design-block-designs?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published', { credentials: 'same-origin' })
-            .then((response) => response.ok ? response.json() : Promise.resolve({ docs: [] }))
-            .then((body) => setDesigns(body.docs ?? []))
-            .catch(() => setDesigns([]));
+        Promise.all([
+            fetchDocs('/api/design-block-types?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published'),
+            fetchDocs('/api/design-block-designs?depth=0&limit=100&where[status][equals]=published&where[_status][equals]=published'),
+        ]).then(([typeDocs, designDocs]) => { setTypes(typeDocs.filter((item) => item.rendererKey && registeredRendererKeys.includes(item.rendererKey))); setDesigns(designDocs); }).catch(() => setError('Could not load the registered design library.'));
     }, [registeredRendererKeys]);
     useEffect(() => {
         if (!id)
             return;
-        fetch(`/api/design-templates/${id}?draft=true&depth=0`, { credentials: 'same-origin' })
-            .then((response) => response.ok ? response.json() : null)
-            .then((body) => {
-            if (!sectionsModified.current && body && Array.isArray(body.sections))
-                setSections(body.sections);
-            setExistingTemplateLoaded(true);
-        })
-            .catch(() => setExistingTemplateLoaded(true));
-        fetch(`/api/design-templates/${id}/dependencies`, { credentials: 'same-origin' })
-            .then((response) => response.ok ? response.json() : Promise.resolve([]))
-            .then((body) => setImpact(Array.isArray(body) ? body : []))
-            .catch(() => setImpact([]));
-    }, [id, setSections]);
-    const designNames = useMemo(() => new Map(designs.map((design) => [String(design.id), design.name])), [designs]);
-    function toggleCollection(slug) {
-        setCollections(collections.includes(slug) ? collections.filter((item) => item !== slug) : [...collections, slug]);
-    }
-    function beginAdd(type) {
-        setSelectedType(type);
-        setEditingIndex(null);
-        setSectionName(type.rendererKey === 'hero-board' ? 'Hero' : type.name);
-        setSelectedDesign('');
-        setRequired(true);
-        setAllowOverride(true);
-        setPickerOpen(false);
-        setError(null);
-    }
-    function beginEdit(index) {
-        const section = sections[index];
-        const typeID = relationID(section.blockType);
-        const type = blockTypes.find((item) => String(item.id) === String(typeID));
-        if (!type) {
-            setError('This section uses a Block Type that is not currently available.');
-            return;
+        async function load() {
+            try {
+                const response = await fetch(`/api/design-templates/${id}?draft=true&depth=0`, { credentials: 'same-origin' });
+                const doc = response.ok ? await response.json() : null;
+                if (!modified.current) {
+                    if (Array.isArray(doc?.layout))
+                        layoutField.setValue(doc.layout);
+                    if (Array.isArray(doc?.sections))
+                        sectionsField.setValue(doc.sections);
+                }
+            }
+            catch { /* keep current form data */ }
+            try {
+                const response = await fetch(`/api/design-templates/${id}/dependencies`, { credentials: 'same-origin' });
+                const body = response.ok ? await response.json() : [];
+                setImpact(Array.isArray(body) ? body : []);
+            }
+            catch {
+                setImpact([]);
+            }
         }
-        setSelectedType(type);
-        setEditingIndex(index);
-        setSectionName(section.name);
-        setSelectedDesign(relationID(section.blockDesign) ?? '');
-        setRequired(Boolean(section.required));
-        setAllowOverride(Boolean(section.allowDesignOverride));
-        setPickerOpen(false);
-        setError(null);
+        void load();
+    }, [id, layoutField, sectionsField]);
+    const setNodes = (next) => { modified.current = true; layoutField.setValue(next); };
+    const startAdd = (item, container = 'root') => { setAdding(item); setTarget(container); setEditing(null); };
+    const actions = { edit: setEditing, move: (nodeID, direction) => setNodes(moveTemplateNode(nodes, nodeID, direction)), remove: (nodeID) => { if (!hasPublishedDoc || !impact.length || window.confirm(`This Template is used by ${impact.length} content items. Removed field values remain stored. Continue?`))
+            setNodes(removeTemplateNode(nodes, nodeID)); } };
+    function dragEnd(event) { const container = event.over?.data.current?.containerID; if (!container)
+        return; const library = event.active.data.current?.library; if (library)
+        startAdd(library, container);
+    else {
+        const nodeID = event.active.data.current?.nodeID;
+        if (nodeID)
+            setNodes(moveTemplateNodeTo(nodes, nodeID, container));
+    } }
+    async function save(publish) { if (!name.trim() || !collections.length) {
+        setError('Name and Use With are required.');
+        return;
+    } await submit({ overrides: { slug: slugField.value || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), status: publish ? 'published' : 'draft', _status: publish ? 'published' : 'draft' } }); }
+    return _jsx(DndContext, { id: "template-builder-dnd", sensors: sensors, onDragEnd: dragEnd, children: _jsxs("div", { "data-testid": "template-builder", style: { display: 'grid', gap: 16 }, children: [_jsxs("header", { children: [_jsx("h1", { children: name || 'Create Template' }), _jsx("strong", { children: statusField.value === 'published' ? 'Published' : 'Draft' }), id && _jsxs("p", { children: ["Used by: ", impact.length, " content item", impact.length === 1 ? '' : 's'] })] }), _jsxs("section", { style: panel, children: [_jsxs("label", { children: ["Name", _jsx("input", { "aria-label": "Name", value: name, onChange: (e) => nameField.setValue(e.target.value) })] }), _jsxs("label", { style: { display: 'block' }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value) })] }), _jsxs("fieldset", { children: [_jsx("legend", { children: "Use With" }), configuredCollections.map((slug) => _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: collections.includes(slug), onChange: () => collectionsField.setValue(collections.includes(slug) ? collections.filter((item) => item !== slug) : [...collections, slug]) }), " ", slug[0].toUpperCase() + slug.slice(1)] }, slug))] })] }), _jsxs("div", { style: { display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 16 }, children: [_jsxs("aside", { style: panel, "aria-label": "Element Library", children: [_jsx("h2", { children: "Element Library" }), _jsx("h3", { children: "Layout" }), layoutItems.map((item) => _jsx(LibraryButton, { item: item, add: () => startAdd(item) }, item.value)), _jsx("h3", { children: "Fields" }), fieldItems.map((item) => _jsx(LibraryButton, { item: item, add: () => startAdd(item) }, item.value)), _jsx("h3", { children: "Designed Blocks" }), types.map((type) => { const item = { kind: 'block', value: String(type.id), label: type.name }; return _jsx(LibraryButton, { item: item, add: () => startAdd(item) }, type.id); })] }), _jsxs("main", { "aria-label": "Template Canvas", children: [_jsx("h2", { children: "Template Canvas" }), _jsxs(DropArea, { id: "root", label: "Template Canvas drop area", children: [!nodes.length && !legacy.length && _jsx("p", { children: "Drag or add an element to begin." }), _jsx(Tree, { nodes: nodes, actions: actions }), legacy.length > 0 && _jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => _jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key))] })] })] })] }), (adding || editing) && _jsx(NodeEditor, { item: adding, node: editing, types: types, designs: designs, cancel: () => { setAdding(null); setEditing(null); }, create: (node) => { setNodes(insertTemplateNode(nodes, target, node)); setAdding(null); }, update: (node) => { setNodes(updateTemplateNode(nodes, node.id, () => node)); setEditing(null); } }), error && _jsx("p", { role: "alert", children: error }), _jsxs("footer", { children: [_jsx("button", { type: "button", disabled: disabled, onClick: () => void save(false), children: "Save Draft" }), " ", _jsx("button", { type: "button", disabled: disabled, onClick: () => void save(true), children: hasPublishedDoc ? 'Publish Changes' : 'Publish Template' })] })] }) });
+}
+function NodeEditor({ item, node, types, designs, cancel, create, update }) {
+    const kind = item?.kind ?? node?.type;
+    const value = item?.value ?? (node?.type === 'field' ? node.fieldType : node?.type === 'layout' ? node.layout : node?.type === 'block' ? String(relationID(node.blockType)) : '');
+    const [label, setLabel] = useState(node?.type === 'field' ? node.label : item?.label ?? '');
+    const [required, setRequired] = useState(node?.type === 'field' && !!node.required);
+    const [help, setHelp] = useState(node?.type === 'field' ? node.helpText ?? '' : '');
+    const [placeholder, setPlaceholder] = useState(node?.type === 'field' ? node.placeholder ?? '' : '');
+    const [ratio, setRatio] = useState(node?.type === 'layout' && node.layout === 'columns' ? node.columns?.map((column) => column.width).join('/') ?? '50/50' : '50/50');
+    const type = types.find((option) => String(option.id) === value);
+    const block = node?.type === 'block' ? node : null;
+    const [design, setDesign] = useState(relationID(block?.blockDesign) ?? '');
+    const [allowOverride, setAllowOverride] = useState(!!block?.allowDesignOverride);
+    const [fields, setFields] = useState(block?.fields ?? []);
+    const [mappings, setMappings] = useState(block?.slotMappings ?? {});
+    function finish() { let next; if (kind === 'layout') {
+        const layout = value;
+        next = { id: node?.id ?? uid('layout'), type: 'layout', layout, ...(layout === 'columns' ? { columns: ratio.split('/').map((width) => ({ id: uid('column'), width: Number(width), children: [] })) } : ['spacer', 'divider'].includes(layout) ? {} : { children: node?.type === 'layout' ? node.children ?? [] : [] }) };
     }
-    function saveSection() {
-        if (!selectedType || !sectionName.trim() || !selectedDesign) {
-            setError('Section Name and Default Design are required.');
+    else if (kind === 'field')
+        next = { id: node?.id ?? uid('field'), type: 'field', fieldType: value, label: label || item?.label || 'Untitled', required, helpText: help, placeholder };
+    else {
+        if (!type || !design)
             return;
-        }
-        const prior = editingIndex === null ? undefined : sections[editingIndex];
-        const next = {
-            key: prior?.key ?? makeSectionKey(sectionName, sections), name: sectionName.trim(), blockType: selectedType.id,
-            blockDesign: selectedDesign, required, allowDesignOverride: allowOverride,
-        };
-        sectionsModified.current = true;
-        setSections(editingIndex === null ? [...sections, next] : sections.map((section, index) => index === editingIndex ? next : section));
-        setSelectedType(null);
-        setEditingIndex(null);
-        setError(null);
-    }
-    function move(index, direction) {
-        const target = index + direction;
-        if (target < 0 || target >= sections.length)
-            return;
-        const next = [...sections];
-        [next[index], next[target]] = [next[target], next[index]];
-        sectionsModified.current = true;
-        setSections(next);
-    }
-    function remove(index) {
-        if (hasPublishedDoc && impact.length > 0 && !window.confirm(`This Template is used by ${impact.length} content item${impact.length === 1 ? '' : 's'}. Removing the section from the draft preserves historical content values. Continue?`))
-            return;
-        sectionsModified.current = true;
-        setSections(sections.filter((_, current) => current !== index));
-    }
-    async function save(publish) {
-        setError(null);
-        if (!name.trim()) {
-            setError('Name is required.');
-            return;
-        }
-        if (!collections.length) {
-            setError('Choose at least one collection under Use With.');
-            return;
-        }
-        const generatedSlug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        await submit({ overrides: { slug: slugValue || generatedSlug, status: publish ? 'published' : 'draft', _status: publish ? 'published' : 'draft' } });
-    }
-    return _jsxs("div", { style: { display: 'grid', gap: '1.5rem', maxWidth: '960px' }, "data-testid": "template-builder", children: [_jsxs("header", { children: [_jsx("h1", { style: { marginBottom: '0.25rem', textTransform: id ? 'uppercase' : undefined }, children: name || 'Create Template' }), _jsx("strong", { children: documentStatus === 'published' ? 'Published' : 'Draft' }), id && _jsxs("p", { children: ["Used by: ", impact.length, " ", collections.includes('posts') ? 'Post' : 'content item', impact.length === 1 ? '' : 's'] }), publishedImpact > 0 && _jsxs("p", { role: "status", children: ["Publishing changes to this Template may affect ", publishedImpact, " published content item", publishedImpact === 1 ? '' : 's', "."] })] }), _jsx("section", { style: panelStyle, "aria-label": "Template details", children: _jsxs("div", { style: { display: 'grid', gap: '1rem' }, children: [_jsxs("label", { style: fieldStyle, children: ["Name", _jsx("input", { "aria-label": "Name", disabled: disabled, value: name, onChange: (event) => setName(event.target.value) })] }), _jsxs("label", { style: fieldStyle, children: ["Description", _jsx("textarea", { "aria-label": "Description", disabled: disabled, value: description, onChange: (event) => setDescription(event.target.value) })] }), _jsxs("fieldset", { disabled: disabled, style: { border: 0, padding: 0 }, children: [_jsx("legend", { children: "Use With" }), configuredCollections.map((slug) => _jsxs("label", { style: { display: 'block', marginTop: '0.5rem' }, children: [_jsx("input", { type: "checkbox", checked: collections.includes(slug), onChange: () => toggleCollection(slug) }), " ", slug[0].toUpperCase() + slug.slice(1)] }, slug))] })] }) }), _jsxs("section", { "aria-labelledby": "template-structure-heading", children: [_jsx("h2", { id: "template-structure-heading", children: "Template Structure" }), id && !existingTemplateLoaded ? _jsx("div", { style: panelStyle, children: _jsx("p", { children: "Loading Template structure\u2026" }) }) : !sections.length && _jsx("div", { style: panelStyle, children: _jsx("p", { children: "No sections have been added yet." }) }), _jsx("div", { style: { display: 'grid', gap: '1rem' }, children: sections.map((section, index) => {
-                            const type = blockTypes.find((item) => String(item.id) === String(relationID(section.blockType)));
-                            const designName = designNames.get(String(relationID(section.blockDesign)));
-                            return _jsxs("article", { style: panelStyle, children: [_jsx("h3", { style: { marginTop: 0, textTransform: 'uppercase' }, children: section.name }), _jsx("p", { children: type?.name ?? 'Registered Block Type' }), _jsxs("p", { children: ["Default Design: ", designName ?? 'Loading design…'] }), _jsx("p", { children: section.required ? 'Required' : 'Optional' }), _jsx("p", { children: section.allowDesignOverride ? 'Editor may change design' : 'Editor uses Template design' }), _jsxs("div", { style: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }, children: [_jsx("button", { type: "button", onClick: () => beginEdit(index), children: "Edit" }), _jsx("button", { type: "button", disabled: index === 0, onClick: () => move(index, -1), children: "Move Up" }), _jsx("button", { type: "button", disabled: index === sections.length - 1, onClick: () => move(index, 1), children: "Move Down" }), _jsx("button", { type: "button", onClick: () => remove(index), children: "Remove" })] })] }, section.key);
-                        }) }), !selectedType && _jsx("button", { type: "button", style: { marginTop: '1rem' }, onClick: () => setPickerOpen(true), children: "+ Add Section" })] }), pickerOpen && _jsxs("section", { style: panelStyle, "aria-label": "Choose a Block Type", children: [_jsx("h2", { children: "Choose a Block Type" }), !blockTypes.length && _jsx("p", { children: "No published registered Block Types are available." }), blockTypes.map((type) => _jsxs("article", { children: [_jsx("h3", { children: type.name }), _jsx("p", { children: type.description || 'Prominent introductory area for a page or article.' }), _jsxs("button", { type: "button", onClick: () => beginAdd(type), children: ["Add ", type.name] })] }, type.id)), _jsx("button", { type: "button", onClick: () => setPickerOpen(false), children: "Cancel" })] }), selectedType && _jsxs("section", { style: panelStyle, "aria-label": "Configure section", children: [_jsxs("h2", { children: [editingIndex === null ? 'Add' : 'Edit', " Section"] }), _jsxs("div", { style: { display: 'grid', gap: '1rem' }, children: [_jsxs("label", { style: fieldStyle, children: ["Section Name", _jsx("input", { "aria-label": "Section Name", value: sectionName, onChange: (event) => setSectionName(event.target.value) })] }), _jsxs("p", { children: [_jsx("strong", { children: "Block" }), _jsx("br", {}), selectedType.name] }), _jsxs("label", { style: fieldStyle, children: ["Default Design", _jsxs("select", { "aria-label": "Default Design", value: String(selectedDesign), onChange: (event) => setSelectedDesign(designs.find((design) => String(design.id) === event.target.value)?.id ?? ''), children: [_jsx("option", { value: "", children: "Choose a published Design" }), designs.filter((design) => String(relationID(design.blockType)) === String(selectedType.id)).map((design) => _jsx("option", { value: String(design.id), children: design.name }, design.id))] })] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: required, onChange: (event) => setRequired(event.target.checked) }), " Required"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: allowOverride, onChange: (event) => setAllowOverride(event.target.checked) }), " Allow content editor to change design"] }), _jsxs("div", { style: { display: 'flex', gap: '0.5rem' }, children: [_jsx("button", { type: "button", onClick: saveSection, children: editingIndex === null ? 'Add to Template' : 'Update Section' }), _jsx("button", { type: "button", onClick: () => setSelectedType(null), children: "Cancel" })] })] })] }), error && _jsx("p", { role: "alert", children: error }), _jsxs("footer", { style: { display: 'flex', gap: '0.75rem' }, children: [_jsx("button", { type: "button", disabled: disabled, onClick: () => void save(false), children: "Save Draft" }), _jsx("button", { type: "button", disabled: disabled, onClick: () => void save(true), children: hasPublishedDoc ? 'Publish Changes' : 'Publish Template' })] })] });
+        next = { id: node?.id ?? uid('block'), type: 'block', name: type.name, blockType: type.id, blockDesign: design, allowDesignOverride: allowOverride, fields, slotMappings: mappings };
+    } if (node)
+        update(next);
+    else
+        create(next); }
+    function mapSlot(slot) { const old = mappings[slot.key]; if (old) {
+        setMappings(Object.fromEntries(Object.entries(mappings).filter(([key]) => key !== slot.key)));
+        setFields(fields.filter((field) => field.id !== old));
+        return;
+    } const field = { id: uid('field'), type: 'field', fieldType: slot.kind === 'media' ? 'image' : slot.kind === 'textarea' ? 'longText' : slot.kind === 'boolean' ? 'toggle' : 'shortText', label: slot.label, required: !!slot.required }; setFields([...fields, field]); setMappings({ ...mappings, [slot.key]: field.id }); }
+    return _jsxs("section", { style: panel, "aria-label": "Configure element", children: [_jsxs("h2", { children: ["Configure ", item?.label ?? (node?.type === 'field' ? node.label : node?.type === 'block' ? node.name : node?.layout)] }), kind === 'field' && _jsxs("div", { children: [_jsxs("label", { children: ["Field Label", _jsx("input", { "aria-label": "Field Label", value: label, onChange: (e) => setLabel(e.target.value) })] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: required, onChange: (e) => setRequired(e.target.checked) }), " Required"] }), _jsxs("label", { children: ["Help Text", _jsx("input", { "aria-label": "Help Text", value: help, onChange: (e) => setHelp(e.target.value) })] }), _jsxs("label", { children: ["Placeholder", _jsx("input", { "aria-label": "Placeholder", value: placeholder, onChange: (e) => setPlaceholder(e.target.value) })] }), _jsx("p", { children: "Stable identity is generated automatically and survives moving and renaming." })] }), kind === 'layout' && value === 'columns' && _jsxs("label", { children: ["Column Layout", _jsx("select", { "aria-label": "Column Layout", value: ratio, onChange: (e) => setRatio(e.target.value), children: ['100', '50/50', '60/40', '40/60', '70/30', '30/70', '33/33/34', '50/25/25', '25/50/25', '25/25/50', '25/25/25/25'].map((option) => _jsx("option", { children: option }, option)) })] }), kind === 'block' && type && _jsxs("div", { children: [_jsxs("p", { children: ["Component: ", _jsx("strong", { children: type.name })] }), _jsxs("label", { children: ["Design", _jsxs("select", { "aria-label": "Design", value: String(design), onChange: (e) => setDesign(designs.find((option) => String(option.id) === e.target.value)?.id ?? ''), children: [_jsx("option", { value: "", children: "Choose Design" }), designs.filter((option) => String(relationID(option.blockType)) === String(type.id)).map((option) => _jsx("option", { value: String(option.id), children: option.name }, option.id))] })] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: allowOverride, onChange: (e) => setAllowOverride(e.target.checked) }), " Allow editor to change Design"] }), _jsx("h3", { children: "Hero Content" }), (type.fields ?? []).map((slot) => { const mapped = fields.find((field) => field.id === mappings[slot.key]); return _jsxs("div", { children: [_jsx("strong", { children: slot.label }), " ", _jsx("button", { type: "button", onClick: () => mapSlot(slot), children: mapped ? 'Remove mapped field' : 'Add / Map Field' }), mapped && _jsxs(_Fragment, { children: [_jsxs("label", { children: [" Field Label", _jsx("input", { "aria-label": `${slot.label} Field Label`, value: mapped.label, onChange: (event) => setFields(fields.map((field) => field.id === mapped.id ? { ...field, label: event.target.value } : field)) })] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!mapped.required, onChange: (event) => setFields(fields.map((field) => field.id === mapped.id ? { ...field, required: event.target.checked } : field)) }), " Required"] })] })] }, slot.key); })] }), _jsxs("div", { children: [_jsx("button", { type: "button", onClick: finish, children: "Save Element" }), " ", _jsx("button", { type: "button", onClick: cancel, children: "Cancel" })] })] });
 }

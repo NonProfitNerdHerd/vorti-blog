@@ -1,6 +1,14 @@
 import { resolveContentTemplate } from './resolver.js';
+import { templateFields } from './template-tree.js';
 function isObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function hasLexicalContent(value) {
+    if (!isObject(value) || !isObject(value.root) || !Array.isArray(value.root.children))
+        return false;
+    const containsContent = (node) => isObject(node) &&
+        ((typeof node.text === 'string' && node.text.trim().length > 0) || ['upload', 'relationship', 'block', 'inlineBlock'].includes(String(node.type)) || (Array.isArray(node.children) && node.children.some(containsContent)));
+    return value.root.children.some(containsContent);
 }
 export function validateFieldDefinitions(fields) {
     const issues = [];
@@ -84,12 +92,19 @@ export function validateContentValues(type, values, requiredSection = true) {
     return issues;
 }
 export async function validateTemplatedContent(store, content) {
-    const { sections } = await resolveContentTemplate(store, content);
+    const { sections, layout } = await resolveContentTemplate(store, content);
     const issues = [];
     // Orphaned values remain recoverable when an administrator removes a section.
     for (const section of sections) {
         const values = content.templateValues?.[section.key] ?? {};
         issues.push(...validateContentValues(section.blockType, values, section.required).map((issue) => ({ path: `templateValues.${section.key}${issue.path ? `.${issue.path}` : ''}`, message: issue.message })));
+    }
+    const values = (content.templateValues ?? {});
+    for (const field of templateFields(layout)) {
+        const value = values[field.id];
+        const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0) || (field.fieldType === 'richText' && !hasLexicalContent(value));
+        if (field.required && missing)
+            issues.push({ path: `templateValues.${field.id}`, message: `${field.label} is required` });
     }
     return issues;
 }

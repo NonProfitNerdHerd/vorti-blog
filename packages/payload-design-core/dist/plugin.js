@@ -25,7 +25,7 @@ export function designSystemPlugin(options = {}) {
             collection.fields = [...collection.fields,
                 { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates,
                     filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
-                { name: 'templateValues', type: 'json', admin: { components: { Field: '@design-system/payload-design-core/admin#TemplateContentEditor' } } },
+                { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
                 { name: 'designOverrides', type: 'json', defaultValue: {}, hooks: { afterRead: [({ value }) => value ?? {}] }, admin: { hidden: true } },];
             collection.hooks = {
                 ...collection.hooks,

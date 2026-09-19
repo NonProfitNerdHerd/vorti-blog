@@ -51,6 +51,45 @@ export type TemplateSection = {
     required?: boolean;
     allowDesignOverride?: boolean;
 };
+export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship';
+export type TemplateField = {
+    id: string;
+    type: 'field';
+    fieldType: TemplateFieldKind;
+    label: string;
+    required?: boolean;
+    helpText?: string;
+    placeholder?: string;
+    min?: number;
+    max?: number;
+    options?: string[];
+    relationTo?: string;
+};
+export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider';
+export type TemplateColumn = {
+    id: string;
+    width: number;
+    children: TemplateNode[];
+};
+export type TemplateLayoutNode = {
+    id: string;
+    type: 'layout';
+    layout: TemplateLayoutKind;
+    children?: TemplateNode[];
+    columns?: TemplateColumn[];
+    spacing?: 'small' | 'medium' | 'large';
+};
+export type TemplateBlockNode = {
+    id: string;
+    type: 'block';
+    name: string;
+    blockType: ID;
+    blockDesign: ID;
+    allowDesignOverride?: boolean;
+    fields: TemplateField[];
+    slotMappings: Record<string, string>;
+};
+export type TemplateNode = TemplateField | TemplateLayoutNode | TemplateBlockNode;
 export type Template = {
     id: ID;
     slug: string;
@@ -58,9 +97,10 @@ export type Template = {
     status: Lifecycle;
     allowedCollections: string[];
     sections: TemplateSection[];
+    layout?: TemplateNode[];
     _status?: 'draft' | 'published';
 };
-export type ContentValues = Record<string, Record<string, unknown>>;
+export type ContentValues = Record<string, unknown>;
 export type TemplatedContent = {
     id: ID;
     template: ID;
@@ -80,10 +120,17 @@ export type ResolvedTemplate = {
     template: Template;
     sections: Omit<ResolvedSection, 'values'>[];
 };
+export type ResolvedBlockNode = TemplateBlockNode & {
+    blockTypeDoc: BlockType;
+    blockDesignDoc: BlockDesign;
+    values: Record<string, unknown>;
+};
 export type ResolvedContent = {
     contentId: ID;
     template: Template;
     sections: ResolvedSection[];
+    layout: TemplateNode[];
+    blocks: ResolvedBlockNode[];
 };
 export type DesignEvent = {
     type: 'blockDesignPublished' | 'templatePublished';

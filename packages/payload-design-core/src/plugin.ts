@@ -15,6 +15,7 @@ export type DesignSystemOptions = {
   canManage?: Access
   isDesignManager?: (user: unknown) => boolean
   onPublish?: DesignEventHandler
+  lexicalSchemaPaths?: Record<string, string>
 }
 
 export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
@@ -36,7 +37,7 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
       collection.fields = [...collection.fields,
         { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates as CollectionSlug,
           filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
-        { name: 'templateValues', type: 'json', admin: { components: { Field: '@design-system/payload-design-core/admin#TemplateContentEditor' } } },
+        { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
         { name: 'designOverrides', type: 'json', defaultValue: {}, hooks: { afterRead: [({ value }) => value ?? {}] }, admin: { hidden: true } },
       ]
       collection.hooks = {

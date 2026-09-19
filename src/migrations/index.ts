@@ -4,6 +4,7 @@ import * as migration_20260916_210118_cms_content_management from './20260916_21
 import * as migration_20260917_163401_design_system_stage1 from './20260917_163401_design_system_stage1';
 import * as migration_20260917_165910_design_system_stage2 from './20260917_165910_design_system_stage2';
 import * as migration_20260918_135802_design_system_stage3 from './20260918_135802_design_system_stage3';
+import * as migration_20260919_214810_template_layout_tree from './20260919_214810_template_layout_tree';
 
 export const migrations = [
   {
@@ -35,5 +36,10 @@ export const migrations = [
     up: migration_20260918_135802_design_system_stage3.up,
     down: migration_20260918_135802_design_system_stage3.down,
     name: '20260918_135802_design_system_stage3'
+  },
+  {
+    up: migration_20260919_214810_template_layout_tree.up,
+    down: migration_20260919_214810_template_layout_tree.down,
+    name: '20260919_214810_template_layout_tree'
   },
 ];

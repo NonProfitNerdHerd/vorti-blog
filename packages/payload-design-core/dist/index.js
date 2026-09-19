@@ -7,3 +7,4 @@ export { getBlockDesignDependencies, getTemplateDependencies, assertDesignCanDel
 export { exportBlockDesign, exportTemplate, validateExport } from './serialization.js';
 export { slugs } from './types.js';
 export { validateContentValues, validateFieldDefinitions, validateTemplatedContent } from './validation.js';
+export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, removeTemplateNode, moveTemplateNode, collectFieldIDs, extractTemplateNode, insertTemplateNode, moveTemplateNodeTo } from './template-tree.js';

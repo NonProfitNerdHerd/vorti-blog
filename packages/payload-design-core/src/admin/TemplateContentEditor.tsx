@@ -1,20 +1,22 @@
 'use client'
 
-import { useField, useFormFields } from '@payloadcms/ui'
+import { UploadInput, useConfig, useField, useFormFields } from '@payloadcms/ui'
+import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useEffect, useState } from 'react'
-import type { ContentValues, FieldDefinition, ID, Template } from '../types'
+import type { FieldDefinition, ID, Template, TemplateField } from '../types'
+import { templateFields } from '../template-tree'
 
 type DesignOption = { id: ID; name: string; blockType: ID }
 type SectionData = { fields: FieldDefinition[]; designs: DesignOption[] }
 
-export function TemplateContentEditor() {
+export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath: string }) {
   const selected = useFormFields(([fields]) => fields.designTemplate?.value)
   const templateID = typeof selected === 'object' && selected !== null ? (selected as { id?: ID }).id : selected as ID | undefined
   // This component owns templateValues. Payload synchronizes the mounted field
   // with each save response, including subsequent edits on the same form.
-  const { value: rawValues, setValue: setValues, disabled } = useField<ContentValues>()
+  const { value: rawValues, setValue: setValues, disabled } = useField<Record<string, unknown>>()
   const { value: rawOverrides, setValue: setOverrides } = useField<Record<string, ID | null>>({ path: 'designOverrides' })
-  const values = rawValues && typeof rawValues === 'object' ? rawValues : {}
+  const values: Record<string, unknown> = rawValues && typeof rawValues === 'object' ? rawValues : {}
   const overrides = rawOverrides && typeof rawOverrides === 'object' ? rawOverrides : {}
   const [template, setTemplate] = useState<Template | null>(null)
   const [sections, setSections] = useState<Record<string, SectionData>>({})
@@ -54,7 +56,8 @@ export function TemplateContentEditor() {
   }, [templateID])
 
   function update(sectionKey: string, key: string, value: unknown) {
-    setValues({ ...values, [sectionKey]: { ...(values[sectionKey] ?? {}), [key]: value } })
+    const sectionValues = values[sectionKey] && typeof values[sectionKey] === 'object' ? values[sectionKey] as Record<string, unknown> : {}
+    setValues({ ...values, [sectionKey]: { ...sectionValues, [key]: value } })
   }
   if (!templateID) return <p>Select a published Template to edit its sections.</p>
   if (error) return <p role="alert">{error}</p>
@@ -62,7 +65,7 @@ export function TemplateContentEditor() {
   return <section><h3>Template content</h3>
     {template.sections.map((section) => <fieldset key={section.key} style={{ marginBottom: '1.5rem', padding: '1rem' }}>
       <legend>{section.name}{section.required ? ' (required)' : ''}</legend>
-      {section.required && (sections[section.key]?.fields ?? []).some((field) => field.required && !values[section.key]?.[field.key]) &&
+      {section.required && (sections[section.key]?.fields ?? []).some((field) => field.required && !(values[section.key] as Record<string, unknown> | undefined)?.[field.key]) &&
         <p role="alert">This section is missing required content. Fill it before publishing this Post.</p>}
       {section.allowDesignOverride && <label>Design
         <select disabled={disabled} value={String(overrides[section.key] ?? '')} onChange={(event) =>
@@ -73,17 +76,28 @@ export function TemplateContentEditor() {
       </label>}
       {(sections[section.key]?.fields ?? []).map((field) => <div key={field.key} style={{ marginTop: '0.75rem' }}>
         <label>{field.label}{field.required ? ' *' : ''}
-          {field.kind === 'textarea' ? <textarea disabled={disabled} value={String(values[section.key]?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, event.target.value)} />
-            : field.kind === 'boolean' ? <input disabled={disabled} type="checkbox" checked={Boolean(values[section.key]?.[field.key])} onChange={(event) => update(section.key, field.key, event.target.checked)} />
-            : field.kind === 'media' ? <select disabled={disabled} value={String(values[section.key]?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, event.target.value || null)}>
+          {field.kind === 'textarea' ? <textarea disabled={disabled} value={String((values[section.key] as Record<string, unknown> | undefined)?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, event.target.value)} />
+            : field.kind === 'boolean' ? <input disabled={disabled} type="checkbox" checked={Boolean((values[section.key] as Record<string, unknown> | undefined)?.[field.key])} onChange={(event) => update(section.key, field.key, event.target.checked)} />
+            : field.kind === 'media' ? <select disabled={disabled} value={String((values[section.key] as Record<string, unknown> | undefined)?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, event.target.value || null)}>
               <option value="">Choose Media</option>
               {mediaOptions.map((media) => <option key={media.id} value={String(media.id)}>{media.alt || media.filename || media.id}</option>)}
             </select>
-            : field.kind === 'group' ? <div>{field.children?.map((child) => <label key={child.key}>{child.label}<input disabled={disabled} value={String((values[section.key]?.[field.key] as Record<string, unknown> | undefined)?.[child.key] ?? '')} onChange={(event) => update(section.key, field.key, { ...((values[section.key]?.[field.key] as Record<string, unknown>) ?? {}), [child.key]: event.target.value })} /></label>)}</div>
-            : <input disabled={disabled} type={field.kind === 'number' ? 'number' : field.kind === 'date' ? 'date' : 'text'} value={String(values[section.key]?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, field.kind === 'number' ? Number(event.target.value) : event.target.value)} />}
+            : field.kind === 'group' ? <div>{field.children?.map((child) => <label key={child.key}>{child.label}<input disabled={disabled} value={String(((values[section.key] as Record<string, unknown> | undefined)?.[field.key] as Record<string, unknown> | undefined)?.[child.key] ?? '')} onChange={(event) => update(section.key, field.key, { ...((((values[section.key] as Record<string, unknown> | undefined)?.[field.key]) as Record<string, unknown>) ?? {}), [child.key]: event.target.value })} /></label>)}</div>
+            : <input disabled={disabled} type={field.kind === 'number' ? 'number' : field.kind === 'date' ? 'date' : 'text'} value={String((values[section.key] as Record<string, unknown> | undefined)?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, field.kind === 'number' ? Number(event.target.value) : event.target.value)} />}
         </label>
       </div>)}
     </fieldset>)}
-    {Object.keys(values).filter((key) => !template.sections.some((section) => section.key === key)).length > 0 && <p>Values for removed sections remain stored for recovery.</p>}
+    {templateFields(template.layout ?? []).length > 0 && <div><h3>{template.name} fields</h3>{templateFields(template.layout ?? []).map((field) => <DynamicTemplateField key={field.id} field={field} lexicalSchemaPath={lexicalSchemaPath} value={values[field.id]} disabled={disabled} onChange={(value) => setValues({ ...values, [field.id]: value })} />)}</div>}
+    {Object.keys(values).filter((key) => !template.sections.some((section) => section.key === key) && !templateFields(template.layout ?? []).some((field) => field.id === key)).length > 0 && <p>Values for removed fields remain stored for recovery.</p>}
   </section>
+}
+
+function DynamicTemplateField({ field, lexicalSchemaPath, value, disabled, onChange }: { field: TemplateField; lexicalSchemaPath: string; value: unknown; disabled: boolean; onChange: (value: unknown) => void }) {
+  const label = `${field.label}${field.required ? ' *' : ''}`
+  const { config } = useConfig()
+  if (field.fieldType === 'toggle') return <label>{label}<input disabled={disabled} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /></label>
+  if (field.fieldType === 'image' || field.fieldType === 'images') return <UploadInput api={config.routes.api} allowCreate hasMany={field.fieldType === 'images'} isSortable={field.fieldType === 'images'} label={label} description={field.helpText} onChange={onChange} path={`templateValues.${field.id}`} readOnly={disabled} relationTo="media" required={field.required} serverURL={config.serverURL} showError={false} value={value as never} />
+  if (field.fieldType === 'richText') return <RenderLexical field={{ name: field.id, type: 'richText', label, required: field.required, admin: { description: field.helpText, readOnly: false } }} path={`templateValues.${field.id}`} schemaPath={lexicalSchemaPath} value={value as never} setValue={(next) => onChange(next)} />
+  if (field.fieldType === 'longText') return <label>{label}<textarea disabled={disabled} aria-label={label} placeholder={field.placeholder} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} /></label>
+  return <label>{label}<input disabled={disabled} aria-label={label} placeholder={field.placeholder} type={field.fieldType === 'number' ? 'number' : field.fieldType === 'date' ? 'date' : 'text'} value={String(value ?? '')} onChange={(event) => onChange(field.fieldType === 'number' ? Number(event.target.value) : event.target.value)} />{field.helpText && <small>{field.helpText}</small>}</label>
 }

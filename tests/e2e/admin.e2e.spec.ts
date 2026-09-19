@@ -1,6 +1,6 @@
 import { test, expect, Page, type APIRequestContext } from '@playwright/test'
 import { login } from '../helpers/login'
-import { seedTestUser, cleanupTestUser, testUser } from '../helpers/seedUser'
+import { testUser } from '../helpers/seedUser'
 import { heroBoardFields, heroBoardDesigns } from '@design-system/payload-design-core/hero-board/registration'
 
 const apiURL = 'http://localhost:3000/api'
@@ -15,21 +15,18 @@ async function createMedia(api: APIRequestContext, alt: string, filename: string
   expect(response.ok(), await response.text()).toBe(true)
   return (await response.json() as { doc: { id: number } }).doc
 }
+const lexicalText = (text: string) => ({ root: { type: 'root', format: '', indent: 0, version: 1, direction: 'ltr', children: [
+  { type: 'paragraph', format: '', indent: 0, version: 1, direction: 'ltr', children: [{ type: 'text', text, format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] },
+] } })
 
 test.describe('Admin Panel', () => {
   let page: Page
 
-  test.beforeAll(async ({ browser }, testInfo) => {
-    await seedTestUser()
-
+  test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext()
     page = await context.newPage()
 
     await login({ page, user: testUser })
-  })
-
-  test.afterAll(async () => {
-    await cleanupTestUser()
   })
 
   test('can navigate to dashboard', async () => {
@@ -65,95 +62,230 @@ test.describe('Admin Panel', () => {
     await expect(page.getByRole('heading', { name: 'Templates' })).toBeVisible()
   })
 
-  test('opens Standard Article in the friendly Template Builder', async () => {
-    const response = await page.context().request.get('http://localhost:3000/api/design-templates?where[slug][equals]=standard-article&limit=1&depth=0')
-    const body = await response.json() as { docs: Array<{ id: number }> }
-    expect(body.docs).toHaveLength(1)
-    await page.goto(`http://localhost:3000/admin/collections/design-templates/${body.docs[0].id}`)
-    const builder = page.getByTestId('template-builder')
-    await expect(builder.getByRole('heading', { name: 'STANDARD ARTICLE' })).toBeVisible()
-    await expect(builder.getByRole('heading', { name: 'HERO' })).toBeVisible()
-    await expect(builder.getByText('Hero Board', { exact: true })).toBeVisible()
-    await expect(builder.getByText(/Default Design: Hero Board -/)).toBeVisible()
-    await expect(page.locator('input[name="slug"]')).toBeHidden()
-    await expect(page.locator('[data-path="sections"]')).toHaveCount(0)
+  test('opens Standard Article with legacy references preserved in the visual builder', async () => {
+    const api = page.context().request
+    const types = await (await api.get(`${apiURL}/design-block-types?where[slug][equals]=hero-board&limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+    const designs = await (await api.get(`${apiURL}/design-block-designs?where[slug][equals]=hero-board-feature&limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+    const result = await api.post(`${apiURL}/design-templates`, { data: { name: 'Standard Article', slug: `standard-article-browser-${Date.now()}`, status: 'published', _status: 'published', allowedCollections: ['posts'], sections: [{ key: 'hero', name: 'Hero', blockType: types.docs[0].id, blockDesign: designs.docs[0].id }] } })
+    expect(result.ok(), await result.text()).toBe(true)
+    const templateID = (await result.json() as { doc: { id: number } }).doc.id
+    try {
+      await page.goto(`http://localhost:3000/admin/collections/design-templates/${templateID}`)
+      const builder = page.getByTestId('template-builder')
+      await expect(builder.getByRole('heading', { name: 'Standard Article' })).toBeVisible()
+      await expect(builder.getByRole('heading', { name: 'Element Library' })).toBeVisible()
+      await expect(builder.getByRole('heading', { name: 'Template Canvas' })).toBeVisible()
+      await expect(builder.getByRole('heading', { name: 'Existing Designed Blocks' })).toBeVisible()
+      await expect(builder.getByText('Hero', { exact: true })).toBeVisible()
+      await expect(page.locator('input[name="slug"]')).toBeHidden()
+    } finally { await api.delete(`${apiURL}/design-templates/${templateID}`) }
   })
 
-  test('creates, configures, saves, reorders, and publishes a Template through the builder', async () => {
+  test('builds a Newsletter with drag and drop, stable fields, Hero mappings, and nested columns', async () => {
     test.setTimeout(240_000)
     const api = page.context().request
     const suffix = Date.now().toString(36)
     const name = `Newsletter ${suffix}`
     let templateID: number | undefined
+    let postID: number | undefined
+    let mediaID: number | undefined
     try {
       await page.goto('http://localhost:3000/admin/collections/design-templates/create')
       const builder = page.getByTestId('template-builder')
-      await expect(builder.getByRole('heading', { name: 'Create Template' })).toBeVisible()
-      await expect(builder.getByText('No sections have been added yet.')).toBeVisible()
-      await expect(page.locator('input[name="slug"]')).toBeHidden()
       await builder.getByRole('textbox', { name: 'Name' }).fill(name)
-      await builder.getByRole('textbox', { name: 'Description' }).fill('Newsletter layout')
       await builder.getByRole('checkbox', { name: 'Posts' }).check()
-      const createResponse = page.waitForResponse((response) => response.url().includes('/api/design-templates') && response.request().method() === 'POST')
+      const createdResponse = page.waitForResponse((response) => response.url().includes('/api/design-templates') && response.request().method() === 'POST')
       await builder.getByRole('button', { name: 'Save Draft' }).click()
-      const created = await createResponse
-      expect(created.ok(), await created.text()).toBe(true)
+      const created = await createdResponse
       templateID = (await created.json() as { doc: { id: number } }).doc.id
-      await expect(page).toHaveURL(new RegExp(`/admin/collections/design-templates/${templateID}`))
-      let stored = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as { slug: string; sections: unknown[]; _status: string }
-      expect(stored.slug).toBe(name.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
-      expect(stored.sections).toEqual([])
-      expect(stored._status).toBe('draft')
+      await expect(page).toHaveURL(new RegExp(`/design-templates/${templateID}`))
 
-      await builder.getByRole('button', { name: '+ Add Section' }).click()
-      await expect(builder.getByRole('heading', { name: 'Choose a Block Type' })).toBeVisible()
-      await expect(builder.getByRole('heading', { name: 'Hero Board' })).toBeVisible()
-      await expect(builder.getByText('Gallery')).toHaveCount(0)
-      await builder.getByRole('button', { name: 'Add Hero Board' }).click()
-      await builder.getByRole('textbox', { name: 'Section Name' }).fill('Hero')
-      await builder.getByRole('combobox', { name: 'Default Design' }).selectOption({ label: 'Hero Board - Feature' })
+      await builder.getByRole('button', { name: 'Hero Board', exact: true }).click()
+      await builder.getByRole('combobox', { name: 'Design' }).selectOption({ label: 'Hero Board - Feature' })
+      for (const [slot, label, required] of [['Headline', 'Issue Title', true], ['Subheadline', 'Issue Subtitle', false], ['Background Image', 'Hero Image', false]] as const) {
+        const row = builder.getByText(slot, { exact: true }).locator('..')
+        await row.getByRole('button', { name: 'Add / Map Field' }).click()
+        await row.getByRole('textbox', { name: `${slot} Field Label` }).fill(label)
+        if (required) await row.getByRole('checkbox', { name: 'Required' }).check()
+      }
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+
+      const canvas = builder.getByLabel('Template Canvas drop area')
+      await builder.getByRole('button', { name: 'Drag Columns' }).dragTo(canvas)
+      await builder.getByRole('combobox', { name: 'Column Layout' }).selectOption('60/40')
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+      const left = builder.getByLabel('Column 1')
+      const right = builder.getByLabel('Column 2')
+      await builder.getByRole('button', { name: 'Drag Rich Text' }).dragTo(left)
+      await builder.getByRole('textbox', { name: 'Field Label' }).fill('Main Story')
       await builder.getByRole('checkbox', { name: 'Required' }).check()
-      await builder.getByRole('checkbox', { name: 'Allow content editor to change design' }).check()
-      await builder.getByRole('button', { name: 'Add to Template' }).click()
-      await expect(builder.getByRole('heading', { name: 'HERO' })).toBeVisible()
-      await expect(builder.getByText('Default Design: Hero Board - Feature')).toBeVisible()
-      await expect(builder.getByRole('button', { name: 'Move Up' })).toBeDisabled()
-      await expect(builder.getByRole('button', { name: 'Move Down' })).toBeDisabled()
-      await builder.getByRole('button', { name: '+ Add Section' }).click()
-      await builder.getByRole('button', { name: 'Add Hero Board' }).click()
-      await builder.getByRole('textbox', { name: 'Section Name' }).fill('Secondary Hero')
-      await builder.getByRole('combobox', { name: 'Default Design' }).selectOption({ label: 'Hero Board - Centered' })
-      await builder.getByRole('button', { name: 'Add to Template' }).click()
-      const structureCards = builder.locator('section[aria-labelledby="template-structure-heading"] article')
-      await expect(structureCards).toHaveCount(2)
-      await structureCards.nth(1).getByRole('button', { name: 'Move Up' }).click()
-      await expect(structureCards.nth(0).getByRole('heading', { name: 'SECONDARY HERO' })).toBeVisible()
-      await structureCards.nth(0).getByRole('button', { name: 'Remove' }).click()
-      await expect(structureCards).toHaveCount(1)
-      await expect(structureCards.getByRole('heading', { name: 'HERO' })).toBeVisible()
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+      await builder.getByRole('button', { name: 'Drag Image', exact: true }).dragTo(right)
+      await builder.getByRole('textbox', { name: 'Field Label' }).fill('Story Image')
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+      await builder.getByRole('button', { name: 'Rich Text', exact: true }).click()
+      await builder.getByRole('textbox', { name: 'Field Label' }).fill('Closing Message')
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+      await builder.getByRole('button', { name: 'Images / Gallery', exact: true }).click()
+      await builder.getByRole('textbox', { name: 'Field Label' }).fill('Issue Photos')
+      await builder.getByRole('button', { name: 'Save Element' }).click()
+
       const draftResponse = page.waitForResponse((response) => response.url().includes(`/api/design-templates/${templateID}`) && response.request().method() === 'PATCH')
       await builder.getByRole('button', { name: 'Save Draft' }).click()
       expect((await draftResponse).ok()).toBe(true)
-      stored = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as typeof stored & { sections: Array<{ key: string; name: string; required: boolean; allowDesignOverride: boolean }> }
-      expect(stored._status).toBe('draft')
-      expect(stored.sections).toEqual([expect.objectContaining({ key: 'hero', name: 'Hero', required: true, allowDesignOverride: true })])
+      const draft = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as { layout: Array<Record<string, unknown>>; _status: string }
+      expect(draft._status).toBe('draft')
+      expect(JSON.stringify(draft.layout)).toContain('Issue Title')
+      expect(JSON.stringify(draft.layout)).toContain('Main Story')
+      expect(JSON.stringify(draft.layout)).toContain('"width":60')
+      const mainStoryID = (JSON.stringify(draft.layout).match(/"id":"(field_[^"]+)","type":"field","fieldType":"richText","label":"Main Story"/) ?? [])[1]
+      expect(mainStoryID).toBeTruthy()
 
       const publishResponse = page.waitForResponse((response) => response.url().includes(`/api/design-templates/${templateID}`) && response.request().method() === 'PATCH')
       await builder.getByRole('button', { name: 'Publish Template' }).click()
       expect((await publishResponse).ok()).toBe(true)
-      const published = await (await api.get(`${apiURL}/design-templates/${templateID}?depth=0`)).json() as { _status: string; status: string }
-      expect(published._status).toBe('published')
-      expect(published.status).toBe('published')
-
       await page.goto('http://localhost:3000/admin/collections/posts/create')
       const templateSelect = page.locator('#field-designTemplate [role="combobox"]')
       await templateSelect.fill(name)
-      await expect(page.getByRole('option', { name })).toBeVisible()
+      await page.getByRole('option', { name }).click()
+      await expect(page.getByRole('textbox', { name: 'Issue Title *' })).toBeVisible()
+      await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Main Story' }).getByRole('textbox')).toBeVisible()
+      await expect(page.getByText('Hero Image')).toBeVisible()
+      await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Closing Message' }).getByRole('textbox')).toBeVisible()
+      await expect(page.locator('.upload').filter({ hasText: 'Issue Photos' }).getByRole('button', { name: 'Choose from existing' })).toBeVisible()
+
+      const users = await (await api.get(`${apiURL}/users?limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+      const media = await createMedia(api, 'Newsletter test image', `newsletter-${suffix}.png`)
+      mediaID = media.id
+      const allFields: Array<{ id: string; label: string }> = []
+      const walk = (items: Array<Record<string, unknown>>) => items.forEach((item) => {
+        if (item.type === 'field') allFields.push(item as { id: string; label: string })
+        if (item.type === 'block' && Array.isArray(item.fields)) allFields.push(...item.fields as Array<{ id: string; label: string }>)
+        if (Array.isArray(item.children)) walk(item.children as Array<Record<string, unknown>>)
+        if (Array.isArray(item.columns)) for (const column of item.columns as Array<{ children: Array<Record<string, unknown>> }>) walk(column.children)
+      })
+      walk(draft.layout)
+      const fieldID = (label: string) => allFields.find((field) => field.label === label)?.id as string
+      const content = { root: { type: 'root', format: '', indent: 0, version: 1, direction: 'ltr', children: [
+        { type: 'paragraph', format: '', indent: 0, version: 1, direction: 'ltr', children: [{ type: 'text', text: 'Newsletter body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] },
+      ] } }
+      const postResponse = await api.post(`${apiURL}/posts`, { data: { title: `Newsletter Proof ${suffix}`, slug: `newsletter-proof-${suffix}`, author: users.docs[0].id, content,
+        designTemplate: templateID, templateValues: { [fieldID('Issue Title')]: 'November 2026', [fieldID('Issue Subtitle')]: 'Monthly Newsletter', [fieldID('Hero Image')]: media.id,
+          [fieldID('Main Story')]: lexicalText('test rich text'), [fieldID('Story Image')]: media.id, [fieldID('Closing Message')]: lexicalText('test closing text'), [fieldID('Issue Photos')]: [media.id] }, _status: 'published' } })
+      expect(postResponse.ok(), await postResponse.text()).toBe(true)
+      postID = (await postResponse.json() as { doc: { id: number } }).doc.id
+      await page.goto(`http://localhost:3000/posts/newsletter-proof-${suffix}`)
+      await expect(page.getByRole('heading', { name: 'November 2026' })).toBeVisible()
+      await expect(page.getByText('test rich text')).toBeVisible()
+      await expect(page.getByText('test closing text')).toBeVisible()
     } finally {
+      if (postID) await api.delete(`${apiURL}/posts/${postID}`)
+      if (mediaID) await api.delete(`${apiURL}/media/${mediaID}`)
       if (templateID) await api.delete(`${apiURL}/design-templates/${templateID}`)
     }
   })
 
+  test('repeatedly saves and live-previews modern Newsletter Lexical and mapped fields', async () => {
+    test.setTimeout(180_000)
+    const api = page.context().request
+    const suffix = Date.now().toString(36)
+    const users = await (await api.get(`${apiURL}/users?limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+    const types = await (await api.get(`${apiURL}/design-block-types?where[slug][equals]=hero-board&limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+    const designs = await (await api.get(`${apiURL}/design-block-designs?where[slug][equals]=hero-board-feature&limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
+    const ids = { title: `field_title_${suffix}`, subtitle: `field_subtitle_${suffix}`, hero: `field_hero_${suffix}`, story: `field_story_${suffix}`, gallery: `field_gallery_${suffix}` }
+    let templateID: number | undefined
+    let postID: number | undefined
+    let mediaAID: number | undefined
+    let mediaBID: number | undefined
+    try {
+      const templateResponse = await api.post(`${apiURL}/design-templates`, { data: { name: `Live Newsletter ${suffix}`, slug: `live-newsletter-${suffix}`, status: 'published', _status: 'published', allowedCollections: ['posts'], sections: [], layout: [
+        { id: `hero_${suffix}`, type: 'block', name: 'Hero Board', blockType: types.docs[0].id, blockDesign: designs.docs[0].id, fields: [
+          { id: ids.title, type: 'field', fieldType: 'shortText', label: 'Issue Title', required: true },
+          { id: ids.subtitle, type: 'field', fieldType: 'shortText', label: 'Issue Subtitle' },
+          { id: ids.hero, type: 'field', fieldType: 'image', label: 'Hero Image' },
+        ], slotMappings: { headline: ids.title, subheadline: ids.subtitle, backgroundImage: ids.hero } },
+        { id: `columns_${suffix}`, type: 'layout', layout: 'columns', columns: [
+          { id: `left_${suffix}`, width: 60, children: [{ id: ids.story, type: 'field', fieldType: 'richText', label: 'Main Story', required: true }] },
+          { id: `right_${suffix}`, width: 40, children: [] },
+        ] }, { id: ids.gallery, type: 'field', fieldType: 'images', label: 'Issue Photos' },
+      ] } })
+      expect(templateResponse.ok(), await templateResponse.text()).toBe(true)
+      templateID = (await templateResponse.json() as { doc: { id: number } }).doc.id
+      const mediaA = await createMedia(api, 'Newsletter image A', `newsletter-a-${suffix}.png`)
+      const mediaB = await createMedia(api, 'Newsletter image B', `newsletter-b-${suffix}.png`)
+      mediaAID = mediaA.id
+      mediaBID = mediaB.id
+      const postResponse = await api.post(`${apiURL}/posts`, { data: { title: `Live Newsletter Proof ${suffix}`, slug: `live-newsletter-proof-${suffix}`, author: users.docs[0].id,
+        content: lexicalText('Post body'), designTemplate: templateID, templateValues: { [ids.title]: 'November 2026', [ids.subtitle]: 'Monthly Newsletter', [ids.hero]: mediaA.id, [ids.story]: lexicalText('Version Zero'), [ids.gallery]: [mediaA.id, mediaB.id] }, _status: 'published' } })
+      expect(postResponse.ok(), await postResponse.text()).toBe(true)
+      postID = (await postResponse.json() as { doc: { id: number } }).doc.id
+
+      await page.goto(`http://localhost:3000/admin/collections/posts/${postID}`)
+      const title = page.getByRole('textbox', { name: 'Issue Title *' })
+      const story = page.locator('.rich-text-lexical').filter({ hasText: 'Main Story' }).getByRole('textbox')
+      await expect(story).toContainText('Version Zero')
+      await story.click()
+      await story.press('Control+A')
+      await story.pressSequentially('Version One')
+      await expect(story).toContainText('Version One')
+      await page.waitForTimeout(750)
+      await expect(page.getByRole('button', { name: 'Save Draft' })).toBeEnabled()
+      let save = page.waitForResponse((response) => response.url().includes(`/api/posts/${postID}`) && response.request().method() === 'PATCH')
+      await page.getByRole('button', { name: 'Save Draft' }).click()
+      expect((await save).ok()).toBe(true)
+      await story.click()
+      await story.press('Control+A')
+      await story.pressSequentially('Version Two')
+      await expect(story).toContainText('Version Two')
+      await page.waitForTimeout(750)
+      await expect(page.getByRole('button', { name: 'Save Draft' })).toBeEnabled()
+      save = page.waitForResponse((response) => response.url().includes(`/api/posts/${postID}`) && response.request().method() === 'PATCH')
+      await page.getByRole('button', { name: 'Save Draft' }).click()
+      expect((await save).ok()).toBe(true)
+      const stored = await (await api.get(`${apiURL}/posts/${postID}?draft=true&depth=0`)).json() as { templateValues: Record<string, unknown> }
+      expect(JSON.stringify(stored.templateValues[ids.story])).toContain('Version Two')
+      expect(stored.templateValues[ids.story]).toMatchObject({ root: { type: 'root' } })
+
+      await page.getByRole('button', { name: 'Live Preview' }).click()
+      const preview = page.frameLocator('iframe')
+      await expect(preview.getByRole('heading', { name: 'November 2026' })).toBeVisible()
+      await title.fill('December 2026')
+      await expect(preview.getByRole('heading', { name: 'December 2026' })).toBeVisible()
+      await title.fill('January 2027')
+      await expect(preview.getByRole('heading', { name: 'January 2027' })).toBeVisible()
+      await story.click()
+      await story.press('Control+A')
+      await story.pressSequentially('Live Lexical Story')
+      await expect(preview.getByText('Live Lexical Story')).toBeVisible()
+      const heroUpload = page.locator('.upload').filter({ hasText: 'Hero Image' })
+      await heroUpload.getByRole('button').last().click()
+      await heroUpload.getByRole('button', { name: 'Choose from existing' }).click()
+      await page.getByRole('row', { name: new RegExp(`newsletter-b-${suffix}\\.png`) }).getByRole('button').click()
+      await expect(preview.getByRole('img', { name: 'Newsletter image B' })).toBeVisible()
+      await page.waitForTimeout(500)
+      save = page.waitForResponse((response) => response.url().includes(`/api/posts/${postID}`) && response.request().method() === 'PATCH')
+      await page.getByRole('button', { name: 'Save Draft' }).click()
+      expect((await save).ok()).toBe(true)
+      let mediaStored = await (await api.get(`${apiURL}/posts/${postID}?draft=true&depth=0`)).json() as { templateValues: Record<string, unknown> }
+      expect(String(mediaStored.templateValues[ids.hero])).toBe(String(mediaB.id))
+
+      const gallery = page.locator('.field-type.upload').filter({ hasText: 'Issue Photos' })
+      const galleryFiles = gallery.getByRole('link', { name: new RegExp(`newsletter-[ab]-${suffix}\\.png`) })
+      await expect(galleryFiles).toHaveCount(2)
+      await galleryFiles.last().locator('../../../..').getByRole('button').last().click()
+      await expect(galleryFiles).toHaveCount(1)
+      save = page.waitForResponse((response) => response.url().includes(`/api/posts/${postID}`) && response.request().method() === 'PATCH')
+      await page.getByRole('button', { name: 'Save Draft' }).click()
+      expect((await save).ok()).toBe(true)
+      mediaStored = await (await api.get(`${apiURL}/posts/${postID}?draft=true&depth=0`)).json() as { templateValues: Record<string, unknown> }
+      expect(mediaStored.templateValues[ids.gallery]).toHaveLength(1)
+    } finally {
+      if (postID) await api.delete(`${apiURL}/posts/${postID}`)
+      if (mediaAID) await api.delete(`${apiURL}/media/${mediaAID}`)
+      if (mediaBID) await api.delete(`${apiURL}/media/${mediaBID}`)
+      if (templateID) await api.delete(`${apiURL}/design-templates/${templateID}`)
+    }
+  })
   test('edits Template Hero values on a Post', async () => {
     test.setTimeout(150_000)
     const api = page.context().request

@@ -9,5 +9,6 @@ export type DesignSystemOptions = {
     canManage?: Access;
     isDesignManager?: (user: unknown) => boolean;
     onPublish?: DesignEventHandler;
+    lexicalSchemaPaths?: Record<string, string>;
 };
 export declare function designSystemPlugin(options?: DesignSystemOptions): Plugin;

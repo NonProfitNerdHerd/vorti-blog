@@ -1,11 +1,19 @@
 import type { BlockType, FieldDefinition, TemplatedContent } from './types'
 import type { DesignStore } from './resolver'
 import { resolveContentTemplate } from './resolver'
+import { templateFields } from './template-tree'
 
 export type ValidationIssue = { path: string; message: string }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasLexicalContent(value: unknown): boolean {
+  if (!isObject(value) || !isObject(value.root) || !Array.isArray(value.root.children)) return false
+  const containsContent = (node: unknown): boolean => isObject(node) &&
+    ((typeof node.text === 'string' && node.text.trim().length > 0) || ['upload', 'relationship', 'block', 'inlineBlock'].includes(String(node.type)) || (Array.isArray(node.children) && node.children.some(containsContent)))
+  return value.root.children.some(containsContent)
 }
 
 export function validateFieldDefinitions(fields: FieldDefinition[]): ValidationIssue[] {
@@ -71,12 +79,18 @@ export function validateContentValues(type: Pick<BlockType, 'fields'>, values: u
 }
 
 export async function validateTemplatedContent(store: DesignStore, content: TemplatedContent): Promise<ValidationIssue[]> {
-  const { sections } = await resolveContentTemplate(store, content)
+  const { sections, layout } = await resolveContentTemplate(store, content)
   const issues: ValidationIssue[] = []
   // Orphaned values remain recoverable when an administrator removes a section.
   for (const section of sections) {
     const values = content.templateValues?.[section.key] ?? {}
     issues.push(...validateContentValues(section.blockType, values, section.required).map((issue) => ({ path: `templateValues.${section.key}${issue.path ? `.${issue.path}` : ''}`, message: issue.message })))
+  }
+  const values = (content.templateValues ?? {}) as unknown as Record<string, unknown>
+  for (const field of templateFields(layout)) {
+    const value = values[field.id]
+    const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0) || (field.fieldType === 'richText' && !hasLexicalContent(value))
+    if (field.required && missing) issues.push({ path: `templateValues.${field.id}`, message: `${field.label} is required` })
   }
   return issues
 }
