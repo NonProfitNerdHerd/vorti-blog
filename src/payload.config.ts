@@ -23,6 +23,9 @@ import { Tags } from './collections/Tags'
 import { Navigation } from './globals/Navigation'
 import { SiteSettings } from './globals/SiteSettings'
 import { organizePageHierarchy } from './plugins/organizePageHierarchy'
+import { designSystemPlugin } from '@design-system/payload-design-core'
+import { canManageDesign, isDesignManager } from './access/design'
+import { heroBoardRegistration } from '@design-system/payload-design-core/hero-board/registration'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -65,7 +68,7 @@ const cloudflareLogger = {
 } as any // Use PayloadLogger type when it's exported
 
 const cloudflare =
-  isCLI || !isProduction
+  isCLI || !isProduction || Boolean(process.env.DESIGN_CORE_TEST_PERSIST_PATH)
     ? await getCloudflareContextFromWrangler()
     : await getCloudflareContext({ async: true })
 
@@ -98,9 +101,10 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: sqliteD1Adapter({ binding: cloudflare.env.D1 }),
+  db: sqliteD1Adapter({ binding: cloudflare.env.D1, ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { push: false } : {}) }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
+    designSystemPlugin({ enabled: true, blockCreator: true, templates: true, templatableCollections: ['posts'], canManage: canManageDesign, isDesignManager, blockPacks: [heroBoardRegistration] }),
     seoPlugin({
       collections: ['posts', 'pages'],
       tabbedUI: true,
@@ -145,7 +149,8 @@ function getCloudflareContextFromWrangler(): Promise<CloudflareContext> {
     ({ getPlatformProxy }) =>
       getPlatformProxy({
         environment: process.env.CLOUDFLARE_ENV,
-        remoteBindings: isProduction,
+        remoteBindings: isProduction && !process.env.DESIGN_CORE_TEST_PERSIST_PATH,
+        ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { persist: { path: process.env.DESIGN_CORE_TEST_PERSIST_PATH } } : {}),
       } satisfies GetPlatformProxyOptions),
   )
 }

@@ -1,0 +1,21 @@
+{
+  "name": "@design-system/payload-design-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./hero-board": { "types": "./dist/hero-board/index.d.ts", "default": "./dist/hero-board/index.js" },
+    "./hero-board/registration": { "types": "./dist/hero-board/registration.d.ts", "default": "./dist/hero-board/registration.js" },
+    "./admin": { "types": "./dist/admin/index.d.ts", "default": "./dist/admin/index.js" }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs && node scripts/fix-esm-imports.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "peerDependencies": { "payload": "^3.87.0", "react": "^19", "@payloadcms/ui": "^3.87.0" },
+  "devDependencies": { "typescript": "5.7.3", "vitest": "4.0.18", "@types/react": "19.2.14", "react-dom": "19.2.6", "@types/react-dom": "19.2.3" }
+}

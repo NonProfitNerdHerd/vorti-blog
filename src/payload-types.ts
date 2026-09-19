@@ -73,6 +73,9 @@ export interface Config {
     tags: Tag;
     media: Media;
     users: User;
+    'design-block-types': DesignBlockType;
+    'design-block-designs': DesignBlockDesign;
+    'design-templates': DesignTemplate;
     search: Search;
     redirects: Redirect;
     forms: Form;
@@ -85,7 +88,11 @@ export interface Config {
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    'design-block-types': {
+      designs: 'design-block-designs';
+    };
+  };
   collectionsSelect: {
     posts: PostsSelect<false> | PostsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
@@ -93,6 +100,9 @@ export interface Config {
     tags: TagsSelect<false> | TagsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
+    'design-block-designs': DesignBlockDesignsSelect<false> | DesignBlockDesignsSelect<true>;
+    'design-templates': DesignTemplatesSelect<false> | DesignTemplatesSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
@@ -180,9 +190,9 @@ export interface Post {
     [k: string]: unknown;
   };
   featuredImage?: (number | null) | Media;
-  author: number | User;
   categories?: (number | Category)[] | null;
   tags?: (number | Tag)[] | null;
+  author: number | User;
   publishedAt?: string | null;
   featured?: boolean | null;
   allowComments?: boolean | null;
@@ -194,6 +204,25 @@ export interface Post {
      */
     image?: (number | null) | Media;
   };
+  designTemplate?: (number | null) | DesignTemplate;
+  templateValues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  designOverrides?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -217,10 +246,45 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  image?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
   id: number;
+  /**
+   * Administrator and Designer can manage global designs. Editor can edit content.
+   */
+  role?: ('administrator' | 'designer' | 'editor') | null;
   /**
    * Only enabled profiles appear on the public author route.
    */
@@ -274,34 +338,100 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
+ * via the `definition` "design-templates".
  */
-export interface Category {
+export interface DesignTemplate {
   id: number;
   name: string;
-  /**
-   * Generated from name when left empty. You can edit it.
-   */
   slug: string;
   description?: string | null;
-  image?: (number | null) | Media;
+  status: 'draft' | 'published' | 'archived';
+  allowedCollections?: 'posts'[] | null;
+  /**
+   * Add and reorder sections here. Published changes apply to every linked content item.
+   */
+  sections?:
+    | {
+        key: string;
+        name: string;
+        blockType: number | DesignBlockType;
+        /**
+         * Choose a published Design belonging to the selected Block Type.
+         */
+        blockDesign: number | DesignBlockDesign;
+        required?: boolean | null;
+        allowDesignOverride?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags".
+ * via the `definition` "design-block-types".
  */
-export interface Tag {
+export interface DesignBlockType {
   id: number;
   name: string;
-  /**
-   * Generated from name when left empty. You can edit it.
-   */
   slug: string;
   description?: string | null;
+  rendererKey: string;
+  status: 'draft' | 'published' | 'archived';
+  schemaVersion: number;
+  designCount?: number | null;
+  fields?:
+    | {
+        key: string;
+        label: string;
+        kind: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'media' | 'url' | 'date' | 'group';
+        required?: boolean | null;
+        children?:
+          | {
+              key: string;
+              label: string;
+              kind: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'media' | 'url' | 'date';
+              required?: boolean | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  designs?: {
+    docs?: (number | DesignBlockDesign)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "design-block-designs".
+ */
+export interface DesignBlockDesign {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  blockType: number | DesignBlockType;
+  status: 'draft' | 'published' | 'archived';
+  design?: {
+    alignment?: ('left' | 'center' | 'right' | 'start' | 'end') | null;
+    tone?: ('neutral' | 'accent') | null;
+    width?: ('content' | 'wide' | 'full') | null;
+    spacing?: ('small' | 'medium' | 'large' | 'extra-large' | 'compact' | 'normal' | 'spacious') | null;
+    imageTreatment?: ('background' | 'split' | 'feature') | null;
+    overlay?: ('none' | 'light' | 'dark') | null;
+    textContrast?: ('normal' | 'light' | 'dark') | null;
+    buttonStyle?: ('primary' | 'outline' | 'minimal') | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -329,14 +459,6 @@ export interface Page {
     };
     [k: string]: unknown;
   };
-  meta?: {
-    title?: string | null;
-    description?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-  };
   parent?: (number | null) | Page;
   breadcrumbs?:
     | {
@@ -346,6 +468,14 @@ export interface Page {
         id?: string | null;
       }[]
     | null;
+  meta?: {
+    title?: string | null;
+    description?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+  };
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -797,6 +927,18 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'design-block-types';
+        value: number | DesignBlockType;
+      } | null)
+    | ({
+        relationTo: 'design-block-designs';
+        value: number | DesignBlockDesign;
+      } | null)
+    | ({
+        relationTo: 'design-templates';
+        value: number | DesignTemplate;
+      } | null)
+    | ({
         relationTo: 'search';
         value: number | Search;
       } | null)
@@ -864,9 +1006,9 @@ export interface PostsSelect<T extends boolean = true> {
   excerpt?: T;
   content?: T;
   featuredImage?: T;
-  author?: T;
   categories?: T;
   tags?: T;
+  author?: T;
   publishedAt?: T;
   featured?: T;
   allowComments?: T;
@@ -877,6 +1019,9 @@ export interface PostsSelect<T extends boolean = true> {
         description?: T;
         image?: T;
       };
+  designTemplate?: T;
+  templateValues?: T;
+  designOverrides?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -889,13 +1034,6 @@ export interface PagesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   content?: T;
-  meta?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
   parent?: T;
   breadcrumbs?:
     | T
@@ -904,6 +1042,13 @@ export interface PagesSelect<T extends boolean = true> {
         url?: T;
         label?: T;
         id?: T;
+      };
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -953,6 +1098,7 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  role?: T;
   profilePublic?: T;
   displayName?: T;
   slug?: T;
@@ -981,6 +1127,92 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "design-block-types_select".
+ */
+export interface DesignBlockTypesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  rendererKey?: T;
+  status?: T;
+  schemaVersion?: T;
+  designCount?: T;
+  fields?:
+    | T
+    | {
+        key?: T;
+        label?: T;
+        kind?: T;
+        required?: T;
+        children?:
+          | T
+          | {
+              key?: T;
+              label?: T;
+              kind?: T;
+              required?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  designs?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "design-block-designs_select".
+ */
+export interface DesignBlockDesignsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  blockType?: T;
+  status?: T;
+  design?:
+    | T
+    | {
+        alignment?: T;
+        tone?: T;
+        width?: T;
+        spacing?: T;
+        imageTreatment?: T;
+        overlay?: T;
+        textContrast?: T;
+        buttonStyle?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "design-templates_select".
+ */
+export interface DesignTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  status?: T;
+  allowedCollections?: T;
+  sections?:
+    | T
+    | {
+        key?: T;
+        name?: T;
+        blockType?: T;
+        blockDesign?: T;
+        required?: T;
+        allowDesignOverride?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1492,6 +1724,9 @@ export interface TaskCreateCollectionExport {
       | 'tags'
       | 'media'
       | 'users'
+      | 'design-block-types'
+      | 'design-block-designs'
+      | 'design-templates'
       | 'search'
       | 'redirects'
       | 'forms'

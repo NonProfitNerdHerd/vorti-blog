@@ -7,8 +7,11 @@
   "scripts": {
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8000\" next build --webpack",
     "deploy": "pnpm run deploy:database && pnpm run deploy:app",
-    "deploy:app": "opennextjs-cloudflare build --env=$CLOUDFLARE_ENV && opennextjs-cloudflare deploy --env=$CLOUDFLARE_ENV",
-    "deploy:database": "cross-env NODE_ENV=production PAYLOAD_SECRET=ignore payload migrate && wrangler d1 execute D1 --command 'PRAGMA optimize' --env=$CLOUDFLARE_ENV --remote",
+    "deploy:app": "node scripts/require-production-intent.mjs deployment && opennextjs-cloudflare build --env=$CLOUDFLARE_ENV && opennextjs-cloudflare deploy --env=$CLOUDFLARE_ENV",
+    "deploy:database": "node scripts/require-production-intent.mjs migration && cross-env NODE_ENV=production PAYLOAD_SECRET=ignore payload migrate && wrangler d1 execute D1 --command 'PRAGMA optimize' --env=$CLOUDFLARE_ENV --remote",
+    "build:worker:local": "node scripts/require-local-build.mjs && opennextjs-cloudflare build --config wrangler.test.jsonc",
+    "design:preflight:local": "node scripts/design-preflight.mjs",
+    "design:preflight:production": "node scripts/design-preflight.mjs --remote --confirm-read-only-remote",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "devsafe": "rm -rf .next && rm -rf .open-next && cross-env NODE_OPTIONS=--no-deprecation next dev",
     "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
@@ -25,6 +28,7 @@
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "dependencies": {
+    "@design-system/payload-design-core": "workspace:*",
     "@opennextjs/cloudflare": "1.20.1",
     "@payloadcms/db-d1-sqlite": "3.87.0",
     "@payloadcms/live-preview-react": "3.87.0",
@@ -81,5 +85,6 @@
         "description": "Generate a random string using `openssl rand -hex 32`"
       }
     }
-  }
+  },
+  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
 }

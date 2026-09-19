@@ -10,6 +10,18 @@ export const Users: CollectionConfig = {
   auth: true,
   fields: [
     {
+      name: 'role',
+      type: 'select',
+      required: false,
+      defaultValue: 'editor',
+      options: [
+        { label: 'Administrator', value: 'administrator' },
+        { label: 'Designer', value: 'designer' },
+        { label: 'Editor', value: 'editor' },
+      ],
+      admin: { description: 'Administrator and Designer can manage global designs. Editor can edit content.' },
+    },
+    {
       type: 'collapsible',
       label: 'Public author profile',
       fields: [

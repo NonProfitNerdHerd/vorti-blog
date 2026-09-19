@@ -4,6 +4,7 @@ import { LivePostPreview } from '@/components/LivePostPreview'
 import { PostArticle } from '@/components/PostArticle'
 import { contentMetadata, getAuthenticatedPreview, getPublishedPost, getSiteSettings, isAuthenticatedPreviewEditor } from '@/lib/frontend'
 import type { Post } from '@/payload-types'
+import { resolvePostDesign } from '@/lib/post-design'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePreview?: string }> }
@@ -21,11 +22,11 @@ export default async function PostPage({ params, searchParams }: Props) {
       ? await isAuthenticatedPreviewEditor() ? emptyPost : null
       : await getAuthenticatedPreview('posts', previewID)
     if (!post) notFound()
-    return <LivePostPreview initialData={post} />
+    return <LivePostPreview initialData={post} initialDesignSections={await resolvePostDesign(post)} />
   }
   const post = await getPublishedPost((await params).slug)
   if (!post) notFound()
-  return <PostArticle post={post} />
+  return <PostArticle post={post} designSections={await resolvePostDesign(post)} />
 }
 
 const emptyPost: Post = {

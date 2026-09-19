@@ -26,8 +26,11 @@ import { MetaTitleComponent as MetaTitleComponent_a8a977ebc872c5d5ea7ee689724c08
 import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
+import { TemplateContentEditor as TemplateContentEditor_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
+import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { TemplateImpactPanel as TemplateImpactPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -76,8 +79,11 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#MetaDescriptionComponent": MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#MetaImageComponent": MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
+  "@design-system/payload-design-core/admin#TemplateContentEditor": TemplateContentEditor_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
+  "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,
+  "@design-system/payload-design-core/admin#TemplateImpactPanel": TemplateImpactPanel_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
