@@ -92,6 +92,7 @@ test.describe('Admin Panel', () => {
     try {
       await page.goto('http://localhost:3000/admin/collections/design-templates/create')
       const builder = page.getByTestId('template-builder')
+      await builder.getByRole('tab', { name: 'Template Properties' }).click()
       await builder.getByRole('textbox', { name: 'Name' }).fill(name)
       await builder.getByRole('checkbox', { name: 'Posts' }).check()
       const createdResponse = page.waitForResponse((response) => response.url().includes('/api/design-templates') && response.request().method() === 'POST')
@@ -99,6 +100,11 @@ test.describe('Admin Panel', () => {
       const created = await createdResponse
       templateID = (await created.json() as { doc: { id: number } }).doc.id
       await expect(page).toHaveURL(new RegExp(`/design-templates/${templateID}`))
+      await builder.getByRole('tab', { name: /Custom Fields/ }).click()
+      await builder.getByRole('button', { name: 'Add your first field' }).click()
+      await builder.getByRole('textbox', { name: 'Field Label 1' }).fill('Newsletter Introduction')
+      await builder.getByRole('combobox', { name: 'Field Type 1' }).selectOption('shortText')
+      await builder.getByRole('tab', { name: 'Canvas' }).click()
 
       await builder.getByRole('button', { name: 'Hero Board', exact: true }).click()
       await expect(builder.getByRole('complementary', { name: 'Configure panel' }).getByRole('heading', { name: 'Configure Hero Board' })).toBeVisible()
@@ -175,6 +181,12 @@ test.describe('Admin Panel', () => {
       await builder.getByRole('combobox', { name: 'Content Source' }).selectOption('static')
       await builder.getByRole('textbox', { name: 'Static Text' }).fill('Initial heading')
       await builder.getByRole('button', { name: 'Save Element' }).click()
+      await builder.getByRole('button', { name: 'Heading / Short Text', exact: true }).click()
+      await builder.getByRole('textbox', { name: 'Block Label' }).fill('Introduction Heading')
+      await builder.getByRole('combobox', { name: 'Content Source' }).selectOption('customField')
+      await builder.getByRole('combobox', { name: 'Custom Field' }).selectOption({ label: 'Newsletter Introduction' })
+      await builder.getByRole('textbox', { name: 'Placeholder' }).fill('Introduction preview')
+      await builder.getByRole('button', { name: 'Save Element' }).click()
       const inlineHeading = builder.getByRole('button', { name: 'Inline Heading' }).locator('[contenteditable="true"]')
       await inlineHeading.fill('Updated directly on canvas')
       await inlineHeading.blur()
@@ -182,7 +194,7 @@ test.describe('Admin Panel', () => {
       const draftResponse = page.waitForResponse((response) => response.url().includes(`/api/design-templates/${templateID}`) && response.request().method() === 'PATCH')
       await builder.getByRole('button', { name: 'Save Draft' }).click()
       expect((await draftResponse).ok()).toBe(true)
-      const draft = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as { layout: Array<Record<string, unknown>>; _status: string }
+      const draft = await (await api.get(`${apiURL}/design-templates/${templateID}?draft=true&depth=0`)).json() as { layout: Array<Record<string, unknown>>; customFields: Array<{ id: string; label: string }>; _status: string }
       expect(draft._status).toBe('draft')
       expect(JSON.stringify(draft.layout)).toContain('Issue Title')
       expect(JSON.stringify(draft.layout)).toContain('Main Story')
@@ -205,6 +217,7 @@ test.describe('Admin Panel', () => {
       await expect(page.getByText('Hero Image')).toBeVisible()
       await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Closing Message' }).getByRole('textbox')).toBeVisible()
       await expect(page.locator('.upload').filter({ hasText: 'Issue Photos' }).getByRole('button', { name: 'Choose from existing' })).toBeVisible()
+      await expect(page.getByRole('textbox', { name: 'Newsletter Introduction' })).toBeVisible()
 
       const users = await (await api.get(`${apiURL}/users?limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
       const media = await createMedia(api, 'Newsletter test image', `newsletter-${suffix}.png`)
@@ -223,13 +236,15 @@ test.describe('Admin Panel', () => {
       ] } }
       const postResponse = await api.post(`${apiURL}/posts`, { data: { title: `Newsletter Proof ${suffix}`, slug: `newsletter-proof-${suffix}`, author: users.docs[0].id, content,
         designTemplate: templateID, templateValues: { [fieldID('Issue Title')]: 'November 2026', [fieldID('Issue Subtitle')]: 'Monthly Newsletter', [fieldID('Hero Image')]: media.id,
-          [fieldID('Main Story')]: lexicalText('test rich text'), [fieldID('Story Image')]: media.id, [fieldID('Closing Message')]: lexicalText('test closing text'), [fieldID('Issue Photos')]: [media.id] }, _status: 'published' } })
+          [fieldID('Main Story')]: lexicalText('test rich text'), [fieldID('Story Image')]: media.id, [fieldID('Closing Message')]: lexicalText('test closing text'), [fieldID('Issue Photos')]: [media.id],
+          [draft.customFields[0].id]: 'Custom field heading' }, _status: 'published' } })
       expect(postResponse.ok(), await postResponse.text()).toBe(true)
       postID = (await postResponse.json() as { doc: { id: number } }).doc.id
       await page.goto(`http://localhost:3000/posts/newsletter-proof-${suffix}`)
       await expect(page.getByRole('heading', { name: 'November 2026' })).toBeVisible()
       await expect(page.locator('.template-field--shortText').filter({ hasText: `Newsletter Proof ${suffix}` })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Updated directly on canvas' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Custom field heading' })).toBeVisible()
       await expect(page.getByText('test rich text')).toBeVisible()
       await expect(page.getByText('test closing text')).toBeVisible()
     } finally {

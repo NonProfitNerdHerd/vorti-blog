@@ -158,6 +158,22 @@ export function createDesignCollections(options) {
                                 throw new Error(`Publish the Block Design for section ${section.name ?? section.key} first`);
                         }
                     }
+                    const customFieldIDs = new Set();
+                    if (Array.isArray(data.customFields)) {
+                        for (const field of data.customFields) {
+                            if (!field.id || customFieldIDs.has(field.id))
+                                throw new Error('Template Custom Field IDs must be present and unique');
+                            if (!field.label?.trim())
+                                throw new Error('Every Template Custom Field must have a label');
+                            if (!field.fieldType)
+                                throw new Error(`Choose a field type for ${field.label}`);
+                            if (field.fieldType === 'select' && !field.options?.length)
+                                throw new Error(`Add at least one option to ${field.label}`);
+                            if (field.fieldType === 'relationship' && !field.relationTo?.trim())
+                                throw new Error(`Choose a related collection for ${field.label}`);
+                            customFieldIDs.add(field.id);
+                        }
+                    }
                     if (Array.isArray(data.layout)) {
                         const ids = new Set();
                         const fields = new Set();
@@ -166,8 +182,11 @@ export function createDesignCollections(options) {
                             if (!node.id || ids.has(node.id))
                                 throw new Error('Template element IDs must be present and unique');
                             ids.add(node.id);
-                            if (node.type === 'field')
+                            if (node.type === 'field') {
                                 fields.add(node.id);
+                                if (node.content?.source === 'customField' && !customFieldIDs.has(node.content.fieldId))
+                                    throw new Error(`Custom Field bound to ${node.label} does not exist in this Template`);
+                            }
                             if (node.type === 'block') {
                                 blocks.push(node);
                             }
@@ -222,6 +241,7 @@ export function createDesignCollections(options) {
             { name: 'status', type: 'select', required: true, defaultValue: 'draft', options: ['draft', 'published', 'archived'], admin: { hidden: true } },
             { name: 'allowedCollections', type: 'select', hasMany: true, options: options.contentCollections.map((slug) => ({ label: slug, value: slug })), admin: { hidden: true } },
             { name: 'layout', type: 'json', defaultValue: [], admin: { hidden: true } },
+            { name: 'customFields', type: 'json', defaultValue: [], admin: { hidden: true } },
             { name: 'sections', type: 'array', admin: { hidden: true }, fields: [
                     { name: 'key', type: 'text', required: true },
                     { name: 'name', type: 'text', required: true },

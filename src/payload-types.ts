@@ -356,6 +356,15 @@ export interface DesignTemplate {
     | number
     | boolean
     | null;
+  customFields?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   sections?:
     | {
         key: string;
@@ -1206,6 +1215,7 @@ export interface DesignTemplatesSelect<T extends boolean = true> {
   status?: T;
   allowedCollections?: T;
   layout?: T;
+  customFields?: T;
   sections?:
     | T
     | {

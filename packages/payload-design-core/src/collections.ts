@@ -1,7 +1,7 @@
 import type { Access, CollectionConfig, CollectionSlug } from 'payload'
 import { assertDesignCanDelete, assertTemplateCanDelete, getBlockDesignDependencies, getTemplateDependencies } from './dependencies'
 import { createPayloadDependencySource } from './payload-store'
-import type { DesignEventHandler, ID, TemplateNode } from './types'
+import type { DesignEventHandler, ID, TemplateCustomField, TemplateNode } from './types'
 import { slugs } from './types'
 import { walkTemplate } from './template-tree'
 import type { FieldDefinition } from './types'
@@ -162,6 +162,17 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
             if (data.status === 'published' && ((design as { status?: string }).status !== 'published' || (design as { _status?: string })._status !== 'published')) throw new Error(`Publish the Block Design for section ${section.name ?? section.key} first`)
           }
         }
+        const customFieldIDs = new Set<string>()
+        if (Array.isArray(data.customFields)) {
+          for (const field of data.customFields as TemplateCustomField[]) {
+            if (!field.id || customFieldIDs.has(field.id)) throw new Error('Template Custom Field IDs must be present and unique')
+            if (!field.label?.trim()) throw new Error('Every Template Custom Field must have a label')
+            if (!field.fieldType) throw new Error(`Choose a field type for ${field.label}`)
+            if (field.fieldType === 'select' && !field.options?.length) throw new Error(`Add at least one option to ${field.label}`)
+            if (field.fieldType === 'relationship' && !field.relationTo?.trim()) throw new Error(`Choose a related collection for ${field.label}`)
+            customFieldIDs.add(field.id)
+          }
+        }
         if (Array.isArray(data.layout)) {
           const ids = new Set<string>()
           const fields = new Set<string>()
@@ -169,7 +180,10 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
           walkTemplate(data.layout as TemplateNode[], (node) => {
             if (!node.id || ids.has(node.id)) throw new Error('Template element IDs must be present and unique')
             ids.add(node.id)
-            if (node.type === 'field') fields.add(node.id)
+            if (node.type === 'field') {
+              fields.add(node.id)
+              if (node.content?.source === 'customField' && !customFieldIDs.has(node.content.fieldId)) throw new Error(`Custom Field bound to ${node.label} does not exist in this Template`)
+            }
             if (node.type === 'block') {
               blocks.push(node)
             }
@@ -216,6 +230,7 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
       { name: 'status', type: 'select', required: true, defaultValue: 'draft', options: ['draft', 'published', 'archived'], admin: { hidden: true } },
       { name: 'allowedCollections', type: 'select', hasMany: true, options: options.contentCollections.map((slug) => ({ label: slug, value: slug })), admin: { hidden: true } },
       { name: 'layout', type: 'json', defaultValue: [], admin: { hidden: true } },
+      { name: 'customFields', type: 'json', defaultValue: [], admin: { hidden: true } },
       { name: 'sections', type: 'array', admin: { hidden: true }, fields: [
         { name: 'key', type: 'text', required: true },
         { name: 'name', type: 'text', required: true },

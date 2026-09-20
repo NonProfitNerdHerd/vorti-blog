@@ -33,17 +33,19 @@ export type TemplateElementStyle = {
   cssClass?: string
 }
 export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug'
+export type TemplateCustomField = { id: string; label: string; fieldType: TemplateFieldKind; required?: boolean; helpText?: string; placeholder?: string; options?: string[]; relationTo?: string }
 export type TemplateContentBinding =
   | { source: 'custom' }
   | { source: 'static'; value: string }
   | { source: 'document'; field: TemplateDocumentField; preview?: string }
+  | { source: 'customField'; fieldId: string; preview?: string }
 export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; content?: TemplateContentBinding; min?: number; max?: number; options?: string[]; relationTo?: string; style?: TemplateElementStyle }
 export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider'
 export type TemplateColumn = { id: string; width: number; children: TemplateNode[] }
 export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large'; style?: TemplateElementStyle }
 export type TemplateBlockNode = { id: string; type: 'block'; name: string; blockType: ID; blockDesign: ID; allowDesignOverride?: boolean; fields: TemplateField[]; slotMappings: Record<string, string>; style?: TemplateElementStyle }
 export type TemplateNode = TemplateField | TemplateLayoutNode | TemplateBlockNode
-export type Template = { id: ID; slug: string; name: string; status: Lifecycle; allowedCollections: string[]; sections: TemplateSection[]; layout?: TemplateNode[]; _status?: 'draft' | 'published' }
+export type Template = { id: ID; slug: string; name: string; status: Lifecycle; allowedCollections: string[]; sections: TemplateSection[]; layout?: TemplateNode[]; customFields?: TemplateCustomField[]; _status?: 'draft' | 'published' }
 export type ContentValues = Record<string, unknown>
 export type TemplatedContent = { id: ID; template: ID; templateValues?: ContentValues; designOverrides?: Record<string, ID | null> }
 export type ResolvedSection = { key: string; name: string; required: boolean; allowDesignOverride: boolean; blockType: BlockType; blockDesign: BlockDesign; values: Record<string, unknown> }

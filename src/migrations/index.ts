@@ -5,6 +5,7 @@ import * as migration_20260917_163401_design_system_stage1 from './20260917_1634
 import * as migration_20260917_165910_design_system_stage2 from './20260917_165910_design_system_stage2';
 import * as migration_20260918_135802_design_system_stage3 from './20260918_135802_design_system_stage3';
 import * as migration_20260919_214810_template_layout_tree from './20260919_214810_template_layout_tree';
+import * as migration_20260920_203815_template_custom_fields from './20260920_203815_template_custom_fields';
 
 export const migrations = [
   {
@@ -35,11 +36,16 @@ export const migrations = [
   {
     up: migration_20260918_135802_design_system_stage3.up,
     down: migration_20260918_135802_design_system_stage3.down,
-    name: '20260918_135802_design_system_stage3'
+    name: '20260918_135802_design_system_stage3',
   },
   {
     up: migration_20260919_214810_template_layout_tree.up,
     down: migration_20260919_214810_template_layout_tree.down,
-    name: '20260919_214810_template_layout_tree'
+    name: '20260919_214810_template_layout_tree',
+  },
+  {
+    up: migration_20260920_203815_template_custom_fields.up,
+    down: migration_20260920_203815_template_custom_fields.down,
+    name: '20260920_203815_template_custom_fields'
   },
 ];

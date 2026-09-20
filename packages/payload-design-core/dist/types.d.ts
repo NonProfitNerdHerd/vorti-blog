@@ -63,6 +63,16 @@ export type TemplateElementStyle = {
     cssClass?: string;
 };
 export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug';
+export type TemplateCustomField = {
+    id: string;
+    label: string;
+    fieldType: TemplateFieldKind;
+    required?: boolean;
+    helpText?: string;
+    placeholder?: string;
+    options?: string[];
+    relationTo?: string;
+};
 export type TemplateContentBinding = {
     source: 'custom';
 } | {
@@ -71,6 +81,10 @@ export type TemplateContentBinding = {
 } | {
     source: 'document';
     field: TemplateDocumentField;
+    preview?: string;
+} | {
+    source: 'customField';
+    fieldId: string;
     preview?: string;
 };
 export type TemplateField = {
@@ -123,6 +137,7 @@ export type Template = {
     allowedCollections: string[];
     sections: TemplateSection[];
     layout?: TemplateNode[];
+    customFields?: TemplateCustomField[];
     _status?: 'draft' | 'published';
 };
 export type ContentValues = Record<string, unknown>;
