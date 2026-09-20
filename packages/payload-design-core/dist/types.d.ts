@@ -52,6 +52,16 @@ export type TemplateSection = {
     allowDesignOverride?: boolean;
 };
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship';
+export type TemplateElementStyle = {
+    width?: 'content' | 'wide' | 'full';
+    alignment?: 'left' | 'center' | 'right';
+    spacing?: 'none' | 'small' | 'medium' | 'large';
+    background?: 'transparent' | 'surface' | 'muted' | 'accent';
+    textColor?: 'default' | 'muted' | 'accent' | 'inverse';
+    fontSize?: 'small' | 'medium' | 'large' | 'xlarge';
+    anchor?: string;
+    cssClass?: string;
+};
 export type TemplateField = {
     id: string;
     type: 'field';
@@ -64,6 +74,7 @@ export type TemplateField = {
     max?: number;
     options?: string[];
     relationTo?: string;
+    style?: TemplateElementStyle;
 };
 export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider';
 export type TemplateColumn = {
@@ -78,6 +89,7 @@ export type TemplateLayoutNode = {
     children?: TemplateNode[];
     columns?: TemplateColumn[];
     spacing?: 'small' | 'medium' | 'large';
+    style?: TemplateElementStyle;
 };
 export type TemplateBlockNode = {
     id: string;
@@ -88,6 +100,7 @@ export type TemplateBlockNode = {
     allowDesignOverride?: boolean;
     fields: TemplateField[];
     slotMappings: Record<string, string>;
+    style?: TemplateElementStyle;
 };
 export type TemplateNode = TemplateField | TemplateLayoutNode | TemplateBlockNode;
 export type Template = {

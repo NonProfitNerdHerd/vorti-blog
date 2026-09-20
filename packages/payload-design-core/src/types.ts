@@ -22,11 +22,21 @@ export type BlockType = { id: ID; slug: string; name: string; rendererKey: strin
 export type BlockDesign = { id: ID; slug: string; name: string; blockType: ID; status: Lifecycle; design: DesignPrimitive; _status?: 'draft' | 'published' }
 export type TemplateSection = { id?: ID; key: string; name: string; blockType: ID; blockDesign: ID; required?: boolean; allowDesignOverride?: boolean }
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship'
-export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; min?: number; max?: number; options?: string[]; relationTo?: string }
+export type TemplateElementStyle = {
+  width?: 'content' | 'wide' | 'full'
+  alignment?: 'left' | 'center' | 'right'
+  spacing?: 'none' | 'small' | 'medium' | 'large'
+  background?: 'transparent' | 'surface' | 'muted' | 'accent'
+  textColor?: 'default' | 'muted' | 'accent' | 'inverse'
+  fontSize?: 'small' | 'medium' | 'large' | 'xlarge'
+  anchor?: string
+  cssClass?: string
+}
+export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; min?: number; max?: number; options?: string[]; relationTo?: string; style?: TemplateElementStyle }
 export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider'
 export type TemplateColumn = { id: string; width: number; children: TemplateNode[] }
-export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large' }
-export type TemplateBlockNode = { id: string; type: 'block'; name: string; blockType: ID; blockDesign: ID; allowDesignOverride?: boolean; fields: TemplateField[]; slotMappings: Record<string, string> }
+export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large'; style?: TemplateElementStyle }
+export type TemplateBlockNode = { id: string; type: 'block'; name: string; blockType: ID; blockDesign: ID; allowDesignOverride?: boolean; fields: TemplateField[]; slotMappings: Record<string, string>; style?: TemplateElementStyle }
 export type TemplateNode = TemplateField | TemplateLayoutNode | TemplateBlockNode
 export type Template = { id: ID; slug: string; name: string; status: Lifecycle; allowedCollections: string[]; sections: TemplateSection[]; layout?: TemplateNode[]; _status?: 'draft' | 'published' }
 export type ContentValues = Record<string, unknown>
