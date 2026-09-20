@@ -5,7 +5,7 @@ import { DndContext, KeyboardSensor, PointerSensor, pointerWithin, useDraggable,
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui'
 import { useEffect, useRef, useState } from 'react'
-import { coreEditorElements, editorCategoryLabels, searchEditorElements, toLibraryItem, type EditorElementDefinition, type EditorLibraryItem } from '../editor-registry'
+import { coreEditorElements, editorCategoryLabels, searchEditorElements, toLibraryItem, type EditorElementCategory, type EditorElementDefinition, type EditorLibraryItem } from '../editor-registry'
 import { insertTemplateNode, moveTemplateNode, moveTemplateNodeTo, removeTemplateNode, updateTemplateNode } from '../template-tree'
 import type { FieldDefinition, ID, TemplateBlockNode, TemplateElementStyle, TemplateField, TemplateFieldKind, TemplateLayoutKind, TemplateLayoutNode, TemplateNode } from '../types'
 import './template-builder.css'
@@ -34,19 +34,17 @@ function DropArea({ id, label, children, add, addItem }: { id: string; label: st
 }
 
 function ElementPicker({ types, close, choose }: { types: BlockTypeOption[]; close: () => void; choose: (item: LibraryItem) => void }) {
-  const [query, setQuery] = useState(''); const [browseAll, setBrowseAll] = useState(false)
+  const [query, setQuery] = useState(''); const [category, setCategory] = useState<'all' | EditorElementCategory>('all')
   const designed: EditorElementDefinition[] = types.map((type) => ({ kind: 'block', value: String(type.id), label: type.name, description: type.description ?? 'Reusable Designed Block.', category: 'designed', keywords: [type.name.toLowerCase(), 'designed', 'block'] }))
-  const available = [...coreEditorElements, ...designed]; const matches = searchEditorElements(available, query); const shown = browseAll || query ? matches : matches.filter((item) => item.frequentlyUsed || item.kind === 'block').slice(0, 6)
-  const option = (item: EditorElementDefinition) => <button key={`${item.kind}:${item.value}`} type="button" onClick={() => choose(toLibraryItem(item))} style={{ minHeight: 74, padding: '10px 12px', textAlign: 'left', borderRadius: 6 }}><strong style={{ display: 'block' }}>{item.label}</strong><span style={{ display: 'block', marginTop: 4, color: 'var(--theme-elevation-600)', fontSize: 12 }}>{item.description}</span></button>
-  return <div role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) close() }} style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(0,0,0,.32)' }}>
-    <section role="dialog" aria-modal="true" aria-labelledby="element-picker-title" style={{ ...panel, width: 'min(680px, 100%)', maxHeight: 'min(720px, 85vh)', overflowY: 'auto', background: 'var(--theme-elevation-0)', boxShadow: '0 18px 60px rgba(0,0,0,.24)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}><div><h2 id="element-picker-title" style={{ marginBottom: 4 }}>Add an element</h2><p style={{ marginTop: 0 }}>Choose what to place in this area.</p></div><button type="button" aria-label="Close element picker" onClick={close} style={{ width: 32, height: 32, padding: 0 }}>×</button></div>
-      <input autoFocus aria-label="Search elements" type="search" placeholder="Search blocks" value={query} onChange={(event) => setQuery(event.target.value)} style={{ width: '100%', marginBottom: 16 }} />
-      {!browseAll && !query && <h3>Most used</h3>}
-      {browseAll && [...new Set(shown.map((item) => item.category))].map((category) => <section key={category}><h3>{editorCategoryLabels[category]}</h3><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>{shown.filter((item) => item.category === category).map(option)}</div></section>)}
-      {!browseAll && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8 }}>{shown.map(option)}</div>}
-      {!browseAll && !query && <button type="button" onClick={() => setBrowseAll(true)} style={{ width: '100%', marginTop: 16, padding: 10 }}>Browse all blocks</button>}
-      {!shown.length && <p>No blocks match “{query}”.</p>}
+  const available = [...coreEditorElements, ...designed]; const matches = searchEditorElements(available, query).filter((item) => category === 'all' || item.category === category)
+  const categories: Array<'all' | EditorElementCategory> = ['all', 'text', 'media', 'layout', 'data', 'designed']
+  const option = (item: EditorElementDefinition) => <button key={`${item.kind}:${item.value}`} type="button" className="template-editor__picker-card" onClick={() => choose(toLibraryItem(item))}><span className="template-editor__picker-card-icon" aria-hidden="true">{item.kind === 'layout' ? '▦' : item.kind === 'block' ? '◆' : '¶'}</span><span><strong>{item.label}</strong><small>{item.description}</small></span></button>
+  return <div role="presentation" className="template-editor__picker-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) close() }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="element-picker-title" className="template-editor__picker">
+      <header className="template-editor__picker-header"><div><h2 id="element-picker-title">Add an element</h2><p>Choose what to place in this area.</p></div><button type="button" className="template-editor__picker-close" aria-label="Close element picker" onClick={close}>×</button></header>
+      <label className="template-editor__picker-search"><span aria-hidden="true">⌕</span><input autoFocus aria-label="Search elements" type="search" placeholder="Search blocks and elements" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      <div role="tablist" aria-label="Block categories" className="template-editor__picker-tabs">{categories.map((item) => <button key={item} type="button" role="tab" aria-selected={category === item} onClick={() => setCategory(item)}>{item === 'all' ? 'All' : editorCategoryLabels[item]}</button>)}</div>
+      <div className="template-editor__picker-results">{category === 'all' && !query ? [...new Set(matches.map((item) => item.category))].map((group) => <section key={group} className="template-editor__picker-section"><h3>{editorCategoryLabels[group]}</h3><div className="template-editor__picker-grid">{matches.filter((item) => item.category === group).map(option)}</div></section>) : <div className="template-editor__picker-grid">{matches.map(option)}</div>}{!matches.length && <div className="template-editor__picker-empty"><strong>No matching blocks</strong><span>Try another search or category.</span></div>}</div>
     </section>
   </div>
 }
