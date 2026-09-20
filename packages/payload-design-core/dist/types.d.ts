@@ -62,6 +62,17 @@ export type TemplateElementStyle = {
     anchor?: string;
     cssClass?: string;
 };
+export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug';
+export type TemplateContentBinding = {
+    source: 'custom';
+} | {
+    source: 'static';
+    value: string;
+} | {
+    source: 'document';
+    field: TemplateDocumentField;
+    preview?: string;
+};
 export type TemplateField = {
     id: string;
     type: 'field';
@@ -70,6 +81,7 @@ export type TemplateField = {
     required?: boolean;
     helpText?: string;
     placeholder?: string;
+    content?: TemplateContentBinding;
     min?: number;
     max?: number;
     options?: string[];

@@ -20,9 +20,13 @@ export async function resolvePostDesign(post: Post): Promise<PostDesignSection[]
   const pendingOverrides = (values.__designOverrides ?? {}) as Record<string, string | number | null>
   const resolved = await resolveContentTemplate(createPayloadDesignStore(payload), { id: post.id, template, templateValues: values as never, designOverrides: { ...((post.designOverrides ?? {}) as Record<string, string | number | null>), ...pendingOverrides } })
   async function mediaValue(reference: unknown) { try { const media = typeof reference === 'object' ? reference : await payload.findByID({ collection: 'media', id: Number(reference), depth: 0, overrideAccess: false }); return { url: mediaURL(media as never) ?? '', alt: (media as { alt?: string }).alt ?? '' } } catch { return null } }
+  function documentValue(field: string): unknown {
+    if (field === 'author') return typeof post.author === 'object' ? post.author.displayName || post.author.email : post.author
+    return post[field as keyof Post]
+  }
   const blockMap = new Map(resolved.blocks.map((block) => [block.id, block]))
   async function renderNodes(nodes: TemplateNode[]): Promise<PostDesignSection[]> { return Promise.all(nodes.map(async (node): Promise<PostDesignSection> => {
-    if (node.type === 'field') { let value = values[node.id]; if (node.fieldType === 'image' && value) value = await mediaValue(value); if (node.fieldType === 'images' && Array.isArray(value)) value = await Promise.all(value.map(mediaValue)); return { key: node.id, kind: 'field', fieldType: node.fieldType, label: node.label, value } }
+    if (node.type === 'field') { let value = node.content?.source === 'static' ? node.content.value : node.content?.source === 'document' ? documentValue(node.content.field) : values[node.id]; if (node.fieldType === 'image' && value) value = await mediaValue(value); if (node.fieldType === 'images' && Array.isArray(value)) value = await Promise.all(value.map(mediaValue)); return { key: node.id, kind: 'field', fieldType: node.fieldType, label: node.label, value } }
     if (node.type === 'layout') return { key: node.id, kind: 'layout', layout: node.layout, children: await renderNodes(node.children ?? []), columns: await Promise.all((node.columns ?? []).map(async (column) => ({ id: column.id, width: column.width, children: await renderNodes(column.children) }))) }
     const block = blockMap.get(node.id); const mapped: Record<string, unknown> = {}; for (const [slot, fieldID] of Object.entries(node.slotMappings)) mapped[slot] = values[fieldID]; for (const key of ['backgroundImage', 'foregroundImage']) if (mapped[key]) mapped[key] = await mediaValue(mapped[key]); return { key: node.id, kind: 'block', rendererKey: block?.blockTypeDoc.rendererKey ?? '', design: block?.blockDesignDoc.design ?? {}, values: mapped as HeroBoardValues }
   })) }

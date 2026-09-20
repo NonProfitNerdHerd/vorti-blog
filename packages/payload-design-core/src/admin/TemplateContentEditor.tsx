@@ -87,7 +87,7 @@ export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath
         </label>
       </div>)}
     </fieldset>)}
-    {templateFields(template.layout ?? []).length > 0 && <div><h3>{template.name} fields</h3>{templateFields(template.layout ?? []).map((field) => <DynamicTemplateField key={field.id} field={field} lexicalSchemaPath={lexicalSchemaPath} value={values[field.id]} disabled={disabled} onChange={(value) => setValues({ ...values, [field.id]: value })} />)}</div>}
+    {templateFields(template.layout ?? []).some((field) => !field.content || field.content.source === 'custom') && <div><h3>{template.name} fields</h3>{templateFields(template.layout ?? []).filter((field) => !field.content || field.content.source === 'custom').map((field) => <DynamicTemplateField key={field.id} field={field} lexicalSchemaPath={lexicalSchemaPath} value={values[field.id]} disabled={disabled} onChange={(value) => setValues({ ...values, [field.id]: value })} />)}</div>}
     {Object.keys(values).filter((key) => !template.sections.some((section) => section.key === key) && !templateFields(template.layout ?? []).some((field) => field.id === key)).length > 0 && <p>Values for removed fields remain stored for recovery.</p>}
   </section>
 }

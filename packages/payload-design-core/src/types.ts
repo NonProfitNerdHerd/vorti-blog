@@ -32,7 +32,12 @@ export type TemplateElementStyle = {
   anchor?: string
   cssClass?: string
 }
-export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; min?: number; max?: number; options?: string[]; relationTo?: string; style?: TemplateElementStyle }
+export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug'
+export type TemplateContentBinding =
+  | { source: 'custom' }
+  | { source: 'static'; value: string }
+  | { source: 'document'; field: TemplateDocumentField; preview?: string }
+export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; content?: TemplateContentBinding; min?: number; max?: number; options?: string[]; relationTo?: string; style?: TemplateElementStyle }
 export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider'
 export type TemplateColumn = { id: string; width: number; children: TemplateNode[] }
 export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large'; style?: TemplateElementStyle }
