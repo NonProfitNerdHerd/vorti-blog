@@ -130,12 +130,17 @@ test.describe('Admin Panel', () => {
       await builder.getByRole('checkbox', { name: 'Required' }).check()
       await builder.getByRole('button', { name: 'Save Element' }).click()
       await right.getByRole('button', { name: 'Add element to Column 2' }).click()
-      await builder.getByRole('button', { name: 'Image', exact: true }).click()
+      const elementPicker = page.getByRole('dialog', { name: 'Add an element' })
+      await expect(elementPicker).toBeVisible()
+      await elementPicker.getByRole('button', { name: 'Image', exact: true }).click()
       await builder.getByRole('textbox', { name: 'Field Label' }).fill('Story Image')
       await builder.getByRole('button', { name: 'Save Element' }).click()
       const libraryToggle = builder.locator('[aria-controls="template-element-library"]')
+      const openCanvasWidth = (await builder.getByRole('main', { name: 'Template Canvas' }).boundingBox())!.width
       await libraryToggle.click()
       await expect(builder.getByRole('heading', { name: 'Element Library' })).toBeHidden()
+      const closedCanvasWidth = (await builder.getByRole('main', { name: 'Template Canvas' }).boundingBox())!.width
+      expect(closedCanvasWidth).toBeGreaterThan(openCanvasWidth)
       await builder.getByRole('button', { name: 'Open Element Library' }).click()
       await expect(builder.getByRole('heading', { name: 'Element Library' })).toBeVisible()
       await builder.getByRole('button', { name: 'Rich Text', exact: true }).click()
