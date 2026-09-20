@@ -1,6 +1,7 @@
 export { designSystemPlugin } from './plugin.js';
 export { createBlockRegistry } from './registry.js';
 export { createRendererRegistry } from './registry.js';
+export { coreEditorElements, editorCategoryLabels, searchEditorElements, toLibraryItem } from './editor-registry.js';
 export { resolveBlockDesign, resolveTemplate, resolveContentTemplate } from './resolver.js';
 export { createPayloadDesignStore, createPayloadDependencySource } from './payload-store.js';
 export { getBlockDesignDependencies, getTemplateDependencies, assertDesignCanDelete, assertTemplateCanDelete } from './dependencies.js';
