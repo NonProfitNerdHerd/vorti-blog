@@ -62,7 +62,7 @@ export type TemplateElementStyle = {
     anchor?: string;
     cssClass?: string;
 };
-export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug';
+export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug' | 'featuredImage';
 export type TemplateCustomField = {
     id: string;
     label: string;

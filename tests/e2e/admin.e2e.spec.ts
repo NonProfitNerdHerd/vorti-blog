@@ -189,6 +189,13 @@ test.describe('Admin Panel', () => {
       await builder.getByRole('button', { name: 'Gallery', exact: true }).click()
       await builder.getByRole('textbox', { name: 'Block Label' }).fill('Issue Photos')
       await builder.getByRole('button', { name: 'Save Element' }).click()
+      await builder.getByRole('button', { name: 'Image', exact: true }).click()
+      await builder.getByRole('textbox', { name: 'Block Label' }).fill('Post Featured Image')
+      await builder.getByRole('combobox', { name: 'Content Source' }).selectOption('document')
+      await expect(builder.getByRole('combobox', { name: 'Document Field' }).locator('option')).toHaveText(['Featured Image'])
+      await builder.getByRole('combobox', { name: 'Document Field' }).selectOption('featuredImage')
+      await expect(builder.getByRole('textbox', { name: 'Preview Text' })).toHaveCount(0)
+      await builder.getByRole('button', { name: 'Save Element' }).click()
       await builder.getByRole('button', { name: 'Heading / Short Text', exact: true }).click()
       await builder.getByRole('textbox', { name: 'Block Label' }).fill('Bound Post Title')
       await builder.getByRole('combobox', { name: 'Content Source' }).selectOption('document')
@@ -217,6 +224,7 @@ test.describe('Admin Panel', () => {
       expect(draft._status).toBe('draft')
       expect(JSON.stringify(draft.layout)).toContain('Issue Title')
       expect(JSON.stringify(draft.layout)).toContain('Main Story')
+      expect(JSON.stringify(draft.layout)).toContain('"field":"featuredImage"')
       expect(JSON.stringify(draft.layout)).toContain('"width":50')
       expect(JSON.stringify(draft.layout)).toContain('"fontSize":"large"')
       expect(JSON.stringify(draft.layout)).toContain('"anchor":"main-story"')
@@ -267,7 +275,7 @@ test.describe('Admin Panel', () => {
       const content = { root: { type: 'root', format: '', indent: 0, version: 1, direction: 'ltr', children: [
         { type: 'paragraph', format: '', indent: 0, version: 1, direction: 'ltr', children: [{ type: 'text', text: 'Newsletter body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] },
       ] } }
-      const postResponse = await api.post(`${apiURL}/posts`, { data: { title: `Newsletter Proof ${suffix}`, slug: `newsletter-proof-${suffix}`, author: users.docs[0].id, content,
+      const postResponse = await api.post(`${apiURL}/posts`, { data: { title: `Newsletter Proof ${suffix}`, slug: `newsletter-proof-${suffix}`, author: users.docs[0].id, featuredImage: media.id, content,
         designTemplate: templateID, templateValues: { [fieldID('Issue Title')]: 'November 2026', [fieldID('Issue Subtitle')]: 'Monthly Newsletter', [fieldID('Hero Image')]: media.id,
           [fieldID('Main Story')]: lexicalText('test rich text'), [fieldID('Story Image')]: media.id, [fieldID('Closing Message')]: lexicalText('test closing text'), [fieldID('Issue Photos')]: [media.id],
           [draft.customFields[0].id]: 'Custom field heading' }, _status: 'published' } })
@@ -278,6 +286,9 @@ test.describe('Admin Panel', () => {
       await expect(page.locator('.template-field--shortText').filter({ hasText: `Newsletter Proof ${suffix}` })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Updated directly on canvas' })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'Custom field heading' })).toBeVisible()
+      const templateImages = page.locator('img.template-field--image[alt="Newsletter test image"]')
+      await expect(templateImages).toHaveCount(2)
+      await expect(templateImages.last()).toBeVisible()
       await expect(page.getByText('test rich text')).toBeVisible()
       await expect(page.getByText('test closing text')).toBeVisible()
     } finally {
