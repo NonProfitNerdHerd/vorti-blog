@@ -14,6 +14,7 @@ export const Posts: CollectionConfig = {
     group: 'Content',
     useAsTitle: 'title',
     defaultColumns: ['title', 'author', '_status', 'publishedAt', 'updatedAt'],
+    components: { edit: { beforeDocumentControls: ['./components/DocumentPreviewActions#DocumentPreviewActions'] } },
   },
   access: {
     read: publishedOrAuthenticated,
