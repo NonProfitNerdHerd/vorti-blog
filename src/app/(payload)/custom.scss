@@ -8,3 +8,46 @@
   font-size: 13px;
   line-height: 1.4;
 }
+
+.nav-group__content .nav__link {
+  padding-left: 14px;
+}
+
+.template-content-editor {
+  margin-top: 24px;
+
+  &__section {
+    border: 0;
+    margin: 0 0 24px;
+    padding: 0;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 20px;
+    width: 100%;
+
+    > label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+
+    input:not([type='checkbox']),
+    textarea,
+    select {
+      box-sizing: border-box;
+      min-height: 40px;
+      width: 100%;
+    }
+  }
+
+  &__toggle {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+  }
+}

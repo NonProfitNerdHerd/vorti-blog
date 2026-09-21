@@ -238,6 +238,14 @@ test.describe('Admin Panel', () => {
       await page.getByRole('option', { name }).click()
       await expect(page.locator('.tabs-field__tabs').getByRole('button', { name: 'Content', exact: true })).toHaveCount(0)
       await expect(page.getByRole('textbox', { name: 'Issue Title *' })).toBeVisible()
+      const titleBox = (await page.getByRole('textbox', { name: 'Title *', exact: true }).boundingBox())!
+      const slugBox = (await page.getByRole('textbox', { name: 'Slug *', exact: true }).boundingBox())!
+      const issueTitleBox = (await page.getByRole('textbox', { name: 'Issue Title *', exact: true }).boundingBox())!
+      const excerptBox = (await page.getByRole('textbox', { name: 'Excerpt', exact: true }).boundingBox())!
+      expect(titleBox.y).toBeLessThan(slugBox.y)
+      expect(slugBox.y).toBeLessThan(issueTitleBox.y)
+      expect(issueTitleBox.y).toBeLessThan(excerptBox.y)
+      expect(issueTitleBox.width).toBeGreaterThanOrEqual(titleBox.width * 0.95)
       await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Main Story' }).getByRole('textbox')).toBeVisible()
       await expect(page.getByText('Hero Image')).toBeVisible()
       await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Closing Message' }).getByRole('textbox')).toBeVisible()

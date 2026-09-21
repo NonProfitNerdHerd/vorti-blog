@@ -29,8 +29,15 @@ export function designSystemPlugin(options = {}) {
             ];
             const tabs = collection.fields.find((field) => field.type === 'tabs');
             const templateTab = tabs?.tabs.find((tab) => 'label' in tab && tab.label === 'Template');
-            if (templateTab)
-                templateTab.fields = [...templateFields, ...templateTab.fields];
+            if (templateTab) {
+                const excerptIndex = templateTab.fields.findIndex((field) => 'name' in field && field.name === 'excerpt');
+                const insertionIndex = excerptIndex >= 0 ? excerptIndex : templateTab.fields.length;
+                templateTab.fields = [
+                    ...templateTab.fields.slice(0, insertionIndex),
+                    ...templateFields,
+                    ...templateTab.fields.slice(insertionIndex),
+                ];
+            }
             else
                 collection.fields = [...collection.fields, ...templateFields];
             collection.fields = [...collection.fields,

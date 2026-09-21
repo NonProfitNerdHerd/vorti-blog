@@ -62,19 +62,19 @@ export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath
   if (!templateID) return <p>Select a published Template to edit its sections.</p>
   if (error) return <p role="alert">{error}</p>
   if (!template || String(template.id) !== String(templateID)) return <p>Loading Template sections…</p>
-  return <section><h3>Template content</h3>
-    {template.sections.map((section) => <fieldset key={section.key} style={{ marginBottom: '1.5rem', padding: '1rem' }}>
+  return <section className="template-content-editor"><h3>Template content</h3>
+    {template.sections.map((section) => <fieldset className="template-content-editor__section" key={section.key}>
       <legend>{section.name}{section.required ? ' (required)' : ''}</legend>
       {section.required && (sections[section.key]?.fields ?? []).some((field) => field.required && !(values[section.key] as Record<string, unknown> | undefined)?.[field.key]) &&
         <p role="alert">This section is missing required content. Fill it before publishing this Post.</p>}
-      {section.allowDesignOverride && <label>Design
+      {section.allowDesignOverride && <label className="template-content-editor__field">Design
         <select disabled={disabled} value={String(overrides[section.key] ?? '')} onChange={(event) =>
           setOverrides({ ...overrides, [section.key]: event.target.value || null })}>
           <option value="">Use Template Default</option>
           {sections[section.key]?.designs.map((design) => <option key={design.id} value={String(design.id)}>{design.name}</option>)}
         </select>
       </label>}
-      {(sections[section.key]?.fields ?? []).map((field) => <div key={field.key} style={{ marginTop: '0.75rem' }}>
+      {(sections[section.key]?.fields ?? []).map((field) => <div className="template-content-editor__field" key={field.key}>
         <label>{field.label}{field.required ? ' *' : ''}
           {field.kind === 'textarea' ? <textarea disabled={disabled} value={String((values[section.key] as Record<string, unknown> | undefined)?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, event.target.value)} />
             : field.kind === 'boolean' ? <input disabled={disabled} type="checkbox" checked={Boolean((values[section.key] as Record<string, unknown> | undefined)?.[field.key])} onChange={(event) => update(section.key, field.key, event.target.checked)} />
@@ -82,12 +82,12 @@ export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath
               <option value="">Choose Media</option>
               {mediaOptions.map((media) => <option key={media.id} value={String(media.id)}>{media.alt || media.filename || media.id}</option>)}
             </select>
-            : field.kind === 'group' ? <div>{field.children?.map((child) => <label key={child.key}>{child.label}<input disabled={disabled} value={String(((values[section.key] as Record<string, unknown> | undefined)?.[field.key] as Record<string, unknown> | undefined)?.[child.key] ?? '')} onChange={(event) => update(section.key, field.key, { ...((((values[section.key] as Record<string, unknown> | undefined)?.[field.key]) as Record<string, unknown>) ?? {}), [child.key]: event.target.value })} /></label>)}</div>
+            : field.kind === 'group' ? <div>{field.children?.map((child) => <label className="template-content-editor__field" key={child.key}>{child.label}<input disabled={disabled} value={String(((values[section.key] as Record<string, unknown> | undefined)?.[field.key] as Record<string, unknown> | undefined)?.[child.key] ?? '')} onChange={(event) => update(section.key, field.key, { ...((((values[section.key] as Record<string, unknown> | undefined)?.[field.key]) as Record<string, unknown>) ?? {}), [child.key]: event.target.value })} /></label>)}</div>
             : <input disabled={disabled} type={field.kind === 'number' ? 'number' : field.kind === 'date' ? 'date' : 'text'} value={String((values[section.key] as Record<string, unknown> | undefined)?.[field.key] ?? '')} onChange={(event) => update(section.key, field.key, field.kind === 'number' ? Number(event.target.value) : event.target.value)} />}
         </label>
       </div>)}
     </fieldset>)}
-    {(() => { const legacy = templateFields(template.layout ?? []).filter((field) => !field.content || field.content.source === 'custom'); const custom = template.customFields ?? []; const all = [...custom.map((field) => ({ ...field, type: 'field' as const })), ...legacy.filter((field) => !custom.some((item) => item.id === field.id))]; return all.length > 0 && <div><h3>{template.name} fields</h3>{all.map((field) => <DynamicTemplateField key={field.id} field={field} lexicalSchemaPath={lexicalSchemaPath} value={values[field.id]} disabled={disabled} onChange={(value) => setValues({ ...values, [field.id]: value })} />)}</div> })()}
+    {(() => { const legacy = templateFields(template.layout ?? []).filter((field) => !field.content || field.content.source === 'custom'); const custom = template.customFields ?? []; const all = [...custom.map((field) => ({ ...field, type: 'field' as const })), ...legacy.filter((field) => !custom.some((item) => item.id === field.id))]; return all.length > 0 && <div><h3>{template.name} fields</h3>{all.map((field) => <div className="template-content-editor__field" key={field.id}><DynamicTemplateField field={field} lexicalSchemaPath={lexicalSchemaPath} value={values[field.id]} disabled={disabled} onChange={(value) => setValues({ ...values, [field.id]: value })} /></div>)}</div> })()}
     {Object.keys(values).filter((key) => !template.sections.some((section) => section.key === key) && !templateFields(template.layout ?? []).some((field) => field.id === key) && !(template.customFields ?? []).some((field) => field.id === key)).length > 0 && <p>Values for removed fields remain stored for recovery.</p>}
   </section>
 }
@@ -95,7 +95,7 @@ export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath
 function DynamicTemplateField({ field, lexicalSchemaPath, value, disabled, onChange }: { field: TemplateField; lexicalSchemaPath: string; value: unknown; disabled: boolean; onChange: (value: unknown) => void }) {
   const label = `${field.label}${field.required ? ' *' : ''}`
   const { config } = useConfig()
-  if (field.fieldType === 'toggle') return <label>{label}<input disabled={disabled} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /></label>
+  if (field.fieldType === 'toggle') return <label className="template-content-editor__toggle">{label}<input disabled={disabled} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /></label>
   if (field.fieldType === 'image' || field.fieldType === 'images') return <UploadInput api={config.routes.api} allowCreate hasMany={field.fieldType === 'images'} isSortable={field.fieldType === 'images'} label={label} description={field.helpText} onChange={onChange} path={`templateValues.${field.id}`} readOnly={disabled} relationTo="media" required={field.required} serverURL={config.serverURL} showError={false} value={value as never} />
   if (field.fieldType === 'richText') return <RenderLexical field={{ name: field.id, type: 'richText', label, required: field.required, admin: { description: field.helpText, readOnly: false } }} path={`templateValues.${field.id}`} schemaPath={lexicalSchemaPath} value={value as never} setValue={(next) => onChange(next)} />
   if (field.fieldType === 'longText') return <label>{label}<textarea disabled={disabled} aria-label={label} placeholder={field.placeholder} value={String(value ?? '')} onChange={(event) => onChange(event.target.value)} /></label>
