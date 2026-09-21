@@ -1,4 +1,4 @@
-import type { Access, CollectionSlug, Plugin } from 'payload'
+import type { Access, CollectionSlug, Field, Plugin, TabsField } from 'payload'
 import { createDesignCollections } from './collections'
 import type { BlockRegistration, DesignEventHandler } from './types'
 import { createBlockRegistry } from './registry'
@@ -34,10 +34,16 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
     )]
     for (const collection of collections) {
       if (!contentCollections.includes(collection.slug)) continue
-      collection.fields = [...collection.fields,
+      const templateFields: Field[] = [
         { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates as CollectionSlug,
           filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
         { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
+      ]
+      const tabs = collection.fields.find((field): field is TabsField => field.type === 'tabs')
+      const templateTab = tabs?.tabs.find((tab) => 'label' in tab && tab.label === 'Template')
+      if (templateTab) templateTab.fields = [...templateFields, ...templateTab.fields]
+      else collection.fields = [...collection.fields, ...templateFields]
+      collection.fields = [...collection.fields,
         { name: 'designOverrides', type: 'json', defaultValue: {}, hooks: { afterRead: [({ value }) => value ?? {}] }, admin: { hidden: true } },
       ]
       collection.hooks = {

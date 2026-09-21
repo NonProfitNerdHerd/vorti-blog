@@ -2,6 +2,12 @@ import type { CollectionConfig } from 'payload'
 import { authenticated, publishedOrAuthenticated } from '../access/content'
 import { slugField } from '../fields/slug'
 
+const hasRichTextContent = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false
+  const root = (value as { root?: { children?: unknown[] } }).root
+  return Array.isArray(root?.children) && root.children.length > 0
+}
+
 export const Posts: CollectionConfig = {
   slug: 'posts',
   admin: {
@@ -21,12 +27,33 @@ export const Posts: CollectionConfig = {
       type: 'tabs',
       tabs: [
         {
-          label: 'Content',
+          label: 'Template',
           fields: [
             { name: 'title', type: 'text', required: true },
             slugField('title'),
             { name: 'excerpt', type: 'textarea' },
-            { name: 'content', type: 'richText', required: true },
+          ],
+        },
+        {
+          label: 'Content',
+          admin: {
+            condition: (data) => !data?.designTemplate,
+          },
+          fields: [
+            {
+              name: 'content',
+              type: 'richText',
+              validate: (value, { siblingData }) => (
+                (siblingData as { designTemplate?: unknown })?.designTemplate || hasRichTextContent(value)
+                  ? true
+                  : 'Content is required when no Template is selected.'
+              ),
+            },
+          ],
+        },
+        {
+          label: 'Featured Image',
+          fields: [
             { name: 'featuredImage', type: 'upload', relationTo: 'media' },
           ],
         },

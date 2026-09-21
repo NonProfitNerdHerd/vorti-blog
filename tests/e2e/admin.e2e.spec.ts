@@ -36,6 +36,24 @@ test.describe('Admin Panel', () => {
     await expect(dashboardArtifact).toBeVisible()
   })
 
+  test('defaults the Admin navigation to Content open with larger group labels', async () => {
+    await page.goto('http://localhost:3000/admin').catch((error: Error) => {
+      if (!error.message.includes('ERR_ABORTED')) throw error
+    })
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.locator('[data-admin-nav-defaults]')).toBeAttached()
+    const content = page.getByRole('button', { name: 'Content', exact: true })
+    await expect(content).toHaveClass(/nav-group__toggle--open/)
+    for (const label of ['Design', 'Site', 'Admin']) {
+      await expect(page.getByRole('button', { name: label, exact: true })).toHaveClass(/nav-group__toggle--collapsed/)
+    }
+    const sizes = await page.evaluate(() => ({
+      group: Number.parseFloat(getComputedStyle(document.querySelector('.nav-group__label')!).fontSize),
+      child: Number.parseFloat(getComputedStyle(document.querySelector('.nav__link-label')!).fontSize),
+    }))
+    expect(sizes.group).toBeGreaterThan(sizes.child)
+  })
+
   test('can navigate to list view', async () => {
     await page.goto('http://localhost:3000/admin/collections/users')
     await expect(page).toHaveURL('http://localhost:3000/admin/collections/users')
@@ -53,6 +71,7 @@ test.describe('Admin Panel', () => {
   test('shows Block Creator and Templates under Design', async () => {
     await page.goto('http://localhost:3000/admin')
     await expect(page.getByText('Design', { exact: true }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Design', exact: true }).click()
     await expect(page.getByRole('link', { name: 'Block Creator', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Templates', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Design Variants', exact: true })).toHaveCount(0)
@@ -209,9 +228,15 @@ test.describe('Admin Panel', () => {
       await builder.getByRole('button', { name: 'Publish Template' }).click()
       expect((await publishResponse).ok()).toBe(true)
       await page.goto('http://localhost:3000/admin/collections/posts/create')
+      await expect(page.getByRole('button', { name: 'Template', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Content', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Featured Image', exact: true })).toBeVisible()
+      const tabLabels = await page.locator('.tabs-field__tabs button').allTextContents()
+      expect(tabLabels).toEqual(['Template', 'Content', 'Featured Image', 'Organization', 'Publishing', 'SEO'])
       const templateSelect = page.locator('#field-designTemplate [role="combobox"]')
       await templateSelect.fill(name)
       await page.getByRole('option', { name }).click()
+      await expect(page.locator('.tabs-field__tabs').getByRole('button', { name: 'Content', exact: true })).toHaveCount(0)
       await expect(page.getByRole('textbox', { name: 'Issue Title *' })).toBeVisible()
       await expect(page.locator('.rich-text-lexical').filter({ hasText: 'Main Story' }).getByRole('textbox')).toBeVisible()
       await expect(page.getByText('Hero Image')).toBeVisible()

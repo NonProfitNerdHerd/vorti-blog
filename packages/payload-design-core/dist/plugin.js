@@ -22,11 +22,20 @@ export function designSystemPlugin(options = {}) {
         for (const collection of collections) {
             if (!contentCollections.includes(collection.slug))
                 continue;
-            collection.fields = [...collection.fields,
+            const templateFields = [
                 { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates,
                     filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
                 { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
-                { name: 'designOverrides', type: 'json', defaultValue: {}, hooks: { afterRead: [({ value }) => value ?? {}] }, admin: { hidden: true } },];
+            ];
+            const tabs = collection.fields.find((field) => field.type === 'tabs');
+            const templateTab = tabs?.tabs.find((tab) => 'label' in tab && tab.label === 'Template');
+            if (templateTab)
+                templateTab.fields = [...templateFields, ...templateTab.fields];
+            else
+                collection.fields = [...collection.fields, ...templateFields];
+            collection.fields = [...collection.fields,
+                { name: 'designOverrides', type: 'json', defaultValue: {}, hooks: { afterRead: [({ value }) => value ?? {}] }, admin: { hidden: true } },
+            ];
             collection.hooks = {
                 ...collection.hooks,
                 beforeChange: [
