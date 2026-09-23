@@ -14,3 +14,4 @@ export { validateContentValues, validateFieldDefinitions, validateTemplatedConte
 export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, removeTemplateNode, moveTemplateNode, collectFieldIDs, extractTemplateNode, insertTemplateNode, moveTemplateNodeTo } from './template-tree'
 export type { ValidationIssue } from './validation'
 export type * from './types'
+export type * from './builder/contracts'
