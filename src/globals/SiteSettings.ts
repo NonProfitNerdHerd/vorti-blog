@@ -1,13 +1,13 @@
 import type { Field, GlobalConfig } from 'payload'
-import { authenticated } from '../access/content'
+import { canManageDesign } from '../access/design'
 
 const social = (name: string, label: string): Field => ({ name, label, type: 'text' })
 
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
   label: 'Site Settings',
-  admin: { group: 'Site' },
-  access: { read: () => true, update: authenticated },
+  admin: { group: 'Site Design' },
+  access: { read: () => true, update: canManageDesign },
   fields: [
     {
       type: 'tabs',
@@ -21,6 +21,15 @@ export const SiteSettings: GlobalConfig = {
             { name: 'logo', type: 'upload', relationTo: 'media' },
             { name: 'darkLogo', label: 'Dark logo', type: 'upload', relationTo: 'media' },
             { name: 'favicon', type: 'upload', relationTo: 'media' },
+            { name: 'homepage', type: 'relationship', relationTo: 'pages' },
+            { name: 'blogPage', label: 'Blog page', type: 'relationship', relationTo: 'pages' },
+            {
+              name: 'defaultSiteTemplate',
+              label: 'Default Site Template',
+              type: 'relationship',
+              relationTo: 'site-templates',
+              admin: { description: 'The authoritative Site Template used as the global visual shell.' },
+            },
           ],
         },
         {

@@ -52,8 +52,8 @@ const menuItems = (name: string, label: string): Field => ({
 
 export const Navigation: GlobalConfig = {
   slug: 'navigation',
-  label: 'Navigation',
-  admin: { group: 'Site' },
+  label: 'Menus',
+  admin: { group: 'Site Design' },
   access: { read: () => true, update: authenticated },
   fields: [menuItems('primary', 'Primary navigation'), menuItems('footer', 'Footer navigation')],
 }

@@ -15,3 +15,11 @@ export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, rem
 export type { ValidationIssue } from './validation'
 export type * from './types'
 export type * from './builder/contracts'
+export {
+  ADDITIONAL_CSS_MAX_LENGTH,
+  SITE_SHELL_ELEMENT_KINDS,
+  SITE_SHELL_LAYOUT_KINDS,
+  validateAdditionalCSS,
+  validateSiteShellNodes,
+} from './site-shell'
+export type * from './site-shell'

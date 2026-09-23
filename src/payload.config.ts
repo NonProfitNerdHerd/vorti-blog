@@ -20,6 +20,7 @@ import { Posts } from './collections/Posts'
 import { Pages } from './collections/Pages'
 import { Categories } from './collections/Categories'
 import { Tags } from './collections/Tags'
+import { SiteTemplates } from './collections/SiteTemplates'
 import { Navigation } from './globals/Navigation'
 import { SiteSettings } from './globals/SiteSettings'
 import { organizePageHierarchy } from './plugins/organizePageHierarchy'
@@ -97,7 +98,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, Users],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users],
   globals: [Navigation, SiteSettings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',

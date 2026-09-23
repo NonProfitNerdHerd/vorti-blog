@@ -72,6 +72,7 @@ export interface Config {
     categories: Category;
     tags: Tag;
     media: Media;
+    'site-templates': SiteTemplate;
     users: User;
     'design-block-types': DesignBlockType;
     'design-block-designs': DesignBlockDesign;
@@ -99,6 +100,7 @@ export interface Config {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'site-templates': SiteTemplatesSelect<false> | SiteTemplatesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
     'design-block-designs': DesignBlockDesignsSelect<false> | DesignBlockDesignsSelect<true>;
@@ -173,8 +175,18 @@ export interface Post {
    * Generated from title when left empty. You can edit it.
    */
   slug: string;
+  designTemplate?: (number | null) | DesignTemplate;
+  templateValues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   excerpt?: string | null;
-  content: {
+  content?: {
     root: {
       type: string;
       children: {
@@ -188,7 +200,7 @@ export interface Post {
       version: number;
     };
     [k: string]: unknown;
-  };
+  } | null;
   featuredImage?: (number | null) | Media;
   categories?: (number | Category)[] | null;
   tags?: (number | Tag)[] | null;
@@ -204,16 +216,6 @@ export interface Post {
      */
     image?: (number | null) | Media;
   };
-  designTemplate?: (number | null) | DesignTemplate;
-  templateValues?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
   designOverrides?:
     | {
         [k: string]: unknown;
@@ -226,115 +228,6 @@ export interface Post {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: number;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: number;
-  name: string;
-  /**
-   * Generated from name when left empty. You can edit it.
-   */
-  slug: string;
-  description?: string | null;
-  image?: (number | null) | Media;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags".
- */
-export interface Tag {
-  id: number;
-  name: string;
-  /**
-   * Generated from name when left empty. You can edit it.
-   */
-  slug: string;
-  description?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  /**
-   * Administrator and Designer can manage global designs. Editor can edit content.
-   */
-  role?: ('administrator' | 'designer' | 'editor') | null;
-  /**
-   * Only enabled profiles appear on the public author route.
-   */
-  profilePublic?: boolean | null;
-  displayName?: string | null;
-  /**
-   * Generated from displayName when left empty. You can edit it.
-   */
-  slug?: string | null;
-  profilePhoto?: (number | null) | Media;
-  shortBio?: string | null;
-  biography?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  website?: string | null;
-  twitterURL?: string | null;
-  youtubeURL?: string | null;
-  facebookURL?: string | null;
-  instagramURL?: string | null;
-  githubURL?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-  collection: 'users';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -450,6 +343,115 @@ export interface DesignBlockDesign {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: number;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  image?: (number | null) | Media;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  /**
+   * Administrator and Designer can manage global designs. Editor can edit content.
+   */
+  role?: ('administrator' | 'designer' | 'editor') | null;
+  /**
+   * Only enabled profiles appear on the public author route.
+   */
+  profilePublic?: boolean | null;
+  displayName?: string | null;
+  /**
+   * Generated from displayName when left empty. You can edit it.
+   */
+  slug?: string | null;
+  profilePhoto?: (number | null) | Media;
+  shortBio?: string | null;
+  biography?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  website?: string | null;
+  twitterURL?: string | null;
+  youtubeURL?: string | null;
+  facebookURL?: string | null;
+  instagramURL?: string | null;
+  githubURL?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
@@ -490,6 +492,142 @@ export interface Page {
      * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
      */
     image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-templates".
+ */
+export interface SiteTemplate {
+  id: number;
+  name: string;
+  /**
+   * Generated from name when left empty. You can edit it.
+   */
+  slug: string;
+  description?: string | null;
+  header: {
+    /**
+     * Structured Site Shell nodes. A visual editor will be added in a later phase.
+     */
+    layout:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    /**
+     * Structured region settings for width, spacing, background, border, position, and stacking.
+     */
+    settings?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  footer: {
+    /**
+     * Structured Site Shell nodes. A visual editor will be added in a later phase.
+     */
+    layout:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    /**
+     * Structured region settings for width, spacing, background, border, position, and stacking.
+     */
+    settings?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  /**
+   * Body and heading fonts, base size, line height, weight, spacing, and H1-H6 settings.
+   */
+  typography?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Background, surface, text, heading, brand, border, and feedback colors.
+   */
+  colors?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Primary and secondary button definitions.
+   */
+  buttons?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Content widths, page padding, and section/content spacing.
+   */
+  dimensions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Breakpoints, mobile spacing, type size, column stacking, and navigation defaults.
+   */
+  mobile?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Stored for future Site Template rendering. It is not rendered in this phase.
+   */
+  additionalCSS?: string | null;
+  assignment: {
+    mode: 'default';
+    priority: number;
   };
   updatedAt: string;
   createdAt: string;
@@ -938,6 +1076,10 @@ export interface PayloadLockedDocument {
         value: number | Media;
       } | null)
     | ({
+        relationTo: 'site-templates';
+        value: number | SiteTemplate;
+      } | null)
+    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
@@ -1018,6 +1160,8 @@ export interface PayloadMigration {
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
+  designTemplate?: T;
+  templateValues?: T;
   excerpt?: T;
   content?: T;
   featuredImage?: T;
@@ -1034,8 +1178,6 @@ export interface PostsSelect<T extends boolean = true> {
         description?: T;
         image?: T;
       };
-  designTemplate?: T;
-  templateValues?: T;
   designOverrides?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1107,6 +1249,42 @@ export interface MediaSelect<T extends boolean = true> {
   filesize?: T;
   width?: T;
   height?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-templates_select".
+ */
+export interface SiteTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
+  header?:
+    | T
+    | {
+        layout?: T;
+        settings?: T;
+      };
+  footer?:
+    | T
+    | {
+        layout?: T;
+        settings?: T;
+      };
+  typography?: T;
+  colors?: T;
+  buttons?: T;
+  dimensions?: T;
+  mobile?: T;
+  additionalCSS?: T;
+  assignment?:
+    | T
+    | {
+        mode?: T;
+        priority?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1609,6 +1787,12 @@ export interface SiteSetting {
   logo?: (number | null) | Media;
   darkLogo?: (number | null) | Media;
   favicon?: (number | null) | Media;
+  homepage?: (number | null) | Page;
+  blogPage?: (number | null) | Page;
+  /**
+   * The authoritative Site Template used as the global visual shell.
+   */
+  defaultSiteTemplate?: (number | null) | SiteTemplate;
   /**
    * Hex color, for example #18243a.
    */
@@ -1695,6 +1879,9 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   logo?: T;
   darkLogo?: T;
   favicon?: T;
+  homepage?: T;
+  blogPage?: T;
+  defaultSiteTemplate?: T;
   primaryColor?: T;
   secondaryColor?: T;
   accentColor?: T;
@@ -1740,6 +1927,7 @@ export interface TaskCreateCollectionExport {
       | 'categories'
       | 'tags'
       | 'media'
+      | 'site-templates'
       | 'users'
       | 'design-block-types'
       | 'design-block-designs'
