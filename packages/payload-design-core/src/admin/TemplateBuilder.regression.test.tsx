@@ -50,6 +50,7 @@ const layout: TemplateNode[] = [
       { id: 'right', width: 40, children: [] },
     ],
   },
+  { id: 'closing', type: 'field', fieldType: 'longText', label: 'Closing message', placeholder: 'Goodbye' },
 ]
 
 function field(value: unknown) {
@@ -128,5 +129,57 @@ describe('TemplateBuilder regression boundary', () => {
     fireEvent.change(screen.getByLabelText('Content Source'), { target: { value: 'document' } })
     expect((screen.getByLabelText('Document Field') as unknown as HTMLSelectElement).value).toBe('featuredImage')
     expect(screen.getByRole('option', { name: 'Featured Image' })).toBeTruthy()
+  })
+
+  it('adds, moves, deletes, and edits nodes through the extracted canvas controls', () => {
+    render(<TemplateBuilder configuredCollections={['posts']} />)
+    const setLayout = payloadForm.fields.get('layout')!.setValue
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paragraph' }))
+    expect(screen.getByRole('heading', { name: 'Configure Paragraph' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
+    expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'field', fieldType: 'longText' })]))
+
+    setLayout.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Move Closing message up' }))
+    expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: 'closing' })]))
+
+    setLayout.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Closing message' }))
+    expect(setLayout).toHaveBeenCalledWith(expect.not.arrayContaining([expect.objectContaining({ id: 'closing' })]))
+
+    setLayout.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Story heading' }))
+    fireEvent.change(screen.getByLabelText('Block Label'), { target: { value: 'Updated story heading' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
+    expect(JSON.stringify(setLayout.mock.calls.at(-1)?.[0])).toContain('Updated story heading')
+  })
+
+  it('keeps Custom Field updates and draft/publish submission behavior', async () => {
+    render(<TemplateBuilder configuredCollections={['posts']} />)
+    fireEvent.click(screen.getByRole('tab', { name: /Custom Fields/ }))
+    fireEvent.click(screen.getByRole('button', { name: '+ Add field' }))
+    expect(payloadForm.fields.get('customFields')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ label: 'New field', fieldType: 'longText' })]))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+    await waitFor(() => expect(payloadForm.submit).toHaveBeenCalledWith({ overrides: { slug: 'newsletter', status: 'draft', _status: 'draft' } }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publish Changes' }))
+    await waitFor(() => expect(payloadForm.submit).toHaveBeenCalledWith({ overrides: { slug: 'newsletter', status: 'published', _status: 'published' } }))
+  })
+
+  it('keeps registered Designed Blocks available for insertion', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input)
+      const docs = url.includes('design-block-types')
+        ? [{ id: 7, name: 'Hero Board', rendererKey: 'hero-board', fields: [] as never[] }]
+        : url.includes('design-block-designs') ? [{ id: 9, name: 'Feature Hero', blockType: 7 }] : []
+      return new Response(JSON.stringify({ docs }), { status: 200 })
+    }))
+    render(<TemplateBuilder configuredCollections={['posts']} registeredRendererKeys={['hero-board']} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Hero Board' }))
+    expect(screen.getByRole('heading', { name: 'Configure Hero Board' })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Design'), { target: { value: '9' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
+    expect(payloadForm.fields.get('layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'block', blockType: 7, blockDesign: 9 })]))
   })
 })

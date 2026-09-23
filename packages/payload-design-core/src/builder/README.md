@@ -1,8 +1,8 @@
 # Builder Core boundary
 
-This directory defines the boundary for a future shared visual builder. It is
-type-only in this phase. `TemplateBuilder.tsx` continues to own all current
-runtime behavior.
+This directory contains the schema-neutral interaction layer shared by visual
+builders. `TemplateBuilder.tsx` consumes this layer while retaining all
+Page/Post Template document behavior in its content adapter.
 
 ## Architectural ownership
 
@@ -19,10 +19,10 @@ runtime behavior.
 An adapter must not expose another system's fields as if they belong to its
 document. Builder Core coordinates editing mechanics only.
 
-## Approved extraction boundary
+## Extracted responsibilities
 
-The following parts of `admin/TemplateBuilder.tsx` are schema-neutral and can
-be extracted in the next phase after their regression tests remain green:
+The following parts of `admin/TemplateBuilder.tsx` are now provided by Builder
+Core:
 
 1. `LibraryButton`
 2. `DropArea`
@@ -32,10 +32,14 @@ be extracted in the next phase after their regression tests remain green:
 5. Recursive List View traversal in `ListTree`
 6. DnD sensor setup and the distinction between library insertion and moving
    an existing node
-7. Sidebar, canvas, inspector, and responsive preview framing
-8. Selection state and open/close state for the library and inspector
+7. The Settings, Style, and Advanced inspector tab shell
 
-These parts remain specific to the current Page/Post Template adapter:
+Template Builder still owns selection and sidebar visibility because those
+states currently coordinate Template-specific panels. Responsive preview
+controls were not extracted because the existing Template Builder does not yet
+have such controls; this phase does not introduce new UX.
+
+These parts remain specific to the Page/Post Template adapter:
 
 1. Payload paths such as `layout`, `customFields`, `sections`, and
    `allowedCollections`
