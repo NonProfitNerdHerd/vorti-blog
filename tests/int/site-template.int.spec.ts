@@ -45,6 +45,21 @@ describe('Site Template persistence foundation', () => {
     expect(stored.header.layout).not.toEqual(stored.footer.layout)
   })
 
+  it('keeps draft shell edits private until publication and restores saved trees', async () => {
+    const designer = await payload.findByID({ collection: 'users', id: designerID })
+    const footerBefore = (await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0 })).footer.layout
+    const draftLayout = [{ id: 'draft-header', type: 'layout' as const, layout: 'container' as const, children: [{ id: 'draft-name', type: 'element' as const, element: 'siteName' as const, props: { source: 'siteSettings.siteName' } }] }]
+    await payload.update({ collection: 'site-templates', id: templateID, draft: true, overrideAccess: false, user: designer, data: { header: { layout: draftLayout }, _status: 'draft' } })
+    const publicVersion = await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0, overrideAccess: false })
+    expect(JSON.stringify(publicVersion.header.layout)).not.toContain('draft-header')
+    const savedDraft = await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0, draft: true, overrideAccess: false, user: designer })
+    expect(savedDraft.header.layout).toEqual(draftLayout)
+    expect(savedDraft.footer.layout).toEqual(footerBefore)
+    const published = await payload.update({ collection: 'site-templates', id: templateID, overrideAccess: false, user: designer, data: { header: { layout: draftLayout }, _status: 'published' } })
+    expect(JSON.stringify(published.header.layout)).toContain('draft-header')
+    expect(published.footer.layout).toEqual(footerBefore)
+  })
+
   it('allows published reads but keeps drafts private', async () => {
     const designer = await payload.findByID({ collection: 'users', id: designerID })
     const published = await payload.find({ collection: 'site-templates', where: { id: { equals: templateID } }, overrideAccess: false })

@@ -4,7 +4,7 @@ import {
   validateSiteShellNodes,
 } from '@design-system/payload-design-core'
 import { canManageDesign, isDesignManager } from '../access/design'
-import { slugField } from '../fields/slug'
+import { slugify } from '../fields/slug'
 
 const publishedOrDesignManager = ({ req }: Parameters<NonNullable<CollectionConfig['access']>['read']>[0]) =>
   isDesignManager(req.user as { role?: string } | null | undefined) ? true : { _status: { equals: 'published' } }
@@ -13,7 +13,7 @@ const regionSettings = (): Field => ({
   name: 'settings',
   type: 'json',
   defaultValue: { widthMode: 'contained', position: 'static', transparent: false },
-  admin: { description: 'Structured region settings for width, spacing, background, border, position, and stacking.' },
+  admin: { hidden: true, description: 'Structured region settings for width, spacing, background, border, position, and stacking.' },
 })
 
 const shellRegion = (name: 'header' | 'footer', label: string): Field => ({
@@ -27,7 +27,7 @@ const shellRegion = (name: 'header' | 'footer', label: string): Field => ({
       required: true,
       defaultValue: [],
       validate: validateSiteShellNodes,
-      admin: { description: 'Structured Site Shell nodes. A visual editor will be added in a later phase.' },
+      admin: { hidden: true, description: 'Structured Site Shell nodes edited by the Site Shell Builder.' },
     },
     regionSettings(),
   ],
@@ -61,31 +61,36 @@ export const SiteTemplates: CollectionConfig = {
   versions: { drafts: { autosave: false }, maxPerDoc: 25 },
   timestamps: true,
   fields: [
-    { name: 'name', type: 'text', required: true },
-    slugField('name'),
-    { name: 'description', type: 'textarea' },
+    { name: 'name', type: 'text', required: true, admin: { hidden: true } },
+    {
+      name: 'slug', type: 'text', unique: true, index: true, required: true, admin: { hidden: true },
+      hooks: { beforeValidate: [({ value, data }) => typeof value === 'string' && value.trim() ? slugify(value) : typeof data?.name === 'string' ? slugify(data.name) : value] },
+    },
+    { name: 'description', type: 'textarea', admin: { hidden: true } },
     shellRegion('header', 'Header'),
     shellRegion('footer', 'Footer'),
-    { name: 'typography', type: 'json', admin: { description: 'Body and heading fonts, base size, line height, weight, spacing, and H1-H6 settings.' } },
-    { name: 'colors', type: 'json', admin: { description: 'Background, surface, text, heading, brand, border, and feedback colors.' } },
-    { name: 'buttons', type: 'json', admin: { description: 'Primary and secondary button definitions.' } },
-    { name: 'dimensions', type: 'json', admin: { description: 'Content widths, page padding, and section/content spacing.' } },
-    { name: 'mobile', type: 'json', admin: { description: 'Breakpoints, mobile spacing, type size, column stacking, and navigation defaults.' } },
+    { name: 'typography', type: 'json', admin: { hidden: true, description: 'Body and heading fonts, base size, line height, weight, spacing, and H1-H6 settings.' } },
+    { name: 'colors', type: 'json', admin: { hidden: true, description: 'Background, surface, text, heading, brand, border, and feedback colors.' } },
+    { name: 'buttons', type: 'json', admin: { hidden: true, description: 'Primary and secondary button definitions.' } },
+    { name: 'dimensions', type: 'json', admin: { hidden: true, description: 'Content widths, page padding, and section/content spacing.' } },
+    { name: 'mobile', type: 'json', admin: { hidden: true, description: 'Breakpoints, mobile spacing, type size, column stacking, and navigation defaults.' } },
     {
       name: 'additionalCSS',
       label: 'Additional CSS',
       type: 'code',
       validate: validateAdditionalCSS,
       maxLength: 50_000,
-      admin: { language: 'css', description: 'Stored for future Site Template rendering. It is not rendered in this phase.' },
+      admin: { hidden: true, language: 'css', description: 'Stored for future Site Template rendering. It is not rendered in this phase.' },
     },
     {
       name: 'assignment',
       type: 'group',
+      admin: { hidden: true },
       fields: [
         { name: 'mode', type: 'select', required: true, defaultValue: 'default', options: [{ label: 'Default', value: 'default' }] },
         { name: 'priority', type: 'number', required: true, defaultValue: 0 },
       ],
     },
+    { name: 'siteTemplateBuilder', type: 'ui', admin: { components: { Field: '@design-system/payload-design-core/admin#SiteTemplateBuilder' } } },
   ],
 }

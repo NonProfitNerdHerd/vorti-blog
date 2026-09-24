@@ -9,7 +9,7 @@ Page/Post Template document behavior in its content adapter.
 - **Site Settings** own site identity and routing: name, tagline, logo assets,
   favicon, homepage, blog page, social URLs, and the default Site Template
   relationship.
-- **Site Templates** will own the global visual shell: header, footer,
+- **Site Templates** own the global visual shell: header, footer,
   typography, colors, buttons, content widths, responsive defaults, and
   additional CSS.
 - **Page/Post Templates** own content layout, template fields, content
@@ -34,10 +34,9 @@ Core:
    an existing node
 7. The Settings, Style, and Advanced inspector tab shell
 
-Template Builder still owns selection and sidebar visibility because those
-states currently coordinate Template-specific panels. Responsive preview
-controls were not extracted because the existing Template Builder does not yet
-have such controls; this phase does not introduce new UX.
+Each adapter owns selection and sidebar visibility because those states
+coordinate its document-specific panels. Builder Core provides the shared
+responsive preview toolbar and viewport frame.
 
 These parts remain specific to the Page/Post Template adapter:
 
@@ -51,6 +50,18 @@ These parts remain specific to the Page/Post Template adapter:
 7. Template validation and legacy `sections` compatibility
 8. Template-specific labels and empty states
 
+## Site Shell adapter
+
+`SiteShellBuilder` is the single adapter used for both Header and Footer. It
+owns the Site Shell element registry, region filtering, node creation,
+inspector controls, shell previews, and the `header.layout` / `footer.layout`
+Payload form paths. Header and Footer do not have separate builder engines.
+
+The generic responsive preview toolbar lives in Builder Core and is shared by
+the content and shell adapters. Responsive Site Shell style values use
+`{ desktop, tablet?, mobile? }`; existing scalar content-template styles are
+unchanged and continue to mean their original desktop/default value.
+
 ## Refactor safeguards
 
 - Stored `TemplateNode` JSON must remain compatible.
@@ -59,5 +70,5 @@ These parts remain specific to the Page/Post Template adapter:
 - Builder Core must not import Payload collection configuration.
 - Content and shell adapters may share editing mechanics but not document
   responsibilities.
-- No extraction should change the current Template Builder DOM or save
-  behavior until its regression suite passes before and after the change.
+- Builder Core changes must preserve content Template persisted data and save
+  behavior, with the Template Builder regression suite passing after changes.

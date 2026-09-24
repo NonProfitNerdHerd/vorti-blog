@@ -23,3 +23,4 @@ export {
   validateSiteShellNodes,
 } from './site-shell'
 export type * from './site-shell'
+export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree'

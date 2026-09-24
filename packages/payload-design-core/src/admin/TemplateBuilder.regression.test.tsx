@@ -93,6 +93,9 @@ describe('TemplateBuilder regression boundary', () => {
     expect(within(canvas).getByText('Sample headline')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save Draft' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Publish Changes' })).toBeTruthy()
+    expect(screen.getByRole('toolbar', { name: 'Responsive preview' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile' }))
+    expect(document.querySelector('[data-viewport="mobile"]')).toBeTruthy()
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
   })
