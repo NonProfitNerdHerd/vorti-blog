@@ -1,14 +1,15 @@
 import { getPayload } from 'payload'
+import { cache } from 'react'
 import config from '@/payload.config'
 
-export async function getPublicSiteData() {
+export const getPublicSiteData = cache(async () => {
   const payload = await getPayload({ config })
   const [navigation, siteSettings] = await Promise.all([
     payload.findGlobal({ slug: 'navigation', depth: 1, overrideAccess: false }),
     payload.findGlobal({ slug: 'site-settings', depth: 1, overrideAccess: false }),
   ])
   return { navigation, siteSettings }
-}
+})
 
 export async function getPublicAuthorProfile(slug: string) {
   const payload = await getPayload({ config })

@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Public frontend', () => {
+  test('renders one public shell around unchanged page content', async ({ page }) => {
+    await page.goto('http://localhost:3000')
+    await expect(page.locator('header')).toHaveCount(1)
+    await expect(page.locator('footer')).toHaveCount(1)
+    await expect(page.locator('main')).toHaveCount(1)
+  })
+
   test('shows the public homepage and Posts archive', async ({ page }) => {
     await page.goto('http://localhost:3000')
     await expect(page.locator('h1')).toContainText('Vorti')

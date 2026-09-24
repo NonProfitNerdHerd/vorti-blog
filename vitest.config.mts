@@ -9,6 +9,6 @@ export default defineConfig({
     environment: 'node',
     env: { PAYLOAD_SECRET: 'local-validation-only-secret' },
     setupFiles: ['./vitest.setup.ts'],
-    include: ['tests/int/**/*.int.spec.ts'],
+    include: ['tests/int/**/*.int.spec.{ts,tsx}'],
   },
 })
