@@ -9,3 +9,5 @@ export { exportBlockDesign, exportTemplate, validateExport } from './serializati
 export { slugs } from './types.js';
 export { validateContentValues, validateFieldDefinitions, validateTemplatedContent } from './validation.js';
 export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, removeTemplateNode, moveTemplateNode, collectFieldIDs, extractTemplateNode, insertTemplateNode, moveTemplateNodeTo } from './template-tree.js';
+export { ADDITIONAL_CSS_MAX_LENGTH, SITE_SHELL_ELEMENT_KINDS, SITE_SHELL_LAYOUT_KINDS, validateAdditionalCSS, validateSiteShellNodes, } from './site-shell.js';
+export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree.js';

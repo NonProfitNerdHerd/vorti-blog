@@ -47,6 +47,7 @@ const isCLI = process.argv.some((value) => {
   )
 })
 const isProduction = process.env.NODE_ENV === 'production'
+const localPersistPath = process.env.DESIGN_CORE_TEST_PERSIST_PATH || process.env.E2E_TEST_PERSIST_PATH
 
 const createLog =
   (level: string, fn: typeof console.log) => (objOrMsg: object | string, msg?: string) => {
@@ -69,7 +70,7 @@ const cloudflareLogger = {
 } as any // Use PayloadLogger type when it's exported
 
 const cloudflare =
-  isCLI || !isProduction || Boolean(process.env.DESIGN_CORE_TEST_PERSIST_PATH)
+  isCLI || !isProduction || Boolean(localPersistPath)
     ? await getCloudflareContextFromWrangler()
     : await getCloudflareContext({ async: true })
 
@@ -154,7 +155,7 @@ function getCloudflareContextFromWrangler(): Promise<CloudflareContext> {
       getPlatformProxy({
         environment: process.env.CLOUDFLARE_ENV,
         remoteBindings: isProduction && !process.env.DESIGN_CORE_TEST_PERSIST_PATH,
-        ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { persist: { path: process.env.DESIGN_CORE_TEST_PERSIST_PATH } } : {}),
+        ...(localPersistPath ? { persist: { path: localPersistPath } } : {}),
       } satisfies GetPlatformProxyOptions),
   )
 }

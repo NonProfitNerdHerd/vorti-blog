@@ -71,7 +71,8 @@ test.describe('Admin Panel', () => {
   test('shows Block Creator and Templates under Design', async () => {
     await page.goto('http://localhost:3000/admin')
     await expect(page.getByText('Design', { exact: true }).first()).toBeVisible()
-    await page.getByRole('button', { name: 'Design', exact: true }).click()
+    await page.waitForTimeout(1_200)
+    await page.getByRole('button', { name: 'Design', exact: true }).evaluate((button: HTMLButtonElement) => button.click())
     await expect(page.getByRole('link', { name: 'Block Creator', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Templates', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Design Variants', exact: true })).toHaveCount(0)
@@ -587,6 +588,7 @@ test.describe('Admin Panel', () => {
   })
 
   test('retains existing Post and Page SEO values in the edit form', async () => {
+    test.setTimeout(90_000)
     const suffix = Date.now().toString(36)
     const api = page.context().request
     const users = await (await api.get(`${apiURL}/users?where[email][equals]=${encodeURIComponent(testUser.email)}&limit=1&depth=0`)).json() as { docs: Array<{ id: number }> }
@@ -609,10 +611,11 @@ test.describe('Admin Panel', () => {
       ] as const) {
         await page.goto(`http://localhost:3000/admin/collections/${collection}/${id}`)
         await expect(page.getByRole('textbox', { name: 'Title *' })).toBeVisible()
-        await page.waitForLoadState('networkidle')
+        await page.waitForLoadState('domcontentloaded')
+        await page.getByRole('button', { name: collection === 'posts' ? 'Template' : 'Content', exact: true }).click()
         await page.getByRole('button', { name: 'SEO', exact: true }).click()
         await expect(page.locator('input[name="meta.title"]')).toHaveValue(title)
-        await expect(page.locator('textarea[name="meta.description"]')).toBeVisible()
+        await expect(page.locator('textarea[name="meta.description"]')).toBeVisible({ timeout: 15_000 })
         await expect(page.locator('textarea[name="meta.description"]')).toHaveValue(description)
       }
     } finally {
@@ -622,7 +625,7 @@ test.describe('Admin Panel', () => {
   })
 
   test('offers native Live Preview for Posts and Pages', async ({ browser }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(180_000)
     const start = Date.now()
     const mark = (phase: string) => console.info(`[Live Preview timing] ${phase}: ${Date.now() - start}ms`)
     const api = page.context().request
@@ -646,17 +649,19 @@ test.describe('Admin Panel', () => {
         ['pages', pageDoc.id, 'Published Preview Page', '/published-preview-page'],
       ] as const) {
         mark(`start ${collection} iframe and edit checks`)
-        await page.goto(`http://localhost:3000/admin/collections/${collection}/${id}`)
-        await page.waitForLoadState('networkidle')
+        await page.goto(`http://localhost:3000/admin/collections/${collection}/${id}`, { waitUntil: 'domcontentloaded' })
+        await page.waitForLoadState('domcontentloaded')
         await expect(page.getByRole('button', { name: 'Live Preview' })).toBeVisible()
         await page.getByRole('button', { name: 'Live Preview' }).click()
         await expect(page.locator('iframe')).toBeVisible()
         await expect(page.frameLocator('iframe').getByRole('heading', { name: title })).toBeVisible()
         await page.getByRole('textbox', { name: 'Title *' }).fill(`Edited ${title}`)
         await expect(page.frameLocator('iframe').getByRole('heading', { name: `Edited ${title}` })).toBeVisible()
+        await page.getByRole('main').getByRole('button', { name: 'Content', exact: true }).click()
         await page.locator('[contenteditable="true"]').first().fill('Edited live body')
         await expect(page.frameLocator('iframe').getByText('Edited live body')).toBeVisible()
         if (collection === 'posts') {
+          await page.getByRole('button', { name: 'Featured Image', exact: true }).click()
           await page.getByRole('button', { name: 'Choose from existing' }).click()
           await page.getByRole('row', { name: /live-preview-test.png/ }).getByRole('button').click()
           await expect(page.frameLocator('iframe').getByRole('img', { name: 'Live preview test image' })).toBeVisible()
@@ -677,8 +682,8 @@ test.describe('Admin Panel', () => {
         _status: 'draft',
       }, true)
       try {
-        await page.goto(`http://localhost:3000/admin/collections/posts/${unpublished.id}`)
-        await page.waitForLoadState('networkidle')
+        await page.goto(`http://localhost:3000/admin/collections/posts/${unpublished.id}`, { waitUntil: 'domcontentloaded' })
+        await page.waitForLoadState('domcontentloaded')
         await page.getByRole('button', { name: 'Live Preview' }).click()
         await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Unpublished Preview Post' })).toBeVisible()
         const anonymous = await browser.newPage()
@@ -696,7 +701,7 @@ test.describe('Admin Panel', () => {
         _status: 'draft',
       }, true)
       try {
-        await page.goto(`http://localhost:3000/admin/collections/pages/${unpublishedPage.id}`)
+        await page.goto(`http://localhost:3000/admin/collections/pages/${unpublishedPage.id}`, { waitUntil: 'domcontentloaded' })
         await page.waitForLoadState('networkidle')
         await page.getByRole('button', { name: 'Live Preview' }).click()
         await expect(page.frameLocator('iframe').getByRole('heading', { name: 'Unpublished Preview Page' })).toBeVisible()

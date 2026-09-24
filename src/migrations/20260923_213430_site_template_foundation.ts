@@ -77,9 +77,31 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     data: {
       name: 'Default Website Template',
       slug: 'default-website-template',
-      description: 'Minimal default Site Shell created by the Phase 4 schema migration.',
-      header: { layout: [], settings: { widthMode: 'contained', position: 'static', transparent: false } },
-      footer: { layout: [], settings: { widthMode: 'contained', position: 'static', transparent: false } },
+      description: 'Compatibility Site Shell created by the Phase 4 schema migration.',
+      header: {
+        layout: [{
+          id: 'default-header-row', type: 'layout', layout: 'row',
+          style: { justification: 'space-between', alignment: 'center', gap: '1rem', padding: '1rem 0' },
+          children: [
+            { id: 'default-site-name', type: 'element', element: 'siteName', props: { source: 'siteSettings.siteName', htmlElement: 'span', linkToHomepage: true }, style: { fontSize: '1.2rem' } },
+            { id: 'default-posts-link', type: 'element', element: 'button', props: { label: 'Posts', url: '/posts', buttonStyle: 'custom' } },
+            { id: 'default-primary-navigation', type: 'element', element: 'navigation', props: { menuSource: 'primary', orientation: 'horizontal', alignment: 'left', itemSpacing: 'medium' } },
+            { id: 'default-mobile-toggle', type: 'element', element: 'mobileMenuToggle', props: { text: 'Menu' } },
+          ],
+        }],
+        settings: { widthMode: 'contained', maxWidth: 960, position: 'static', transparent: false, backgroundColor: '#122238', padding: '0 1rem' },
+      },
+      footer: {
+        layout: [{
+          id: 'default-footer-row', type: 'layout', layout: 'row',
+          style: { justification: 'space-between', alignment: 'center', gap: '1rem', padding: '1rem 0' },
+          children: [
+            { id: 'default-copyright', type: 'element', element: 'copyright', props: { tokens: ['copyright', 'currentYear', 'siteName'] } },
+            { id: 'default-footer-navigation', type: 'element', element: 'navigation', props: { menuSource: 'footer', orientation: 'horizontal', alignment: 'right', itemSpacing: 'medium' } },
+          ],
+        }],
+        settings: { widthMode: 'contained', maxWidth: 960, position: 'static', transparent: false, backgroundColor: '#122238', padding: '0 1rem' },
+      },
       typography: { bodyFont: 'system-ui, sans-serif', headingFont: 'system-ui, sans-serif', baseFontSize: 16, lineHeight: 1.5, bodyWeight: '400', letterSpacing: 0 },
       colors: { background: '#ffffff', surface: '#f7f7f7', text: '#1a1a1a', mutedText: '#666666', heading: '#111111', primary: '#18243a', secondary: '#44546a', accent: '#2563eb', border: '#dddddd', success: '#15803d', warning: '#a16207', error: '#b91c1c' },
       buttons: {},

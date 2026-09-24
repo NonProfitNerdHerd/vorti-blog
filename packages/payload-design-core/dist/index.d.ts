@@ -14,3 +14,7 @@ export { validateContentValues, validateFieldDefinitions, validateTemplatedConte
 export { walkTemplate, templateFields, findTemplateNode, updateTemplateNode, removeTemplateNode, moveTemplateNode, collectFieldIDs, extractTemplateNode, insertTemplateNode, moveTemplateNodeTo } from './template-tree';
 export type { ValidationIssue } from './validation';
 export type * from './types';
+export type * from './builder/contracts';
+export { ADDITIONAL_CSS_MAX_LENGTH, SITE_SHELL_ELEMENT_KINDS, SITE_SHELL_LAYOUT_KINDS, validateAdditionalCSS, validateSiteShellNodes, } from './site-shell';
+export type * from './site-shell';
+export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree';

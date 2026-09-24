@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Navigation, SiteSetting, SiteTemplate } from '@/payload-types'
-import { selectPublishedSiteTemplate } from '@/lib/siteTemplate'
+import { resolveSiteShellFromLoaders, selectPublishedSiteTemplate } from '@/lib/siteTemplate'
 import { compileSiteTemplateCSS, SiteTemplateFooter, SiteTemplateHeader, SiteTemplateStyles } from '@/components/site-shell/SiteTemplateShell'
 
 const settings = { id: 1, siteName: 'Rendered Site', twitterURL: 'https://example.com/social', logo: { id: 2, url: '/media/logo.png', alt: 'Rendered Site logo' } } as SiteSetting
@@ -20,6 +20,23 @@ describe('public Site Template resolution and rendering', () => {
     expect(selectPublishedSiteTemplate(settings, navigation, null).kind).toBe('legacy')
     expect(selectPublishedSiteTemplate(settings, navigation, { ...template, _status: 'draft' }).kind).toBe('legacy')
     expect(selectPublishedSiteTemplate(settings, navigation, { ...template, header: { layout: [{ type: 'element', element: 'siteName' }] } } as SiteTemplate).kind).toBe('legacy')
+  })
+
+  it('falls back for null, missing, draft, invalid, and failed template loads', async () => {
+    const globals = async () => ({ siteSettings: { ...settings, defaultSiteTemplate: 4 }, navigation })
+    expect((await resolveSiteShellFromLoaders(async () => ({ siteSettings: { ...settings, defaultSiteTemplate: null }, navigation }), async () => template)).kind).toBe('legacy')
+    expect((await resolveSiteShellFromLoaders(globals, async () => null)).kind).toBe('legacy')
+    expect((await resolveSiteShellFromLoaders(globals, async () => ({ ...template, _status: 'draft' }))).kind).toBe('legacy')
+    expect((await resolveSiteShellFromLoaders(globals, async () => ({ ...template, footer: { layout: [{ type: 'bad' }] } } as SiteTemplate))).kind).toBe('legacy')
+    expect((await resolveSiteShellFromLoaders(globals, async () => { throw new Error('missing table') })).kind).toBe('legacy')
+  })
+
+  it('keeps routes usable when Site Settings or Navigation loading fails', async () => {
+    const result = await resolveSiteShellFromLoaders(async () => { throw new Error('globals unavailable') }, async () => template)
+    expect(result.kind).toBe('legacy')
+    expect(result.siteSettings.siteName).toBe('Vorti Blog')
+    expect(result.navigation.primary).toEqual([])
+    expect(renderToStaticMarkup(<SiteTemplateHeader template={template} siteSettings={settings} navigation={{ ...navigation, primary: [] }} header={template.header.layout as never} footer={template.footer.layout as never} />)).toContain('Rendered Site')
   })
 
   it('renders nested shell elements and existing Navigation data', () => {

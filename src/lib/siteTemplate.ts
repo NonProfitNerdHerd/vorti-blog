@@ -2,7 +2,7 @@ import { cache } from 'react'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import type { Navigation, SiteSetting, SiteTemplate } from '@/payload-types'
-import { getPublicSiteData } from '@/lib/publicContent'
+import { fallbackPublicSiteData, getPublicSiteDataSafe } from '@/lib/publicContent'
 import { validateAdditionalCSS, validateSiteShellNodes, type SiteShellNode } from '@design-system/payload-design-core'
 
 export type ResolvedSiteShell =
@@ -16,16 +16,34 @@ export function selectPublishedSiteTemplate(siteSettings: SiteSetting, navigatio
   return { kind: 'template', navigation, siteSettings, template: candidate, header: candidate.header.layout as SiteShellNode[], footer: candidate.footer.layout as SiteShellNode[] }
 }
 
-export const resolvePublicSiteShell = cache(async (): Promise<ResolvedSiteShell> => {
-  const payload = await getPayload({ config })
-  const { navigation, siteSettings } = await getPublicSiteData()
+export async function resolveSiteShellFromLoaders(
+  loadGlobals: () => Promise<{ navigation: Navigation; siteSettings: SiteSetting }>,
+  loadTemplate: (id: number | string) => Promise<SiteTemplate | null>,
+): Promise<ResolvedSiteShell> {
+  let globals
+  try {
+    globals = await loadGlobals()
+  } catch {
+    return { kind: 'legacy', ...fallbackPublicSiteData }
+  }
+  const { navigation, siteSettings } = globals
   const selected = siteSettings.defaultSiteTemplate
-  const id = typeof selected === 'object' && selected ? selected.id : selected
+  const id: number | string | null = typeof selected === 'object' && selected ? selected.id : typeof selected === 'number' || typeof selected === 'string' ? selected : null
   if (id == null) return { kind: 'legacy', navigation, siteSettings }
   try {
-    const result = await payload.find({ collection: 'site-templates', depth: 2, limit: 1, overrideAccess: false, where: { and: [{ id: { equals: id } }, { _status: { equals: 'published' } }] } })
-    return selectPublishedSiteTemplate(siteSettings, navigation, result.docs[0] ?? null)
+    return selectPublishedSiteTemplate(siteSettings, navigation, await loadTemplate(id))
   } catch {
     return { kind: 'legacy', navigation, siteSettings }
   }
+}
+
+export const resolvePublicSiteShell = cache(async (): Promise<ResolvedSiteShell> => {
+  const payload = await getPayload({ config })
+  return resolveSiteShellFromLoaders(
+    getPublicSiteDataSafe,
+    async (id) => {
+      const result = await payload.find({ collection: 'site-templates', depth: 2, limit: 1, overrideAccess: false, where: { and: [{ id: { equals: id } }, { _status: { equals: 'published' } }] } })
+      return result.docs[0] ?? null
+    },
+  )
 })

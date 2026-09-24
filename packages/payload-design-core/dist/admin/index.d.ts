@@ -3,3 +3,4 @@ export { TemplateImpactPanel } from './TemplateImpactPanel';
 export { TemplateContentEditor } from './TemplateContentEditor';
 export { TemplateBuilder } from './TemplateBuilder';
 export { TemplateActionPlaceholder } from './TemplateActionPlaceholder';
+export { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder';

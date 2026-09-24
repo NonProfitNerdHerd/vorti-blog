@@ -1,5 +1,6 @@
 import { getPayload } from 'payload'
 import config from '../../src/payload.config.js'
+import { heroBoardFields, heroBoardDesigns } from '@design-system/payload-design-core/hero-board/registration'
 
 export const testUser = {
   email: 'dev@payloadcms.com',
@@ -28,6 +29,17 @@ export async function seedTestUser(): Promise<void> {
     collection: 'users',
     data: testUser,
   })
+
+  const existing = await payload.find({ collection: 'design-block-types', where: { slug: { equals: 'hero-board' } }, limit: 1, depth: 0, overrideAccess: true })
+  const hero = existing.docs[0] ?? await payload.create({
+    collection: 'design-block-types',
+    overrideAccess: true,
+    data: { name: 'Hero Board', slug: 'hero-board', description: 'Browser test fixture.', rendererKey: 'hero-board', schemaVersion: 1, status: 'published', _status: 'published', fields: heroBoardFields as never },
+  })
+  for (const variant of heroBoardDesigns) {
+    const found = await payload.find({ collection: 'design-block-designs', where: { slug: { equals: variant.slug } }, limit: 1, depth: 0, overrideAccess: true })
+    if (!found.docs[0]) await payload.create({ collection: 'design-block-designs', overrideAccess: true, data: { name: variant.name, slug: variant.slug, blockType: hero.id, status: 'published', _status: 'published', design: variant.design as never } })
+  }
 }
 
 /**

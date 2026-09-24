@@ -11,14 +11,15 @@ describe('Site Template persistence foundation', () => {
 
   beforeAll(async () => {
     payload = await getPayload({ config })
-    const administrator = await payload.create({ collection: 'users', data: { email: 'site-template-admin@example.invalid', password: 'local-validation-password', role: 'administrator' } })
-    const designer = await payload.create({ collection: 'users', data: { email: 'site-template-designer@example.invalid', password: 'local-validation-password', role: 'designer' } })
-    const editor = await payload.create({ collection: 'users', data: { email: 'site-template-editor@example.invalid', password: 'local-validation-password', role: 'editor' } })
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const administrator = await payload.create({ collection: 'users', data: { email: `site-template-admin-${suffix}@example.invalid`, password: 'local-validation-password', role: 'administrator' } })
+    const designer = await payload.create({ collection: 'users', data: { email: `site-template-designer-${suffix}@example.invalid`, password: 'local-validation-password', role: 'designer' } })
+    const editor = await payload.create({ collection: 'users', data: { email: `site-template-editor-${suffix}@example.invalid`, password: 'local-validation-password', role: 'editor' } })
     administratorID = administrator.id
     designerID = designer.id
     editorID = editor.id
     const created = await payload.create({ collection: 'site-templates', data: {
-      name: 'Integration Site Template', slug: 'integration-site-template',
+      name: `Integration Site Template ${suffix}`, slug: `integration-site-template-${suffix}`,
       header: { layout: [{ id: 'header-row', type: 'layout', layout: 'row', children: [{ id: 'site-name', type: 'element', element: 'siteName' }] }], settings: { widthMode: 'contained' } },
       footer: { layout: [{ id: 'footer-stack', type: 'layout', layout: 'stack', children: [{ id: 'current-year', type: 'element', element: 'currentYear' }] }], settings: { widthMode: 'full' } },
       assignment: { mode: 'default', priority: 10 }, _status: 'published',
@@ -27,7 +28,7 @@ describe('Site Template persistence foundation', () => {
   })
 
   afterAll(async () => {
-    await payload.updateGlobal({ slug: 'site-settings', data: { defaultSiteTemplate: null }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: null }, overrideAccess: true })
     if (templateID) await payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: true })
     for (const id of [administratorID, designerID, editorID]) if (id) await payload.delete({ collection: 'users', id, overrideAccess: true })
   })
@@ -92,7 +93,7 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('stores the authoritative default relationship and prevents deleting it', async () => {
-    await payload.updateGlobal({ slug: 'site-settings', data: { defaultSiteTemplate: templateID }, overrideAccess: true })
+    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: templateID }, overrideAccess: true })
     const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0 })
     expect(settings.defaultSiteTemplate).toBe(templateID)
     await expect(payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: true })).rejects.toThrow('selected as the default')

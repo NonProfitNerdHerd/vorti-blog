@@ -1,6 +1,12 @@
 import { getPayload } from 'payload'
 import { cache } from 'react'
 import config from '@/payload.config'
+import type { Navigation, SiteSetting } from '@/payload-types'
+
+export const fallbackPublicSiteData = {
+  navigation: { id: 0, primary: [], footer: [] } as Navigation,
+  siteSettings: { id: 0, siteName: 'Vorti Blog' } as SiteSetting,
+}
 
 export const getPublicSiteData = cache(async () => {
   const payload = await getPayload({ config })
@@ -9,6 +15,14 @@ export const getPublicSiteData = cache(async () => {
     payload.findGlobal({ slug: 'site-settings', depth: 1, overrideAccess: false }),
   ])
   return { navigation, siteSettings }
+})
+
+export const getPublicSiteDataSafe = cache(async () => {
+  try {
+    return await getPublicSiteData()
+  } catch {
+    return fallbackPublicSiteData
+  }
 })
 
 export async function getPublicAuthorProfile(slug: string) {

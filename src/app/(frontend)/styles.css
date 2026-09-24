@@ -32,6 +32,8 @@ h2 { line-height: 1.25; }
 .empty-state { min-height: 50vh; }
 @media (max-width: 640px) { .post-card { grid-template-columns: 1fr; } }
 .site-template-region { width: 100%; }
+.site-template-header, .site-template-footer { color: #fff; }
+.site-template-header a, .site-template-footer a { color: inherit; }
 .site-template-region-inner { width: min(100% - 2rem, var(--site-dimensions-contentWidth, 960px)); margin-inline: auto; }
 .site-shell-layout--row, .site-shell-layout--columns { display: flex; align-items: center; gap: 1rem; }
 .site-shell-layout--stack, .site-shell-layout--container { display: flex; flex-direction: column; }
