@@ -5,8 +5,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
     try {
       await db.run(statement)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (!/already exists|duplicate column name/i.test(message)) throw error
+      const messages: string[] = []
+      let current: unknown = error
+      while (current && typeof current === 'object') {
+        if ('message' in current && typeof current.message === 'string') messages.push(current.message)
+        current = 'cause' in current ? current.cause : null
+      }
+      if (!/already exists|duplicate column name/i.test(messages.join(' '))) throw error
     }
   }
 
