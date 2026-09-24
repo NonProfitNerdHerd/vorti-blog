@@ -1,7 +1,16 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-d1-sqlite'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
-  await db.run(sql`CREATE TABLE \`site_tpl\` (
+  const runSchema = async (statement: Parameters<typeof db.run>[0]) => {
+    try {
+      await db.run(statement)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (!/already exists|duplicate column name/i.test(message)) throw error
+    }
+  }
+
+  await runSchema(sql`CREATE TABLE \`site_tpl\` (
   	\`id\` integer PRIMARY KEY NOT NULL,
   	\`name\` text,
   	\`slug\` text,
@@ -23,11 +32,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	\`_status\` text DEFAULT 'draft'
   );
   `)
-  await db.run(sql`CREATE UNIQUE INDEX \`site_tpl_slug_idx\` ON \`site_tpl\` (\`slug\`);`)
-  await db.run(sql`CREATE INDEX \`site_tpl_updated_at_idx\` ON \`site_tpl\` (\`updated_at\`);`)
-  await db.run(sql`CREATE INDEX \`site_tpl_created_at_idx\` ON \`site_tpl\` (\`created_at\`);`)
-  await db.run(sql`CREATE INDEX \`site_tpl__status_idx\` ON \`site_tpl\` (\`_status\`);`)
-  await db.run(sql`CREATE TABLE \`_site_tpl_v\` (
+  await runSchema(sql`CREATE UNIQUE INDEX \`site_tpl_slug_idx\` ON \`site_tpl\` (\`slug\`);`)
+  await runSchema(sql`CREATE INDEX \`site_tpl_updated_at_idx\` ON \`site_tpl\` (\`updated_at\`);`)
+  await runSchema(sql`CREATE INDEX \`site_tpl_created_at_idx\` ON \`site_tpl\` (\`created_at\`);`)
+  await runSchema(sql`CREATE INDEX \`site_tpl__status_idx\` ON \`site_tpl\` (\`_status\`);`)
+  await runSchema(sql`CREATE TABLE \`_site_tpl_v\` (
   	\`id\` integer PRIMARY KEY NOT NULL,
   	\`parent_id\` integer,
   	\`version_name\` text,
@@ -54,22 +63,22 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	FOREIGN KEY (\`parent_id\`) REFERENCES \`site_tpl\`(\`id\`) ON UPDATE no action ON DELETE set null
   );
   `)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_parent_idx\` ON \`_site_tpl_v\` (\`parent_id\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_version_version_slug_idx\` ON \`_site_tpl_v\` (\`version_slug\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_version_version_updated_at_idx\` ON \`_site_tpl_v\` (\`version_updated_at\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_version_version_created_at_idx\` ON \`_site_tpl_v\` (\`version_created_at\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_version_version__status_idx\` ON \`_site_tpl_v\` (\`version__status\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_created_at_idx\` ON \`_site_tpl_v\` (\`created_at\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_updated_at_idx\` ON \`_site_tpl_v\` (\`updated_at\`);`)
-  await db.run(sql`CREATE INDEX \`_site_tpl_v_latest_idx\` ON \`_site_tpl_v\` (\`latest\`);`)
-  await db.run(sql`ALTER TABLE \`payload_locked_documents_rels\` ADD \`site_tpl_id\` integer REFERENCES site_tpl(id);`)
-  await db.run(sql`CREATE INDEX \`payload_locked_documents_rels_site_tpl_id_idx\` ON \`payload_locked_documents_rels\` (\`site_tpl_id\`);`)
-  await db.run(sql`ALTER TABLE \`site_settings\` ADD \`homepage_id\` integer REFERENCES pages(id);`)
-  await db.run(sql`ALTER TABLE \`site_settings\` ADD \`blog_page_id\` integer REFERENCES pages(id);`)
-  await db.run(sql`ALTER TABLE \`site_settings\` ADD \`default_site_template_id\` integer REFERENCES site_tpl(id);`)
-  await db.run(sql`CREATE INDEX \`site_settings_homepage_idx\` ON \`site_settings\` (\`homepage_id\`);`)
-  await db.run(sql`CREATE INDEX \`site_settings_blog_page_idx\` ON \`site_settings\` (\`blog_page_id\`);`)
-  await db.run(sql`CREATE INDEX \`site_settings_default_site_template_idx\` ON \`site_settings\` (\`default_site_template_id\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_parent_idx\` ON \`_site_tpl_v\` (\`parent_id\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_version_version_slug_idx\` ON \`_site_tpl_v\` (\`version_slug\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_version_version_updated_at_idx\` ON \`_site_tpl_v\` (\`version_updated_at\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_version_version_created_at_idx\` ON \`_site_tpl_v\` (\`version_created_at\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_version_version__status_idx\` ON \`_site_tpl_v\` (\`version__status\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_created_at_idx\` ON \`_site_tpl_v\` (\`created_at\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_updated_at_idx\` ON \`_site_tpl_v\` (\`updated_at\`);`)
+  await runSchema(sql`CREATE INDEX \`_site_tpl_v_latest_idx\` ON \`_site_tpl_v\` (\`latest\`);`)
+  await runSchema(sql`ALTER TABLE \`payload_locked_documents_rels\` ADD \`site_tpl_id\` integer REFERENCES site_tpl(id);`)
+  await runSchema(sql`CREATE INDEX \`payload_locked_documents_rels_site_tpl_id_idx\` ON \`payload_locked_documents_rels\` (\`site_tpl_id\`);`)
+  await runSchema(sql`ALTER TABLE \`site_settings\` ADD \`homepage_id\` integer REFERENCES pages(id);`)
+  await runSchema(sql`ALTER TABLE \`site_settings\` ADD \`blog_page_id\` integer REFERENCES pages(id);`)
+  await runSchema(sql`ALTER TABLE \`site_settings\` ADD \`default_site_template_id\` integer REFERENCES site_tpl(id);`)
+  await runSchema(sql`CREATE INDEX \`site_settings_homepage_idx\` ON \`site_settings\` (\`homepage_id\`);`)
+  await runSchema(sql`CREATE INDEX \`site_settings_blog_page_idx\` ON \`site_settings\` (\`blog_page_id\`);`)
+  await runSchema(sql`CREATE INDEX \`site_settings_default_site_template_idx\` ON \`site_settings\` (\`default_site_template_id\`);`)
 
   const existing = await payload.find({ collection: 'site-templates', where: { slug: { equals: 'default-website-template' } }, limit: 1, depth: 0, draft: true, overrideAccess: true, req })
   const siteTemplate = existing.docs[0] ?? await payload.create({
@@ -117,7 +126,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   })
   const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: true, req })
   if (!settings.defaultSiteTemplate) {
-    await payload.updateGlobal({ slug: 'site-settings', data: { defaultSiteTemplate: siteTemplate.id }, overrideAccess: true, req })
+    await payload.updateGlobal({
+      slug: 'site-settings',
+      data: {
+        defaultSiteTemplate: siteTemplate.id,
+        siteName: settings.siteName?.trim() || 'Vorti Blog',
+      },
+      overrideAccess: true,
+      req,
+    })
   }
 }
 
