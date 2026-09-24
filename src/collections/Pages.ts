@@ -4,7 +4,10 @@ import { slugField } from '../fields/slug'
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
-  admin: { group: 'Content', useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
+  admin: {
+    group: 'Content', useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'],
+    components: { edit: { beforeDocumentControls: ['./components/DocumentPreviewActions#DocumentPreviewActions'] } },
+  },
   access: {
     read: publishedOrAuthenticated,
     create: authenticated,

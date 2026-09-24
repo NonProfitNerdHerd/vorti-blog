@@ -30,6 +30,7 @@ import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 }
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
 import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateActionPlaceholder as TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
@@ -86,6 +87,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
+  "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
   "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateBuilder": TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateActionPlaceholder": TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37,
