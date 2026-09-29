@@ -7,6 +7,7 @@ import * as migration_20260918_135802_design_system_stage3 from './20260918_1358
 import * as migration_20260919_214810_template_layout_tree from './20260919_214810_template_layout_tree';
 import * as migration_20260920_203815_template_custom_fields from './20260920_203815_template_custom_fields';
 import * as migration_20260923_213430_site_template_foundation from './20260923_213430_site_template_foundation';
+import * as migration_20260929_163022_responsive_page_templates from './20260929_163022_responsive_page_templates';
 
 export const migrations = [
   {
@@ -53,5 +54,10 @@ export const migrations = [
     up: migration_20260923_213430_site_template_foundation.up,
     down: migration_20260923_213430_site_template_foundation.down,
     name: '20260923_213430_site_template_foundation',
+  },
+  {
+    up: migration_20260929_163022_responsive_page_templates.up,
+    down: migration_20260929_163022_responsive_page_templates.down,
+    name: '20260929_163022_responsive_page_templates'
   },
 ];
