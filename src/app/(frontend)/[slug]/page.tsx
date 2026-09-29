@@ -4,6 +4,7 @@ import { LivePagePreview } from '@/components/LivePagePreview'
 import { PageArticle } from '@/components/PageArticle'
 import { contentMetadata, getAuthenticatedPreview, getPublishedPage, getSiteSettings, isAuthenticatedPreviewEditor } from '@/lib/frontend'
 import type { Page } from '@/payload-types'
+import { resolvePageDesign } from '@/lib/post-design'
 
 export const dynamic = 'force-dynamic'
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePreview?: string }> }
@@ -21,11 +22,11 @@ export default async function PageDetail({ params, searchParams }: Props) {
       ? await isAuthenticatedPreviewEditor() ? emptyPage : null
       : await getAuthenticatedPreview('pages', previewID)
     if (!page) notFound()
-    return <LivePagePreview initialData={page} />
+    return <LivePagePreview initialData={page} initialDesignSections={await resolvePageDesign(page)} />
   }
   const page = await getPublishedPage((await params).slug)
   if (!page) notFound()
-  return <PageArticle page={page} />
+  return <PageArticle page={page} designSections={await resolvePageDesign(page)} />
 }
 
 const emptyPage: Page = {

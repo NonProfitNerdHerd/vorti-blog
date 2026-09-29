@@ -30,7 +30,16 @@ h2 { line-height: 1.25; }
 .rich-text img { margin: 1rem auto; }
 .pagination { display: flex; gap: 1rem; margin-top: 2rem; }
 .empty-state { min-height: 50vh; }
+.responsive-block__tablet, .responsive-block__mobile { display: none; }
 @media (max-width: 640px) { .post-card { grid-template-columns: 1fr; } }
+@media (min-width: 769px) and (max-width: 1024px) {
+  .responsive-block__desktop { display: none; }
+  .responsive-block__tablet { display: block; }
+}
+@media (max-width: 768px) {
+  .responsive-block__desktop, .responsive-block__tablet { display: none; }
+  .responsive-block__mobile { display: block; }
+}
 .site-template-region { width: 100%; }
 .site-template-header, .site-template-footer { color: #fff; }
 .site-template-header a, .site-template-footer a { color: inherit; }

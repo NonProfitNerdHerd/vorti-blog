@@ -32,6 +32,12 @@ export const Posts: CollectionConfig = {
           fields: [
             { name: 'title', type: 'text', required: true },
             slugField('title'),
+            {
+              name: 'responsiveDesigns',
+              type: 'json',
+              defaultValue: {},
+              admin: { components: { Field: './components/ResponsiveDesignControls#ResponsiveDesignControls' } },
+            },
             { name: 'excerpt', type: 'textarea' },
           ],
         },

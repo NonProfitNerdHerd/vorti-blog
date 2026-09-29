@@ -175,6 +175,15 @@ export interface Post {
    * Generated from title when left empty. You can edit it.
    */
   slug: string;
+  responsiveDesigns?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   designTemplate?: (number | null) | DesignTemplate;
   templateValues?:
     | {
@@ -239,7 +248,7 @@ export interface DesignTemplate {
   slug: string;
   description?: string | null;
   status: 'draft' | 'published' | 'archived';
-  allowedCollections?: 'posts'[] | null;
+  allowedCollections?: ('posts' | 'pages')[] | null;
   layout?:
     | {
         [k: string]: unknown;
@@ -461,7 +470,26 @@ export interface Page {
    * Generated from title when left empty. You can edit it.
    */
   slug: string;
-  content: {
+  responsiveDesigns?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  designTemplate?: (number | null) | DesignTemplate;
+  templateValues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  content?: {
     root: {
       type: string;
       children: {
@@ -475,7 +503,7 @@ export interface Page {
       version: number;
     };
     [k: string]: unknown;
-  };
+  } | null;
   parent?: (number | null) | Page;
   breadcrumbs?:
     | {
@@ -493,6 +521,15 @@ export interface Page {
      */
     image?: (number | null) | Media;
   };
+  designOverrides?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -504,14 +541,11 @@ export interface Page {
 export interface SiteTemplate {
   id: number;
   name: string;
-  /**
-   * Generated from name when left empty. You can edit it.
-   */
   slug: string;
   description?: string | null;
   header: {
     /**
-     * Structured Site Shell nodes. A visual editor will be added in a later phase.
+     * Structured Site Shell nodes edited by the Site Shell Builder.
      */
     layout:
       | {
@@ -537,7 +571,7 @@ export interface SiteTemplate {
   };
   footer: {
     /**
-     * Structured Site Shell nodes. A visual editor will be added in a later phase.
+     * Structured Site Shell nodes edited by the Site Shell Builder.
      */
     layout:
       | {
@@ -1160,6 +1194,7 @@ export interface PayloadMigration {
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
+  responsiveDesigns?: T;
   designTemplate?: T;
   templateValues?: T;
   excerpt?: T;
@@ -1190,6 +1225,9 @@ export interface PostsSelect<T extends boolean = true> {
 export interface PagesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
+  responsiveDesigns?: T;
+  designTemplate?: T;
+  templateValues?: T;
   content?: T;
   parent?: T;
   breadcrumbs?:
@@ -1207,6 +1245,7 @@ export interface PagesSelect<T extends boolean = true> {
         description?: T;
         image?: T;
       };
+  designOverrides?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

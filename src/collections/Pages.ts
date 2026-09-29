@@ -20,12 +20,22 @@ export const Pages: CollectionConfig = {
       type: 'tabs',
       tabs: [
         {
-          label: 'Content',
+          label: 'Template',
           fields: [
             { name: 'title', type: 'text', required: true },
             slugField('title'),
-            { name: 'content', type: 'richText', required: true },
+            {
+              name: 'responsiveDesigns',
+              type: 'json',
+              defaultValue: {},
+              admin: { components: { Field: './components/ResponsiveDesignControls#ResponsiveDesignControls' } },
+            },
           ],
+        },
+        {
+          label: 'Content',
+          admin: { condition: (data) => !data?.designTemplate },
+          fields: [{ name: 'content', type: 'richText' }],
         },
         { label: 'Organization', fields: [] },
         { label: 'Publishing', fields: [] },

@@ -109,7 +109,19 @@ export default buildConfig({
   db: sqliteD1Adapter({ binding: cloudflare.env.D1, ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { push: false } : {}) }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
-    designSystemPlugin({ enabled: true, blockCreator: true, templates: true, templatableCollections: ['posts'], lexicalSchemaPaths: { posts: 'collection.posts._index-0-1.content' }, canManage: canManageDesign, isDesignManager, blockPacks: [heroBoardRegistration] }),
+    designSystemPlugin({
+      enabled: true,
+      blockCreator: true,
+      templates: true,
+      templatableCollections: ['posts', 'pages'],
+      lexicalSchemaPaths: {
+        posts: 'collection.posts._index-0-1.content',
+        pages: 'collection.pages._index-0-1.content',
+      },
+      canManage: canManageDesign,
+      isDesignManager,
+      blockPacks: [heroBoardRegistration],
+    }),
     seoPlugin({
       collections: ['posts', 'pages'],
       tabbedUI: true,
