@@ -95,11 +95,37 @@ describe('SiteShellBuilder', () => {
     expect(JSON.stringify(removeSiteShellNode(moved, 'logo'))).not.toContain('logo')
   })
 
+  it('keeps layout labels in List View, removes them from the canvas, and can undo a removal', () => {
+    const columns: SiteShellNode = { id: 'columns', type: 'layout', layout: 'columns', columns: [{ id: 'left', width: 70, children: [] }, { id: 'right', width: 30, children: [] }] }
+    payloadForm.fields.set('footer.layout', field([columns]))
+    const { rerender } = render(<SiteShellBuilder region="footer" />)
+    expect(screen.queryByText('Footer Shell')).toBeNull()
+    expect(screen.queryByText('Columns · 70 / 30')).toBeNull()
+    fireEvent.click(screen.getByRole('tab', { name: 'List View' }))
+    expect(screen.getByText('Columns · 70 / 30')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Columns · 70 / 30' }))
+    payloadForm.fields.set('footer.layout', { ...payloadForm.fields.get('footer.layout')!, value: [] })
+    rerender(<SiteShellBuilder region="footer" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last change' }))
+    expect(payloadForm.fields.get('footer.layout')!.setValue).toHaveBeenLastCalledWith([columns])
+  })
+
   it('provides Overview, Header, Footer, Global Styles and supported Assignments tabs', async () => {
     render(<SiteTemplateBuilder />)
     expect(await screen.findByText('Current default Site Template')).toBeTruthy()
     for (const tab of ['Overview', 'Header', 'Footer', 'Global Styles', 'Assignments']) expect(screen.getByRole('tab', { name: tab })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Assignments' }))
     expect((screen.getByLabelText('Assignment Mode') as HTMLInputElement).value).toBe('default')
+  })
+
+  it('provides visual Global Styles sections while preserving advanced JSON and CSS editing', () => {
+    render(<SiteTemplateBuilder />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Global Styles' }))
+    for (const tab of ['Typography', 'Colors', 'Buttons', 'Dimensions', 'Mobile Defaults', 'Additional CSS']) expect(screen.getByRole('tab', { name: tab })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Body font'), { target: { value: 'Inter, sans-serif' } })
+    expect(payloadForm.fields.get('typography')!.setValue).toHaveBeenCalledWith(expect.objectContaining({ bodyFont: 'Inter, sans-serif' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Additional CSS' }))
+    fireEvent.change(screen.getByLabelText('Additional CSS'), { target: { value: '.site { color: red; }' } })
+    expect(payloadForm.fields.get('additionalCSS')!.setValue).toHaveBeenCalledWith('.site { color: red; }')
   })
 })
