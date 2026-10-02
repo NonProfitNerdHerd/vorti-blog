@@ -1,4 +1,6 @@
 export { designSystemPlugin } from './plugin'
+export * from './content/model'
+export * from './content/template-adapter'
 export type { DesignSystemOptions } from './plugin'
 export { createBlockRegistry } from './registry'
 export { createRendererRegistry } from './registry'

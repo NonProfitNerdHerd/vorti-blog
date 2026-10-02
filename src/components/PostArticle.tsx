@@ -20,7 +20,7 @@ export function PostArticle({ post, designSections = [] }: { post: Post; designS
       </header>
       <PostDesignSections sections={designSections} />
       {image && <Image unoptimized className="hero-image" src={image} width={1200} height={675} alt={typeof post.featuredImage === 'object' ? post.featuredImage?.alt || '' : ''} />}
-      {post.content?.root && <RichText data={post.content} className="rich-text" />}
+      {!post.designTemplate && !('contentLayout' in post && post.contentLayout) && post.content?.root && <RichText data={post.content} className="rich-text" />}
     </article>
   )
 }

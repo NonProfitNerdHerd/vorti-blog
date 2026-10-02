@@ -10,5 +10,5 @@ export declare function extractTemplateNode(nodes: TemplateNode[], id: string): 
     nodes: TemplateNode[];
     extracted: TemplateNode | null;
 };
-export declare function insertTemplateNode(nodes: TemplateNode[], containerID: string, nodeToInsert: TemplateNode): TemplateNode[];
-export declare function moveTemplateNodeTo(nodes: TemplateNode[], id: string, containerID: string): TemplateNode[];
+export declare function insertTemplateNode(nodes: TemplateNode[], containerID: string, nodeToInsert: TemplateNode, beforeID?: string): TemplateNode[];
+export declare function moveTemplateNodeTo(nodes: TemplateNode[], id: string, containerID: string, beforeID?: string): TemplateNode[];

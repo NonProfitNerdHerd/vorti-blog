@@ -1,4 +1,5 @@
 import * as migration_20250929_111647 from './20250929_111647';
+import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
 import * as migration_20260916_210118_cms_content_management from './20260916_210118_cms_content_management';
 import * as migration_20260917_163401_design_system_stage1 from './20260917_163401_design_system_stage1';
@@ -59,5 +60,10 @@ export const migrations = [
     up: migration_20260929_163022_responsive_page_templates.up,
     down: migration_20260929_163022_responsive_page_templates.down,
     name: '20260929_163022_responsive_page_templates'
+  },
+  {
+    up: migration_20261002_200000_content_workspace.up,
+    down: migration_20261002_200000_content_workspace.down,
+    name: '20261002_200000_content_workspace',
   },
 ];

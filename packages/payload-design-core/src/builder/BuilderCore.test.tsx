@@ -11,6 +11,7 @@ vi.mock('@dnd-kit/core', () => ({
   KeyboardSensor: function KeyboardSensor() {},
   PointerSensor: function PointerSensor() {},
   pointerWithin: vi.fn(),
+  closestCenter: vi.fn(),
   useSensor: vi.fn(() => ({})),
   useSensors: vi.fn(() => []),
 }))
@@ -26,9 +27,11 @@ describe('BuilderCore drag boundary', () => {
     render(<BuilderCore id="test-builder" onInsert={insert} onMove={move}><div>Canvas</div></BuilderCore>)
 
     dnd.onDragEnd?.({ over: { data: { current: { containerID: 'right-column' } } }, active: { data: { current: { library: { kind: 'field', label: 'Text', value: 'text' } } } } })
-    expect(insert).toHaveBeenCalledWith({ kind: 'field', label: 'Text', value: 'text' }, 'right-column')
+    expect(insert).toHaveBeenCalledWith({ kind: 'field', label: 'Text', value: 'text' }, 'right-column', undefined)
 
     dnd.onDragEnd?.({ over: { data: { current: { containerID: 'left-column' } } }, active: { data: { current: { nodeID: 'heading-1' } } } })
-    expect(move).toHaveBeenCalledWith('heading-1', 'left-column')
+    expect(move).toHaveBeenCalledWith('heading-1', 'left-column', undefined)
+    dnd.onDragEnd?.({ over: { data: { current: { containerID: 'left-column', beforeID: 'paragraph-1' } } }, active: { data: { current: { nodeID: 'heading-1' } } } })
+    expect(move).toHaveBeenCalledWith('heading-1', 'left-column', 'paragraph-1')
   })
 })

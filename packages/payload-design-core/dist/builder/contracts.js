@@ -6,4 +6,11 @@
  * TemplateBuilder does not consume them yet, so introducing this boundary
  * cannot alter its production behavior.
  */
-export {};
+export function builderCapabilities(mode, readOnly = false) {
+    return {
+        editValues: !readOnly,
+        editStructure: !readOnly && mode !== 'template-content',
+        editStyles: !readOnly && mode !== 'template-content',
+        defineFields: !readOnly && mode === 'template-authoring',
+    };
+}

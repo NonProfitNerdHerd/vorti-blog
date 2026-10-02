@@ -1,4 +1,4 @@
-import type { Access, Plugin } from 'payload';
+import type { Access, Field, Plugin } from 'payload';
 import type { BlockRegistration, DesignEventHandler } from './types';
 export type DesignSystemOptions = {
     enabled?: boolean;
@@ -11,4 +11,5 @@ export type DesignSystemOptions = {
     onPublish?: DesignEventHandler;
     lexicalSchemaPaths?: Record<string, string>;
 };
+export declare function findLexicalSchemaPath(fields: Field[], parentSchemaPath: string, parentIndexPath?: string): string | undefined;
 export declare function designSystemPlugin(options?: DesignSystemOptions): Plugin;

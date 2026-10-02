@@ -75,19 +75,24 @@ export function extractTemplateNode(nodes: TemplateNode[], id: string): { nodes:
   return { nodes: next, extracted }
 }
 
-export function insertTemplateNode(nodes: TemplateNode[], containerID: string, nodeToInsert: TemplateNode): TemplateNode[] {
-  if (containerID === 'root') return [...nodes, nodeToInsert]
+export function insertTemplateNode(nodes: TemplateNode[], containerID: string, nodeToInsert: TemplateNode, beforeID?: string): TemplateNode[] {
+  const insert = (items: TemplateNode[]) => { const next=[...items];const at=beforeID?next.findIndex(item=>item.id===beforeID):-1;next.splice(at<0?next.length:at,0,nodeToInsert);return next }
+  if (containerID === 'root') return insert(nodes)
   return nodes.map((node) => {
     if (node.type !== 'layout') return node
-    if (node.id === containerID && node.layout !== 'columns') return { ...node, children: [...(node.children ?? []), nodeToInsert] }
+    if (node.id === containerID && !['columns','spacer','divider'].includes(node.layout)) return { ...node, children: insert(node.children ?? []) }
     return { ...node,
-      children: insertTemplateNode(node.children ?? [], containerID, nodeToInsert),
-      columns: node.columns?.map((column) => column.id === containerID ? { ...column, children: [...column.children, nodeToInsert] } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert) }),
+      children: insertTemplateNode(node.children ?? [], containerID, nodeToInsert, beforeID),
+      columns: node.columns?.map((column) => column.id === containerID ? { ...column, children: insert(column.children) } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert, beforeID) }),
     }
   })
 }
 
-export function moveTemplateNodeTo(nodes: TemplateNode[], id: string, containerID: string): TemplateNode[] {
+export function moveTemplateNodeTo(nodes: TemplateNode[], id: string, containerID: string, beforeID?: string): TemplateNode[] {
+  if (id===beforeID) return nodes
+  const containers = (items: TemplateNode[]): string[] => items.flatMap(node=>node.type==='layout'?[...(!['columns','spacer','divider'].includes(node.layout)?[node.id]:[]),...containers(node.children??[]),...(node.columns??[]).flatMap(column=>[column.id,...containers(column.children)])]:[])
+  const source=findTemplateNode(nodes,id)
+  if (!source || (containerID!=='root'&&!containers(nodes).includes(containerID)) || containerID===id || containers([source]).includes(containerID)) return nodes
   const result = extractTemplateNode(nodes, id)
-  return result.extracted ? insertTemplateNode(result.nodes, containerID, result.extracted) : nodes
+  return result.extracted ? insertTemplateNode(result.nodes, containerID, result.extracted, beforeID) : nodes
 }

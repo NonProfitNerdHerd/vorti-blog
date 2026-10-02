@@ -1,7 +1,8 @@
 'use client'
 /* eslint-disable react-hooks/refs -- dnd-kit exposes callback refs through hook results. */
 
-import { useDraggable } from '@dnd-kit/core'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { Fragment } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { BuilderDragItem } from './BuilderCore'
 import { DropArea } from './DropArea'
@@ -15,6 +16,7 @@ export type BuilderChildContainer<TNode> = {
 }
 
 export type BuilderNodeDescriptor<TNode> = {
+  style?: CSSProperties
   body: ReactNode
   bodyAriaLabel?: string
   children?: BuilderChildContainer<TNode>[]
@@ -26,21 +28,27 @@ export type BuilderNodeDescriptor<TNode> = {
 }
 
 export type BuilderTreeActions<TNode> = {
-  add: (containerID: string) => void
+  add: (containerID: string, beforeID?: string) => void
   addItem: (item: BuilderDragItem, containerID: string) => void
   edit: (node: TNode) => void
   move: (id: string, direction: -1 | 1) => void
   remove: (id: string) => void
 }
 
-export function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID }: {
+export function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID, parentID = 'root' }: {
+  parentID?: string
   actions: BuilderTreeActions<TNode>
   describe: (node: TNode) => BuilderNodeDescriptor<TNode>
   id: (node: TNode) => string
   nodes: TNode[]
   selectedID?: string
 }) {
-  return <div className="template-editor__tree">{nodes.map((node) => <CanvasNode key={id(node)} node={node} siblings={nodes} actions={actions} describe={describe} id={id} selectedID={selectedID} />)}</div>
+  return <div className="template-editor__tree">{nodes.map((node) => <Fragment key={id(node)}><TreeInsertion parentID={parentID} beforeID={id(node)} add={()=>actions.add(parentID,id(node))}/><CanvasNode node={node} siblings={nodes} actions={actions} describe={describe} id={id} selectedID={selectedID} /></Fragment>)}</div>
+}
+
+function TreeInsertion({parentID,beforeID,add}:{parentID:string;beforeID:string;add:()=>void}) {
+  const drop=useDroppable({id:`tree-insert:${parentID}:${beforeID}`,data:{containerID:parentID,beforeID}})
+  return <div ref={drop.setNodeRef} className="template-editor__between" data-over={drop.isOver}><button type="button" aria-label="Insert before element" onClick={add}>+</button></div>
 }
 
 function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }: {
@@ -56,7 +64,7 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
   const drag = useDraggable({ id: `node:${nodeID}`, data: { nodeID } })
   const index = siblings.findIndex((item) => id(item) === nodeID)
   return (
-    <article ref={drag.setNodeRef} className="template-editor__node" data-selected={selectedID === nodeID}>
+    <article ref={drag.setNodeRef} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
       <div className="template-editor__toolbar">
         <button type="button" className="template-editor__tool-button" {...drag.listeners} {...drag.attributes} aria-label={`Drag ${descriptor.title}`} title="Drag">⠿</button>
         <button type="button" className="template-editor__tool-button" aria-label={`Edit ${descriptor.title}`} title="Settings" onClick={() => actions.edit(node)}>⚙</button>
@@ -71,10 +79,10 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
         descriptor.childrenClassName || descriptor.childrenStyle ? <div className={descriptor.childrenClassName} style={descriptor.childrenStyle}>
           {descriptor.children.map((container) => <div className={container.className} key={container.id}>
               <DropArea id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}>
-                <BuilderCanvasTree nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} />
+                <BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} />
               </DropArea>
             </div>)}
-        </div> : <>{descriptor.children.map((container) => <DropArea key={container.id} id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}><BuilderCanvasTree nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} /></DropArea>)}</>
+        </div> : <>{descriptor.children.map((container) => <DropArea key={container.id} id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}><BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} /></DropArea>)}</>
       ) : null}
     </article>
   )

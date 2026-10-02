@@ -79,21 +79,28 @@ export function extractTemplateNode(nodes, id) {
     });
     return { nodes: next, extracted };
 }
-export function insertTemplateNode(nodes, containerID, nodeToInsert) {
+export function insertTemplateNode(nodes, containerID, nodeToInsert, beforeID) {
+    const insert = (items) => { const next = [...items]; const at = beforeID ? next.findIndex(item => item.id === beforeID) : -1; next.splice(at < 0 ? next.length : at, 0, nodeToInsert); return next; };
     if (containerID === 'root')
-        return [...nodes, nodeToInsert];
+        return insert(nodes);
     return nodes.map((node) => {
         if (node.type !== 'layout')
             return node;
-        if (node.id === containerID && node.layout !== 'columns')
-            return { ...node, children: [...(node.children ?? []), nodeToInsert] };
+        if (node.id === containerID && !['columns', 'spacer', 'divider'].includes(node.layout))
+            return { ...node, children: insert(node.children ?? []) };
         return { ...node,
-            children: insertTemplateNode(node.children ?? [], containerID, nodeToInsert),
-            columns: node.columns?.map((column) => column.id === containerID ? { ...column, children: [...column.children, nodeToInsert] } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert) }),
+            children: insertTemplateNode(node.children ?? [], containerID, nodeToInsert, beforeID),
+            columns: node.columns?.map((column) => column.id === containerID ? { ...column, children: insert(column.children) } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert, beforeID) }),
         };
     });
 }
-export function moveTemplateNodeTo(nodes, id, containerID) {
+export function moveTemplateNodeTo(nodes, id, containerID, beforeID) {
+    if (id === beforeID)
+        return nodes;
+    const containers = (items) => items.flatMap(node => node.type === 'layout' ? [...(!['columns', 'spacer', 'divider'].includes(node.layout) ? [node.id] : []), ...containers(node.children ?? []), ...(node.columns ?? []).flatMap(column => [column.id, ...containers(column.children)])] : []);
+    const source = findTemplateNode(nodes, id);
+    if (!source || (containerID !== 'root' && !containers(nodes).includes(containerID)) || containerID === id || containers([source]).includes(containerID))
+        return nodes;
     const result = extractTemplateNode(nodes, id);
-    return result.extracted ? insertTemplateNode(result.nodes, containerID, result.extracted) : nodes;
+    return result.extracted ? insertTemplateNode(result.nodes, containerID, result.extracted, beforeID) : nodes;
 }

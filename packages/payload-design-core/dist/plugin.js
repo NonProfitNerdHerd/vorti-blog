@@ -1,8 +1,30 @@
+import { ValidationError } from 'payload';
+import { getFieldPaths } from 'payload/shared';
 import { createDesignCollections } from './collections.js';
 import { createBlockRegistry } from './registry.js';
 import { slugs } from './types.js';
 import { validateTemplatedContent } from './validation.js';
 import { createPayloadDesignStore } from './payload-store.js';
+export function findLexicalSchemaPath(fields, parentSchemaPath, parentIndexPath = '') {
+    for (const [index, field] of fields.entries()) {
+        const paths = getFieldPaths({ field, index, parentSchemaPath, parentIndexPath });
+        if (field.type === 'richText' && field.name === 'content')
+            return paths.schemaPath;
+        if (field.type === 'tabs') {
+            for (const [tabIndex, tab] of field.tabs.entries()) {
+                const tabPaths = getFieldPaths({ field: tab, index: tabIndex, parentSchemaPath: paths.schemaPath, parentIndexPath: paths.indexPath });
+                const found = findLexicalSchemaPath(tab.fields, tabPaths.schemaPath, tabPaths.indexPath);
+                if (found)
+                    return found;
+            }
+        }
+        else if ('fields' in field) {
+            const found = findLexicalSchemaPath(field.fields, paths.schemaPath, paths.indexPath);
+            if (found)
+                return found;
+        }
+    }
+}
 export function designSystemPlugin(options = {}) {
     if (options.templates === true && options.blockCreator === false)
         throw new Error('Templates require Block Creator');
@@ -25,7 +47,7 @@ export function designSystemPlugin(options = {}) {
             const templateFields = [
                 { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates,
                     filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
-                { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
+                { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? findLexicalSchemaPath(collection.fields, `collection.${collection.slug}`) ?? `collection.${collection.slug}.content` } } } } },
             ];
             const tabs = collection.fields.find((field) => field.type === 'tabs');
             const templateTab = tabs?.tabs.find((tab) => 'label' in tab && tab.label === 'Template');
@@ -55,7 +77,7 @@ export function designSystemPlugin(options = {}) {
                             const { __designOverrides, ...contentValues } = incomingValues;
                             data.templateValues = contentValues;
                         }
-                        const reference = data.designTemplate ?? originalDoc?.designTemplate;
+                        const reference = 'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate;
                         const template = typeof reference === 'object' && reference !== null ? reference.id : reference;
                         if (!template)
                             return data;
@@ -68,7 +90,7 @@ export function designSystemPlugin(options = {}) {
                             designOverrides: data.designOverrides ?? originalDoc?.designOverrides ?? {},
                         });
                         if (issues.length && data._status !== 'draft')
-                            throw new Error(issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '));
+                            throw new ValidationError({ errors: issues });
                         return data;
                     },
                 ],

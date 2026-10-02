@@ -8,6 +8,7 @@ export type BuilderChildContainer<TNode> = {
     listLabel?: string;
 };
 export type BuilderNodeDescriptor<TNode> = {
+    style?: CSSProperties;
     body: ReactNode;
     bodyAriaLabel?: string;
     children?: BuilderChildContainer<TNode>[];
@@ -18,13 +19,14 @@ export type BuilderNodeDescriptor<TNode> = {
     title: string;
 };
 export type BuilderTreeActions<TNode> = {
-    add: (containerID: string) => void;
+    add: (containerID: string, beforeID?: string) => void;
     addItem: (item: BuilderDragItem, containerID: string) => void;
     edit: (node: TNode) => void;
     move: (id: string, direction: -1 | 1) => void;
     remove: (id: string) => void;
 };
-export declare function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID }: {
+export declare function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID, parentID }: {
+    parentID?: string;
     actions: BuilderTreeActions<TNode>;
     describe: (node: TNode) => BuilderNodeDescriptor<TNode>;
     id: (node: TNode) => string;

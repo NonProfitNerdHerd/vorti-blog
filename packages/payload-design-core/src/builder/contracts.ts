@@ -9,6 +9,25 @@
 
 export type BuilderNodeID = string
 
+export type BuilderEditorMode = 'freeform' | 'template-content' | 'template-authoring'
+export type BuilderCapabilities = {
+  editValues: boolean
+  editStructure: boolean
+  editStyles: boolean
+  defineFields: boolean
+}
+export function builderCapabilities(
+  mode: BuilderEditorMode,
+  readOnly = false,
+): BuilderCapabilities {
+  return {
+    editValues: !readOnly,
+    editStructure: !readOnly && mode !== 'template-content',
+    editStyles: !readOnly && mode !== 'template-content',
+    defineFields: !readOnly && mode === 'template-authoring',
+  }
+}
+
 export type BuilderParentKind = 'root' | 'container' | 'row' | 'column' | 'stack'
 
 export type BuilderLibraryItem = {
@@ -23,8 +42,18 @@ export type BuilderLibraryItem = {
 export type BuilderTreeAdapter<TNode> = {
   children(node: TNode): readonly TNode[]
   id(node: TNode): BuilderNodeID
-  insert(nodes: readonly TNode[], parentID: BuilderNodeID | 'root', node: TNode): TNode[]
-  move(nodes: readonly TNode[], nodeID: BuilderNodeID, parentID: BuilderNodeID | 'root'): TNode[]
+  insert(
+    nodes: readonly TNode[],
+    parentID: BuilderNodeID | 'root',
+    node: TNode,
+    beforeID?: BuilderNodeID,
+  ): TNode[]
+  move(
+    nodes: readonly TNode[],
+    nodeID: BuilderNodeID,
+    parentID: BuilderNodeID | 'root',
+    beforeID?: BuilderNodeID,
+  ): TNode[]
   remove(nodes: readonly TNode[], nodeID: BuilderNodeID): TNode[]
   replace(nodes: readonly TNode[], nodeID: BuilderNodeID, node: TNode): TNode[]
 }

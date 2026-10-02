@@ -64,6 +64,41 @@ Wrangler is pretty smart so it will automatically bind your services for local d
 
 ## Deployments
 
+### Content workspace preview
+
+The Gutenberg-style workspace is opt-in. Set `CONTENT_WORKSPACE_ENABLED=true`
+in the preview build and Worker environment to enable it for Posts and Pages.
+Leave it unset for the existing document form. The new `contentLayout` field is
+always registered so disabling the interface never removes stored layouts.
+
+The workspace uses Payload's existing document form and controls. Freeform
+documents support nested blocks and responsive styling. Selecting a template
+locks structure and presentation; only its declared fields are editable. The
+gear tab contains document settings and plugin-provided metadata. Template
+authors use the shared builder with a gear tab for template properties and fields.
+
+Run `pnpm test:editor` for the isolated browser acceptance suite. It seeds only
+`.wrangler/content-workspace-test`, uses the local bindings in
+`wrangler.test.jsonc`, and starts the app on port 3100. Set
+`PLAYWRIGHT_CHANNEL=msedge` to use an installed Edge browser, or install the
+Playwright Chromium browser. `EDITOR_TEST_REUSE=true` can reuse an already
+running **local editor test server** with these same settings.
+
+Before enabling the workspace on a remote environment, apply the additive
+`20261002_200000_content_workspace` migration (including the draft/version
+tables), build the design package, generate Payload's import map and types,
+and deploy the app with the flag enabled. Run the editor acceptance suite and
+the design-package regression suite before promoting the build. Application
+rollback should disable the flag and retain the added columns; the migration's
+`down` operation deletes block content and is not a routine rollback step.
+
+The shared renderer continues to render saved freeform layouts even when the
+workspace UI is disabled. Existing rich text is preserved as one editable
+block until the new layout is saved. Changing templates preserves inactive
+content; template design overrides are rejected while the workspace is enabled.
+No Payload or Next.js dependency files are patched. Run these compatibility
+tests when upgrading either dependency.
+
 When you're ready to deploy, first make sure you have created your migrations:
 
 ```bash

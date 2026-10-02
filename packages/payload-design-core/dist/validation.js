@@ -106,7 +106,7 @@ export async function validateTemplatedContent(store, content) {
         const value = values[field.content?.source === 'customField' ? field.content.fieldId : field.id];
         const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0) || (field.fieldType === 'richText' && !hasLexicalContent(value));
         if (field.required && missing)
-            issues.push({ path: `templateValues.${field.id}`, message: `${field.label} is required` });
+            issues.push({ path: `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`, message: `${field.label} is required` });
     }
     return issues;
 }

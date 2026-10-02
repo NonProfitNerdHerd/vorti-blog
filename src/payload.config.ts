@@ -24,6 +24,7 @@ import { SiteTemplates } from './collections/SiteTemplates'
 import { Navigation } from './globals/Navigation'
 import { SiteSettings } from './globals/SiteSettings'
 import { organizePageHierarchy } from './plugins/organizePageHierarchy'
+import { contentWorkspace } from './plugins/contentWorkspace'
 import { designSystemPlugin } from '@design-system/payload-design-core'
 import { canManageDesign, isDesignManager } from './access/design'
 import { heroBoardRegistration } from '@design-system/payload-design-core/hero-board/registration'
@@ -114,10 +115,6 @@ export default buildConfig({
       blockCreator: true,
       templates: true,
       templatableCollections: ['posts', 'pages'],
-      lexicalSchemaPaths: {
-        posts: 'collection.posts._index-0-1.content',
-        pages: 'collection.pages._index-0-1.content',
-      },
       canManage: canManageDesign,
       isDesignManager,
       blockPacks: [heroBoardRegistration],
@@ -157,6 +154,7 @@ export default buildConfig({
       bucket: cloudflare.env.R2,
       collections: { media: true, exports: true, imports: true },
     }),
+    contentWorkspace({ enabled: process.env.CONTENT_WORKSPACE_ENABLED === 'true' }),
   ],
 })
 
@@ -165,6 +163,7 @@ function getCloudflareContextFromWrangler(): Promise<CloudflareContext> {
   return import(/* webpackIgnore: true */ `${'__wrangler'.replaceAll('_', '')}`).then(
     ({ getPlatformProxy }) =>
       getPlatformProxy({
+        ...(localPersistPath ? { configPath: path.resolve(dirname, '../wrangler.test.jsonc') } : {}),
         environment: process.env.CLOUDFLARE_ENV,
         remoteBindings: isProduction && !process.env.DESIGN_CORE_TEST_PERSIST_PATH,
         ...(localPersistPath ? { persist: { path: localPersistPath } } : {}),

@@ -7,6 +7,6 @@ export type BuilderDragItem = {
 export declare function BuilderCore({ children, id, onInsert, onMove, }: {
     children: ReactNode;
     id: string;
-    onInsert: (item: BuilderDragItem, containerID: string) => void;
-    onMove: (nodeID: string, containerID: string) => void;
+    onInsert: (item: BuilderDragItem, containerID: string, beforeID?: string) => void;
+    onMove: (nodeID: string, containerID: string, beforeID?: string) => void;
 }): import("react/jsx-runtime").JSX.Element;

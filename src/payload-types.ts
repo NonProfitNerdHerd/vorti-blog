@@ -234,6 +234,15 @@ export interface Post {
     | number
     | boolean
     | null;
+  contentLayout?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -522,6 +531,15 @@ export interface Page {
     image?: (number | null) | Media;
   };
   designOverrides?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  contentLayout?:
     | {
         [k: string]: unknown;
       }
@@ -1214,6 +1232,7 @@ export interface PostsSelect<T extends boolean = true> {
         image?: T;
       };
   designOverrides?: T;
+  contentLayout?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -1246,6 +1265,7 @@ export interface PagesSelect<T extends boolean = true> {
         image?: T;
       };
   designOverrides?: T;
+  contentLayout?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

@@ -11,6 +11,7 @@ const payloadForm = vi.hoisted(() => ({
 }))
 
 vi.mock('@payloadcms/ui', () => ({
+  useNav: () => ({navOpen:false,hydrated:true,setNavOpen:vi.fn()}),
   useDocumentInfo: () => ({ hasPublishedDoc: true, id: undefined as string | number | undefined }),
   useField: ({ path }: { path: string }) => payloadForm.fields.get(path) ?? { value: undefined, setValue: vi.fn() },
   useForm: () => ({ disabled: false, submit: payloadForm.submit }),
@@ -84,9 +85,8 @@ describe('TemplateBuilder regression boundary', () => {
     expect(screen.getByTestId('template-builder')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Newsletter', level: 1 })).toBeTruthy()
     expect(screen.getByText('Draft')).toBeTruthy()
-    expect(screen.getByRole('tab', { name: 'Canvas' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: 'Template Properties' })).toBeTruthy()
-    expect(screen.getByRole('tab', { name: /Custom Fields/ }).textContent).toContain('1')
+    expect(screen.getByRole('tab', { name: /^Block$/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: 'Document settings' })).toBeTruthy()
     const canvas = screen.getByRole('main', { name: 'Template Canvas' })
     expect(canvas).toBeTruthy()
     expect(within(canvas).getByText(/Columns/).textContent).toContain('60 / 40')
@@ -103,15 +103,15 @@ describe('TemplateBuilder regression boundary', () => {
   it('keeps Template Properties and Custom Fields separate from the canvas', () => {
     render(<TemplateBuilder configuredCollections={['posts', 'pages']} />)
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Template Properties' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Document settings' }))
     expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('Newsletter')
     expect((screen.getByLabelText('Description') as HTMLTextAreaElement).value).toBe('Newsletter content template')
     expect((screen.getByLabelText('Posts') as HTMLInputElement).checked).toBe(true)
     expect((screen.getByLabelText('Pages') as HTMLInputElement).checked).toBe(false)
-    expect(screen.queryByRole('main', { name: 'Template Canvas' })).toBeNull()
+    expect(screen.getByRole('main', { name: 'Template Canvas' })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: /Custom Fields/ }))
-    expect(screen.getByRole('heading', { name: 'Custom Fields' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('tab', { name: 'Document settings' }))
+    expect(screen.getByRole('heading', { name: 'Custom Fields', level: 2 })).toBeTruthy()
     expect(screen.getByDisplayValue('Summary')).toBeTruthy()
     expect((screen.getByLabelText('Field Type 1') as unknown as HTMLSelectElement).value).toBe('longText')
   })
@@ -160,7 +160,7 @@ describe('TemplateBuilder regression boundary', () => {
 
   it('keeps Custom Field updates and draft/publish submission behavior', async () => {
     render(<TemplateBuilder configuredCollections={['posts']} />)
-    fireEvent.click(screen.getByRole('tab', { name: /Custom Fields/ }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Document settings' }))
     fireEvent.click(screen.getByRole('button', { name: '+ Add field' }))
     expect(payloadForm.fields.get('customFields')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ label: 'New field', fieldType: 'longText' })]))
 

@@ -23,6 +23,7 @@ export type BlockDesign = { id: ID; slug: string; name: string; blockType: ID; s
 export type TemplateSection = { id?: ID; key: string; name: string; blockType: ID; blockDesign: ID; required?: boolean; allowDesignOverride?: boolean }
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship'
 export type TemplateElementStyle = {
+  responsive?: import('./content/model').ResponsiveBlockStyle
   width?: 'content' | 'wide' | 'full'
   alignment?: 'left' | 'center' | 'right'
   spacing?: 'none' | 'small' | 'medium' | 'large'

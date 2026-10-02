@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const root = new URL('../dist/', import.meta.url)
 function visit(directory) {
@@ -14,4 +15,4 @@ function visit(directory) {
     }
   }
 }
-visit(root.pathname)
+visit(fileURLToPath(root))

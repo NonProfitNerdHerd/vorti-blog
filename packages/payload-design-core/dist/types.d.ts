@@ -53,6 +53,7 @@ export type TemplateSection = {
 };
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship';
 export type TemplateElementStyle = {
+    responsive?: import('./content/model').ResponsiveBlockStyle;
     width?: 'content' | 'wide' | 'full';
     alignment?: 'left' | 'center' | 'right';
     spacing?: 'none' | 'small' | 'medium' | 'large';

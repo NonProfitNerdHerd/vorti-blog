@@ -1,0 +1,74 @@
+import type { TemplateElementStyle } from '../types';
+export type Viewport = 'desktop' | 'tablet' | 'mobile';
+export type BlockStyle = {
+    backgroundColor?: string;
+    color?: string;
+    padding?: string;
+    margin?: string;
+    textAlign?: 'left' | 'center' | 'right';
+    width?: string;
+    maxWidth?: string;
+    fontSize?: string;
+    lineHeight?: string;
+    borderWidth?: string;
+    borderColor?: string;
+    borderRadius?: string;
+    gap?: string;
+    minHeight?: string;
+    gridTemplateColumns?: string;
+};
+export type ResponsiveBlockStyle = Partial<Record<Viewport, BlockStyle>>;
+export type ContentKind = 'heading' | 'paragraph' | 'richText' | 'list' | 'quote' | 'image' | 'gallery' | 'button' | 'video' | 'group' | 'row' | 'columns' | 'column' | 'spacer' | 'divider' | 'designed' | 'value';
+export type ContentNode = {
+    id: string;
+    kind: ContentKind;
+    label?: string;
+    text?: string;
+    richText?: unknown;
+    level?: number;
+    ordered?: boolean;
+    url?: string;
+    media?: unknown;
+    alt?: string;
+    children?: ContentNode[];
+    styles?: ResponsiveBlockStyle;
+    anchor?: string;
+    blockType?: string | number;
+    blockDesign?: string | number;
+    rendererKey?: string;
+    values?: Record<string, unknown>;
+    design?: Record<string, unknown>;
+    fields?: ContentNode[];
+    /** Runtime bindings for a locked template; never persisted as freeform layout. */
+    binding?: {
+        path: string;
+        kind: string;
+        required?: boolean;
+        helpText?: string;
+        options?: string[];
+        relationTo?: string;
+    };
+};
+export type ContentLayout = {
+    version: 1;
+    nodes: ContentNode[];
+};
+export declare const contentLibrary: Array<{
+    kind: ContentKind;
+    label: string;
+    category: string;
+}>;
+export declare const containerKinds: Set<ContentKind>;
+export declare function createContentNode(kind: ContentKind): ContentNode;
+export declare function walkContent(nodes: ContentNode[]): ContentNode[];
+export declare function updateContent(nodes: ContentNode[], id: string, update: (node: ContentNode) => ContentNode): ContentNode[];
+export declare function removeContent(nodes: ContentNode[], id: string): ContentNode[];
+export declare function insertContent(nodes: ContentNode[], node: ContentNode, parent?: string, before?: string): ContentNode[];
+export declare function moveContent(nodes: ContentNode[], id: string, parent: string, before?: string): ContentNode[];
+export declare function duplicateContent(node: ContentNode): ContentNode;
+export declare function textDocument(node: ContentNode): unknown;
+export declare function safeURL(value: unknown): string;
+export declare function validStyleValue(key: string, value: unknown): boolean;
+export declare function validateContentLayout(value: unknown): true | string;
+export declare function resolveStyle(style: ResponsiveBlockStyle | undefined, viewport?: Viewport): BlockStyle;
+export declare function templateStyle(style?: TemplateElementStyle): ResponsiveBlockStyle;

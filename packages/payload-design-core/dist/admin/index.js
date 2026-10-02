@@ -1,4 +1,8 @@
 export { BlockDesignPanel } from './BlockDesignPanel.js';
+export { ContentWorkspace } from './ContentWorkspace.js';
+export { BlockStyleControls } from '../builder/BlockStyleControls.js';
+export { BuilderCore } from '../builder/BuilderCore.js';
+export { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 export { TemplateImpactPanel } from './TemplateImpactPanel.js';
 export { TemplateContentEditor } from './TemplateContentEditor.js';
 export { TemplateBuilder } from './TemplateBuilder.js';

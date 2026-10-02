@@ -5,8 +5,11 @@ import { createPayloadDesignStore, resolveContentTemplate } from '@design-system
 import type { TemplateNode } from '@design-system/payload-design-core'
 import type { HeroBoardValues } from '@design-system/payload-design-core/hero-board'
 import { mediaURL } from './media'
+import { resolveDocumentBlocks } from './content-layout'
+import type { ContentNode } from '@design-system/payload-design-core'
 
 export type PostDesignSection =
+  | { key: string; kind: 'content'; node: ContentNode }
   | { key: string; kind: 'block'; rendererKey: string; design: Record<string, unknown>; responsiveDesigns?: Partial<Record<'desktop' | 'tablet' | 'mobile', Record<string, unknown>>>; values: HeroBoardValues }
   | { key: string; kind: 'field'; fieldType: string; label: string; value: unknown }
   | { key: string; kind: 'layout'; layout: string; children?: PostDesignSection[]; columns?: Array<{ id: string; width: number; children: PostDesignSection[] }> }
@@ -18,6 +21,11 @@ type TemplatedDocumentExtras = {
 }
 
 export async function resolveContentDesign(source: Post | Page): Promise<PostDesignSection[]> {
+  if ((source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
+    const payload = await getPayload({ config })
+    const nodes = await resolveDocumentBlocks(payload, source as unknown as Record<string, unknown>)
+    return (nodes ?? []).map(node => ({ key: node.id, kind: 'content' as const, node }))
+  }
   const document = source as (Post | Page) & TemplatedDocumentExtras
   const reference = document.designTemplate
   const template = typeof reference === 'object' && reference !== null ? reference.id : reference as string | number | undefined

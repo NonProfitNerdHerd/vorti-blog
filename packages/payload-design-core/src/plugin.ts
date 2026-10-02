@@ -1,4 +1,6 @@
 import type { Access, CollectionSlug, Field, Plugin, TabsField } from 'payload'
+import { ValidationError } from 'payload'
+import { getFieldPaths } from 'payload/shared'
 import { createDesignCollections } from './collections'
 import type { BlockRegistration, DesignEventHandler } from './types'
 import { createBlockRegistry } from './registry'
@@ -16,6 +18,23 @@ export type DesignSystemOptions = {
   isDesignManager?: (user: unknown) => boolean
   onPublish?: DesignEventHandler
   lexicalSchemaPaths?: Record<string, string>
+}
+
+export function findLexicalSchemaPath(fields: Field[], parentSchemaPath: string, parentIndexPath = ''): string | undefined {
+  for (const [index, field] of fields.entries()) {
+    const paths = getFieldPaths({ field, index, parentSchemaPath, parentIndexPath })
+    if (field.type === 'richText' && field.name === 'content') return paths.schemaPath
+    if (field.type === 'tabs') {
+      for (const [tabIndex, tab] of field.tabs.entries()) {
+        const tabPaths = getFieldPaths({ field: tab, index: tabIndex, parentSchemaPath: paths.schemaPath, parentIndexPath: paths.indexPath })
+        const found = findLexicalSchemaPath(tab.fields, tabPaths.schemaPath, tabPaths.indexPath)
+        if(found)return found
+      }
+    } else if ('fields' in field) {
+      const found=findLexicalSchemaPath(field.fields,paths.schemaPath,paths.indexPath)
+      if(found)return found
+    }
+  }
 }
 
 export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
@@ -37,7 +56,7 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
       const templateFields: Field[] = [
         { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates as CollectionSlug,
           filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
-        { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? `collection.${collection.slug}.content` } } } } },
+        { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? findLexicalSchemaPath(collection.fields, `collection.${collection.slug}`) ?? `collection.${collection.slug}.content` } } } } },
       ]
       const tabs = collection.fields.find((field): field is TabsField => field.type === 'tabs')
       const templateTab = tabs?.tabs.find((tab) => 'label' in tab && tab.label === 'Template')
@@ -66,7 +85,7 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
               const { __designOverrides, ...contentValues } = incomingValues
               data.templateValues = contentValues
             }
-            const reference = data.designTemplate ?? originalDoc?.designTemplate
+            const reference = 'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate
             const template = typeof reference === 'object' && reference !== null ? reference.id : reference
             if (!template) return data
             const selectedTemplate = await req.payload.findByID({ collection: slugs.templates as CollectionSlug, id: template, depth: 0, overrideAccess: true, req }) as unknown as { allowedCollections?: string[] }
@@ -76,7 +95,7 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
               templateValues: data.templateValues ?? originalDoc?.templateValues ?? {},
               designOverrides: data.designOverrides ?? originalDoc?.designOverrides ?? {},
             })
-            if (issues.length && data._status !== 'draft') throw new Error(issues.map((issue) => `${issue.path}: ${issue.message}`).join('; '))
+            if (issues.length && data._status !== 'draft') throw new ValidationError({ errors: issues })
             return data
           },
         ],
