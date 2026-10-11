@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import type { Viewport } from '../content/model';
+import './workspace-frame.css';
 /** Layout shared by content authoring, locked templates and template design adapters. */
 export declare function BuilderPanels({ children, className, leftOpen, rightOpen, viewport, onViewportChange, }: {
     children: ReactNode;
@@ -9,10 +10,12 @@ export declare function BuilderPanels({ children, className, leftOpen, rightOpen
     viewport?: Viewport;
     onViewportChange?: (value: Viewport) => void;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, inspector, documentLabel, viewport, onViewportChange, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, sidebar, sidebarControls, readOnly, }: {
+export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, canvasNavigation, canvasNotice, inspector, documentLabel, viewport, onViewportChange, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, sidebar, sidebarControls, readOnly, }: {
     canvas: ReactNode;
     canvasLabel: string;
     canvasTitle: string;
+    canvasNavigation?: ReactNode;
+    canvasNotice?: ReactNode;
     inspector: ReactNode;
     documentLabel?: string;
     viewport?: Viewport;

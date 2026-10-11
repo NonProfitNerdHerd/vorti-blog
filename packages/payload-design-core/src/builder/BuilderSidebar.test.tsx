@@ -64,6 +64,30 @@ const adapter = (): SidebarAdapter => ({
   onDelete: vi.fn(),
 })
 describe('shared sidebar behavior', () => {
+  it('floats actions outside the hierarchy, restores focus, and inserts at the selected position', () => {
+    const value = adapter()
+    render(<Harness adapter={value} />)
+    const trigger = screen.getByRole('button', { name: 'Actions for Heading' })
+    expect(screen.queryByRole('button', { name: 'Drag Heading' })).toBeNull()
+    fireEvent.click(trigger)
+    const dialog = screen.getByRole('dialog', { name: 'Heading actions' })
+    expect(dialog.closest('.builder-sidebar')).toBeNull()
+    fireEvent.keyDown(document.activeElement!, { key: 'End' })
+    expect(document.activeElement?.textContent).toBe('Delete')
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('button', { name: 'Add before' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }))
+    expect(value.onInsert).toHaveBeenCalledWith(expect.anything(), { parent: 'root', before: 'a' })
+  })
+  it('excludes a container and its descendants from move destinations', () => {
+    render(<Harness adapter={adapter()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Group' }))
+    expect(screen.queryByRole('option', { name: 'Group' })).toBeNull()
+    expect(screen.getByRole('option', { name: 'Document top level' })).toBeTruthy()
+  })
   it('defaults to List View, switches to Outline, and counts visible content', () => {
     render(<Harness adapter={adapter()} />)
     expect(screen.getByRole('tab', { name: 'List View' }).getAttribute('aria-selected')).toBe(

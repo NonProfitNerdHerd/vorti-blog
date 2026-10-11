@@ -15,12 +15,13 @@ function HeaderSlot({ slot }) {
     return (_jsx("span", { className: `editor-header__slot editor-header__slot--${slot}`, "data-editor-slot": slot, "data-editor-document": useDocumentKey() }));
 }
 export function EditorTitleSlot() {
+    const { id } = useDocumentInfo();
     const ref = useRef(null);
     const [inDrawer, setInDrawer] = useState(false);
     useEffect(() => {
         setInDrawer(Boolean(ref.current && drawer(ref.current)));
     }, []);
-    return (_jsxs("span", { ref: ref, className: "editor-header__title-host", children: [_jsx(HeaderSlot, { slot: "title" }), inDrawer && _jsx(HeaderSlot, { slot: "history" })] }));
+    return (_jsxs("span", { ref: ref, className: "editor-header__title-host", children: [_jsx(HeaderSlot, { slot: "title" }), (inDrawer || !id) && _jsx(HeaderSlot, { slot: "history" })] }));
 }
 export function EditorHistorySlot() {
     return (_jsx("li", { className: "editor-header__history-host", children: _jsx(HeaderSlot, { slot: "history" }) }));

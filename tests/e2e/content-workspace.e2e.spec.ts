@@ -6,15 +6,90 @@ import {
 } from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
-test('document header owns the inline title and controls across editor contexts', async ({ page }) => {
+test('full-height panels and contextual actions keep the canvas clear', async ({ page }) => {
+  const nodes = Array.from({ length: 35 }, (_, index) => ({
+    ...createContentNode('paragraph'),
+    label: `Paragraph ${index + 1}`,
+    text: `Body ${index + 1}`,
+  }))
+  const response = await page.request.post('/api/pages', {
+    data: {
+      title: 'Panel geometry',
+      slug: `panels-${Date.now()}`,
+      contentLayout: { version: 1, nodes },
+      _status: 'draft',
+    },
+  })
+  expect(response.ok(), await response.text()).toBeTruthy()
+  const { doc } = await response.json()
+  await page.goto(`/admin/collections/pages/${doc.id}`)
+  const frame = page.locator('.builder-frame')
+  const left = page.locator('.content-workspace__left')
+  await expect(frame).toHaveAttribute('data-integrated', 'true')
+  const status = (await page.locator('.doc-controls').boundingBox())!
+  const bounds = (await frame.boundingBox())!
+  expect(Math.abs(bounds.y - status.y - status.height)).toBeLessThan(2)
+  expect(Math.abs(bounds.y + bounds.height - 1100)).toBeLessThan(2)
+  expect((await left.boundingBox())!.height).toBe(bounds.height)
+  expect((await left.locator('.builder-sidebar__row').first().boundingBox())!.height).toBe(28)
+  await expect(
+    page.locator('.content-workspace__node-controls,.template-editor__toolbar'),
+  ).toHaveCount(0)
+  await left.getByRole('button', { name: 'Paragraph 2', exact: true }).click()
+  const toolbar = page.getByRole('toolbar', { name: 'Paragraph 2 block controls' })
+  await expect(toolbar).toBeVisible()
+  await toolbar.getByRole('button', { name: 'Actions for Paragraph 2' }).click()
+  const popup = page.getByRole('dialog', { name: 'Paragraph 2 actions' })
+  await expect(popup).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(toolbar.getByRole('button', { name: 'Actions for Paragraph 2' })).toBeFocused()
+  await toolbar.getByRole('button', { name: 'Actions for Paragraph 2' }).click()
+  await popup.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(left.locator('.builder-sidebar__row')).toHaveCount(36)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(left.locator('.builder-sidebar__row')).toHaveCount(35)
+  await left.getByRole('button', { name: 'Paragraph 2', exact: true }).click()
+  await page.getByRole('button', { name: 'List View', exact: true }).click()
+  await expect(left).toBeHidden()
+  await expect(page.locator('.block-actions__toolbar')).toBeVisible()
+  await page.getByRole('button', { name: 'List View', exact: true }).click()
+  const canvas = page.locator('.content-workspace__center')
+  await canvas.evaluate((element) => {
+    element.scrollTop = 300
+  })
+  expect(await left.evaluate((element) => element.scrollTop)).toBe(0)
+  await page.screenshot({ path: '.wrangler/panels-desktop.png' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'List View', exact: true }).click()
+  await expect(left).toBeVisible()
+  await left.getByRole('button', { name: 'Close left panel' }).focus()
+  await page.keyboard.press('Escape')
+  await expect(left).toBeHidden()
+  await expect(page.getByRole('button', { name: 'List View', exact: true })).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await page.screenshot({ path: '.wrangler/panels-mobile-dark.png' })
+})
+
+test('document header owns the inline title and controls across editor contexts', async ({
+  page,
+}) => {
   for (const collection of ['pages', 'design-templates', 'site-templates']) {
     const name = `header-${collection}-${Date.now()}`
     const titleField = collection === 'pages' ? 'title' : 'name'
-    const response = await page.request.post(`/api/${collection}`, { data: {
-      [titleField]: name, slug: name, _status: 'draft',
-      ...(collection === 'design-templates' ? { status: 'draft', allowedCollections: ['pages'], layout: [], sections: [] } : {}),
-      ...(collection === 'site-templates' ? { header: { layout: [] }, footer: { layout: [] } } : {}),
-    } })
+    const response = await page.request.post(`/api/${collection}`, {
+      data: {
+        [titleField]: name,
+        slug: name,
+        _status: 'draft',
+        ...(collection === 'design-templates'
+          ? { status: 'draft', allowedCollections: ['pages'], layout: [], sections: [] }
+          : {}),
+        ...(collection === 'site-templates'
+          ? { header: { layout: [] }, footer: { layout: [] } }
+          : {}),
+      },
+    })
     expect(response.ok(), await response.text()).toBeTruthy()
     const { doc } = await response.json()
     await page.goto(`/admin/collections/${collection}/${doc.id}`)
@@ -22,24 +97,44 @@ test('document header owns the inline title and controls across editor contexts'
     await expect(title).toHaveValue(name)
     await expect(page.locator(`input[name="${titleField}"]:not([type="hidden"])`)).toHaveCount(1)
     await title.fill(`${name} updated`)
-    if (collection === 'site-templates') await page.getByRole('tab', { name: 'Header', exact: true }).click()
+    if (collection === 'site-templates')
+      await page.getByRole('tab', { name: 'Header', exact: true }).click()
     const controls = page.locator('.doc-controls')
     await expect(controls.getByRole('button', { name: 'Add block', exact: true })).toBeVisible()
-    await expect(page.locator('.doc-tabs').getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
+    await expect(
+      page.locator('.doc-tabs').getByRole('button', { name: 'Undo', exact: true }),
+    ).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
     await controls.getByRole('button', { name: 'Tablet', exact: true }).click()
-    await expect(controls.getByRole('button', { name: 'Tablet', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(controls.getByRole('button', { name: 'Tablet', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     await controls.getByRole('button', { name: 'Toggle inspector' }).click()
-    await expect(controls.getByRole('button', { name: 'Toggle inspector' })).toHaveAttribute('aria-expanded', 'false')
+    await expect(controls.getByRole('button', { name: 'Toggle inspector' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
     await controls.getByRole('button', { name: 'Toggle inspector' }).click()
     await controls.getByRole('button', { name: 'Save Draft', exact: true }).click()
-    await expect.poll(async () => (await (await page.request.get(`/api/${collection}/${doc.id}?draft=true`, { maxRetries: 2 })).json())[titleField]).toBe(`${name} updated`)
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await page.request.get(`/api/${collection}/${doc.id}?draft=true`, { maxRetries: 2 })
+            ).json()
+          )[titleField],
+      )
+      .toBe(`${name} updated`)
     await page.reload()
     await expect(title).toHaveValue(`${name} updated`)
     if (collection === 'pages') {
       await page.setViewportSize({ width: 390, height: 844 })
       await page.screenshot({ path: '.wrangler/header-mobile.png' })
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true)
       expect((await controls.boundingBox())!.height).toBeLessThan(230)
       await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
       await page.screenshot({ path: '.wrangler/header-mobile-dark.png' })
@@ -121,9 +216,7 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
   await sidebar.getByRole('textbox', { name: 'Search blocks' }).fill('paragraph')
   await sidebar.getByRole('button', { name: 'Paragraph', exact: true }).click()
   await workspace.locator('textarea[aria-label=Paragraph]').fill('Some paragraph text')
-  const drag = await sidebar
-    .getByRole('button', { name: 'Drag Paragraph', exact: true })
-    .boundingBox()
+  const drag = await sidebar.getByRole('button', { name: 'Paragraph', exact: true }).boundingBox()
   const drop = await sidebar.locator('[aria-label="Insert before Heading"]').boundingBox()
   expect(drag && drop).toBeTruthy()
   await page.mouse.move(drag!.x + drag!.width / 2, drag!.y + drag!.height / 2)
@@ -134,7 +227,10 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
     workspace.locator('.content-workspace__viewport [data-block-kind]').first(),
   ).toHaveAttribute('data-block-kind', 'paragraph')
   await sidebar.getByRole('button', { name: 'Actions for Paragraph' }).click()
-  await sidebar.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await page
+    .getByRole('dialog', { name: 'Paragraph actions' })
+    .getByRole('button', { name: 'Duplicate', exact: true })
+    .click()
   await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(2)
   await page.screenshot({ path: '.wrangler/sidebar-list-view.png' })
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
@@ -145,7 +241,7 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
   const opener = page.getByRole('button', { name: 'List View', exact: true })
   await opener.click()
   await sidebar.getByRole('tab', { name: 'Outline' }).press('Escape')
-  await expect(sidebar).toHaveCount(0)
+  await expect(sidebar).toBeHidden()
   await expect(opener).toBeFocused()
 })
 
@@ -237,7 +333,9 @@ for (const collection of ['posts', 'pages'])
     await library.getByRole('button', { name: 'Columns', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').click()
     await library.getByRole('button', { name: 'Actions for Heading' }).click()
-    const move = library.getByRole('combobox', { name: 'Move Heading into', exact: true })
+    const move = page
+      .getByRole('dialog', { name: 'Heading actions' })
+      .getByRole('combobox', { name: 'Move Heading into', exact: true })
     const firstColumn = await move
       .locator('option')
       .filter({ hasText: /^column$/i })
@@ -381,9 +479,7 @@ test('templates lock structure and styles, keep fields editable, and enforce the
   expect(invalid.status()).toBe(400)
   expect(JSON.stringify(await invalid.json())).toContain('templateValues.intro')
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(
-    page.getByRole('button', { name: 'Toggle inspector', exact: true }),
-  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Toggle inspector', exact: true })).toBeVisible()
 })
 
 test('rich text formatting and responsive styles survive save and appear in draft preview', async ({

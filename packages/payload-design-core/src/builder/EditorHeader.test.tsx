@@ -9,8 +9,29 @@ import {
   EditorTitleSlot,
 } from './EditorHeader'
 
-vi.mock('@payloadcms/ui', () => ({ useDocumentInfo: () => ({ collectionSlug: 'posts', id: 42 }) }))
-afterEach(cleanup)
+const doc = vi.hoisted(() => ({ id: 42 as number | undefined }))
+vi.mock('@payloadcms/ui', () => ({
+  useDocumentInfo: () => ({ collectionSlug: 'posts', id: doc.id }),
+}))
+afterEach(() => {
+  cleanup()
+  doc.id = 42
+})
+
+it('keeps history in the title row before a new document has an Edit tab', async () => {
+  doc.id = undefined
+  render(
+    <>
+      <EditorTitleSlot />
+      <EditorHistory undo={vi.fn()} redo={vi.fn()} canUndo canRedo={false} />
+    </>,
+  )
+  await waitFor(() =>
+    expect(document.querySelector('.editor-header__title-host button')).toBeTruthy(),
+  )
+  expect(document.querySelector('.editor-header__fallback--history')).toBeNull()
+  expect(screen.getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
+})
 
 it('renders history in its header slot, reflects availability, and removes it on unmount', async () => {
   const undo = vi.fn()

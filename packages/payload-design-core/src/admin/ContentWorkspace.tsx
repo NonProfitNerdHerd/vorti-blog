@@ -14,7 +14,7 @@ import {
   useNav,
 } from '@payloadcms/ui'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
-import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
 import {
   InspectorGesture,
   markInspectorGesture,
@@ -550,27 +550,7 @@ export const ContentWorkspace = (
           <EditableNode
             node={node}
             selected={selected === node.id}
-            locked={locked || lockedForm}
             onSelect={() => select(node.id)}
-            onMove={(direction) => {
-              const index = items.findIndex((item) => item.id === node.id)
-              const target = direction === -1 ? items[index - 1]?.id : items[index + 2]?.id
-              if (
-                (direction === -1 && index === 0) ||
-                (direction === 1 && index === items.length - 1)
-              )
-                return
-              setNodes(moveContent(nodes, node.id, parent, target))
-            }}
-            onDuplicate={() => {
-              const copy = duplicateContent(node)
-              setNodes(insertContent(nodes, copy, parent, items[items.indexOf(node) + 1]?.id))
-              select(copy.id)
-            }}
-            onRemove={() => {
-              setNodes(removeContent(nodes, node.id))
-              setSelected('')
-            }}
           >
             <ContentBlock
               node={resolvedNode(node)}
@@ -586,6 +566,7 @@ export const ContentWorkspace = (
       {!locked && (
         <Insertion
           parent={parent}
+          empty={items.length === 0}
           disabled={lockedForm}
           onChoose={() => {
             setDestination({ parent })
@@ -662,39 +643,6 @@ export const ContentWorkspace = (
         <EditorHeaderPortal slot="title">
           <div className="editor-header__title">{renderFields(['title'])}</div>
         </EditorHeaderPortal>
-        {error && <p role="alert">{error}</p>}
-        {issues.length > 0 && (
-          <div role="alert">
-            {issues.map(([path, value]) => (
-              <button
-                type="button"
-                key={path}
-                onClick={() => {
-                  const affected = walkContent(nodes).find(
-                    (node) =>
-                      node.binding?.path === path ||
-                      path.includes(node.id) ||
-                      node.fields?.some((field) => field.binding?.path === path),
-                  )
-                  if (affected) selectAndScroll(affected.id)
-                  else {
-                    setPanel('document')
-                    setRight(true)
-                    requestAnimationFrame(() => {
-                      const input = window.document.getElementById(
-                        `field-${path.replaceAll('.', '__')}`,
-                      )
-                      input?.scrollIntoView({ block: 'center' })
-                      input?.focus()
-                    })
-                  }
-                }}
-              >
-                {String(value.errorMessage)}
-              </button>
-            ))}
-          </div>
-        )}
         <BuilderPanels
           viewport={viewport}
           onViewportChange={setViewport}
@@ -702,8 +650,12 @@ export const ContentWorkspace = (
           leftOpen={left}
           rightOpen={right}
         >
-          {left && (
-            <aside className="content-workspace__left" aria-label="Block library and hierarchy">
+          {
+            <aside
+              hidden={!left}
+              className="content-workspace__left"
+              aria-label="Block library and hierarchy"
+            >
               <BuilderSidebar
                 state={sidebar}
                 adapter={{
@@ -755,8 +707,42 @@ export const ContentWorkspace = (
                 }}
               />
             </aside>
-          )}
+          }
           <div className="content-workspace__center">
+            {error && <p role="alert">{error}</p>}
+            {issues.length > 0 && (
+              <div role="alert">
+                {issues.map(([path, value]) => (
+                  <button
+                    type="button"
+                    key={path}
+                    onClick={() => {
+                      const affected = walkContent(nodes).find(
+                        (node) =>
+                          node.binding?.path === path ||
+                          path.includes(node.id) ||
+                          node.fields?.some((field) => field.binding?.path === path),
+                      )
+                      if (affected) selectAndScroll(affected.id)
+                      else {
+                        setPanel('document')
+                        setRight(true)
+                        requestAnimationFrame(() => {
+                          const input = window.document.getElementById(
+                            `field-${path.replaceAll('.', '__')}`,
+                          )
+                          input?.scrollIntoView({ block: 'center' })
+                          input?.focus()
+                        })
+                      }
+                    }}
+                  >
+                    {String(value.errorMessage)}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div
               className="content-workspace__viewport"
               data-viewport={viewport}
@@ -794,7 +780,7 @@ export const ContentWorkspace = (
                 </button>
               </div>
               {panel === 'document' ? (
-                gear
+                <div className="builder-document-settings">{gear}</div>
               ) : !active ? (
                 <p>Select a block on the canvas or in List view.</p>
               ) : (
@@ -845,24 +831,46 @@ function InlineText({
   disabled: boolean
   onChange: (value: string) => void
 }) {
+  const input = React.useRef<HTMLTextAreaElement>(null)
+  React.useLayoutEffect(() => {
+    const element = input.current
+    if (!element) return
+    const fit = () => {
+      element.style.height = '0px'
+      element.style.height = `${element.scrollHeight}px`
+    }
+    fit()
+    let width = element.clientWidth
+    const observer = new ResizeObserver(() => {
+      if (width !== element.clientWidth) {
+        width = element.clientWidth
+        fit()
+      }
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [node.text, node.styles, node.presentation])
   return (
     <textarea
+      ref={input}
       className={`content-workspace__inline content-workspace__inline--${node.kind}`}
       aria-label={node.label ?? node.kind}
       placeholder={`Type ${node.kind}…`}
       value={node.text ?? ''}
       readOnly={disabled}
-      rows={node.kind === 'heading' ? 1 : 3}
+      rows={1}
       onChange={(event) => onChange(event.target.value)}
     />
   )
 }
 function Insertion({
+  empty = false,
   parent,
   before,
   disabled,
   onChoose,
 }: {
+  empty?: boolean
   parent: string
   before?: string
   disabled: boolean
@@ -874,7 +882,12 @@ function Insertion({
     disabled,
   })
   return (
-    <div ref={drop.setNodeRef} className="content-workspace__insert" data-over={drop.isOver}>
+    <div
+      ref={drop.setNodeRef}
+      className="content-workspace__insert"
+      data-empty={empty}
+      data-over={drop.isOver}
+    >
       <button
         type="button"
         disabled={disabled}
@@ -889,28 +902,18 @@ function Insertion({
 function EditableNode({
   node,
   selected,
-  locked,
   onSelect,
-  onMove,
-  onDuplicate,
-  onRemove,
   children,
 }: {
   node: ContentNode
   selected: boolean
-  locked: boolean
   onSelect: () => void
-  onMove: (direction: -1 | 1) => void
-  onDuplicate: () => void
-  onRemove: () => void
   children: React.ReactNode
 }) {
-  const drag = useDraggable({ id: `node:${node.id}`, data: { nodeID: node.id }, disabled: locked })
   return (
     <section
       id={`editor-${node.id}`}
       data-builder-node={node.id}
-      ref={drag.setNodeRef}
       className="content-workspace__node"
       data-selected={selected}
       aria-label={node.label ?? node.kind}
@@ -923,36 +926,6 @@ function EditableNode({
         onSelect()
       }}
     >
-      <div className="content-workspace__node-controls">
-        <button type="button" onClick={onSelect}>
-          {locked ? '🔒 ' : ''}
-          {node.label ?? node.kind}
-        </button>
-        {!locked && (
-          <>
-            <button
-              type="button"
-              {...drag.attributes}
-              {...drag.listeners}
-              aria-label={`Drag ${node.label ?? node.kind}`}
-            >
-              ⠿
-            </button>
-            <button type="button" aria-label="Move block up" onClick={() => onMove(-1)}>
-              ↑
-            </button>
-            <button type="button" aria-label="Move block down" onClick={() => onMove(1)}>
-              ↓
-            </button>
-            <button type="button" onClick={onDuplicate}>
-              Duplicate
-            </button>
-            <button type="button" onClick={onRemove}>
-              Remove
-            </button>
-          </>
-        )}
-      </div>
       {children}
     </section>
   )

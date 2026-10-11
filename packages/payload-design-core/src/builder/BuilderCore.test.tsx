@@ -9,7 +9,7 @@ const dnd = vi.hoisted(() => ({ onDragEnd: undefined as undefined | ((event: unk
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children, onDragEnd }: { children: ReactNode; onDragEnd: (event: unknown) => void }) => { dnd.onDragEnd = onDragEnd; return children },
   KeyboardSensor: function KeyboardSensor() {},
-  PointerSensor: function PointerSensor() {},
+  MouseSensor: function MouseSensor() {}, TouchSensor: function TouchSensor() {},
   pointerWithin: vi.fn(),
   closestCenter: vi.fn(),
   useSensor: vi.fn(() => ({})),

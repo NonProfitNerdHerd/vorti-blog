@@ -15,7 +15,7 @@ vi.mock('@payloadcms/ui', () => ({
 }))
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: ReactNode }) => children,
-  KeyboardSensor: function KeyboardSensor() {}, PointerSensor: function PointerSensor() {}, pointerWithin: vi.fn(),
+  KeyboardSensor: function KeyboardSensor() {}, MouseSensor: function MouseSensor() {}, TouchSensor: function TouchSensor() {}, pointerWithin: vi.fn(),
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: vi.fn() }), useDroppable: () => ({ isOver: false, setNodeRef: vi.fn() }), useSensor: vi.fn(() => ({})), useSensors: vi.fn(() => []),
 }))
 vi.mock('@dnd-kit/sortable', () => ({ sortableKeyboardCoordinates: vi.fn() }))
@@ -113,7 +113,8 @@ describe('SiteShellBuilder', () => {
     expect(screen.queryByText('Columns · 70 / 30')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'List View' }))
     expect(screen.getByRole('button', {name:'Columns'})).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Columns · 70 / 30' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Columns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     payloadForm.fields.set('footer.layout', { ...payloadForm.fields.get('footer.layout')!, value: [] })
     rerender(<SiteShellBuilder region="footer" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add block' }))

@@ -26,6 +26,7 @@ function HeaderSlot({ slot }: { slot: Slot }) {
   )
 }
 export function EditorTitleSlot() {
+  const { id } = useDocumentInfo()
   const ref = useRef<HTMLSpanElement>(null)
   const [inDrawer, setInDrawer] = useState(false)
   useEffect(() => {
@@ -34,7 +35,7 @@ export function EditorTitleSlot() {
   return (
     <span ref={ref} className="editor-header__title-host">
       <HeaderSlot slot="title" />
-      {inDrawer && <HeaderSlot slot="history" />}
+      {(inDrawer || !id) && <HeaderSlot slot="history" />}
     </span>
   )
 }

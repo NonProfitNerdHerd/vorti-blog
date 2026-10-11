@@ -1,7 +1,7 @@
 'use client'
 
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BuilderCore, type BuilderDragItem } from '../builder/BuilderCore'
 import { type BuilderPickerElement } from '../builder/BuilderElementPicker'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
@@ -154,28 +154,27 @@ export function SiteTemplateBuilder() {
       })
       .catch((): void => undefined)
   }, [id])
+  const navigation = (
+    <nav role="tablist" aria-label="Site Template sections" className="template-editor__view-tabs">
+      {(['overview', 'header', 'footer', 'styles', 'assignments'] as const).map((item) => (
+        <button
+          key={item}
+          role="tab"
+          type="button"
+          aria-selected={tab === item}
+          disabled={!ready}
+          onClick={() => setTab(item)}
+        >
+          {item === 'styles' ? 'Global Styles' : item[0].toUpperCase() + item.slice(1)}
+        </button>
+      ))}
+    </nav>
+  )
   return (
     <div data-testid="site-template-builder" className="template-editor site-shell">
       <EditorName />
       {isDefault && <p>Current default Site Template</p>}
-      <nav
-        role="tablist"
-        aria-label="Site Template sections"
-        className="template-editor__view-tabs"
-      >
-        {(['overview', 'header', 'footer', 'styles', 'assignments'] as const).map((item) => (
-          <button
-            key={item}
-            role="tab"
-            type="button"
-            aria-selected={tab === item}
-            disabled={!ready}
-            onClick={() => setTab(item)}
-          >
-            {item === 'styles' ? 'Global Styles' : item[0].toUpperCase() + item.slice(1)}
-          </button>
-        ))}
-      </nav>
+      {tab !== 'header' && tab !== 'footer' && navigation}
       {tab === 'overview' && (
         <section className="template-editor__document">
           <label>
@@ -197,8 +196,12 @@ export function SiteTemplateBuilder() {
           </label>
         </section>
       )}
-      {tab === 'header' && <SiteShellBuilder key="header" region="header" />}
-      {tab === 'footer' && <SiteShellBuilder key="footer" region="footer" />}
+      {tab === 'header' && (
+        <SiteShellBuilder key="header" region="header" navigation={navigation} />
+      )}
+      {tab === 'footer' && (
+        <SiteShellBuilder key="footer" region="footer" navigation={navigation} />
+      )}
       {tab === 'styles' && (
         <GlobalStyles
           values={{
@@ -420,7 +423,13 @@ function GlobalStyles({
   )
 }
 
-export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
+export function SiteShellBuilder({
+  region,
+  navigation,
+}: {
+  region: SiteShellRegion
+  navigation?: ReactNode
+}) {
   const { disabled } = useForm()
   const { id: documentID } = useDocumentInfo()
   const sidebar = useBuilderSidebar(`site:${documentID ?? 'new'}:${region}`)
@@ -600,6 +609,7 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
           }
           canvasLabel={`${region} shell canvas`}
           canvasTitle=""
+          canvasNavigation={navigation}
           canvas={
             <BuilderPreviewFrame viewport={viewport}>
               <div className={`site-shell__preview site-shell__preview--${region}`}>

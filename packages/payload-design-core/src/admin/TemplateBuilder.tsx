@@ -438,11 +438,7 @@ export function ContentTemplateBuilder({
           canUndo={!disabled && Boolean(history.current.past.length)}
           canRedo={!disabled && Boolean(history.current.future.length)}
         />
-        {id && (
-          <p>
-            Used by {impact.length} content item{impact.length === 1 ? '' : 's'}
-          </p>
-        )}
+
         {
           <>
             <BuilderWorkspace
@@ -453,6 +449,11 @@ export function ContentTemplateBuilder({
               documentSettings={
                 <>
                   <h3>Template Properties</h3>
+                  {id && (
+                    <p>
+                      Used by {impact.length} content item{impact.length === 1 ? '' : 's'}
+                    </p>
+                  )}
                   <section className="template-editor__document">
                     <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
                       Description
@@ -573,6 +574,7 @@ export function ContentTemplateBuilder({
                   }}
                 />
               }
+              canvasNotice={error && <p role="alert">{error}</p>}
               canvasLabel="Template Canvas"
               canvasTitle="Template Canvas"
               canvas={
@@ -682,15 +684,17 @@ export function ContentTemplateBuilder({
             />
           </>
         }
-        {error && <p role="alert">{error}</p>}
-        <EditorHeaderPortal slot="actions"><div className="editor-header__buttons">
-          <button type="button" disabled={disabled} onClick={() => void save(false)}>
-            Save Draft
-          </button>
-          <button type="button" disabled={disabled} onClick={() => void save(true)}>
-            {hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}
-          </button>
-        </div></EditorHeaderPortal>
+
+        <EditorHeaderPortal slot="actions">
+          <div className="editor-header__buttons">
+            <button type="button" disabled={disabled} onClick={() => void save(false)}>
+              Save Draft
+            </button>
+            <button type="button" disabled={disabled} onClick={() => void save(true)}>
+              {hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}
+            </button>
+          </div>
+        </EditorHeaderPortal>
       </div>
     </BuilderCore>
   )

@@ -13,6 +13,7 @@ import {
   type SidebarNode,
 } from './sidebar-model'
 import './builder-sidebar.css'
+import { BlockActionMenu, SelectedBlockToolbar } from './BlockActions'
 
 export type SidebarItem = BuilderDragItem & { category: string; keywords?: string[] }
 export type SidebarMode = 'list' | 'outline' | 'blocks'
@@ -109,7 +110,7 @@ export function SidebarControls({
         onClick={(event) => {
           state.rememberOpener(event.currentTarget)
           state.setMode('list')
-          state.setOpen(true)
+          state.setOpen(!(state.open && state.mode !== 'blocks'))
         }}
       >
         <span aria-hidden="true">☷</span>
@@ -118,7 +119,8 @@ export function SidebarControls({
   )
 }
 function icon(kind: string) {
-  const registered = getBlockDefinition(kind); if (registered) return registered.icon
+  const registered = getBlockDefinition(kind)
+  if (registered) return registered.icon
   if (/heading|shortText/i.test(kind)) return 'H'
   if (/image|gallery|logo|images/i.test(kind)) return '▧'
   if (/column|row|group|container|stack/i.test(kind)) return '▤'
@@ -183,6 +185,7 @@ export function BuilderSidebar({
         }
       }}
     >
+      <SelectedBlockToolbar adapter={adapter} state={state} scope={panel} />
       <div className="builder-sidebar__header">
         {state.mode === 'blocks' && canEdit ? (
           <strong>Blocks</strong>
@@ -262,7 +265,7 @@ export function BuilderSidebar({
           )}
           <ul className="builder-sidebar__tree" aria-label="Block hierarchy">
             {nodes.map((node) => (
-              <Row key={node.id} node={node} adapter={adapter} choose={choose} />
+              <Row key={node.id} node={node} adapter={adapter} choose={choose} state={state} />
             ))}
           </ul>
           {canEdit && !locked && (
@@ -313,21 +316,22 @@ function Row({
   node,
   adapter,
   choose,
+  state,
 }: {
   node: SidebarNode
   adapter: SidebarAdapter
   choose: (node: SidebarNode) => void
+  state: SidebarState
 }) {
   const { nodes, selected, canEdit, locked } = adapter
   const location = locateSidebar(nodes, node.id)!
   const [collapsed, setCollapsed] = useState(false)
-  const [menu, setMenu] = useState(false)
   const selectedWithin = flattenSidebar(node.children ?? []).some((child) => child.id === selected)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Canvas selection reveals the selected block's ancestors.
     if (selectedWithin) setCollapsed(false)
   }, [selected, selectedWithin])
-  const editable = canEdit && !node.ownerID && !node.immovable
+  const editable = canEdit && !locked && !node.ownerID && !node.immovable
   const drag = useDraggable({
     id: `sidebar-node:${node.id}`,
     data: { nodeID: node.id },
@@ -338,14 +342,6 @@ function Row({
   useEffect(() => {
     if (selected === node.id) selectRef.current?.scrollIntoView?.({ block: 'nearest' })
   }, [selected, node.id])
-  const closeMenu = () => {
-    setMenu(false)
-    selectRef.current?.focus()
-  }
-  const move = (target: InsertionTarget) => {
-    adapter.onMove(node.id, target)
-    closeMenu()
-  }
   return (
     <li>
       {editable && (
@@ -370,117 +366,32 @@ function Row({
         <button
           type="button"
           className="builder-sidebar__select"
-          ref={selectRef}
+          ref={(element) => {
+            selectRef.current = element
+            drag.setNodeRef(element)
+          }}
+          {...(editable ? drag.attributes : {})}
+          {...(editable ? drag.listeners : {})}
           aria-current={selected === node.id ? 'true' : undefined}
-          onClick={() => choose(node)}
+          onClick={() => {
+            if (!drag.isDragging) choose(node)
+          }}
           title={node.label}
         >
           <span aria-hidden="true">{icon(node.kind)}</span>
           <span>{node.label}</span>
           {locked && <span aria-label="Locked">▣</span>}
         </button>
-        {editable && (
-          <>
-            <button
-              type="button"
-              ref={drag.setNodeRef}
-              {...drag.attributes}
-              {...drag.listeners}
-              aria-label={`Drag ${node.label}`}
-              title="Drag block"
-            >
-              ⠿
-            </button>
-            <button
-              type="button"
-              aria-label={`Actions for ${node.label}`}
-              aria-expanded={menu}
-              onClick={() => setMenu(!menu)}
-            >
-              ⋮
-            </button>
-          </>
-        )}
+        {editable && <BlockActionMenu node={node} adapter={adapter} state={state} />}
       </div>
-      {menu && editable && (
-        <div
-          className="builder-sidebar__actions"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.stopPropagation()
-              closeMenu()
-            }
-          }}
-        >
-          <button
-            type="button"
-            disabled={location.index === 0}
-            onClick={() =>
-              move({ parent: location.parent, before: location.siblings[location.index - 1]?.id })
-            }
-          >
-            Move up
-          </button>
-          <button
-            type="button"
-            disabled={location.index === location.siblings.length - 1}
-            onClick={() =>
-              move({ parent: location.parent, before: location.siblings[location.index + 2]?.id })
-            }
-          >
-            Move down
-          </button>
-          <label>
-            Move to…
-            <select
-              aria-label={`Move ${node.label} into`}
-              value=""
-              onChange={(event) => {
-                if (event.target.value) move({ parent: event.target.value })
-              }}
-            >
-              <option value="">Choose destination</option>
-              {node.kind !== 'column' && <option value="root">Document top level</option>}
-              {flattenSidebar(nodes)
-                .filter(
-                  (candidate) =>
-                    candidate.container &&
-                    !flattenSidebar([node]).some((child) => child.id === candidate.id) &&
-                    node.kind !== 'column',
-                )
-                .map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </option>
-                ))}
-            </select>
-          </label>
-          {adapter.onDuplicate && (
-            <button
-              type="button"
-              onClick={() => {
-                adapter.onDuplicate?.(node.id)
-                closeMenu()
-              }}
-            >
-              Duplicate
-            </button>
-          )}
-          {adapter.onDelete && (
-            <button type="button" onClick={() => adapter.onDelete?.(node.id)}>
-              Delete
-            </button>
-          )}
-        </div>
-      )}
       {hasChildren && !collapsed && (
         <ul>
           {node.children!.map((child) => (
-            <Row key={child.id} node={child} adapter={adapter} choose={choose} />
+            <Row key={child.id} node={child} adapter={adapter} choose={choose} state={state} />
           ))}
         </ul>
       )}
-      {node.container && canEdit && !node.ownerID && (
+      {node.container && canEdit && !locked && !node.ownerID && (
         <TreeDrop target={{ parent: node.id }} label={`Insert into ${node.label}`} />
       )}
     </li>

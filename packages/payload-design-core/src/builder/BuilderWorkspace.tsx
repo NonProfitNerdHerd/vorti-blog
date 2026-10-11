@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { EditorHeaderPortal, EditorDevices } from './EditorHeader'
 import { InspectorDevice, InspectorToggle } from './InspectorControls'
 import type { Viewport } from '../content/model'
+import { useWorkspaceFrame } from './WorkspaceFrame'
+import './workspace-frame.css'
 import { BlockInspectorStateProvider } from './UnifiedBlockInspector'
 
 /** Layout shared by content authoring, locked templates and template design adapters. */
@@ -22,9 +24,11 @@ export function BuilderPanels({
   viewport?: Viewport
   onViewportChange?: (value: Viewport) => void
 }) {
+  const frame = useWorkspaceFrame()
   return (
     <div
-      className={className}
+      ref={frame}
+      className={`${className} builder-frame`}
       data-left={leftOpen}
       data-right={rightOpen}
       data-library={leftOpen ? 'open' : 'closed'}
@@ -41,6 +45,8 @@ export function BuilderWorkspace({
   canvas,
   canvasLabel,
   canvasTitle,
+  canvasNavigation,
+  canvasNotice,
   inspector,
   documentLabel = 'Template',
   viewport,
@@ -59,6 +65,8 @@ export function BuilderWorkspace({
   canvas: ReactNode
   canvasLabel: string
   canvasTitle: string
+  canvasNavigation?: ReactNode
+  canvasNotice?: ReactNode
   inspector: ReactNode
   documentLabel?: string
   viewport?: Viewport
@@ -112,8 +120,9 @@ export function BuilderWorkspace({
         viewport={viewport}
         onViewportChange={onViewportChange}
       >
-        {libraryOpen && (
+        {
           <aside
+            hidden={!libraryOpen}
             id="template-element-library"
             className="template-editor__sidebar template-editor__sidebar--left"
             aria-label="Element Library"
@@ -138,8 +147,10 @@ export function BuilderWorkspace({
               )}
             </div>
           </aside>
-        )}
+        }
         <main aria-label={canvasLabel} className="template-editor__canvas">
+          {canvasNavigation}
+          {canvasNotice}
           {canvasTitle && (
             <div className="template-editor__canvas-header">
               <h2>{canvasTitle}</h2>

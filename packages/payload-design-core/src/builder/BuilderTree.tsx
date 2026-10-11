@@ -1,7 +1,7 @@
 'use client'
 /* eslint-disable react-hooks/refs -- dnd-kit exposes callback refs through hook results. */
 
-import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
 import { Fragment } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { BuilderDragItem } from './BuilderCore'
@@ -52,7 +52,7 @@ function TreeInsertion({parentID,beforeID,add}:{parentID:string;beforeID:string;
   return <div ref={drop.setNodeRef} className="template-editor__between" data-over={drop.isOver}><button type="button" aria-label="Insert before element" onClick={add}>+</button></div>
 }
 
-function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }: {
+function CanvasNode<TNode>({ actions, describe, id, node, selectedID }: {
   actions: BuilderTreeActions<TNode>
   describe: (node: TNode) => BuilderNodeDescriptor<TNode>
   id: (node: TNode) => string
@@ -62,17 +62,8 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
 }) {
   const nodeID = id(node)
   const descriptor = describe(node)
-  const drag = useDraggable({ id: `node:${nodeID}`, data: { nodeID } })
-  const index = siblings.findIndex((item) => id(item) === nodeID)
   return (
-    <article data-builder-node={nodeID} ref={drag.setNodeRef} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
-      <div className="template-editor__toolbar">
-        <button type="button" className="template-editor__tool-button" {...drag.listeners} {...drag.attributes} aria-label={`Drag ${descriptor.title}`} title="Drag">⠿</button>
-        <button type="button" className="template-editor__tool-button" aria-label={`Edit ${descriptor.title}`} title="Settings" onClick={() => actions.edit(node)}>⚙</button>
-        <button type="button" className="template-editor__tool-button" aria-label={`Move ${descriptor.title} up`} title="Move up" disabled={index <= 0} onClick={() => actions.move(nodeID, -1)}>↑</button>
-        <button type="button" className="template-editor__tool-button" aria-label={`Move ${descriptor.title} down`} title="Move down" disabled={index === siblings.length - 1} onClick={() => actions.move(nodeID, 1)}>↓</button>
-        <button type="button" className="template-editor__tool-button template-editor__tool-button--danger" aria-label={`Remove ${descriptor.title}`} title="Remove" onClick={() => actions.remove(nodeID)}>×</button>
-      </div>
+    <article data-builder-node={nodeID} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
       {(descriptor.wrap ?? ((content: ReactNode) => content))(<><div className="template-editor__node-body" role="button" tabIndex={0} aria-label={descriptor.bodyAriaLabel} onClick={() => actions.edit(node)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') actions.edit(node) }}>
         {descriptor.body}
       </div>

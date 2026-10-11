@@ -20,7 +20,7 @@ vi.mock('@payloadcms/ui', () => ({
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: ReactNode }) => children,
   KeyboardSensor: function KeyboardSensor() {},
-  PointerSensor: function PointerSensor() {},
+  MouseSensor: function MouseSensor() {}, TouchSensor: function TouchSensor() {},
   pointerWithin: vi.fn(),
   useDraggable: () => ({ attributes: {}, isDragging: false, listeners: {}, setNodeRef: vi.fn() }),
   useDroppable: () => ({ isOver: false, setNodeRef: vi.fn() }),
@@ -143,15 +143,17 @@ describe('TemplateBuilder regression boundary', () => {
     expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'field', fieldType: 'longText' })]))
 
     setLayout.mockClear()
-    fireEvent.click(screen.getByRole('button', { name: 'Move Closing message up' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Closing message' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }))
     expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ id: 'closing' })]))
 
     setLayout.mockClear()
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Closing message' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Closing message' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(setLayout).toHaveBeenCalledWith(expect.not.arrayContaining([expect.objectContaining({ id: 'closing' })]))
 
     setLayout.mockClear()
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Story heading' }))
+    fireEvent.click(within(document.querySelector('.builder-sidebar') as HTMLElement).getByRole('button', { name: 'Story heading' }))
     fireEvent.change(screen.getByLabelText('Block Label'), { target: { value: 'Updated story heading' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(JSON.stringify(setLayout.mock.calls.at(-1)?.[0])).toContain('Updated story heading')

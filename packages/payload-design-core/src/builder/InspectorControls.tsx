@@ -32,6 +32,9 @@ export function endInspectorGesture() {
 
 export function InspectorIcon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
+    up: <path d="m6 10 6-6 6 6M12 4v16" />,
+    down: <path d="m6 14 6 6 6-6M12 20V4" />,
+    more: <><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></>,
     undo: <path d="M8 4 3 9l5 5M3 9h11a6 6 0 0 1 0 12" />,
     redo: <path d="m16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12" />,
     inspector: <><rect x="3" y="3" width="18" height="18" rx="1" /><path d="M15 3v18" /></>,
