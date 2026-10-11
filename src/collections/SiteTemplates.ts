@@ -20,6 +20,7 @@ const shellRegion = (name: 'header' | 'footer', label: string): Field => ({
   name,
   label,
   type: 'group',
+  admin: { hidden: true },
   fields: [
     {
       name: 'layout',

@@ -27,7 +27,7 @@ export function BuilderCore({
   onMove: (nodeID: string, containerID: string, beforeID?: string) => void
 }) {
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 

@@ -120,12 +120,11 @@ describe('TemplateBuilder regression boundary', () => {
     render(<TemplateBuilder configuredCollections={['posts']} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Add element to Template Canvas drop area' }))
-    const dialog = screen.getByRole('dialog', { name: 'Add an element' })
-    expect(within(dialog).getByRole('tab', { name: 'All' })).toBeTruthy()
-    expect(within(dialog).getByRole('tab', { name: 'Text' })).toBeTruthy()
-    expect(within(dialog).getByRole('tab', { name: 'Media' })).toBeTruthy()
-    expect(within(dialog).getByRole('tab', { name: 'Layout' })).toBeTruthy()
-    expect(within(dialog).getByRole('tab', { name: 'Data' })).toBeTruthy()
+    const dialog = document.querySelector('.builder-sidebar') as HTMLElement
+    expect(within(dialog).getByRole('heading', { name: 'Text' })).toBeTruthy()
+    expect(within(dialog).getByRole('heading', { name: 'Media' })).toBeTruthy()
+    expect(within(dialog).getByRole('heading', { name: 'Layout' })).toBeTruthy()
+    expect(within(dialog).getByRole('heading', { name: 'Data' })).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: /Image/ }))
     expect(screen.getByRole('heading', { name: 'Configure Image' })).toBeTruthy()
@@ -138,6 +137,7 @@ describe('TemplateBuilder regression boundary', () => {
     render(<TemplateBuilder configuredCollections={['posts']} />)
     const setLayout = payloadForm.fields.get('layout')!.setValue
 
+    fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(screen.getByRole('button', { name: 'Paragraph' }))
     expect(screen.getByRole('heading', { name: 'Configure Paragraph' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
@@ -179,6 +179,7 @@ describe('TemplateBuilder regression boundary', () => {
       return new Response(JSON.stringify({ docs }), { status: 200 })
     }))
     render(<TemplateBuilder configuredCollections={['posts']} registeredRendererKeys={['hero-board']} />)
+    fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(await screen.findByRole('button', { name: 'Hero Board' }))
     expect(screen.getByRole('heading', { name: 'Configure Hero Board' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Design'), { target: { value: '9' } })

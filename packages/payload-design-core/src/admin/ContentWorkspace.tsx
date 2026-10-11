@@ -17,6 +17,8 @@ import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { BuilderPanels } from '../builder/BuilderWorkspace'
 import { BuilderCore } from '../builder/BuilderCore'
+import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
+import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/sidebar-model'
 import { builderCapabilities } from '../builder/contracts'
 import { BlockStyleControls } from '../builder/BlockStyleControls'
 import { ContentBlock } from '../content/ContentRenderer'
@@ -77,7 +79,7 @@ export const ContentWorkspace = (
   props: React.ComponentProps<GroupFieldClientComponent> & Extras,
 ) => {
   const { field, groups, lexicalSchemaPath, readOnly, permissions, indexPath, schemaPath } = props
-  const { collectionSlug } = useDocumentInfo()
+  const { collectionSlug, id: documentID } = useDocumentInfo()
   const { disabled } = useForm()
   const [ready, setReady] = useState(false)
   // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR controls must stay disabled until event handlers are hydrated.
@@ -109,7 +111,8 @@ export const ContentWorkspace = (
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
   const [panel, setPanel] = useState<'block' | 'document'>('document')
-  const [left, setLeft] = useState(true)
+  const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`)
+  const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar
   const [right, setRight] = useState(true)
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 1100px)')
@@ -122,14 +125,9 @@ export const ContentWorkspace = (
     closeDrawers()
     narrow.addEventListener('change', closeDrawers)
     return () => narrow.removeEventListener('change', closeDrawers)
-  }, [])
-  const [libraryMode, setLibraryMode] = useState<'blocks' | 'list'>('blocks')
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('All')
+  }, [setLeft])
   const [viewport, setViewport] = useState<Viewport>('desktop')
-  const [destination, setDestination] = useState<{ parent: string; before?: string }>({
-    parent: 'root',
-  })
+  const setDestination = sidebar.insert
   const history = useRef<{ past: Snapshot[]; future: Snapshot[]; last: number }>({
     past: [],
     future: [],
@@ -157,6 +155,8 @@ export const ContentWorkspace = (
             : [])),
     [locked, template, templateID, document, types, designs, layoutField.value],
   )
+  const sidebarNodes = contentSidebarNodes(nodes)
+  const destination = sidebar.target ?? insertionTarget(sidebarNodes, selected)
   const active = walkContent(nodes).find((node) => node.id === selected)
   const select = (id: string) => {
     setSelected(id)
@@ -342,6 +342,7 @@ export const ContentWorkspace = (
     }
     setNodes(insertContent(nodes, node, parent, before))
     select(node.id)
+    sidebar.inserted()
   }
   function changeTemplate(next: string) {
     if (next === templateID) return
@@ -601,7 +602,7 @@ export const ContentWorkspace = (
         className="content-workspace"
         onKeyDown={(event) => {
           if (event.key === 'Escape' && window.matchMedia('(max-width: 1100px)').matches) {
-            setLeft(false)
+            sidebar.close()
             setRight(false)
           }
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
@@ -619,16 +620,7 @@ export const ContentWorkspace = (
           >
             Menu
           </button>
-          <button
-            type="button"
-            aria-expanded={left}
-            onClick={() => {
-              setLeft(!left)
-              if (window.matchMedia('(max-width: 1100px)').matches) setRight(false)
-            }}
-          >
-            Blocks / List view
-          </button>
+          <SidebarControls state={sidebar} canInsert={capabilities.editStructure} />
           <button
             type="button"
             disabled={!history.current.past.length || lockedForm}
@@ -699,97 +691,56 @@ export const ContentWorkspace = (
         <BuilderPanels className="content-workspace__layout" leftOpen={left} rightOpen={right}>
           {left && (
             <aside className="content-workspace__left" aria-label="Block library and hierarchy">
-              <button type="button" onClick={() => setLeft(false)}>
-                Close left panel
-              </button>
-              <div role="tablist" aria-label="Blocks and hierarchy">
-                {!locked && (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={libraryMode === 'blocks'}
-                    onClick={() => setLibraryMode('blocks')}
-                  >
-                    Blocks
-                  </button>
-                )}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={locked || libraryMode === 'list'}
-                  onClick={() => setLibraryMode('list')}
-                >
-                  List view
-                </button>
-              </div>
-              {locked || libraryMode === 'list' ? (
-                <Hierarchy
-                  nodes={nodes}
-                  selected={selected}
-                  locked={locked || lockedForm}
-                  onSelect={selectAndScroll}
-                  onMove={(id, parent, before) => setNodes(moveContent(nodes, id, parent, before))}
-                />
-              ) : (
-                <>
-                  <input
-                    aria-label="Search blocks"
-                    placeholder="Search blocks…"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                  <select
-                    aria-label="Block category"
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value)}
-                  >
-                    {['All', 'Text', 'Media', 'Layout', 'Designed Blocks'].map((value) => (
-                      <option key={value}>{value}</option>
-                    ))}
-                  </select>
-                  <p>
-                    Insert into{' '}
-                    {destination.parent === 'root'
-                      ? 'document'
-                      : (walkContent(nodes).find((node) => node.id === destination.parent)?.label ??
-                        'container')}
-                  </p>
-                  {contentLibrary
-                    .filter(
-                      (item) =>
-                        (category === 'All' || category === item.category) &&
-                        item.label.toLowerCase().includes(query.toLowerCase()),
-                    )
-                    .map((item) => (
-                      <LibraryItem
-                        key={item.kind}
-                        kind={item.kind}
-                        label={item.label}
-                        disabled={lockedForm}
-                        onClick={() => add(item.kind)}
-                      />
-                    ))}
-                  {(category === 'All' || category === 'Designed Blocks') &&
-                    types
-                      .filter(
-                        (type) =>
-                          type.rendererKey === 'hero-board' &&
-                          type.name.toLowerCase().includes(query.toLowerCase()),
+              <BuilderSidebar
+                state={sidebar}
+                adapter={{
+                  nodes: sidebarNodes,
+                  selected,
+                  canEdit: capabilities.editStructure,
+                  locked,
+                  items: [
+                    ...contentLibrary.map((item) => ({ ...item, value: item.kind })),
+                    ...types
+                      .filter((type) => type.rendererKey === 'hero-board')
+                      .map((type) => ({
+                        kind: 'designed',
+                        value: String(type.id),
+                        label: type.name,
+                        category: 'Designed Blocks',
+                      })),
+                  ],
+                  onSelect: selectAndScroll,
+                  onInsert: (item, target) =>
+                    add(
+                      item.kind as ContentKind,
+                      target.parent,
+                      target.before,
+                      types.find((type) => String(type.id) === item.value),
+                    ),
+                  onMove: (id, target) =>
+                    setNodes(moveContent(nodes, id, target.parent, target.before)),
+                  onDuplicate: (id) => {
+                    const node = walkContent(nodes).find((node) => node.id === id)
+                    const position = locateSidebar(sidebarNodes, id)
+                    if (node && position) {
+                      const copy = duplicateContent(node)
+                      setNodes(
+                        insertContent(
+                          nodes,
+                          copy,
+                          position.parent,
+                          position.siblings[position.index + 1]?.id,
+                        ),
                       )
-                      .map((type) => (
-                        <LibraryItem
-                          key={type.id}
-                          kind="designed"
-                          value={String(type.id)}
-                          label={type.name}
-                          disabled={lockedForm}
-                          onClick={() =>
-                            add('designed', destination.parent, destination.before, type)
-                          }
-                        />
-                      ))}
-                </>
-              )}
+                      select(copy.id)
+                    }
+                  },
+                  onDelete: (id) => {
+                    setNodes(removeContent(nodes, id))
+                    setSelected('')
+                  },
+                }}
+              />
             </aside>
           )}
           <div className="content-workspace__center">
@@ -948,42 +899,6 @@ function Insertion({
     </div>
   )
 }
-function LibraryItem({
-  kind,
-  value,
-  label,
-  disabled,
-  onClick,
-}: {
-  kind: string
-  value?: string
-  label: string
-  disabled: boolean
-  onClick: () => void
-}) {
-  const drag = useDraggable({
-    id: `library:${kind}:${value ?? ''}`,
-    data: { library: { kind, value: value ?? kind, label } },
-    disabled,
-  })
-  return (
-    <div className="content-workspace__library-item">
-      <button
-        ref={drag.setNodeRef}
-        type="button"
-        disabled={disabled}
-        {...drag.attributes}
-        {...drag.listeners}
-        aria-label={`Drag ${label}`}
-      >
-        ⠿
-      </button>
-      <button type="button" disabled={disabled} onClick={onClick}>
-        {label}
-      </button>
-    </div>
-  )
-}
 function EditableNode({
   node,
   selected,
@@ -1007,6 +922,7 @@ function EditableNode({
   return (
     <section
       id={`editor-${node.id}`}
+      data-builder-node={node.id}
       ref={drag.setNodeRef}
       className="content-workspace__node"
       data-selected={selected}
@@ -1052,115 +968,6 @@ function EditableNode({
       </div>
       {children}
     </section>
-  )
-}
-function Hierarchy({
-  nodes,
-  selected,
-  locked,
-  onSelect,
-  onMove,
-  parent = 'root',
-}: {
-  nodes: ContentNode[]
-  selected: string
-  locked: boolean
-  onSelect: (id: string) => void
-  onMove: (id: string, parent: string, before?: string) => void
-  parent?: string
-}) {
-  return (
-    <ul className="content-workspace__hierarchy">
-      {nodes.map((node, index) => (
-        <li key={node.id}>
-          <HierarchyRow
-            node={node}
-            parent={parent}
-            selected={selected === node.id}
-            locked={locked}
-            onSelect={() => onSelect(node.id)}
-            onMove={(direction) => {
-              if (
-                (direction === -1 && index === 0) ||
-                (direction === 1 && index === nodes.length - 1)
-              )
-                return
-              onMove(
-                node.id,
-                parent,
-                direction === -1 ? nodes[index - 1]?.id : nodes[index + 2]?.id,
-              )
-            }}
-          />
-          {node.children && (
-            <details open>
-              <summary>Children</summary>
-              <Hierarchy
-                nodes={node.children}
-                parent={node.id}
-                selected={selected}
-                locked={locked}
-                onSelect={onSelect}
-                onMove={onMove}
-              />
-            </details>
-          )}
-        </li>
-      ))}
-    </ul>
-  )
-}
-function HierarchyRow({
-  node,
-  parent,
-  selected,
-  locked,
-  onSelect,
-  onMove,
-}: {
-  node: ContentNode
-  parent: string
-  selected: boolean
-  locked: boolean
-  onSelect: () => void
-  onMove: (direction: -1 | 1) => void
-}) {
-  const drag = useDraggable({
-    id: 'outline:' + node.id,
-    data: { nodeID: node.id },
-    disabled: locked,
-  })
-  const drop = useDroppable({
-    id: 'outline-drop:' + node.id,
-    data: { containerID: parent, beforeID: node.id },
-    disabled: locked,
-  })
-  return (
-    <div ref={drop.setNodeRef} data-over={drop.isOver} className="content-workspace__outline-row">
-      <button type="button" aria-current={selected} onClick={onSelect}>
-        {locked ? '?? ' : ''}
-        {node.label ?? node.kind}
-      </button>
-      {!locked && (
-        <>
-          <button
-            ref={drag.setNodeRef}
-            type="button"
-            {...drag.attributes}
-            {...drag.listeners}
-            aria-label={'Drag ' + (node.label ?? node.kind) + ' in hierarchy'}
-          >
-            ?
-          </button>
-          <button type="button" aria-label="Move up in hierarchy" onClick={() => onMove(-1)}>
-            ?
-          </button>
-          <button type="button" aria-label="Move down in hierarchy" onClick={() => onMove(1)}>
-            ?
-          </button>
-        </>
-      )}
-    </div>
   )
 }
 function MediaPicker({

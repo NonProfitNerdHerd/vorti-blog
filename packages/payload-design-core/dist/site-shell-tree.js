@@ -16,32 +16,52 @@ export function findSiteShellNode(nodes, id) {
     return null;
 }
 export function updateSiteShellNode(nodes, id, next) {
-    return nodes.map((node) => node.id === id ? next : node.type === 'layout' ? {
-        ...node,
-        children: node.children ? updateSiteShellNode(node.children, id, next) : undefined,
-        columns: node.columns?.map((column) => ({ ...column, children: updateSiteShellNode(column.children, id, next) })),
-    } : node);
+    return nodes.map((node) => node.id === id
+        ? next
+        : node.type === 'layout'
+            ? {
+                ...node,
+                children: node.children ? updateSiteShellNode(node.children, id, next) : undefined,
+                columns: node.columns?.map((column) => ({
+                    ...column,
+                    children: updateSiteShellNode(column.children, id, next),
+                })),
+            }
+            : node);
 }
 export function removeSiteShellNode(nodes, id) {
-    return nodes.filter((node) => node.id !== id).map((node) => node.type === 'layout' ? {
-        ...node,
-        children: node.children ? removeSiteShellNode(node.children, id) : undefined,
-        columns: node.columns?.map((column) => ({ ...column, children: removeSiteShellNode(column.children, id) })),
-    } : node);
+    return nodes
+        .filter((node) => node.id !== id)
+        .map((node) => node.type === 'layout'
+        ? {
+            ...node,
+            children: node.children ? removeSiteShellNode(node.children, id) : undefined,
+            columns: node.columns?.map((column) => ({
+                ...column,
+                children: removeSiteShellNode(column.children, id),
+            })),
+        }
+        : node);
 }
-export function insertSiteShellNode(nodes, parentID, inserted) {
+export function insertSiteShellNode(nodes, parentID, inserted, beforeID) {
+    const insert = (items) => {
+        const next = [...items];
+        const at = beforeID ? next.findIndex((item) => item.id === beforeID) : -1;
+        next.splice(at < 0 ? next.length : at, 0, inserted);
+        return next;
+    };
     if (parentID === 'root')
-        return [...nodes, inserted];
+        return insert(nodes);
     return nodes.map((node) => {
         if (node.type !== 'layout')
             return node;
-        if (node.id === parentID && node.layout !== 'columns')
-            return { ...node, children: [...(node.children ?? []), inserted] };
+        if (node.id === parentID && !['columns', 'spacer', 'divider'].includes(node.layout))
+            return { ...node, children: insert(node.children ?? []) };
         return {
             ...node,
-            children: insertSiteShellNode(node.children ?? [], parentID, inserted),
+            children: insertSiteShellNode(node.children ?? [], parentID, inserted, beforeID),
             columns: node.columns?.map((column) => column.id === parentID
-                ? { ...column, children: [...column.children, inserted] }
+                ? { ...column, children: insert(column.children) }
                 : { ...column, children: insertSiteShellNode(column.children, parentID, inserted) }),
         };
     });
@@ -56,11 +76,16 @@ export function moveSiteShellNode(nodes, id, direction) {
         [copy[index], copy[target]] = [copy[target], copy[index]];
         return copy;
     }
-    return nodes.map((node) => node.type === 'layout' ? {
-        ...node,
-        children: moveSiteShellNode(node.children ?? [], id, direction),
-        columns: node.columns?.map((column) => ({ ...column, children: moveSiteShellNode(column.children, id, direction) })),
-    } : node);
+    return nodes.map((node) => node.type === 'layout'
+        ? {
+            ...node,
+            children: moveSiteShellNode(node.children ?? [], id, direction),
+            columns: node.columns?.map((column) => ({
+                ...column,
+                children: moveSiteShellNode(column.children, id, direction),
+            })),
+        }
+        : node);
 }
 function extract(nodes, id) {
     let found = null;
@@ -84,9 +109,24 @@ function extract(nodes, id) {
     });
     return { nodes: next, node: found };
 }
-export function moveSiteShellNodeTo(nodes, id, parentID) {
-    if (id === parentID || findSiteShellNode([findSiteShellNode(nodes, id)].filter(Boolean), parentID))
+export function moveSiteShellNodeTo(nodes, id, parentID, beforeID) {
+    const containers = (items) => items.flatMap((node) => node.type === 'layout'
+        ? [
+            ...(!['columns', 'spacer', 'divider'].includes(node.layout) ? [node.id] : []),
+            ...containers(node.children ?? []),
+            ...(node.columns ?? []).flatMap((column) => [
+                column.id,
+                ...containers(column.children),
+            ]),
+        ]
+        : []);
+    const source = findSiteShellNode(nodes, id);
+    if (!source ||
+        id === beforeID ||
+        id === parentID ||
+        (parentID !== 'root' && !containers(nodes).includes(parentID)) ||
+        containers([source]).includes(parentID))
         return nodes;
     const result = extract(nodes, id);
-    return result.node ? insertSiteShellNode(result.nodes, parentID, result.node) : nodes;
+    return result.node ? insertSiteShellNode(result.nodes, parentID, result.node, beforeID) : nodes;
 }

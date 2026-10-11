@@ -10,6 +10,7 @@ import { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder'
 const payloadForm = vi.hoisted(() => ({ fields: new Map<string, { value: unknown; setValue: ReturnType<typeof vi.fn> }>() }))
 vi.mock('@payloadcms/ui', () => ({
   useDocumentInfo: () => ({ id: 42 }),
+  useForm: () => ({ disabled:false }),
   useField: ({ path }: { path: string }) => payloadForm.fields.get(path) ?? { value: undefined, setValue: vi.fn() },
 }))
 vi.mock('@dnd-kit/core', () => ({
@@ -36,10 +37,13 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('SiteShellBuilder', () => {
   it('loads Header and Footer from the same builder with filtered libraries', () => {
     const { rerender } = render(<SiteShellBuilder region="header" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     expect(screen.getByTestId('site-shell-header')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Mobile Menu Toggle' })).toBeTruthy()
     rerender(<SiteShellBuilder region="footer" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     expect(screen.getByRole('button', { name: 'Current Year' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copyright' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Search' })).toBeNull()
@@ -47,12 +51,14 @@ describe('SiteShellBuilder', () => {
 
   it('inserts layout and dynamic Site Settings elements without copying identity values', () => {
     render(<SiteShellBuilder region="header" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Container' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(payloadForm.fields.get('header.layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'layout', layout: 'container' })]))
     cleanup()
     payloadForm.fields.set('header.layout', field([]))
     render(<SiteShellBuilder region="header" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Site Logo' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(payloadForm.fields.get('header.layout')!.setValue).toHaveBeenLastCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'element', element: 'logo', props: expect.objectContaining({ source: 'siteSettings.logo' }) })]))
@@ -60,6 +66,7 @@ describe('SiteShellBuilder', () => {
 
   it('stores Navigation source and inspector presentation controls', () => {
     render(<SiteShellBuilder region="header" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Navigation Menu' }))
     fireEvent.change(screen.getByLabelText('Menu Source'), { target: { value: 'footer' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
@@ -68,6 +75,7 @@ describe('SiteShellBuilder', () => {
 
   it('stores responsive overrides and changes preview viewport without changing content schema', () => {
     render(<SiteShellBuilder region="header" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Text' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Style' }))
     fireEvent.change(screen.getByLabelText('padding'), { target: { value: '24px' } })
@@ -82,6 +90,7 @@ describe('SiteShellBuilder', () => {
   it('renders the dynamic Current Year preview', () => {
     payloadForm.fields.set('footer.layout', field([{ id: 'year', type: 'element', element: 'currentYear', props: { source: 'system.currentYear' } }]))
     render(<SiteShellBuilder region="footer" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     expect(screen.getByText(String(new Date().getFullYear()))).toBeTruthy()
   })
 
@@ -99,13 +108,15 @@ describe('SiteShellBuilder', () => {
     const columns: SiteShellNode = { id: 'columns', type: 'layout', layout: 'columns', columns: [{ id: 'left', width: 70, children: [] }, { id: 'right', width: 30, children: [] }] }
     payloadForm.fields.set('footer.layout', field([columns]))
     const { rerender } = render(<SiteShellBuilder region="footer" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     expect(screen.queryByText('Footer Shell')).toBeNull()
     expect(screen.queryByText('Columns · 70 / 30')).toBeNull()
-    fireEvent.click(screen.getByRole('tab', { name: 'List View' }))
-    expect(screen.getByText('Columns · 70 / 30')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'List View' }))
+    expect(screen.getByRole('button', {name:'Columns'})).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Remove Columns · 70 / 30' }))
     payloadForm.fields.set('footer.layout', { ...payloadForm.fields.get('footer.layout')!, value: [] })
     rerender(<SiteShellBuilder region="footer" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Undo last change' }))
     expect(payloadForm.fields.get('footer.layout')!.setValue).toHaveBeenLastCalledWith([columns])
   })

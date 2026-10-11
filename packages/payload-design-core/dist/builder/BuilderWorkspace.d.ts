@@ -1,12 +1,12 @@
 import { type ReactNode } from 'react';
 /** Layout shared by content authoring, locked templates and template design adapters. */
-export declare function BuilderPanels({ children, className, leftOpen, rightOpen }: {
+export declare function BuilderPanels({ children, className, leftOpen, rightOpen, }: {
     children: ReactNode;
     className: string;
     leftOpen: boolean;
     rightOpen: boolean;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, inspector, inspectorTitle, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, }: {
+export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, inspector, inspectorTitle, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, sidebar, sidebarControls, }: {
     canvas: ReactNode;
     canvasLabel: string;
     canvasTitle: string;
@@ -19,4 +19,6 @@ export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, ins
     onLibraryOpenChange: (open: boolean) => void;
     documentSettings?: ReactNode;
     selectionKey?: string;
+    sidebar?: ReactNode;
+    sidebarControls?: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;

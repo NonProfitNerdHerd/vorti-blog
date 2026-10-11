@@ -77,6 +77,15 @@ locks structure and presentation; only its declared fields are editable. The
 gear tab contains document settings and plugin-provided metadata. Template
 authors use the shared builder with a gear tab for template properties and fields.
 
+All block editors share the left sidebar: List View is the default, Outline
+shows headings and word/reading-time counts, and the + control opens a searchable
+block grid. Canvas inserters use the same grid with an explicit insertion point.
+Header/Footer content is edited through the Site Template tabs only. The
+`SidebarAdapter` and sidebar components exported from the design package's
+`/admin` entry point let future collections (including Events) reuse this UI
+without changing their stored content format. Navigation-only rich-text rows
+select their owning block; they are not independently movable blocks.
+
 Run `pnpm test:editor` for the isolated browser acceptance suite. It seeds only
 `.wrangler/content-workspace-test`, uses the local bindings in
 `wrangler.test.jsonc`, and starts the app on port 3100. Set

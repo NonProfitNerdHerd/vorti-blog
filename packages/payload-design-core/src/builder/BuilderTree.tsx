@@ -64,7 +64,7 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
   const drag = useDraggable({ id: `node:${nodeID}`, data: { nodeID } })
   const index = siblings.findIndex((item) => id(item) === nodeID)
   return (
-    <article ref={drag.setNodeRef} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
+    <article data-builder-node={nodeID} ref={drag.setNodeRef} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
       <div className="template-editor__toolbar">
         <button type="button" className="template-editor__tool-button" {...drag.listeners} {...drag.attributes} aria-label={`Drag ${descriptor.title}`} title="Drag">⠿</button>
         <button type="button" className="template-editor__tool-button" aria-label={`Edit ${descriptor.title}`} title="Settings" onClick={() => actions.edit(node)}>⚙</button>
@@ -77,7 +77,7 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
       </div>
       {descriptor.children?.length ? (
         descriptor.childrenClassName || descriptor.childrenStyle ? <div className={descriptor.childrenClassName} style={descriptor.childrenStyle}>
-          {descriptor.children.map((container) => <div className={container.className} key={container.id}>
+          {descriptor.children.map((container) => <div className={container.className} key={container.id} data-builder-node={container.id} data-selected={selectedID === container.id}>
               <DropArea id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}>
                 <BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} />
               </DropArea>

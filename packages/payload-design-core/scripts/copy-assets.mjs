@@ -5,3 +5,6 @@ copyFileSync(new URL('../src/hero-board/hero-board.css', import.meta.url), new U
 mkdirSync(new URL('../dist/admin/', import.meta.url), { recursive: true })
 copyFileSync(new URL('../src/admin/template-builder.css', import.meta.url), new URL('../dist/admin/template-builder.css', import.meta.url))
 copyFileSync(new URL('../src/admin/content-workspace.css', import.meta.url), new URL('../dist/admin/content-workspace.css', import.meta.url))
+
+mkdirSync(new URL('../dist/builder/', import.meta.url), { recursive: true })
+copyFileSync(new URL('../src/builder/builder-sidebar.css', import.meta.url), new URL('../dist/builder/builder-sidebar.css', import.meta.url))

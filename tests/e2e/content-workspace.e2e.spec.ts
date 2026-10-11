@@ -1,5 +1,103 @@
 import { expect, test } from '@playwright/test'
 
+test('shared sidebar navigates outlines, inserts precisely, duplicates and restores focus', async ({
+  page,
+}) => {
+  await page.goto('/admin/collections/pages/create')
+  const workspace = page.locator('.content-workspace')
+  const sidebar = workspace.locator('.builder-sidebar')
+  await expect(sidebar.getByRole('tab', { name: 'List View', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await sidebar.getByRole('textbox', { name: 'Search blocks' }).fill('heading')
+  await sidebar.getByRole('button', { name: 'Heading', exact: true }).click()
+  await workspace.locator('textarea[aria-label=Heading]').fill('A useful heading')
+  await sidebar.getByRole('tab', { name: 'Outline' }).click()
+  await expect(sidebar).toContainText('3 words')
+  await sidebar.getByRole('button', { name: 'H2 A useful heading' }).click()
+  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await sidebar.getByRole('textbox', { name: 'Search blocks' }).fill('paragraph')
+  await sidebar.getByRole('button', { name: 'Paragraph', exact: true }).click()
+  await workspace.locator('textarea[aria-label=Paragraph]').fill('Some paragraph text')
+  const drag = await sidebar
+    .getByRole('button', { name: 'Drag Paragraph', exact: true })
+    .boundingBox()
+  const drop = await sidebar.locator('[aria-label="Insert before Heading"]').boundingBox()
+  expect(drag && drop).toBeTruthy()
+  await page.mouse.move(drag!.x + drag!.width / 2, drag!.y + drag!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(drop!.x + drop!.width / 2, drop!.y + drop!.height / 2, { steps: 12 })
+  await page.mouse.up()
+  await expect(
+    workspace.locator('.content-workspace__viewport [data-block-kind]').first(),
+  ).toHaveAttribute('data-block-kind', 'paragraph')
+  await sidebar.getByRole('button', { name: 'Actions for Paragraph' }).click()
+  await sidebar.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(2)
+  await page.screenshot({ path: '.wrangler/sidebar-list-view.png' })
+  await workspace.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(1)
+  await workspace.getByRole('button', { name: 'Redo', exact: true }).click()
+  await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(2)
+  await page.setViewportSize({ width: 390, height: 844 })
+  const opener = workspace.getByRole('button', { name: 'List View', exact: true })
+  await opener.click()
+  await sidebar.getByRole('tab', { name: 'Outline' }).press('Escape')
+  await expect(sidebar).toHaveCount(0)
+  await expect(opener).toBeFocused()
+})
+
+test('Site Template Header and Footer use only tabs and save their hidden groups', async ({
+  page,
+}) => {
+  const name = `sidebar-shell-${Date.now()}`
+  const created = await page.request.post('/api/site-templates', {
+    data: {
+      name,
+      slug: name,
+      _status: 'draft',
+      header: { layout: [], settings: { widthMode: 'contained' } },
+      footer: { layout: [], settings: { widthMode: 'full' } },
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/site-templates/${doc.id}`)
+  await expect(page.getByRole('heading', { name: 'Header', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Footer', exact: true })).toHaveCount(0)
+  for (const region of ['Header', 'Footer']) {
+    await page.getByRole('tab', { name: region, exact: true }).click()
+    const shell = page.getByTestId(`site-shell-${region.toLowerCase()}`)
+    await expect(shell.getByRole('tab', { name: 'List View', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await shell.getByRole('button', { name: 'Add block', exact: true }).click()
+    await shell
+      .locator('.builder-sidebar')
+      .getByRole('button', { name: 'Text', exact: true })
+      .click()
+    await shell.getByRole('textbox', { name: 'Text', exact: true }).fill(`${region} actual text`)
+    await shell.getByRole('button', { name: 'Save Element', exact: true }).click()
+    await shell.getByRole('tab', { name: 'Outline' }).click()
+    await expect(shell.locator('.builder-sidebar')).toContainText('3 words')
+  }
+  await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`/api/site-templates/${doc.id}?draft=true`)
+      return (await response.json()).footer.layout.length
+    })
+    .toBe(1)
+  await page.reload()
+  const saved = await (await page.request.get(`/api/site-templates/${doc.id}?draft=true`)).json()
+  expect(saved.header.layout[0].props.text).toBe('Header actual text')
+  expect(saved.footer.layout[0].props.text).toBe('Footer actual text')
+  expect(saved.header.settings.widthMode).toBe('contained')
+})
+
 test.beforeEach(async ({ page }) => {
   const response = await page.request.post('/api/users/login', {
     data: { email: 'dev@payloadcms.com', password: 'test' },
@@ -13,6 +111,7 @@ for (const collection of ['posts', 'pages'])
     await page.goto(`/admin/collections/${collection}/create`)
     const workspace = page.locator('.content-workspace')
     const library = workspace.locator('.content-workspace__left')
+    await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
     await library.getByRole('button', { name: 'Heading', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').fill('A styled heading')
     await expect(workspace.getByRole('button', { name: 'Menu', exact: true })).toHaveAttribute(
@@ -28,6 +127,7 @@ for (const collection of ['posts', 'pages'])
       'background-color',
       'rgb(255, 238, 204)',
     )
+    await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
     await library.getByRole('button', { name: 'Columns', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').click()
     const move = workspace.getByRole('combobox', { name: 'Move block into', exact: true })
@@ -78,7 +178,13 @@ for (const collection of ['posts', 'pages'])
     )
     await expect(page.locator('[data-block-kind=heading]')).toHaveCSS('padding-top', '24px')
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect.poll(async () => page.locator('[data-block-kind=columns]').evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(1)
+    await expect
+      .poll(async () =>
+        page
+          .locator('[data-block-kind=columns]')
+          .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length),
+      )
+      .toBe(1)
   })
 
 test('templates lock structure and styles, keep fields editable, and enforce the same rule through the API', async ({
@@ -177,6 +283,7 @@ test('rich text formatting and responsive styles survive save and appear in draf
   const suffix = `rich-${Date.now()}`
   await page.goto('/admin/collections/pages/create')
   const workspace = page.locator('.content-workspace')
+  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
   await workspace
     .locator('.content-workspace__left')
     .getByRole('button', { name: 'Paragraph', exact: true })

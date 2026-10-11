@@ -7,6 +7,8 @@ import { RenderLexical } from '@payloadcms/richtext-lexical/client';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { BuilderPanels } from '../builder/BuilderWorkspace.js';
 import { BuilderCore } from '../builder/BuilderCore.js';
+import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
+import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/sidebar-model.js';
 import { builderCapabilities } from '../builder/contracts.js';
 import { BlockStyleControls } from '../builder/BlockStyleControls.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
@@ -45,7 +47,7 @@ async function docs(url) {
 }
 export const ContentWorkspace = (props) => {
     const { field, groups, lexicalSchemaPath, readOnly, permissions, indexPath, schemaPath } = props;
-    const { collectionSlug } = useDocumentInfo();
+    const { collectionSlug, id: documentID } = useDocumentInfo();
     const { disabled } = useForm();
     const [ready, setReady] = useState(false);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR controls must stay disabled until event handlers are hydrated.
@@ -74,7 +76,8 @@ export const ContentWorkspace = (props) => {
     const [error, setError] = useState('');
     const [selected, setSelected] = useState('');
     const [panel, setPanel] = useState('document');
-    const [left, setLeft] = useState(true);
+    const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`);
+    const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar;
     const [right, setRight] = useState(true);
     useEffect(() => {
         const narrow = window.matchMedia('(max-width: 1100px)');
@@ -87,14 +90,9 @@ export const ContentWorkspace = (props) => {
         closeDrawers();
         narrow.addEventListener('change', closeDrawers);
         return () => narrow.removeEventListener('change', closeDrawers);
-    }, []);
-    const [libraryMode, setLibraryMode] = useState('blocks');
-    const [query, setQuery] = useState('');
-    const [category, setCategory] = useState('All');
+    }, [setLeft]);
     const [viewport, setViewport] = useState('desktop');
-    const [destination, setDestination] = useState({
-        parent: 'root',
-    });
+    const setDestination = sidebar.insert;
     const history = useRef({
         past: [],
         future: [],
@@ -118,6 +116,8 @@ export const ContentWorkspace = (props) => {
                     },
                 ]
                 : [])), [locked, template, templateID, document, types, designs, layoutField.value]);
+    const sidebarNodes = contentSidebarNodes(nodes);
+    const destination = sidebar.target ?? insertionTarget(sidebarNodes, selected);
     const active = walkContent(nodes).find((node) => node.id === selected);
     const select = (id) => {
         setSelected(id);
@@ -282,6 +282,7 @@ export const ContentWorkspace = (props) => {
         }
         setNodes(insertContent(nodes, node, parent, before));
         select(node.id);
+        sidebar.inserted();
     }
     function changeTemplate(next) {
         if (next === templateID)
@@ -376,7 +377,7 @@ export const ContentWorkspace = (props) => {
                 setNodes(moveContent(nodes, id, parent, before));
         }, children: _jsxs("section", { className: "content-workspace", onKeyDown: (event) => {
                 if (event.key === 'Escape' && window.matchMedia('(max-width: 1100px)').matches) {
-                    setLeft(false);
+                    sidebar.close();
                     setRight(false);
                 }
                 if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
@@ -384,11 +385,7 @@ export const ContentWorkspace = (props) => {
                     event.stopPropagation();
                     undo(event.shiftKey);
                 }
-            }, children: [_jsxs("div", { className: "content-workspace__toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx("button", { type: "button", "aria-expanded": left, onClick: () => {
-                                setLeft(!left);
-                                if (window.matchMedia('(max-width: 1100px)').matches)
-                                    setRight(false);
-                            }, children: "Blocks / List view" }), _jsx("button", { type: "button", disabled: !history.current.past.length || lockedForm, onClick: () => undo(), children: "Undo" }), _jsx("button", { type: "button", disabled: !history.current.future.length || lockedForm, onClick: () => undo(true), children: "Redo" }), _jsx("select", { "aria-label": "Preview width", value: viewport, onChange: (event) => setViewport(event.target.value), children: ['desktop', 'tablet', 'mobile'].map((device) => (_jsx("option", { children: device }, device))) }), _jsx("button", { type: "button", "aria-expanded": right, onClick: () => {
+            }, children: [_jsxs("div", { className: "content-workspace__toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx(SidebarControls, { state: sidebar, canInsert: capabilities.editStructure }), _jsx("button", { type: "button", disabled: !history.current.past.length || lockedForm, onClick: () => undo(), children: "Undo" }), _jsx("button", { type: "button", disabled: !history.current.future.length || lockedForm, onClick: () => undo(true), children: "Redo" }), _jsx("select", { "aria-label": "Preview width", value: viewport, onChange: (event) => setViewport(event.target.value), children: ['desktop', 'tablet', 'mobile'].map((device) => (_jsx("option", { children: device }, device))) }), _jsx("button", { type: "button", "aria-expanded": right, onClick: () => {
                                 setRight(!right);
                                 if (window.matchMedia('(max-width: 1100px)').matches)
                                     setLeft(false);
@@ -407,17 +404,39 @@ export const ContentWorkspace = (props) => {
                                     input?.focus();
                                 });
                             }
-                        }, children: String(value.errorMessage) }, path))) })), _jsxs(BuilderPanels, { className: "content-workspace__layout", leftOpen: left, rightOpen: right, children: [left && (_jsxs("aside", { className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: [_jsx("button", { type: "button", onClick: () => setLeft(false), children: "Close left panel" }), _jsxs("div", { role: "tablist", "aria-label": "Blocks and hierarchy", children: [!locked && (_jsx("button", { type: "button", role: "tab", "aria-selected": libraryMode === 'blocks', onClick: () => setLibraryMode('blocks'), children: "Blocks" })), _jsx("button", { type: "button", role: "tab", "aria-selected": locked || libraryMode === 'list', onClick: () => setLibraryMode('list'), children: "List view" })] }), locked || libraryMode === 'list' ? (_jsx(Hierarchy, { nodes: nodes, selected: selected, locked: locked || lockedForm, onSelect: selectAndScroll, onMove: (id, parent, before) => setNodes(moveContent(nodes, id, parent, before)) })) : (_jsxs(_Fragment, { children: [_jsx("input", { "aria-label": "Search blocks", placeholder: "Search blocks\u2026", value: query, onChange: (event) => setQuery(event.target.value) }), _jsx("select", { "aria-label": "Block category", value: category, onChange: (event) => setCategory(event.target.value), children: ['All', 'Text', 'Media', 'Layout', 'Designed Blocks'].map((value) => (_jsx("option", { children: value }, value))) }), _jsxs("p", { children: ["Insert into", ' ', destination.parent === 'root'
-                                                    ? 'document'
-                                                    : (walkContent(nodes).find((node) => node.id === destination.parent)?.label ??
-                                                        'container')] }), contentLibrary
-                                            .filter((item) => (category === 'All' || category === item.category) &&
-                                            item.label.toLowerCase().includes(query.toLowerCase()))
-                                            .map((item) => (_jsx(LibraryItem, { kind: item.kind, label: item.label, disabled: lockedForm, onClick: () => add(item.kind) }, item.kind))), (category === 'All' || category === 'Designed Blocks') &&
-                                            types
-                                                .filter((type) => type.rendererKey === 'hero-board' &&
-                                                type.name.toLowerCase().includes(query.toLowerCase()))
-                                                .map((type) => (_jsx(LibraryItem, { kind: "designed", value: String(type.id), label: type.name, disabled: lockedForm, onClick: () => add('designed', destination.parent, destination.before, type) }, type.id)))] }))] })), _jsxs("div", { className: "content-workspace__center", children: [_jsx("div", { className: "content-workspace__title", children: renderFields(['title']) }), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
+                        }, children: String(value.errorMessage) }, path))) })), _jsxs(BuilderPanels, { className: "content-workspace__layout", leftOpen: left, rightOpen: right, children: [left && (_jsx("aside", { className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+                                    nodes: sidebarNodes,
+                                    selected,
+                                    canEdit: capabilities.editStructure,
+                                    locked,
+                                    items: [
+                                        ...contentLibrary.map((item) => ({ ...item, value: item.kind })),
+                                        ...types
+                                            .filter((type) => type.rendererKey === 'hero-board')
+                                            .map((type) => ({
+                                            kind: 'designed',
+                                            value: String(type.id),
+                                            label: type.name,
+                                            category: 'Designed Blocks',
+                                        })),
+                                    ],
+                                    onSelect: selectAndScroll,
+                                    onInsert: (item, target) => add(item.kind, target.parent, target.before, types.find((type) => String(type.id) === item.value)),
+                                    onMove: (id, target) => setNodes(moveContent(nodes, id, target.parent, target.before)),
+                                    onDuplicate: (id) => {
+                                        const node = walkContent(nodes).find((node) => node.id === id);
+                                        const position = locateSidebar(sidebarNodes, id);
+                                        if (node && position) {
+                                            const copy = duplicateContent(node);
+                                            setNodes(insertContent(nodes, copy, position.parent, position.siblings[position.index + 1]?.id));
+                                            select(copy.id);
+                                        }
+                                    },
+                                    onDelete: (id) => {
+                                        setNodes(removeContent(nodes, id));
+                                        setSelected('');
+                                    },
+                                } }) })), _jsxs("div", { className: "content-workspace__center", children: [_jsx("div", { className: "content-workspace__title", children: renderFields(['title']) }), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
                                         maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
                                     }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsx("button", { type: "button", onClick: () => setRight(false), children: "Close inspector" }), _jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: "\u2699" })] }), panel === 'document' ? (gear) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsxs(_Fragment, { children: [_jsx("h3", { children: active.label ?? active.kind }), locked ? (_jsxs(_Fragment, { children: [_jsx("p", { children: "Template structure and design are locked." }), active.binding
                                                     ? bindField(active)
@@ -441,44 +460,15 @@ function Insertion({ parent, before, disabled, onChoose, }) {
     });
     return (_jsx("div", { ref: drop.setNodeRef, className: "content-workspace__insert", "data-over": drop.isOver, children: _jsx("button", { type: "button", disabled: disabled, "aria-label": `Insert block ${before ? 'before block' : 'at end'}`, onClick: onChoose, children: "+" }) }));
 }
-function LibraryItem({ kind, value, label, disabled, onClick, }) {
-    const drag = useDraggable({
-        id: `library:${kind}:${value ?? ''}`,
-        data: { library: { kind, value: value ?? kind, label } },
-        disabled,
-    });
-    return (_jsxs("div", { className: "content-workspace__library-item", children: [_jsx("button", { ref: drag.setNodeRef, type: "button", disabled: disabled, ...drag.attributes, ...drag.listeners, "aria-label": `Drag ${label}`, children: "\u283F" }), _jsx("button", { type: "button", disabled: disabled, onClick: onClick, children: label })] }));
-}
 function EditableNode({ node, selected, locked, onSelect, onMove, onDuplicate, onRemove, children, }) {
     const drag = useDraggable({ id: `node:${node.id}`, data: { nodeID: node.id }, disabled: locked });
-    return (_jsxs("section", { id: `editor-${node.id}`, ref: drag.setNodeRef, className: "content-workspace__node", "data-selected": selected, "aria-label": node.label ?? node.kind, onClick: (event) => {
+    return (_jsxs("section", { id: `editor-${node.id}`, "data-builder-node": node.id, ref: drag.setNodeRef, className: "content-workspace__node", "data-selected": selected, "aria-label": node.label ?? node.kind, onClick: (event) => {
             event.stopPropagation();
             onSelect();
         }, onFocus: (event) => {
             event.stopPropagation();
             onSelect();
         }, children: [_jsxs("div", { className: "content-workspace__node-controls", children: [_jsxs("button", { type: "button", onClick: onSelect, children: [locked ? '🔒 ' : '', node.label ?? node.kind] }), !locked && (_jsxs(_Fragment, { children: [_jsx("button", { type: "button", ...drag.attributes, ...drag.listeners, "aria-label": `Drag ${node.label ?? node.kind}`, children: "\u283F" }), _jsx("button", { type: "button", "aria-label": "Move block up", onClick: () => onMove(-1), children: "\u2191" }), _jsx("button", { type: "button", "aria-label": "Move block down", onClick: () => onMove(1), children: "\u2193" }), _jsx("button", { type: "button", onClick: onDuplicate, children: "Duplicate" }), _jsx("button", { type: "button", onClick: onRemove, children: "Remove" })] }))] }), children] }));
-}
-function Hierarchy({ nodes, selected, locked, onSelect, onMove, parent = 'root', }) {
-    return (_jsx("ul", { className: "content-workspace__hierarchy", children: nodes.map((node, index) => (_jsxs("li", { children: [_jsx(HierarchyRow, { node: node, parent: parent, selected: selected === node.id, locked: locked, onSelect: () => onSelect(node.id), onMove: (direction) => {
-                        if ((direction === -1 && index === 0) ||
-                            (direction === 1 && index === nodes.length - 1))
-                            return;
-                        onMove(node.id, parent, direction === -1 ? nodes[index - 1]?.id : nodes[index + 2]?.id);
-                    } }), node.children && (_jsxs("details", { open: true, children: [_jsx("summary", { children: "Children" }), _jsx(Hierarchy, { nodes: node.children, parent: node.id, selected: selected, locked: locked, onSelect: onSelect, onMove: onMove })] }))] }, node.id))) }));
-}
-function HierarchyRow({ node, parent, selected, locked, onSelect, onMove, }) {
-    const drag = useDraggable({
-        id: 'outline:' + node.id,
-        data: { nodeID: node.id },
-        disabled: locked,
-    });
-    const drop = useDroppable({
-        id: 'outline-drop:' + node.id,
-        data: { containerID: parent, beforeID: node.id },
-        disabled: locked,
-    });
-    return (_jsxs("div", { ref: drop.setNodeRef, "data-over": drop.isOver, className: "content-workspace__outline-row", children: [_jsxs("button", { type: "button", "aria-current": selected, onClick: onSelect, children: [locked ? '?? ' : '', node.label ?? node.kind] }), !locked && (_jsxs(_Fragment, { children: [_jsx("button", { ref: drag.setNodeRef, type: "button", ...drag.attributes, ...drag.listeners, "aria-label": 'Drag ' + (node.label ?? node.kind) + ' in hierarchy', children: "?" }), _jsx("button", { type: "button", "aria-label": "Move up in hierarchy", onClick: () => onMove(-1), children: "?" }), _jsx("button", { type: "button", "aria-label": "Move down in hierarchy", onClick: () => onMove(1), children: "?" })] }))] }));
 }
 function MediaPicker({ value, onChange, many = false, disabled = false, label = 'Image', }) {
     const { config } = useConfig();
