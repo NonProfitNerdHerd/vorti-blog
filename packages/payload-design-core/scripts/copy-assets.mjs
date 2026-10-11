@@ -9,3 +9,4 @@ copyFileSync(new URL('../src/admin/content-workspace.css', import.meta.url), new
 mkdirSync(new URL('../dist/builder/', import.meta.url), { recursive: true })
 copyFileSync(new URL('../src/builder/builder-sidebar.css', import.meta.url), new URL('../dist/builder/builder-sidebar.css', import.meta.url))
 copyFileSync(new URL('../src/builder/block-inspector.css', import.meta.url), new URL('../dist/builder/block-inspector.css', import.meta.url))
+copyFileSync(new URL('../src/builder/editor-header.css', import.meta.url), new URL('../dist/builder/editor-header.css', import.meta.url))

@@ -117,7 +117,7 @@ describe('SiteShellBuilder', () => {
     payloadForm.fields.set('footer.layout', { ...payloadForm.fields.get('footer.layout')!, value: [] })
     rerender(<SiteShellBuilder region="footer" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last change' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(payloadForm.fields.get('footer.layout')!.setValue).toHaveBeenLastCalledWith([columns])
   })
 

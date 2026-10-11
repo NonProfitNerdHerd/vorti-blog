@@ -15,8 +15,9 @@ import { createContentNode } from '../content/model.js';
 import { resolveStyle, templateStyle } from '../content/model.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
+import { EditorHeaderPortal, EditorHistory, EditorName } from '../builder/EditorHeader.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
-import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar.js';
+import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar.js';
 import { DropArea } from '../builder/DropArea.js';
 import { coreEditorElements, editorCategoryLabels, toLibraryItem, } from '../editor-registry.js';
 import { findTemplateNode, insertTemplateNode, moveTemplateNode, moveTemplateNodeTo, removeTemplateNode, updateTemplateNode, } from '../template-tree.js';
@@ -138,7 +139,6 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const layoutField = useField({ path: 'layout' });
     const customFieldsField = useField({ path: 'customFields' });
     const sectionsField = useField({ path: 'sections' });
-    const statusField = useField({ path: '_status' });
     const name = nameField.value ?? '';
     const collections = Array.isArray(collectionsField.value) ? collectionsField.value : [];
     const nodes = Array.isArray(layoutField.value) ? layoutField.value : [];
@@ -293,91 +293,91 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
             },
         });
     }
-    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsxs("div", { className: "template-editor__editing-toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx("button", { type: "button", disabled: disabled || !history.current.past.length, onClick: () => restore(), children: "Undo" }), _jsx("button", { type: "button", disabled: disabled || !history.current.future.length, onClick: () => restore(true), children: "Redo" })] }), _jsxs("header", { className: "template-editor__header", children: [_jsxs("div", { children: [_jsx("h1", { children: name || 'Create Template' }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] }))] }), _jsx("strong", { className: "template-editor__status", children: statusField.value === 'published' ? 'Published' : 'Draft' })] }), _jsxs(_Fragment, { children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Template", readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { children: ["Name", _jsx("input", { "aria-label": "Name", value: name, onChange: (e) => nameField.setValue(e.target.value) })] }), _jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
-                                                            display: 'block',
-                                                            width: '100%',
-                                                            minHeight: 88,
-                                                            resize: 'vertical',
-                                                        } })] }), _jsxs("fieldset", { style: { marginTop: 12 }, children: [_jsx("legend", { children: "Use With" }), configuredCollections.map((slug) => (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: collections.includes(slug), onChange: () => collectionsField.setValue(collections.includes(slug)
-                                                                    ? collections.filter((item) => item !== slug)
-                                                                    : [...collections, slug]) }), ' ', slug[0].toUpperCase() + slug.slice(1)] }, slug)))] })] }), _jsx("h3", { children: "Custom Fields" }), _jsx(CustomFieldsPanel, { fields: customFields, setFields: (next) => {
-                                            record();
-                                            modified.current = true;
-                                            customFieldsField.setValue(next);
-                                        } })] }), selectionKey: editing?.id ?? adding?.value, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
-                                    nodes: templateSidebarNodes(nodes),
-                                    selected: sidebarSelected ?? editing?.id,
-                                    canEdit: !disabled,
-                                    items: [
-                                        ...listBlockDefinitions('template')
-                                            .filter((def) => def.type !== 'column' &&
-                                            !coreEditorElements.some((item) => item.label === def.label || item.value === def.type))
-                                            .map((def) => ({
-                                            kind: 'registered',
-                                            value: def.type,
-                                            label: def.label,
-                                            category: def.category,
-                                        })),
-                                        ...coreEditorElements.map((item) => ({
-                                            ...toLibraryItem(item),
-                                            category: editorCategoryLabels[item.category],
-                                            keywords: item.keywords,
-                                        })),
-                                        ...types.map((type) => ({
-                                            kind: 'block',
-                                            value: String(type.id),
-                                            label: type.name,
-                                            category: 'Designed Blocks',
-                                        })),
-                                    ],
-                                    onSelect: (id) => {
-                                        setSidebarSelected(id);
-                                        const node = findTemplateNode(nodes, id);
-                                        if (node)
-                                            actions.edit(node);
-                                        else {
-                                            setEditing(null);
-                                            setAdding(null);
-                                        }
-                                    },
-                                    onInsert: (item, target) => startAdd(item, target.parent, target.before),
-                                    onMove: (id, target) => setNodes(moveTemplateNodeTo(nodes, id, target.parent, target.before)),
-                                    onDelete: actions.remove,
-                                    onDuplicate: (id) => {
-                                        const node = findTemplateNode(nodes, id);
-                                        const position = locateSidebar(templateSidebarNodes(nodes), id);
-                                        if (node && position) {
-                                            const copy = duplicateBuilderNode(node);
-                                            setNodes(insertTemplateNode(nodes, position.parent, copy, position.siblings[position.index + 1]?.id));
-                                            actions.edit(copy);
-                                        }
-                                    },
-                                } }), canvasLabel: "Template Canvas", canvasTitle: "Template Canvas", canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs(DropArea, { id: "root", label: "Template Canvas drop area", add: () => openPickerFor('root'), addItem: (item) => startAdd(item, 'root'), children: [!nodes.length && !legacy.length && (_jsx("div", { className: "template-editor__empty", children: _jsx("p", { children: "Add the first block to this template." }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: (node) => ({
-                                                ...describeTemplateNode(node, actions, viewport),
-                                                style: resolveStyle(templateStyle(node.style), viewport),
-                                            }), id: (node) => node.id, selectedID: sidebarSelected ?? editing?.id }), legacy.length > 0 && (_jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => (_jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key)))] }))] }) }), inspectorTitle: "Settings", inspector: editing?.type === 'layout' && editing.block ? (_jsx(RegisteredBlockEditor, { bindingFields: customFields.map((field) => ({
-                                    path: `templateValues.${field.id}`,
-                                    label: field.label,
-                                })), viewport: viewport, node: editing.block, change: (block) => setNodes(updateTemplateNode(nodes, editing.id, () => ({ ...editing, block })), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
-                                    const node = toTemplateBlock(block);
-                                    setNodes(insertTemplateNode(nodes, target, node, beforeTarget));
-                                    setEditing(node);
-                                    setAdding(null);
-                                    sidebar.inserted();
-                                } }, adding.value)) : adding || editing ? (_jsx(NodeEditor, { item: adding, node: editing, types: types, designs: designs, allowedCollections: collections, customFields: customFields, cancel: () => {
-                                    setAdding(null);
-                                    setEditing(null);
-                                }, create: (node) => {
-                                    setNodes(insertTemplateNode(nodes, target, node, beforeTarget));
-                                    setAdding(null);
-                                    setEditing(node);
-                                    setSidebarSelected(node.id);
-                                    sidebar.inserted();
-                                }, update: (node) => {
-                                    setNodes(updateTemplateNode(nodes, node.id, () => node), true);
-                                    setEditing(node);
-                                } }, editing?.id ??
-                                `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx("p", { className: "template-editor__inspector-empty", children: "Select a block on the canvas or in List View to edit its settings and styles." })) })] }), error && _jsx("p", { role: "alert", children: error }), _jsxs("footer", { className: "template-editor__footer", children: [_jsx("button", { type: "button", disabled: disabled, onClick: () => void save(false), children: "Save Draft" }), _jsx("button", { type: "button", disabled: disabled, onClick: () => void save(true), children: hasPublishedDoc ? 'Publish Changes' : 'Publish Template' })] })] }) }));
+    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsx(EditorName, {}), _jsx(EditorHistory, { undo: () => restore(), redo: () => restore(true), canUndo: !disabled && Boolean(history.current.past.length), canRedo: !disabled && Boolean(history.current.future.length) }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] })), _jsx(_Fragment, { children: _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Template", readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
+                                                        display: 'block',
+                                                        width: '100%',
+                                                        minHeight: 88,
+                                                        resize: 'vertical',
+                                                    } })] }), _jsxs("fieldset", { style: { marginTop: 12 }, children: [_jsx("legend", { children: "Use With" }), configuredCollections.map((slug) => (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: collections.includes(slug), onChange: () => collectionsField.setValue(collections.includes(slug)
+                                                                ? collections.filter((item) => item !== slug)
+                                                                : [...collections, slug]) }), ' ', slug[0].toUpperCase() + slug.slice(1)] }, slug)))] })] }), _jsx("h3", { children: "Custom Fields" }), _jsx(CustomFieldsPanel, { fields: customFields, setFields: (next) => {
+                                        record();
+                                        modified.current = true;
+                                        customFieldsField.setValue(next);
+                                    } })] }), selectionKey: editing?.id ?? adding?.value, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+                                nodes: templateSidebarNodes(nodes),
+                                selected: sidebarSelected ?? editing?.id,
+                                canEdit: !disabled,
+                                items: [
+                                    ...listBlockDefinitions('template')
+                                        .filter((def) => def.type !== 'column' &&
+                                        !coreEditorElements.some((item) => item.label === def.label || item.value === def.type))
+                                        .map((def) => ({
+                                        kind: 'registered',
+                                        value: def.type,
+                                        label: def.label,
+                                        category: def.category,
+                                    })),
+                                    ...coreEditorElements.map((item) => ({
+                                        ...toLibraryItem(item),
+                                        category: editorCategoryLabels[item.category],
+                                        keywords: item.keywords,
+                                    })),
+                                    ...types.map((type) => ({
+                                        kind: 'block',
+                                        value: String(type.id),
+                                        label: type.name,
+                                        category: 'Designed Blocks',
+                                    })),
+                                ],
+                                onSelect: (id) => {
+                                    setSidebarSelected(id);
+                                    const node = findTemplateNode(nodes, id);
+                                    if (node)
+                                        actions.edit(node);
+                                    else {
+                                        setEditing(null);
+                                        setAdding(null);
+                                    }
+                                },
+                                onInsert: (item, target) => startAdd(item, target.parent, target.before),
+                                onMove: (id, target) => setNodes(moveTemplateNodeTo(nodes, id, target.parent, target.before)),
+                                onDelete: actions.remove,
+                                onDuplicate: (id) => {
+                                    const node = findTemplateNode(nodes, id);
+                                    const position = locateSidebar(templateSidebarNodes(nodes), id);
+                                    if (node && position) {
+                                        const copy = duplicateBuilderNode(node);
+                                        setNodes(insertTemplateNode(nodes, position.parent, copy, position.siblings[position.index + 1]?.id));
+                                        actions.edit(copy);
+                                    }
+                                },
+                            } }), canvasLabel: "Template Canvas", canvasTitle: "Template Canvas", canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs(DropArea, { id: "root", label: "Template Canvas drop area", add: () => openPickerFor('root'), addItem: (item) => startAdd(item, 'root'), children: [!nodes.length && !legacy.length && (_jsx("div", { className: "template-editor__empty", children: _jsx("p", { children: "Add the first block to this template." }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: (node) => ({
+                                            ...describeTemplateNode(node, actions, viewport),
+                                            style: resolveStyle(templateStyle(node.style), viewport),
+                                        }), id: (node) => node.id, selectedID: sidebarSelected ?? editing?.id }), legacy.length > 0 && (_jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => (_jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key)))] }))] }) }), inspectorTitle: "Settings", inspector: editing?.type === 'layout' && editing.block ? (_jsx(RegisteredBlockEditor, { bindingFields: customFields.map((field) => ({
+                                path: `templateValues.${field.id}`,
+                                label: field.label,
+                            })), viewport: viewport, node: editing.block, change: (block) => setNodes(updateTemplateNode(nodes, editing.id, () => ({ ...editing, block })), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
+                                const node = toTemplateBlock(block);
+                                setNodes(insertTemplateNode(nodes, target, node, beforeTarget));
+                                setEditing(node);
+                                setAdding(null);
+                                sidebar.inserted();
+                            } }, adding.value)) : adding || editing ? (_jsx(NodeEditor, { item: adding, node: editing, types: types, designs: designs, allowedCollections: collections, customFields: customFields, cancel: () => {
+                                setAdding(null);
+                                setEditing(null);
+                            }, create: (node) => {
+                                setNodes(insertTemplateNode(nodes, target, node, beforeTarget));
+                                setAdding(null);
+                                setEditing(node);
+                                setSidebarSelected(node.id);
+                                sidebar.inserted();
+                            }, update: (node) => {
+                                setNodes(updateTemplateNode(nodes, node.id, () => node), true);
+                                setEditing(node);
+                            } }, editing?.id ??
+                            `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx("p", { className: "template-editor__inspector-empty", children: "Select a block on the canvas or in List View to edit its settings and styles." })) }) }), error && _jsx("p", { role: "alert", children: error }), _jsx(EditorHeaderPortal, { slot: "actions", children: _jsxs("div", { className: "editor-header__buttons", children: [_jsx("button", { type: "button", disabled: disabled, onClick: () => void save(false), children: "Save Draft" }), _jsx("button", { type: "button", disabled: disabled, onClick: () => void save(true), children: hasPublishedDoc ? 'Publish Changes' : 'Publish Template' })] }) })] }) }));
 }
 // Backward-compatible Payload component export. Existing import-map paths and
 // collection configuration continue to resolve `TemplateBuilder` unchanged.

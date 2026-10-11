@@ -32,6 +32,9 @@ export function endInspectorGesture() {
 
 export function InspectorIcon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
+    undo: <path d="M8 4 3 9l5 5M3 9h11a6 6 0 0 1 0 12" />,
+    redo: <path d="m16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12" />,
+    inspector: <><rect x="3" y="3" width="18" height="18" rx="1" /><path d="M15 3v18" /></>,
     menu: <path d="M4 6h16M4 12h16M4 18h16" />,
     layout: (
       <>
@@ -176,9 +179,10 @@ export function InspectorToggle({
       aria-label="Toggle inspector"
       title={open ? 'Hide inspector' : 'Show inspector'}
       aria-expanded={open}
+      aria-pressed={open}
       onClick={() => change(!open)}
     >
-      <InspectorIcon name="menu" />
+      <InspectorIcon name="inspector" />
     </button>
   )
 }

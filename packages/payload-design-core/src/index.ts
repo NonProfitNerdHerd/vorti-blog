@@ -1,4 +1,5 @@
 export { designSystemPlugin } from './plugin'
+export { configureEditorHeader } from './editor-header-config'
 export * from './content/model'
 export * from './content/template-adapter'
 export type { DesignSystemOptions } from './plugin'

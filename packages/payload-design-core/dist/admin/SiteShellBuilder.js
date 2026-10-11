@@ -11,9 +11,10 @@ import { ContentBlock } from '../content/ContentRenderer.js';
 import { createContentNode } from '../content/model.js';
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model.js';
-import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar.js';
+import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar.js';
 import { BuilderCanvasTree, } from '../builder/BuilderTree.js';
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
+import { EditorHistory, EditorName } from '../builder/EditorHeader.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 import { DropArea } from '../builder/DropArea.js';
 import { shellInspectorStyles } from '../site-shell.js';
@@ -91,7 +92,10 @@ const ratios = [
 const uid = (prefix) => `${prefix}_${crypto.randomUUID()}`;
 export function SiteTemplateBuilder() {
     const { id } = useDocumentInfo();
-    const name = useField({ path: 'name' });
+    const [ready, setReady] = useState(false);
+    // Keep server-rendered tabs inert until their event handlers are attached.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    useEffect(() => setReady(true), []);
     const slug = useField({ path: 'slug' });
     const description = useField({ path: 'description' });
     const typography = useField({ path: 'typography' });
@@ -117,7 +121,7 @@ export function SiteTemplateBuilder() {
         })
             .catch(() => undefined);
     }, [id]);
-    return (_jsxs("div", { "data-testid": "site-template-builder", className: "template-editor site-shell", children: [_jsx("header", { className: "template-editor__header", children: _jsxs("div", { children: [_jsx("h1", { children: name.value || 'Create Site Template' }), isDefault && _jsx("p", { children: "Current default Site Template" })] }) }), _jsx("nav", { role: "tablist", "aria-label": "Site Template sections", className: "template-editor__view-tabs", children: ['overview', 'header', 'footer', 'styles', 'assignments'].map((item) => (_jsx("button", { role: "tab", type: "button", "aria-selected": tab === item, onClick: () => setTab(item), children: item === 'styles' ? 'Global Styles' : item[0].toUpperCase() + item.slice(1) }, item))) }), tab === 'overview' && (_jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { children: ["Name", _jsx("input", { "aria-label": "Name", value: name.value ?? '', onChange: (event) => name.setValue(event.target.value) })] }), _jsxs("label", { children: ["Slug", _jsx("input", { "aria-label": "Slug", value: slug.value ?? '', onChange: (event) => slug.setValue(event.target.value) })] }), _jsxs("label", { children: ["Description", _jsx("textarea", { "aria-label": "Description", rows: 5, value: description.value ?? '', onChange: (event) => description.setValue(event.target.value) })] })] })), tab === 'header' && _jsx(SiteShellBuilder, { region: "header" }, "header"), tab === 'footer' && _jsx(SiteShellBuilder, { region: "footer" }, "footer"), tab === 'styles' && (_jsx(GlobalStyles, { values: {
+    return (_jsxs("div", { "data-testid": "site-template-builder", className: "template-editor site-shell", children: [_jsx(EditorName, {}), isDefault && _jsx("p", { children: "Current default Site Template" }), _jsx("nav", { role: "tablist", "aria-label": "Site Template sections", className: "template-editor__view-tabs", children: ['overview', 'header', 'footer', 'styles', 'assignments'].map((item) => (_jsx("button", { role: "tab", type: "button", "aria-selected": tab === item, disabled: !ready, onClick: () => setTab(item), children: item === 'styles' ? 'Global Styles' : item[0].toUpperCase() + item.slice(1) }, item))) }), tab === 'overview' && (_jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { children: ["Slug", _jsx("input", { "aria-label": "Slug", value: slug.value ?? '', onChange: (event) => slug.setValue(event.target.value) })] }), _jsxs("label", { children: ["Description", _jsx("textarea", { "aria-label": "Description", rows: 5, value: description.value ?? '', onChange: (event) => description.setValue(event.target.value) })] })] })), tab === 'header' && _jsx(SiteShellBuilder, { region: "header" }, "header"), tab === 'footer' && _jsx(SiteShellBuilder, { region: "footer" }, "footer"), tab === 'styles' && (_jsx(GlobalStyles, { values: {
                     typography: typography.value ?? {},
                     colors: colors.value ?? {},
                     buttons: buttons.value ?? {},
@@ -312,7 +316,7 @@ export function SiteShellBuilder({ region }) {
             ? undefined
             : resolveStyle(shellInspectorStyles(node), viewport),
     });
-    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsxs("div", { className: "site-shell__editor-toolbar", children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx("button", { type: "button", className: "site-shell__undo", disabled: disabled || !history.length, onClick: undo, "aria-label": "Undo last change", children: "\u21B6 Undo" }), _jsx("button", { type: "button", disabled: disabled || !future.length, onClick: redo, "aria-label": "Redo last change", children: "Redo" })] }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Site Template", readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsx(EditorHistory, { undo: undo, redo: redo, canUndo: !disabled && Boolean(history.length), canRedo: !disabled && Boolean(future.length) }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Site Template", readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
                             nodes: shellSidebarNodes(nodes),
                             selected: sidebarSelected ?? selected?.id,
                             canEdit: !disabled,

@@ -13,13 +13,14 @@ import { createContentNode } from '../content/model'
 import { type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model'
-import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar'
+import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar'
 import {
   BuilderCanvasTree,
   type BuilderNodeDescriptor,
   type BuilderTreeActions,
 } from '../builder/BuilderTree'
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
+import { EditorHistory, EditorName } from '../builder/EditorHeader'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { DropArea } from '../builder/DropArea'
 import { shellInspectorStyles } from '../site-shell'
@@ -116,7 +117,10 @@ const ratios = [
 const uid = (prefix: string) => `${prefix}_${crypto.randomUUID()}`
 export function SiteTemplateBuilder() {
   const { id } = useDocumentInfo()
-  const name = useField<string>({ path: 'name' })
+  const [ready, setReady] = useState(false)
+  // Keep server-rendered tabs inert until their event handlers are attached.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setReady(true), [])
   const slug = useField<string>({ path: 'slug' })
   const description = useField<string>({ path: 'description' })
   const typography = useField<Record<string, unknown>>({ path: 'typography' })
@@ -152,12 +156,8 @@ export function SiteTemplateBuilder() {
   }, [id])
   return (
     <div data-testid="site-template-builder" className="template-editor site-shell">
-      <header className="template-editor__header">
-        <div>
-          <h1>{name.value || 'Create Site Template'}</h1>
-          {isDefault && <p>Current default Site Template</p>}
-        </div>
-      </header>
+      <EditorName />
+      {isDefault && <p>Current default Site Template</p>}
       <nav
         role="tablist"
         aria-label="Site Template sections"
@@ -169,6 +169,7 @@ export function SiteTemplateBuilder() {
             role="tab"
             type="button"
             aria-selected={tab === item}
+            disabled={!ready}
             onClick={() => setTab(item)}
           >
             {item === 'styles' ? 'Global Styles' : item[0].toUpperCase() + item.slice(1)}
@@ -177,14 +178,6 @@ export function SiteTemplateBuilder() {
       </nav>
       {tab === 'overview' && (
         <section className="template-editor__document">
-          <label>
-            Name
-            <input
-              aria-label="Name"
-              value={name.value ?? ''}
-              onChange={(event) => name.setValue(event.target.value)}
-            />
-          </label>
           <label>
             Slug
             <input
@@ -542,26 +535,12 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
       onMove={(id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before))}
     >
       <section data-testid={`site-shell-${region}`} className="site-shell__region">
-        <div className="site-shell__editor-toolbar">
-          <BuilderPreviewToolbar value={viewport} onChange={setViewport} />
-          <button
-            type="button"
-            className="site-shell__undo"
-            disabled={disabled || !history.length}
-            onClick={undo}
-            aria-label="Undo last change"
-          >
-            ↶ Undo
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !future.length}
-            onClick={redo}
-            aria-label="Redo last change"
-          >
-            Redo
-          </button>
-        </div>
+        <EditorHistory
+          undo={undo}
+          redo={redo}
+          canUndo={!disabled && Boolean(history.length)}
+          canRedo={!disabled && Boolean(future.length)}
+        />
         <BuilderWorkspace
           viewport={viewport}
           onViewportChange={setViewport}

@@ -16,6 +16,7 @@ import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
 import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, textDocument, } from '../content/model.js';
 import { readPath, templateContentNodes } from '../content/template-adapter.js';
+import { EditorHeaderPortal, EditorDevices, EditorHistory } from '../builder/EditorHeader.js';
 import './content-workspace.css';
 const relationID = (value) => value && typeof value === 'object'
     ? String(value.id)
@@ -389,16 +390,18 @@ export const ContentWorkspace = (props) => {
         }, children: _jsxs("section", { className: "content-workspace", onKeyDown: (event) => {
                 if (event.key === 'Escape' && !right && window.matchMedia('(max-width: 1100px)').matches)
                     sidebar.close();
-                if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+                if ((event.metaKey || event.ctrlKey) &&
+                    event.key.toLowerCase() === 'z' &&
+                    !event.target.closest('.editor-header__title')) {
                     event.preventDefault();
                     event.stopPropagation();
                     undo(event.shiftKey);
                 }
-            }, children: [_jsxs("div", { className: "content-workspace__toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx(SidebarControls, { state: sidebar, canInsert: capabilities.editStructure }), _jsx("button", { type: "button", disabled: !history.current.past.length || lockedForm, onClick: () => undo(), children: "Undo" }), _jsx("button", { type: "button", disabled: !history.current.future.length || lockedForm, onClick: () => undo(true), children: "Redo" }), _jsx("select", { "aria-label": "Preview width", value: viewport, onChange: (event) => setViewport(event.target.value), children: ['desktop', 'tablet', 'mobile'].map((device) => (_jsx("option", { children: device }, device))) }), _jsx(InspectorToggle, { open: right, change: (open) => {
-                                setRight(open);
-                                if (open && window.matchMedia('(max-width: 1100px)').matches)
-                                    setLeft(false);
-                            } })] }), error && _jsx("p", { role: "alert", children: error }), issues.length > 0 && (_jsx("div", { role: "alert", children: issues.map(([path, value]) => (_jsx("button", { type: "button", onClick: () => {
+            }, children: [_jsx(EditorHistory, { undo: () => undo(), redo: () => undo(true), canUndo: !lockedForm && Boolean(history.current.past.length), canRedo: !lockedForm && Boolean(history.current.future.length) }), _jsx(EditorHeaderPortal, { slot: "navigation", children: _jsx(SidebarControls, { state: sidebar, canInsert: capabilities.editStructure }) }), _jsx(EditorHeaderPortal, { slot: "preview", children: _jsxs("div", { className: "editor-header__buttons", children: [_jsx(EditorDevices, { value: viewport, onChange: setViewport }), _jsx(InspectorToggle, { open: right, change: (open) => {
+                                    setRight(open);
+                                    if (open && window.matchMedia('(max-width: 1100px)').matches)
+                                        setLeft(false);
+                                } })] }) }), _jsx(EditorHeaderPortal, { slot: "title", children: _jsx("div", { className: "editor-header__title", children: renderFields(['title']) }) }), error && _jsx("p", { role: "alert", children: error }), issues.length > 0 && (_jsx("div", { role: "alert", children: issues.map(([path, value]) => (_jsx("button", { type: "button", onClick: () => {
                             const affected = walkContent(nodes).find((node) => node.binding?.path === path ||
                                 path.includes(node.id) ||
                                 node.fields?.some((field) => field.binding?.path === path));
@@ -445,9 +448,9 @@ export const ContentWorkspace = (props) => {
                                         setNodes(removeContent(nodes, id));
                                         setSelected('');
                                     },
-                                } }) })), _jsxs("div", { className: "content-workspace__center", children: [_jsx("div", { className: "content-workspace__title", children: renderFields(['title']) }), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
-                                        maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
-                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (gear) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [getBlockDefinition(active.kind)?.icon, ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
+                                } }) })), _jsx("div", { className: "content-workspace__center", children: _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
+                                    maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
+                                }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) }) }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (gear) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [getBlockDefinition(active.kind)?.icon, ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
                                                 ? bindField(active)
                                                 : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }))] })] }) }));
 };

@@ -20,6 +20,9 @@ export function endInspectorGesture() {
 }
 export function InspectorIcon({ name }) {
     const paths = {
+        undo: _jsx("path", { d: "M8 4 3 9l5 5M3 9h11a6 6 0 0 1 0 12" }),
+        redo: _jsx("path", { d: "m16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12" }),
+        inspector: _jsxs(_Fragment, { children: [_jsx("rect", { x: "3", y: "3", width: "18", height: "18", rx: "1" }), _jsx("path", { d: "M15 3v18" })] }),
         menu: _jsx("path", { d: "M4 6h16M4 12h16M4 18h16" }),
         layout: (_jsxs(_Fragment, { children: [_jsx("rect", { x: "3", y: "4", width: "18", height: "16", rx: "1" }), _jsx("path", { d: "M3 9h18M9 9v11" })] })),
         style: _jsx("path", { d: "m14 3 7 7-9 9-7-7zM5 12l-2 9 9-2M14 5l5 5" }),
@@ -62,7 +65,7 @@ export function InspectorToggle({ open, change, }) {
         window.addEventListener('keydown', key, true);
         return () => window.removeEventListener('keydown', key, true);
     }, [open, change]);
-    return (_jsx("button", { ref: ref, type: "button", className: "inspector-toggle", "aria-label": "Toggle inspector", title: open ? 'Hide inspector' : 'Show inspector', "aria-expanded": open, onClick: () => change(!open), children: _jsx(InspectorIcon, { name: "menu" }) }));
+    return (_jsx("button", { ref: ref, type: "button", className: "inspector-toggle", "aria-label": "Toggle inspector", title: open ? 'Hide inspector' : 'Show inspector', "aria-expanded": open, "aria-pressed": open, onClick: () => change(!open), children: _jsx(InspectorIcon, { name: "inspector" }) }));
 }
 export function Popover({ label, trigger, children, }) {
     const [open, setOpen] = useState(false), [position, setPosition] = useState({ top: 0, left: 0 });

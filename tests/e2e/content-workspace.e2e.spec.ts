@@ -6,12 +6,54 @@ import {
 } from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
+test('document header owns the inline title and controls across editor contexts', async ({ page }) => {
+  for (const collection of ['pages', 'design-templates', 'site-templates']) {
+    const name = `header-${collection}-${Date.now()}`
+    const titleField = collection === 'pages' ? 'title' : 'name'
+    const response = await page.request.post(`/api/${collection}`, { data: {
+      [titleField]: name, slug: name, _status: 'draft',
+      ...(collection === 'design-templates' ? { status: 'draft', allowedCollections: ['pages'], layout: [], sections: [] } : {}),
+      ...(collection === 'site-templates' ? { header: { layout: [] }, footer: { layout: [] } } : {}),
+    } })
+    expect(response.ok(), await response.text()).toBeTruthy()
+    const { doc } = await response.json()
+    await page.goto(`/admin/collections/${collection}/${doc.id}`)
+    const title = page.locator(`.doc-header input[name="${titleField}"]`)
+    await expect(title).toHaveValue(name)
+    await expect(page.locator(`input[name="${titleField}"]:not([type="hidden"])`)).toHaveCount(1)
+    await title.fill(`${name} updated`)
+    if (collection === 'site-templates') await page.getByRole('tab', { name: 'Header', exact: true }).click()
+    const controls = page.locator('.doc-controls')
+    await expect(controls.getByRole('button', { name: 'Add block', exact: true })).toBeVisible()
+    await expect(page.locator('.doc-tabs').getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
+    await controls.getByRole('button', { name: 'Tablet', exact: true }).click()
+    await expect(controls.getByRole('button', { name: 'Tablet', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await controls.getByRole('button', { name: 'Toggle inspector' }).click()
+    await expect(controls.getByRole('button', { name: 'Toggle inspector' })).toHaveAttribute('aria-expanded', 'false')
+    await controls.getByRole('button', { name: 'Toggle inspector' }).click()
+    await controls.getByRole('button', { name: 'Save Draft', exact: true }).click()
+    await expect.poll(async () => (await (await page.request.get(`/api/${collection}/${doc.id}?draft=true`, { maxRetries: 2 })).json())[titleField]).toBe(`${name} updated`)
+    await page.reload()
+    await expect(title).toHaveValue(`${name} updated`)
+    if (collection === 'pages') {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.screenshot({ path: '.wrangler/header-mobile.png' })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      expect((await controls.boundingBox())!.height).toBeLessThan(230)
+      await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+      await page.screenshot({ path: '.wrangler/header-mobile-dark.png' })
+      await page.setViewportSize({ width: 1800, height: 1100 })
+    }
+  }
+})
+
 test('compact inspector synchronizes devices, resets individual spacing and restores focus', async ({
   page,
 }) => {
   await page.goto('/admin/collections/pages/create')
   const workspace = page.locator('.content-workspace')
-  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await workspace
     .locator('.builder-sidebar')
     .getByRole('button', { name: 'Paragraph', exact: true })
@@ -49,13 +91,13 @@ test('compact inspector synchronizes devices, resets individual spacing and rest
   await page.keyboard.press('Escape')
   await page.screenshot({ path: '.wrangler/compact-inspector-desktop.png' })
   await page.setViewportSize({ width: 390, height: 844 })
-  await workspace.getByRole('button', { name: 'Toggle inspector' }).click()
+  await page.getByRole('button', { name: 'Toggle inspector' }).click()
   await page.screenshot({ path: '.wrangler/compact-inspector-mobile.png' })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
   await page.screenshot({ path: '.wrangler/compact-inspector-mobile-dark.png' })
   await page.keyboard.press('Escape')
   await expect(workspace.locator('.content-workspace__right')).toHaveCount(0)
-  await expect(workspace.getByRole('button', { name: 'Toggle inspector' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Toggle inspector' })).toBeFocused()
 })
 
 test('shared sidebar navigates outlines, inserts precisely, duplicates and restores focus', async ({
@@ -68,14 +110,14 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
     'aria-selected',
     'true',
   )
-  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await sidebar.getByRole('textbox', { name: 'Search blocks' }).fill('heading')
   await sidebar.getByRole('button', { name: 'Heading', exact: true }).click()
   await workspace.locator('textarea[aria-label=Heading]').fill('A useful heading')
   await sidebar.getByRole('tab', { name: 'Outline' }).click()
   await expect(sidebar).toContainText('3 words')
   await sidebar.getByRole('button', { name: 'H2 A useful heading' }).click()
-  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await sidebar.getByRole('textbox', { name: 'Search blocks' }).fill('paragraph')
   await sidebar.getByRole('button', { name: 'Paragraph', exact: true }).click()
   await workspace.locator('textarea[aria-label=Paragraph]').fill('Some paragraph text')
@@ -95,12 +137,12 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
   await sidebar.getByRole('button', { name: 'Duplicate', exact: true }).click()
   await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(2)
   await page.screenshot({ path: '.wrangler/sidebar-list-view.png' })
-  await workspace.getByRole('button', { name: 'Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(1)
-  await workspace.getByRole('button', { name: 'Redo', exact: true }).click()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect(workspace.locator('textarea[aria-label=Paragraph]')).toHaveCount(2)
   await page.setViewportSize({ width: 390, height: 844 })
-  const opener = workspace.getByRole('button', { name: 'List View', exact: true })
+  const opener = page.getByRole('button', { name: 'List View', exact: true })
   await opener.click()
   await sidebar.getByRole('tab', { name: 'Outline' }).press('Escape')
   await expect(sidebar).toHaveCount(0)
@@ -132,7 +174,7 @@ test('Site Template Header and Footer use only tabs and save their hidden groups
       'aria-selected',
       'true',
     )
-    await shell.getByRole('button', { name: 'Add block', exact: true }).click()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await shell
       .locator('.builder-sidebar')
       .getByRole('button', { name: 'Text', exact: true })
@@ -169,13 +211,10 @@ for (const collection of ['posts', 'pages'])
     await page.goto(`/admin/collections/${collection}/create`)
     const workspace = page.locator('.content-workspace')
     const library = workspace.locator('.content-workspace__left')
-    await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await library.getByRole('button', { name: 'Heading', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').fill('A styled heading')
-    await expect(workspace.getByRole('button', { name: 'Menu', exact: true })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    )
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
     await workspace.locator('.content-workspace__right').getByText('Style', { exact: true }).click()
     await workspace
       .locator('summary')
@@ -194,7 +233,7 @@ for (const collection of ['posts', 'pages'])
       'background-color',
       'rgb(255, 238, 204)',
     )
-    await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await library.getByRole('button', { name: 'Columns', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').click()
     await library.getByRole('button', { name: 'Actions for Heading' }).click()
@@ -208,13 +247,13 @@ for (const collection of ['posts', 'pages'])
     await expect(
       workspace.locator('[data-block-kind=columns] [data-block-kind=heading]'),
     ).toHaveCount(1)
-    await workspace.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await expect(
       workspace.locator('[data-block-kind=columns] [data-block-kind=heading]'),
     ).toHaveCount(0)
-    await workspace.getByRole('button', { name: 'Redo', exact: true }).click()
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
     await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
-    await workspace.locator('input[name=title]').fill(`Editor ${suffix}`)
+    await page.locator('input[name=title]').fill(`Editor ${suffix}`)
     await workspace.locator('input[name=slug]').fill(suffix)
     if (collection === 'posts') {
       await workspace
@@ -343,7 +382,7 @@ test('templates lock structure and styles, keep fields editable, and enforce the
   expect(JSON.stringify(await invalid.json())).toContain('templateValues.intro')
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(
-    workspace.getByRole('button', { name: 'Toggle inspector', exact: true }),
+    page.getByRole('button', { name: 'Toggle inspector', exact: true }),
   ).toBeVisible()
 })
 
@@ -353,7 +392,7 @@ test('rich text formatting and responsive styles survive save and appear in draf
   const suffix = `rich-${Date.now()}`
   await page.goto('/admin/collections/pages/create')
   const workspace = page.locator('.content-workspace')
-  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await workspace
     .locator('.content-workspace__left')
     .getByRole('button', { name: 'Paragraph', exact: true })
@@ -366,13 +405,13 @@ test('rich text formatting and responsive styles survive save and appear in draf
   await editable.press('Control+a')
   await editable.press('Control+b')
   await expect(editable.locator('strong')).toContainText('Rich text preview')
-  await workspace.getByRole('combobox', { name: 'Preview width' }).selectOption('mobile')
+  await page.getByRole('button', { name: 'Phone', exact: true }).click()
   await workspace.getByRole('tab', { name: 'Layout', exact: true }).click()
   await workspace.getByRole('textbox', { name: 'Padding', exact: true }).fill('8px')
   await workspace.getByRole('textbox', { name: 'Padding', exact: true }).press('Tab')
   await expect(workspace.locator('[data-block-kind=paragraph]')).toHaveCSS('padding-top', '8px')
   await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
-  await workspace.locator('input[name=title]').fill(suffix)
+  await page.locator('input[name=title]').fill(suffix)
   await workspace.locator('input[name=slug]').fill(suffix)
   await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
   await page.waitForURL(/collections\/pages\/\d+/)
@@ -464,7 +503,7 @@ test('registered block inspector updates canvas, preserves its tab and saves adv
   const suffix = `inspector-${Date.now()}`
   await page.goto('/admin/collections/pages/create')
   const workspace = page.locator('.content-workspace')
-  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await workspace
     .locator('.builder-sidebar')
     .getByRole('button', { name: 'Progress Bar', exact: true })
@@ -482,7 +521,7 @@ test('registered block inspector updates canvas, preserves its tab and saves adv
   await inspector.getByRole('textbox', { name: 'Custom CSS', exact: true }).press('Tab')
   await page.screenshot({ path: '.wrangler/framework-inspector.png' })
   await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
-  await workspace.locator('input[name=title]').fill(suffix)
+  await page.locator('input[name=title]').fill(suffix)
   await workspace.locator('input[name=slug]').fill(suffix)
   await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
   await page.waitForURL(/collections\/pages\/\d+/)

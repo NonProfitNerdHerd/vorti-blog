@@ -1,4 +1,5 @@
 export { designSystemPlugin } from './plugin.js';
+export { configureEditorHeader } from './editor-header-config.js';
 export * from './content/model.js';
 export * from './content/template-adapter.js';
 export { createBlockRegistry } from './registry.js';

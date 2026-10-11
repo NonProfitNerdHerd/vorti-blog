@@ -46,6 +46,7 @@ import {
 } from '../content/model'
 import { readPath, templateContentNodes } from '../content/template-adapter'
 import type { BlockType, BlockDesign, Template } from '../types'
+import { EditorHeaderPortal, EditorDevices, EditorHistory } from '../builder/EditorHeader'
 import './content-workspace.css'
 
 type Extras = { groups: Record<string, string[]>; lexicalSchemaPath: string }
@@ -626,53 +627,41 @@ export const ContentWorkspace = (
         onKeyDown={(event) => {
           if (event.key === 'Escape' && !right && window.matchMedia('(max-width: 1100px)').matches)
             sidebar.close()
-          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+          if (
+            (event.metaKey || event.ctrlKey) &&
+            event.key.toLowerCase() === 'z' &&
+            !(event.target as HTMLElement).closest('.editor-header__title')
+          ) {
             event.preventDefault()
             event.stopPropagation()
             undo(event.shiftKey)
           }
         }}
       >
-        <div className="content-workspace__toolbar">
-          <button
-            type="button"
-            aria-expanded={nav.navOpen}
-            onClick={() => nav.setNavOpen(!nav.navOpen)}
-          >
-            Menu
-          </button>
+        <EditorHistory
+          undo={() => undo()}
+          redo={() => undo(true)}
+          canUndo={!lockedForm && Boolean(history.current.past.length)}
+          canRedo={!lockedForm && Boolean(history.current.future.length)}
+        />
+        <EditorHeaderPortal slot="navigation">
           <SidebarControls state={sidebar} canInsert={capabilities.editStructure} />
-          <button
-            type="button"
-            disabled={!history.current.past.length || lockedForm}
-            onClick={() => undo()}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            disabled={!history.current.future.length || lockedForm}
-            onClick={() => undo(true)}
-          >
-            Redo
-          </button>
-          <select
-            aria-label="Preview width"
-            value={viewport}
-            onChange={(event) => setViewport(event.target.value as Viewport)}
-          >
-            {['desktop', 'tablet', 'mobile'].map((device) => (
-              <option key={device}>{device}</option>
-            ))}
-          </select>
-          <InspectorToggle
-            open={right}
-            change={(open) => {
-              setRight(open)
-              if (open && window.matchMedia('(max-width: 1100px)').matches) setLeft(false)
-            }}
-          />
-        </div>
+        </EditorHeaderPortal>
+        <EditorHeaderPortal slot="preview">
+          <div className="editor-header__buttons">
+            <EditorDevices value={viewport} onChange={setViewport} />
+            <InspectorToggle
+              open={right}
+              change={(open) => {
+                setRight(open)
+                if (open && window.matchMedia('(max-width: 1100px)').matches) setLeft(false)
+              }}
+            />
+          </div>
+        </EditorHeaderPortal>
+        <EditorHeaderPortal slot="title">
+          <div className="editor-header__title">{renderFields(['title'])}</div>
+        </EditorHeaderPortal>
         {error && <p role="alert">{error}</p>}
         {issues.length > 0 && (
           <div role="alert">
@@ -768,7 +757,6 @@ export const ContentWorkspace = (
             </aside>
           )}
           <div className="content-workspace__center">
-            <div className="content-workspace__title">{renderFields(['title'])}</div>
             <div
               className="content-workspace__viewport"
               data-viewport={viewport}

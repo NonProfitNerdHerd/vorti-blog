@@ -1,6 +1,6 @@
 import type { Field, Plugin, GroupField } from 'payload'
 import { getFieldPaths } from 'payload/shared'
-import { validateContentLayout } from '@design-system/payload-design-core'
+import { validateContentLayout, configureEditorHeader } from '@design-system/payload-design-core'
 
 /** Last field-layout plugin: preserves data paths while grouping plugin-provided fields. */
 export const contentWorkspace =
@@ -10,6 +10,8 @@ export const contentWorkspace =
   }: { enabled?: boolean; collections?: string[] } = {}): Plugin =>
   (config) => {
     for (const collection of config.collections ?? []) {
+      if (['design-templates', 'site-templates'].includes(collection.slug))
+        configureEditorHeader(collection)
       if (!collections.includes(collection.slug)) continue
       collection.fields.push({
         name: 'contentLayout',
@@ -18,6 +20,7 @@ export const contentWorkspace =
         admin: { hidden: true },
       })
       if (!enabled) continue
+      configureEditorHeader(collection)
       const fields: Field[] = []
       const groups: Record<string, string[]> = {}
       const add = (items: Field[], group: string) => {
@@ -33,6 +36,8 @@ export const contentWorkspace =
       }
       add(collection.fields, 'Publishing')
       for (const field of fields) {
+        if (field.type === 'text' && field.name === 'title')
+          field.admin = { ...field.admin, placeholder: 'Add title' }
         if (
           (field.type === 'json' || field.type === 'richText') &&
           [

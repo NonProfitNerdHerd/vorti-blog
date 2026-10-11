@@ -83,8 +83,7 @@ describe('TemplateBuilder regression boundary', () => {
     render(<TemplateBuilder configuredCollections={['posts']} />)
 
     expect(screen.getByTestId('template-builder')).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Newsletter', level: 1 })).toBeTruthy()
-    expect(screen.getByText('Draft')).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Newsletter')
     expect(screen.getByRole('tab', { name: /^Block$/ }).getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('tab', { name: 'Document settings' })).toBeTruthy()
     const canvas = screen.getByRole('main', { name: 'Template Canvas' })
@@ -94,7 +93,7 @@ describe('TemplateBuilder regression boundary', () => {
     expect(screen.getByRole('button', { name: 'Save Draft' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Publish Changes' })).toBeTruthy()
     expect(screen.getByRole('toolbar', { name: 'Responsive preview' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Mobile' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Phone' }))
     expect(document.querySelector('[data-viewport="mobile"]')).toBeTruthy()
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))

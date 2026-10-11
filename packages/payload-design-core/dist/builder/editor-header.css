@@ -1,0 +1,165 @@
+.editor-header__buttons,
+.editor-header__status,
+.editor-header__slot--preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.editor-header__status {
+  gap: 12px;
+}
+.doc-controls:has(.editor-header__slot--navigation button) .doc-controls__wrapper {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  height: auto;
+  min-height: var(--doc-controls-height);
+  gap: 12px;
+  padding-block: 8px;
+}
+.doc-controls:has(.editor-header__slot--navigation button) .doc-controls__controls-wrapper,
+.doc-controls:has(.editor-header__slot--navigation button) .doc-controls__controls {
+  display: contents;
+}
+.doc-controls:has(.editor-header__slot--navigation button) .doc-controls__content {
+  order: -1;
+  flex: 1 1 250px;
+  padding: 0;
+}
+.doc-controls .editor-header__slot--navigation {
+  order: -2;
+}
+.editor-header__slot button {
+  cursor: pointer;
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--theme-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.editor-header__slot button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.editor-header__slot button:focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: 2px;
+}
+.editor-header__slot:empty,
+.editor-header__history-host:not(:has(button)) {
+  display: none;
+}
+.editor-header__buttons button,
+.editor-header__slot .inspector-toggle {
+  margin: 0;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+.editor-header__slot .inspector-toggle {
+  position: static;
+}
+.editor-header__slot button[aria-pressed='true'],
+.editor-header__slot button[aria-expanded='true'].inspector-toggle {
+  background: var(--theme-elevation-800);
+  color: var(--theme-elevation-0);
+}
+.editor-header__history-host {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  flex: 0 0 auto;
+}
+.editor-header__history-host .editor-header__buttons { flex-wrap:nowrap; }
+.editor-header__slot--actions button { width:auto; padding:6px 12px; }
+.editor-header__title {
+  min-width: 0;
+  width: 100%;
+}
+.editor-header__title input {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 4px 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--theme-text);
+  box-shadow: none;
+}
+.editor-header__title input:focus {
+  outline: 2px solid var(--theme-elevation-600);
+  outline-offset: 3px;
+}
+.editor-header__title .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.editor-header__title .field-type {
+  margin: 0;
+}
+.doc-header:has(.editor-header__title) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+.doc-header:has(.editor-header__title) .doc-header__header {
+  display: contents;
+}
+.doc-header:has(.editor-header__title) .doc-header__title {
+  display: none;
+}
+.doc-header:has(.editor-header__title) .doc-header__after-header {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+}
+.doc-header:has(.editor-header__title) .doc-tabs {
+  grid-column: 2;
+  grid-row: 1;
+}
+.doc-drawer__header:has(.editor-header__title) .doc-drawer__header-text {
+  display: none;
+}
+.editor-header__title-host {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.editor-header__slot--title {
+  min-width: 0;
+  flex: 1;
+}
+.editor-header__fallback {
+  margin-bottom: 8px;
+}
+@media (max-width: 700px) {
+  .doc-controls:has(.editor-header__slot--navigation button) { top:0; padding-inline:16px; }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__content { flex:1 1 200px; min-width:0; width:auto; }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta { flex-wrap:wrap; gap:4px 10px; }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__controls::after,
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta::after { display:none; }
+  .doc-header:has(.editor-header__title) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .doc-header:has(.editor-header__title) .doc-tabs {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .editor-header__title input {
+    font-size: 1.6rem;
+  }
+  .editor-header__status {
+    flex-wrap: wrap;
+  }
+}

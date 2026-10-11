@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { EditorHeaderPortal, EditorDevices } from './EditorHeader'
 import { InspectorDevice, InspectorToggle } from './InspectorControls'
 import type { Viewport } from '../content/model'
 import { BlockInspectorStateProvider } from './UnifiedBlockInspector'
@@ -85,18 +86,25 @@ export function BuilderWorkspace({
   }, [selectionKey])
   return (
     <>
-      {sidebarControls ?? (
-        <button
-          type="button"
-          className="template-editor__toggle"
-          aria-expanded={libraryOpen}
-          aria-controls="template-element-library"
-          onClick={() => onLibraryOpenChange(!libraryOpen)}
-        >
-          ☰ {libraryOpen ? 'Hide' : 'Show'} editor sidebar
-        </button>
-      )}
-      <InspectorToggle open={inspectorOpen} change={setInspectorOpen} />
+      <EditorHeaderPortal slot="navigation">
+        {sidebarControls ?? (
+          <button
+            type="button"
+            className="template-editor__toggle"
+            aria-expanded={libraryOpen}
+            aria-controls="template-element-library"
+            onClick={() => onLibraryOpenChange(!libraryOpen)}
+          >
+            ☰ {libraryOpen ? 'Hide' : 'Show'} editor sidebar
+          </button>
+        )}
+      </EditorHeaderPortal>
+      <EditorHeaderPortal slot="preview">
+        <div className="editor-header__buttons">
+          <EditorDevices value={viewport ?? 'desktop'} onChange={onViewportChange ?? (() => {})} />
+          <InspectorToggle open={inspectorOpen} change={setInspectorOpen} />
+        </div>
+      </EditorHeaderPortal>
       <BuilderPanels
         className="template-editor__workspace"
         leftOpen={libraryOpen}

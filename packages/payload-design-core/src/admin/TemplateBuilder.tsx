@@ -20,8 +20,9 @@ import { createContentNode } from '../content/model'
 import { resolveStyle, templateStyle } from '../content/model'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
+import { EditorHeaderPortal, EditorHistory, EditorName } from '../builder/EditorHeader'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
-import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar'
+import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar'
 import type { BuilderViewport } from '../builder/contracts'
 import { DropArea } from '../builder/DropArea'
 import {
@@ -253,7 +254,6 @@ export function ContentTemplateBuilder({
   const layoutField = useField<TemplateNode[]>({ path: 'layout' })
   const customFieldsField = useField<TemplateCustomField[]>({ path: 'customFields' })
   const sectionsField = useField<LegacySection[]>({ path: 'sections' })
-  const statusField = useField<string>({ path: '_status' })
   const name = nameField.value ?? ''
   const collections = Array.isArray(collectionsField.value) ? collectionsField.value : []
   const nodes = Array.isArray(layoutField.value) ? layoutField.value : []
@@ -431,45 +431,20 @@ export function ContentTemplateBuilder({
       }
     >
       <div data-testid="template-builder" className="template-editor">
-        <div className="template-editor__editing-toolbar">
-          <button
-            type="button"
-            aria-expanded={nav.navOpen}
-            onClick={() => nav.setNavOpen(!nav.navOpen)}
-          >
-            Menu
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !history.current.past.length}
-            onClick={() => restore()}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !history.current.future.length}
-            onClick={() => restore(true)}
-          >
-            Redo
-          </button>
-        </div>
-        <header className="template-editor__header">
-          <div>
-            <h1>{name || 'Create Template'}</h1>
-            {id && (
-              <p>
-                Used by {impact.length} content item{impact.length === 1 ? '' : 's'}
-              </p>
-            )}
-          </div>
-          <strong className="template-editor__status">
-            {statusField.value === 'published' ? 'Published' : 'Draft'}
-          </strong>
-        </header>
+        <EditorName />
+        <EditorHistory
+          undo={() => restore()}
+          redo={() => restore(true)}
+          canUndo={!disabled && Boolean(history.current.past.length)}
+          canRedo={!disabled && Boolean(history.current.future.length)}
+        />
+        {id && (
+          <p>
+            Used by {impact.length} content item{impact.length === 1 ? '' : 's'}
+          </p>
+        )}
         {
           <>
-            <BuilderPreviewToolbar value={viewport} onChange={setViewport} />
             <BuilderWorkspace
               viewport={viewport}
               onViewportChange={setViewport}
@@ -479,14 +454,6 @@ export function ContentTemplateBuilder({
                 <>
                   <h3>Template Properties</h3>
                   <section className="template-editor__document">
-                    <label>
-                      Name
-                      <input
-                        aria-label="Name"
-                        value={name}
-                        onChange={(e) => nameField.setValue(e.target.value)}
-                      />
-                    </label>
                     <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
                       Description
                       <textarea
@@ -716,14 +683,14 @@ export function ContentTemplateBuilder({
           </>
         }
         {error && <p role="alert">{error}</p>}
-        <footer className="template-editor__footer">
+        <EditorHeaderPortal slot="actions"><div className="editor-header__buttons">
           <button type="button" disabled={disabled} onClick={() => void save(false)}>
             Save Draft
           </button>
           <button type="button" disabled={disabled} onClick={() => void save(true)}>
             {hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}
           </button>
-        </footer>
+        </div></EditorHeaderPortal>
       </div>
     </BuilderCore>
   )
