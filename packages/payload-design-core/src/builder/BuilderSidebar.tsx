@@ -1,5 +1,6 @@
 'use client'
 /* eslint-disable react-hooks/refs -- dnd-kit supplies callback refs; opener is only read in event handlers. */
+import { getBlockDefinition } from '../blocks/registry'
 import { useEffect, useRef, useState } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import type { BuilderDragItem } from './BuilderCore'
@@ -117,6 +118,7 @@ export function SidebarControls({
   )
 }
 function icon(kind: string) {
+  const registered = getBlockDefinition(kind); if (registered) return registered.icon
   if (/heading|shortText/i.test(kind)) return 'H'
   if (/image|gallery|logo|images/i.test(kind)) return '▧'
   if (/column|row|group|container|stack/i.test(kind)) return '▤'

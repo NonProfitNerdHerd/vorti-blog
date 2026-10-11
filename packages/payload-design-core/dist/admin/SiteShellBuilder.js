@@ -1,15 +1,22 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BuilderCore } from '../builder/BuilderCore.js';
-import { BuilderInspectorTabs } from '../builder/BuilderInspectorTabs.js';
+import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
+import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor.js';
+import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry.js';
+import { toShellBlock } from '../blocks/adapters.js';
+import { ContentBlock } from '../content/ContentRenderer.js';
+import { createContentNode } from '../content/model.js';
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model.js';
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar.js';
 import { BuilderCanvasTree, } from '../builder/BuilderTree.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 import { DropArea } from '../builder/DropArea.js';
+import { shellInspectorStyles } from '../site-shell.js';
+import { resolveStyle } from '../content/model.js';
 import { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode, } from '../site-shell-tree.js';
 import './template-builder.css';
 const layoutDefinitions = [
@@ -81,7 +88,6 @@ const ratios = [
     '25/25/25/25',
 ];
 const uid = (prefix) => `${prefix}_${crypto.randomUUID()}`;
-const isResponsiveStyle = (value) => typeof value === 'object' && value !== null && 'desktop' in value;
 export function SiteTemplateBuilder() {
     const { id } = useDocumentInfo();
     const name = useField({ path: 'name' });
@@ -213,6 +219,8 @@ export function SiteShellBuilder({ region }) {
     const [target, setTarget] = useState('root');
     const [viewport, setViewport] = useState('desktop');
     const [history, setHistory] = useState([]);
+    const [future, setFuture] = useState([]);
+    const lastHistoryChange = useRef(0);
     const allowed = region === 'header' ? headerElements : footerElements;
     const elementItems = allowed.map((value) => ({
         kind: 'element',
@@ -222,15 +230,47 @@ export function SiteShellBuilder({ region }) {
         category: 'site',
         keywords: [value, ...elementDescriptions[value][0].toLowerCase().split(' ')],
     }));
-    const items = [...layoutDefinitions, ...elementItems];
-    const change = (next) => {
+    const items = [
+        ...layoutDefinitions,
+        ...elementItems,
+        ...listBlockDefinitions(region)
+            .filter((def) => def.type !== 'column' &&
+            ![...layoutDefinitions, ...elementItems].some((item) => item.label === def.label || item.value === def.type))
+            .map((def) => ({
+            kind: 'registered',
+            value: def.type,
+            label: def.label,
+            description: def.description,
+            category: def.category,
+            keywords: def.keywords,
+        })),
+    ];
+    const change = (next, typing = false) => {
         if (disabled)
             return;
-        setHistory((previous) => [...previous, structuredClone(nodes)]);
+        const now = Date.now();
+        if (!typing || now - lastHistoryChange.current > 700)
+            setHistory((previous) => [...previous.slice(-99), structuredClone(nodes)]);
+        lastHistoryChange.current = typing ? now : 0;
+        setFuture([]);
         layoutField.setValue(next);
-        setSelected(current => current ? findSiteShellNode(next, current.id) : null);
+        setSelected((current) => (current ? findSiteShellNode(next, current.id) : null));
+    };
+    const redo = () => {
+        const next = future.at(-1);
+        if (!next || disabled)
+            return;
+        setFuture((items) => items.slice(0, -1));
+        setHistory((items) => [...items, structuredClone(nodes)]);
+        layoutField.setValue(next);
+        setSelected(null);
+        lastHistoryChange.current = 0;
     };
     const undo = () => {
+        if (disabled)
+            return;
+        setFuture((items) => [...items, structuredClone(nodes)]);
+        lastHistoryChange.current = 0;
         const previous = history.at(-1);
         if (!previous)
             return;
@@ -262,8 +302,13 @@ export function SiteShellBuilder({ region }) {
                 setSelected(null);
         },
     };
-    const describe = (node) => describeShellNode(node);
-    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsxs("div", { className: "site-shell__editor-toolbar", children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx("button", { type: "button", className: "site-shell__undo", disabled: !history.length, onClick: undo, "aria-label": "Undo last change", children: "\u21B6 Undo" })] }), _jsx(BuilderWorkspace, { libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+    const describe = (node) => ({
+        ...describeShellNode(node, viewport),
+        style: node.type === 'layout' && node.block
+            ? undefined
+            : resolveStyle(shellInspectorStyles(node), viewport),
+    });
+    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsxs("div", { className: "site-shell__editor-toolbar", children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx("button", { type: "button", className: "site-shell__undo", disabled: disabled || !history.length, onClick: undo, "aria-label": "Undo last change", children: "\u21B6 Undo" }), _jsx("button", { type: "button", disabled: disabled || !future.length, onClick: redo, "aria-label": "Redo last change", children: "Redo" })] }), _jsx(BuilderWorkspace, { readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
                             nodes: shellSidebarNodes(nodes),
                             selected: sidebarSelected ?? selected?.id,
                             canEdit: !disabled,
@@ -296,20 +341,40 @@ export function SiteShellBuilder({ region }) {
                                     actions.edit(copy);
                                 }
                             },
-                        } }), canvasLabel: `${region} shell canvas`, canvasTitle: "", canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs("div", { className: `site-shell__preview site-shell__preview--${region}`, children: [region === 'footer' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" })), _jsxs(DropArea, { id: "root", label: `${region} shell drop area`, add: () => sidebar.insert({ parent: 'root' }), addItem: startAdd, children: [!nodes.length && (_jsx("div", { className: "template-editor__empty", children: _jsxs("p", { children: ["Add the first element to this ", region, "."] }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: describe, id: (node) => node.id, selectedID: sidebarSelected ?? selected?.id })] }), region === 'header' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" }))] }) }), inspectorTitle: "Settings", inspector: adding || selected ? (_jsx(SiteShellInspector, { region: region, item: adding, node: selected, viewport: viewport, cancel: () => {
+                        } }), canvasLabel: `${region} shell canvas`, canvasTitle: "", canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs("div", { className: `site-shell__preview site-shell__preview--${region}`, children: [region === 'footer' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" })), _jsxs(DropArea, { id: "root", label: `${region} shell drop area`, add: () => sidebar.insert({ parent: 'root' }), addItem: startAdd, children: [!nodes.length && (_jsx("div", { className: "template-editor__empty", children: _jsxs("p", { children: ["Add the first element to this ", region, "."] }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: describe, id: (node) => node.id, selectedID: sidebarSelected ?? selected?.id })] }), region === 'header' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" }))] }) }), inspectorTitle: "Settings", inspector: selected?.type === 'layout' && selected.block ? (_jsx(RegisteredBlockEditor, { viewport: viewport, node: selected.block, change: (block) => change(updateSiteShellNode(nodes, selected.id, { ...selected, block }), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
+                            const node = toShellBlock(block);
+                            change(insertSiteShellNode(nodes, target, node, beforeTarget));
+                            setSelected(node);
+                            setAdding(null);
+                            sidebar.inserted();
+                        } }, adding.value)) : adding || selected ? (_jsx(SiteShellInspector, { region: region, item: adding, node: selected, viewport: viewport, cancel: () => {
                             setAdding(null);
                             setSelected(null);
                         }, save: (node) => {
                             change(selected
                                 ? updateSiteShellNode(nodes, selected.id, node)
-                                : insertSiteShellNode(nodes, target, node, beforeTarget));
+                                : insertSiteShellNode(nodes, target, node, beforeTarget), !!selected);
                             setAdding(null);
                             setSelected(node);
                             setSidebarSelected(node.id);
                             sidebar.inserted();
                         } }, selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx(RegionSettings, { region: region, value: settingsField.value ?? {}, change: settingsField.setValue })) })] }) }));
 }
-function describeShellNode(node) {
+function describeShellNode(node, viewport = 'desktop') {
+    if (node.type === 'layout' && node.block) {
+        const definition = getBlockDefinition(node.block.kind);
+        return {
+            title: node.block.label ?? definition?.label ?? node.block.kind,
+            icon: definition?.icon,
+            body: definition?.container ? null : _jsx(ContentBlock, { node: node.block, viewport: viewport }),
+            wrap: definition?.container
+                ? (children) => (_jsx(ContentBlock, { node: node.block, viewport: viewport, children: children }))
+                : undefined,
+            children: definition?.container
+                ? [{ id: node.id, label: 'Block contents', children: node.children ?? [] }]
+                : undefined,
+        };
+    }
     if (node.type === 'element') {
         const label = elementDescriptions[node.element][0];
         return {
@@ -411,56 +476,45 @@ function createNode(item, existing) {
 }
 function SiteShellInspector({ item, node, region, viewport, cancel, save, }) {
     const seed = node ?? (item ? createNode(item) : null);
-    const [draft, setDraft] = useState(seed);
-    const [tab, setTab] = useState('settings');
+    const [draft, setDraftValue] = useState(seed);
+    const setDraft = (next) => {
+        setDraftValue(next);
+        if (node)
+            save(next);
+    };
+    const tab = 'settings';
     if (!draft)
         return null;
     const label = draft.type === 'layout' ? draft.layout : elementDescriptions[draft.element][0];
     const props = draft.type === 'element' ? (draft.props ?? {}) : {};
     const setProps = (next) => draft.type === 'element' && setDraft({ ...draft, props: next });
-    const style = draft.style ?? {};
-    const setStyle = (next) => setDraft({ ...draft, style: next });
-    const responsive = (name, fallback = '') => {
-        const value = style[name];
-        return typeof value === 'object' && value
-            ? (value[viewport] ?? value.desktop ?? fallback)
-            : viewport === 'desktop'
-                ? String(value ?? fallback)
-                : fallback;
-    };
-    const setResponsive = (name, value) => {
-        const current = style[name];
-        const values = isResponsiveStyle(current) ? current : { desktop: current ?? '' };
-        setStyle({ ...style, [name]: { ...values, [viewport]: value } });
-    };
     if (draft.type === 'layout' && draft.layout === 'columns' && item && !node) {
         /* default is already valid */
     }
-    return (_jsxs("section", { "aria-label": "Configure Site Shell element", children: [_jsxs("h2", { children: ["Configure ", label] }), _jsx(BuilderInspectorTabs, { active: tab, onChange: setTab, settingsLabel: draft.type === 'layout' ? 'Layout' : 'Settings' }), tab === 'settings' && draft.type === 'layout' && draft.layout === 'columns' && (_jsx("div", { className: "site-shell__controls", children: _jsxs("label", { children: ["Column layout", _jsx("select", { "aria-label": "Column Layout", value: draft.columns?.map((column) => column.width).join('/') ?? '50/50', onChange: (event) => setDraft({
-                                ...draft,
-                                columns: event.target.value
-                                    .split('/')
-                                    .map((width, index) => ({
-                                    id: draft.columns?.[index]?.id ?? uid('column'),
-                                    width: Number(width),
-                                    children: draft.columns?.[index]?.children ?? [],
-                                })),
-                            }), children: ratios.map((ratio) => (_jsx("option", { children: ratio }, ratio))) })] }) })), tab === 'settings' && draft.type === 'layout' && draft.layout !== 'columns' && (_jsx("p", { children: "This layout accepts nested shell elements." })), tab === 'settings' && draft.type === 'element' && (_jsx(ElementSettings, { element: draft.element, props: props, setProps: setProps, region: region })), tab === 'style' && (_jsxs("div", { className: "site-shell__controls", children: [_jsxs("p", { children: ["Editing ", viewport, " values. Desktop cascades when no override exists."] }), [
-                        'width',
-                        'maxWidth',
-                        'minHeight',
-                        'alignment',
-                        'justification',
-                        'gap',
-                        'padding',
-                        'margin',
-                        'background',
-                        'textColor',
-                        'border',
-                        'borderRadius',
-                        'shadow',
-                        'fontSize',
-                    ].map((name) => (_jsxs("label", { children: [name, _jsx("input", { "aria-label": name, value: responsive(name), onChange: (event) => setResponsive(name, event.target.value) })] }, name)))] })), tab === 'advanced' && (_jsxs("div", { className: "site-shell__controls", children: [_jsxs("label", { children: ["HTML ID", _jsx("input", { "aria-label": "HTML ID", value: String(style.htmlID ?? ''), onChange: (event) => setStyle({ ...style, htmlID: event.target.value.replace(/[^a-zA-Z0-9_-]/g, '') }) })] }), _jsxs("label", { children: ["CSS classes", _jsx("input", { "aria-label": "CSS Classes", value: String(style.cssClass ?? ''), onChange: (event) => setStyle({ ...style, cssClass: event.target.value }) })] }), _jsxs("label", { children: ["Visibility (", viewport, ")", _jsxs("select", { "aria-label": "Visibility", value: responsive('visibility', 'visible'), onChange: (event) => setResponsive('visibility', event.target.value), children: [_jsx("option", { value: "visible", children: "Visible" }), _jsx("option", { value: "hidden", children: "Hidden" })] })] }), _jsxs("p", { children: ["Stable ID: ", draft.id] })] })), _jsxs("div", { className: "site-shell__actions", children: [_jsx("button", { type: "button", onClick: () => save(draft), children: "Save Element" }), _jsx("button", { type: "button", onClick: cancel, children: "Cancel" })] })] }));
+    return (_jsxs("section", { "aria-label": "Configure Site Shell element", children: [_jsxs("h2", { children: ["Configure ", label] }), _jsxs(UnifiedBlockInspector, { showFields: false, node: {
+                    id: draft.id,
+                    kind: draft.type === 'layout'
+                        ? draft.layout === 'container' || draft.layout === 'stack'
+                            ? 'group'
+                            : draft.layout
+                        : draft.element,
+                    styles: shellInspectorStyles(draft),
+                    presentation: draft.appearance,
+                }, viewport: viewport, onChange: (patch) => {
+                    const next = {
+                        ...draft,
+                        responsiveStyles: patch.styles ?? draft.responsiveStyles,
+                        appearance: patch.presentation ?? draft.appearance,
+                    };
+                    setDraft(next);
+                }, children: [tab === 'settings' && draft.type === 'layout' && draft.layout === 'columns' && (_jsx("div", { className: "site-shell__controls", children: _jsxs("label", { children: ["Column layout", _jsx("select", { "aria-label": "Column Layout", value: draft.columns?.map((column) => column.width).join('/') ?? '50/50', onChange: (event) => setDraft({
+                                        ...draft,
+                                        columns: event.target.value.split('/').map((width, index) => ({
+                                            id: draft.columns?.[index]?.id ?? uid('column'),
+                                            width: Number(width),
+                                            children: draft.columns?.[index]?.children ?? [],
+                                        })),
+                                    }), children: ratios.map((ratio) => (_jsx("option", { children: ratio }, ratio))) })] }) })), tab === 'settings' && draft.type === 'layout' && draft.layout !== 'columns' && (_jsx("p", { children: "This layout accepts nested shell elements." })), tab === 'settings' && draft.type === 'element' && (_jsx(ElementSettings, { element: draft.element, props: props, setProps: setProps, region: region }))] }), _jsxs("div", { className: "site-shell__actions", children: [_jsx("button", { type: "button", onClick: () => save(draft), children: "Save Element" }), _jsx("button", { type: "button", onClick: cancel, children: "Cancel" })] })] }));
 }
 function ElementSettings({ element, props, setProps, region, }) {
     const input = (label, key) => (_jsxs("label", { children: [label, _jsx("input", { "aria-label": label, value: String(props[key] ?? ''), onChange: (event) => setProps({ ...props, [key]: event.target.value }) })] }, key));

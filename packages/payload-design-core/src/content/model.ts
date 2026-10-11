@@ -1,7 +1,20 @@
 import type { TemplateElementStyle } from '../types'
+import {
+  blockDefaults,
+  canInsertBlock,
+  getBlockDefinition,
+  listBlockDefinitions,
+} from '../blocks/registry'
+import {
+  publicDocumentFields,
+  validatePresentation,
+  type BlockPresentation,
+} from '../blocks/presentation'
+import { dimensionKeys, extendedStyleValue } from '../blocks/style-schema'
 
 export type Viewport = 'desktop' | 'tablet' | 'mobile'
 export type BlockStyle = {
+  [key: string]: string | undefined
   backgroundColor?: string
   color?: string
   padding?: string
@@ -20,6 +33,7 @@ export type BlockStyle = {
 }
 export type ResponsiveBlockStyle = Partial<Record<Viewport, BlockStyle>>
 export type ContentKind =
+  | (string & {})
   | 'heading'
   | 'paragraph'
   | 'richText'
@@ -39,6 +53,10 @@ export type ContentKind =
   | 'value'
 export type ContentNode = {
   id: string
+  blockVersion?: number
+  props?: Record<string, unknown>
+  presentation?: BlockPresentation
+  bindings?: Record<string, string>
   kind: ContentKind
   label?: string
   text?: string
@@ -84,16 +102,47 @@ export const contentLibrary: Array<{ kind: ContentKind; label: string; category:
   ['spacer', 'Spacer', 'Layout'],
   ['divider', 'Divider', 'Layout'],
 ].map(([kind, label, category]) => ({ kind: kind as ContentKind, label, category }))
-export const containerKinds = new Set<ContentKind>(['group', 'row', 'columns', 'column'])
+for (const definition of listBlockDefinitions()) {
+  if (definition.type !== 'column' && !contentLibrary.some((item) => item.kind === definition.type))
+    contentLibrary.push({
+      kind: definition.type,
+      label: definition.label,
+      category: definition.category,
+    })
+}
+export const containerKinds = new (class extends Set<ContentKind> {
+  override has(kind: ContentKind) {
+    return !!getBlockDefinition(kind)?.container
+  }
+})(
+  listBlockDefinitions()
+    .filter((item) => item.container)
+    .map((item) => item.type),
+)
+export const getContentLibrary = () => [
+  ...contentLibrary,
+  ...listBlockDefinitions()
+    .filter(
+      (item) =>
+        item.type !== 'column' && !contentLibrary.some((existing) => existing.kind === item.type),
+    )
+    .map((item) => ({ kind: item.type, label: item.label, category: item.category })),
+]
 export function createContentNode(kind: ContentKind): ContentNode {
   const node: ContentNode = {
     id: `b_${crypto.randomUUID()}`,
     kind,
-    label: contentLibrary.find((item) => item.kind === kind)?.label ?? kind,
+    label:
+      getBlockDefinition(kind)?.label ??
+      contentLibrary.find((item) => item.kind === kind)?.label ??
+      kind,
+    ...blockDefaults(kind),
   }
   if (containerKinds.has(kind))
     node.children =
-      kind === 'columns' ? [createContentNode('column'), createContentNode('column')] : []
+      kind === 'columns'
+        ? [createContentNode('column'), createContentNode('column')]
+        : (node.children ?? [])
   if (kind === 'columns') node.styles = { tablet: { gridTemplateColumns: '1fr' } }
   if (kind === 'heading') node.level = 2
   if (kind === 'spacer') node.styles = { desktop: { minHeight: '32px' } }
@@ -132,11 +181,9 @@ export function insertContent(
     copy.splice(at < 0 ? copy.length : at, 0, node)
     return copy
   }
-  if (parent === 'root') return node.kind === 'column' ? nodes : insert(nodes)
+  if (parent === 'root') return canInsertBlock(undefined, node) ? insert(nodes) : nodes
   return updateContent(nodes, parent, (target) =>
-    !containerKinds.has(target.kind) || (target.kind === 'columns') !== (node.kind === 'column')
-      ? target
-      : { ...target, children: insert(target.children ?? []) },
+    !canInsertBlock(target, node) ? target : { ...target, children: insert(target.children ?? []) },
   )
 }
 export function moveContent(
@@ -149,6 +196,7 @@ export function moveContent(
   const target =
     parent === 'root' ? undefined : walkContent(nodes).find((item) => item.id === parent)
   if (!node || before === id || walkContent([node]).some((item) => item.id === parent)) return nodes
+  if (!canInsertBlock(target, node)) return nodes
   if (parent !== 'root' && (!target || !containerKinds.has(target.kind))) return nodes
   if ((target?.kind === 'columns') !== (node.kind === 'column')) return nodes
   return insertContent(removeContent(nodes, id), node, parent, before)
@@ -219,6 +267,9 @@ const colors =
   /^(#[\da-f]{3,8}|transparent|currentColor|[a-z]+|rgba?\([\d\s.,%]+\)|var\(--[\w-]+\))$/i
 export function validStyleValue(key: string, value: unknown): boolean {
   if (typeof value !== 'string') return false
+  const extended = extendedStyleValue(key, value)
+  if (extended !== undefined) return extended
+  if (dimensionKeys.includes(key)) return dimensions.test(value)
   if (['backgroundColor', 'color', 'borderColor'].includes(key)) return colors.test(value)
   if (key === 'textAlign') return ['left', 'center', 'right'].includes(value)
   if (key === 'gridTemplateColumns') return /^\d+(\.\d+)?fr(\s+\d+(\.\d+)?fr){0,5}$/.test(value)
@@ -237,7 +288,10 @@ export function validStyleValue(key: string, value: unknown): boolean {
     ].includes(key) && dimensions.test(value)
   )
 }
-export function validateContentLayout(value: unknown): true | string {
+export function validateContentLayout(
+  value: unknown,
+  allowedBindingPaths: string[] = [],
+): true | string {
   if (value == null) return true
   if (
     typeof value !== 'object' ||
@@ -247,7 +301,7 @@ export function validateContentLayout(value: unknown): true | string {
     return 'Unsupported content layout.'
   const ids = new Set<string>()
   let count = 0
-  function check(nodes: ContentNode[], depth: number, parent?: ContentKind): string | undefined {
+  function check(nodes: ContentNode[], depth: number, parent?: ContentNode): string | undefined {
     if (depth > 12) return 'Blocks may be nested at most 12 levels.'
     for (const node of nodes) {
       if (!node || typeof node !== 'object' || ++count > 500)
@@ -255,10 +309,62 @@ export function validateContentLayout(value: unknown): true | string {
       if (typeof node.id !== 'string' || !/^[\w-]+$/.test(node.id) || ids.has(node.id))
         return 'Block IDs must be unique.'
       ids.add(node.id)
-      if (![...contentLibrary.map((item) => item.kind), 'column', 'designed'].includes(node.kind))
-        return 'Unknown block type.'
-      if ((parent === 'columns') !== (node.kind === 'column'))
+      if (typeof node.kind !== 'string' || !node.kind) return 'Missing block type.'
+      const presentationError = validatePresentation(node.presentation)
+      if (presentationError) return presentationError
+      const definition = getBlockDefinition(node.kind)
+      if (
+        node.blockVersion !== undefined &&
+        (!Number.isInteger(node.blockVersion) || node.blockVersion < 1)
+      )
+        return 'Invalid block version.'
+      const definitionError = definition?.validate?.(node)
+      if (definitionError) return definitionError
+      for (const [key, field] of Object.entries(node.bindings ?? {}))
+        if (
+          field &&
+          (!definition?.fields.some((item) => item.key === key && item.bindable) ||
+            (!(publicDocumentFields as readonly string[]).includes(field) &&
+              !allowedBindingPaths.includes(field)))
+        )
+          return 'Unsupported dynamic field binding.'
+      for (const state of ['hover', 'focus'] as const)
+        for (const [key, val] of Object.entries(node.presentation?.[state] ?? {}))
+          if (!validStyleValue(key, val)) return 'Invalid interaction style.'
+      if (node.presentation?.link?.url && !safeURL(node.presentation.link.url))
+        return 'Invalid block link URL.'
+      if (node.props && (typeof node.props !== 'object' || Array.isArray(node.props)))
+        return 'Invalid block properties.'
+      for (const field of definition?.fields ?? []) {
+        const val = node.props?.[field.key]
+        if (val === undefined || val === '') continue
+        if (field.type === 'number' && (typeof val !== 'number' || !Number.isFinite(val)))
+          return `Invalid ${field.label}.`
+        if (
+          field.type === 'number' &&
+          ((field.min !== undefined && Number(val) < field.min) ||
+            (field.max !== undefined && Number(val) > field.max))
+        )
+          return `Invalid ${field.label} range.`
+        if (!['number', 'toggle'].includes(field.type) && typeof val !== 'string')
+          return `Invalid ${field.label}.`
+        if (
+          field.type === 'date' &&
+          (!Number.isFinite(Date.parse(String(val))) || !/(Z|[+-]\d\d:\d\d)$/.test(String(val)))
+        )
+          return 'Dates must include a timezone.'
+        if (field.type === 'toggle' && typeof val !== 'boolean') return `Invalid ${field.label}.`
+        if (field.type === 'select' && !field.options?.includes(String(val)))
+          return `Invalid ${field.label}.`
+        if (field.type === 'url' && !safeURL(val)) return `Invalid ${field.label}.`
+      }
+      if ((parent?.kind === 'columns') !== (node.kind === 'column'))
         return 'Columns must contain column blocks, and column blocks must be inside Columns.'
+      if (definition?.allowedParents && !definition.allowedParents.includes(parent?.kind ?? 'root'))
+        return 'Block is not allowed in this container.'
+      const parentDefinition = parent && getBlockDefinition(parent.kind)
+      if (parentDefinition?.canContain && !parentDefinition.canContain(parent!, node))
+        return 'Block is not allowed in this container.'
       if (node.binding) return 'Freeform blocks cannot declare template field bindings.'
       for (const key of ['text', 'label', 'alt', 'url', 'anchor'] as const)
         if (node[key] !== undefined && typeof node[key] !== 'string')
@@ -284,9 +390,9 @@ export function validateContentLayout(value: unknown): true | string {
             return `Invalid ${key} style on ${node.label ?? node.kind}.`
       }
       if (node.children) {
-        if (!Array.isArray(node.children) || !containerKinds.has(node.kind))
+        if (!Array.isArray(node.children) || (definition && !containerKinds.has(node.kind)))
           return 'Only layout blocks can contain children.'
-        const error = check(node.children, depth + 1, node.kind)
+        const error = check(node.children, depth + 1, node)
         if (error) return error
       }
     }

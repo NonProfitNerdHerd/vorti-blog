@@ -20,11 +20,11 @@ import { BuilderCore } from '../builder/BuilderCore'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/sidebar-model'
 import { builderCapabilities } from '../builder/contracts'
-import { BlockStyleControls } from '../builder/BlockStyleControls'
+import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { ContentBlock } from '../content/ContentRenderer'
 import {
   containerKinds,
-  contentLibrary,
+  getContentLibrary,
   createContentNode,
   duplicateContent,
   insertContent,
@@ -451,7 +451,7 @@ export const ContentWorkspace = (
     if (locked)
       return node.binding ? (
         bindField(node)
-      ) : node.kind === 'designed' ? (
+      ) : node.kind === 'designed' || node.fields?.length ? (
         <>
           <ContentBlock node={resolvedNode(node)} viewport={viewport} />
           {node.fields?.map(bindField)}
@@ -553,7 +553,7 @@ export const ContentWorkspace = (
               setSelected('')
             }}
           >
-            <ContentBlock node={resolvedNode(node)} viewport={viewport} body={editorBody(node)}>
+            <ContentBlock node={resolvedNode(node)} viewport={viewport} document={document} body={editorBody(node)}>
               {containerKinds.has(node.kind) && tree(node.children ?? [], node.id)}
             </ContentBlock>
           </EditableNode>
@@ -699,7 +699,7 @@ export const ContentWorkspace = (
                   canEdit: capabilities.editStructure,
                   locked,
                   items: [
-                    ...contentLibrary.map((item) => ({ ...item, value: item.kind })),
+                    ...getContentLibrary().map((item) => ({ ...item, value: item.kind })),
                     ...types
                       .filter((type) => type.rendererKey === 'hero-board')
                       .map((type) => ({
@@ -835,7 +835,7 @@ export const ContentWorkspace = (
                         viewport={viewport}
                         designs={designs}
                         types={types}
-                        onChange={(patch) => changeNode(active.id, patch)}
+                        onChange={(patch) => changeNode(active.id, patch, true)}
                       />
                     </>
                   )}
@@ -1129,7 +1129,7 @@ function BlockInspector({
   onChange: (patch: Partial<ContentNode>) => void
 }) {
   return (
-    <fieldset disabled={disabled} className="content-workspace__inspector-fields">
+    <UnifiedBlockInspector node={node} disabled={disabled} viewport={viewport} onChange={onChange}>
       <details open>
         <summary>Settings</summary>
         <label>
@@ -1252,25 +1252,7 @@ function BlockInspector({
           </>
         )}
       </details>
-      <details>
-        <summary>Style</summary>
-        <BlockStyleControls
-          value={node.styles}
-          viewport={viewport}
-          onChange={(styles) => onChange({ styles })}
-        />
-      </details>
-      <details>
-        <summary>Advanced</summary>
-        <label>
-          HTML anchor
-          <input
-            value={node.anchor ?? ''}
-            onChange={(event) => onChange({ anchor: event.target.value })}
-          />
-        </label>
-      </details>
-    </fieldset>
+    </UnifiedBlockInspector>
   )
 }
 function DesignedFields({

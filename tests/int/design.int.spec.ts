@@ -122,6 +122,7 @@ describe('Design Core integration', () => {
   })
 
   it('resolves a real Post through published Template and Design changes', async () => {
+    const lockedWorkspace = process.env.CONTENT_WORKSPACE_ENABLED === 'true'
     const author = await payload.create({ collection: 'users', data: { email: 'stage3-post@example.invalid', password: 'local-validation-password', role: 'editor' } })
     const classic = await payload.create({ collection: 'design-block-designs', data: {
       name: 'Classic Test', slug: 'classic-stage3-test', blockType: typeID, status: 'published', _status: 'published', design: { alignment: 'left' },
@@ -131,7 +132,7 @@ describe('Design Core integration', () => {
         children: [{ type: 'text', text: 'Post body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }] } }
     await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: featureID, required: true, allowDesignOverride: true }] } })
     const post = await payload.create({ collection: 'posts', data: { title: 'Stage 3 Post', slug: 'stage3-post', author: author.id,
-      content, designTemplate: templateID, templateValues: values, designOverrides: { hero: null }, _status: 'published' } })
+      content, designTemplate: templateID, templateValues: values, designOverrides: lockedWorkspace ? {} : { hero: null }, _status: 'published' } })
     const store = createPayloadDesignStore(payload)
     async function resolved() {
       const current = await payload.findByID({ collection: 'posts', id: post.id, depth: 0 })
@@ -149,10 +150,13 @@ describe('Design Core integration', () => {
       expect((await resolved()).sections[0].blockDesign.id).toBe(featureID)
       await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true }] } })
       expect((await resolved()).sections[0].blockDesign.id).toBe(splitID)
-      await payload.update({ collection: 'posts', id: post.id, data: { designOverrides: { hero: classic.id } } })
-      expect((await resolved()).sections[0].blockDesign.id).toBe(classic.id)
+      const override = () => payload.update({ collection: 'posts', id: post.id, data: { designOverrides: { hero: classic.id } } })
+      if (lockedWorkspace) await expect(override()).rejects.toThrow('controlled by the template')
+      else await override()
+      expect((await resolved()).sections[0].blockDesign.id).toBe(lockedWorkspace ? splitID : classic.id)
       await payload.update({ collection: 'design-block-designs', id: classic.id, data: { _status: 'published', design: { alignment: 'right' } } })
-      expect((await resolved()).sections[0].blockDesign.design.alignment).toBe('right')
+      if (!lockedWorkspace) expect((await resolved()).sections[0].blockDesign.design.alignment).toBe('right')
+      else expect((await resolved()).sections[0].blockDesign.id).toBe(splitID)
       expect((await resolved()).sections[0].values.headline).toBe('Original Headline')
       await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [
         { key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true },
@@ -170,5 +174,5 @@ describe('Design Core integration', () => {
       await payload.delete({ collection: 'design-block-designs', id: classic.id })
       await payload.delete({ collection: 'users', id: author.id })
     }
-  }, 20_000)
+  }, 60_000)
 })

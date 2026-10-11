@@ -1,4 +1,6 @@
-import type { Payload } from 'payload'
+import { resolveBlocks } from '@design-system/payload-design-core/content'
+import { queryBlockListing } from './block-listings'
+import type { Payload, PayloadRequest } from 'payload'
 import type {
   ContentNode,
   ContentLayout,
@@ -17,6 +19,7 @@ import { mediaURL } from './media'
 export async function resolveDocumentBlocks(
   payload: Payload,
   document: Record<string, unknown>,
+  context: { draft?: boolean; user?: PayloadRequest['user'] } = {},
 ): Promise<ContentNode[] | null> {
   const reference = document.designTemplate
   const templateID =
@@ -112,5 +115,11 @@ export async function resolveDocumentBlocks(
       delete node.fields
     }),
   )
-  return result
+  if (context.draft && context.user)
+    for (const node of walkContent(result))
+      if (node.kind === 'postListing') node.props = { ...node.props, draft: true }
+  return resolveBlocks(result, {
+    document,
+    list: (props, page) => queryBlockListing(payload, props, page, context),
+  })
 }

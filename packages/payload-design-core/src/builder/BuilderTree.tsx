@@ -17,6 +17,7 @@ export type BuilderChildContainer<TNode> = {
 
 export type BuilderNodeDescriptor<TNode> = {
   style?: CSSProperties
+  wrap?: (children: ReactNode) => ReactNode
   body: ReactNode
   bodyAriaLabel?: string
   children?: BuilderChildContainer<TNode>[]
@@ -72,7 +73,7 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
         <button type="button" className="template-editor__tool-button" aria-label={`Move ${descriptor.title} down`} title="Move down" disabled={index === siblings.length - 1} onClick={() => actions.move(nodeID, 1)}>↓</button>
         <button type="button" className="template-editor__tool-button template-editor__tool-button--danger" aria-label={`Remove ${descriptor.title}`} title="Remove" onClick={() => actions.remove(nodeID)}>×</button>
       </div>
-      <div className="template-editor__node-body" role="button" tabIndex={0} aria-label={descriptor.bodyAriaLabel} onClick={() => actions.edit(node)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') actions.edit(node) }}>
+      {(descriptor.wrap ?? ((content: ReactNode) => content))(<><div className="template-editor__node-body" role="button" tabIndex={0} aria-label={descriptor.bodyAriaLabel} onClick={() => actions.edit(node)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') actions.edit(node) }}>
         {descriptor.body}
       </div>
       {descriptor.children?.length ? (
@@ -84,6 +85,7 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID, siblings }
             </div>)}
         </div> : <>{descriptor.children.map((container) => <DropArea key={container.id} id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}><BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} /></DropArea>)}</>
       ) : null}
+      </>)}
     </article>
   )
 }

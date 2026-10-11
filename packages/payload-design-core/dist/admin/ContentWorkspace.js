@@ -10,9 +10,9 @@ import { BuilderCore } from '../builder/BuilderCore.js';
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
 import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/sidebar-model.js';
 import { builderCapabilities } from '../builder/contracts.js';
-import { BlockStyleControls } from '../builder/BlockStyleControls.js';
+import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
-import { containerKinds, contentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, textDocument, } from '../content/model.js';
+import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, textDocument, } from '../content/model.js';
 import { readPath, templateContentNodes } from '../content/template-adapter.js';
 import './content-workspace.css';
 const relationID = (value) => value && typeof value === 'object'
@@ -323,7 +323,7 @@ export const ContentWorkspace = (props) => {
                 } }, node.id)] }, node.id));
     const editorBody = (node) => {
         if (locked)
-            return node.binding ? (bindField(node)) : node.kind === 'designed' ? (_jsxs(_Fragment, { children: [_jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport }), node.fields?.map(bindField)] })) : undefined;
+            return node.binding ? (bindField(node)) : node.kind === 'designed' || node.fields?.length ? (_jsxs(_Fragment, { children: [_jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport }), node.fields?.map(bindField)] })) : undefined;
         if (['heading', 'paragraph', 'quote', 'list'].includes(node.kind))
             return node.richText ? (_jsx(RenderLexical, { field: {
                     name: 'content',
@@ -360,7 +360,7 @@ export const ContentWorkspace = (props) => {
                         }, onRemove: () => {
                             setNodes(removeContent(nodes, node.id));
                             setSelected('');
-                        }, children: _jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport, body: editorBody(node), children: containerKinds.has(node.kind) && tree(node.children ?? [], node.id) }) })] }, node.id))), !locked && (_jsx(Insertion, { parent: parent, disabled: lockedForm, onChoose: () => {
+                        }, children: _jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport, document: document, body: editorBody(node), children: containerKinds.has(node.kind) && tree(node.children ?? [], node.id) }) })] }, node.id))), !locked && (_jsx(Insertion, { parent: parent, disabled: lockedForm, onChoose: () => {
                     setDestination({ parent });
                     if (items.length === 0 &&
                         parent !== 'root' &&
@@ -410,7 +410,7 @@ export const ContentWorkspace = (props) => {
                                     canEdit: capabilities.editStructure,
                                     locked,
                                     items: [
-                                        ...contentLibrary.map((item) => ({ ...item, value: item.kind })),
+                                        ...getContentLibrary().map((item) => ({ ...item, value: item.kind })),
                                         ...types
                                             .filter((type) => type.rendererKey === 'hero-board')
                                             .map((type) => ({
@@ -447,7 +447,7 @@ export const ContentWorkspace = (props) => {
                                                                     .filter((node) => containerKinds.has(node.kind) &&
                                                                     (node.kind === 'columns') === (active.kind === 'column') &&
                                                                     !walkContent([active]).some((child) => child.id === node.id))
-                                                                    .map((node) => (_jsx("option", { value: node.id, children: node.label ?? node.kind }, node.id)))] })] }), _jsx(BlockInspector, { node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch) })] }))] }))] }))] })] }) }));
+                                                                    .map((node) => (_jsx("option", { value: node.id, children: node.label ?? node.kind }, node.id)))] })] }), _jsx(BlockInspector, { node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) })] }))] }))] }))] })] }) }));
 };
 function InlineText({ node, disabled, onChange, }) {
     return (_jsx("textarea", { className: `content-workspace__inline content-workspace__inline--${node.kind}`, "aria-label": node.label ?? node.kind, placeholder: `Type ${node.kind}…`, value: node.text ?? '', readOnly: disabled, rows: node.kind === 'heading' ? 1 : 3, onChange: (event) => onChange(event.target.value) }));
@@ -505,12 +505,12 @@ function BoundValue({ node, document, lexicalSchemaPath, disabled, onValues, }) 
                     : event.target.value) }))] }));
 }
 function BlockInspector({ node, disabled, viewport, designs, types, onChange, }) {
-    return (_jsxs("fieldset", { disabled: disabled, className: "content-workspace__inspector-fields", children: [_jsxs("details", { open: true, children: [_jsx("summary", { children: "Settings" }), _jsxs("label", { children: ["Block label", _jsx("input", { value: node.label ?? '', onChange: (event) => onChange({ label: event.target.value }) })] }), node.kind === 'heading' && (_jsxs("label", { children: ["Heading level", _jsx("select", { value: node.level ?? 2, onChange: (event) => onChange({ level: Number(event.target.value) }), children: [1, 2, 3, 4, 5, 6].map((level) => (_jsxs("option", { value: level, children: ["H", level] }, level))) })] })), node.kind === 'list' && (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!node.ordered, onChange: (event) => onChange({ ordered: event.target.checked }) }), "Numbered list"] })), ['button', 'video'].includes(node.kind) && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["URL", _jsx("input", { value: node.url ?? '', onChange: (event) => onChange({ url: event.target.value }) })] }), _jsxs("label", { children: ["Text", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), ['image', 'gallery'].includes(node.kind) && (_jsx(MediaPicker, { value: node.media, onChange: (media) => onChange({ media }), many: node.kind === 'gallery', disabled: disabled })), node.kind === 'image' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Alternative text", _jsx("input", { value: node.alt ?? '', onChange: (event) => onChange({ alt: event.target.value }) })] }), _jsxs("label", { children: ["Caption", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), node.kind === 'columns' && (_jsx("button", { type: "button", onClick: () => onChange({ children: [...(node.children ?? []), createContentNode('column')] }), children: "Add column" })), node.kind === 'designed' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Design", _jsxs("select", { value: node.blockDesign ?? '', onChange: (event) => onChange({
-                                            blockDesign: designs.find((design) => String(design.id) === event.target.value)
-                                                ?.id,
-                                        }), children: [_jsx("option", { value: "", children: "Choose\u2026" }), designs
-                                                .filter((design) => relationID(design.blockType) === String(node.blockType))
-                                                .map((design) => (_jsx("option", { value: design.id, children: design.name }, design.id)))] })] }), _jsx(DesignedFields, { fields: types.find((type) => String(type.id) === String(node.blockType))?.fields ?? [], values: node.values ?? {}, disabled: disabled, onChange: (values) => onChange({ values }) })] }))] }), _jsxs("details", { children: [_jsx("summary", { children: "Style" }), _jsx(BlockStyleControls, { value: node.styles, viewport: viewport, onChange: (styles) => onChange({ styles }) })] }), _jsxs("details", { children: [_jsx("summary", { children: "Advanced" }), _jsxs("label", { children: ["HTML anchor", _jsx("input", { value: node.anchor ?? '', onChange: (event) => onChange({ anchor: event.target.value }) })] })] })] }));
+    return (_jsx(UnifiedBlockInspector, { node: node, disabled: disabled, viewport: viewport, onChange: onChange, children: _jsxs("details", { open: true, children: [_jsx("summary", { children: "Settings" }), _jsxs("label", { children: ["Block label", _jsx("input", { value: node.label ?? '', onChange: (event) => onChange({ label: event.target.value }) })] }), node.kind === 'heading' && (_jsxs("label", { children: ["Heading level", _jsx("select", { value: node.level ?? 2, onChange: (event) => onChange({ level: Number(event.target.value) }), children: [1, 2, 3, 4, 5, 6].map((level) => (_jsxs("option", { value: level, children: ["H", level] }, level))) })] })), node.kind === 'list' && (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!node.ordered, onChange: (event) => onChange({ ordered: event.target.checked }) }), "Numbered list"] })), ['button', 'video'].includes(node.kind) && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["URL", _jsx("input", { value: node.url ?? '', onChange: (event) => onChange({ url: event.target.value }) })] }), _jsxs("label", { children: ["Text", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), ['image', 'gallery'].includes(node.kind) && (_jsx(MediaPicker, { value: node.media, onChange: (media) => onChange({ media }), many: node.kind === 'gallery', disabled: disabled })), node.kind === 'image' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Alternative text", _jsx("input", { value: node.alt ?? '', onChange: (event) => onChange({ alt: event.target.value }) })] }), _jsxs("label", { children: ["Caption", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), node.kind === 'columns' && (_jsx("button", { type: "button", onClick: () => onChange({ children: [...(node.children ?? []), createContentNode('column')] }), children: "Add column" })), node.kind === 'designed' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Design", _jsxs("select", { value: node.blockDesign ?? '', onChange: (event) => onChange({
+                                        blockDesign: designs.find((design) => String(design.id) === event.target.value)
+                                            ?.id,
+                                    }), children: [_jsx("option", { value: "", children: "Choose\u2026" }), designs
+                                            .filter((design) => relationID(design.blockType) === String(node.blockType))
+                                            .map((design) => (_jsx("option", { value: design.id, children: design.name }, design.id)))] })] }), _jsx(DesignedFields, { fields: types.find((type) => String(type.id) === String(node.blockType))?.fields ?? [], values: node.values ?? {}, disabled: disabled, onChange: (values) => onChange({ values }) })] }))] }) }));
 }
 function DesignedFields({ fields, values, disabled, onChange, }) {
     return (_jsx(_Fragment, { children: fields.map((field) => field.kind === 'group' ? (_jsxs("fieldset", { children: [_jsx("legend", { children: field.label }), _jsx(DesignedFields, { fields: field.children ?? [], values: values[field.key] ?? {}, disabled: disabled, onChange: (value) => onChange({ ...values, [field.key]: value }) })] }, field.key)) : field.kind === 'media' ? (_jsx(MediaPicker, { label: field.label, disabled: disabled, value: values[field.key], onChange: (value) => onChange({ ...values, [field.key]: value }) }, field.key)) : (_jsxs("label", { children: [field.label, _jsx("input", { disabled: disabled, value: String(values[field.key] ?? ''), onChange: (event) => onChange({ ...values, [field.key]: event.target.value }) })] }, field.key))) }));

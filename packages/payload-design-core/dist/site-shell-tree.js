@@ -1,3 +1,5 @@
+import { canInsertAdapterNode } from './blocks/adapters.js';
+import { getBlockDefinition } from './blocks/registry.js';
 export function findSiteShellNode(nodes, id) {
     for (const node of nodes) {
         if (node.id === id)
@@ -51,18 +53,18 @@ export function insertSiteShellNode(nodes, parentID, inserted, beforeID) {
         return next;
     };
     if (parentID === 'root')
-        return insert(nodes);
+        return canInsertAdapterNode(undefined, inserted, true) ? insert(nodes) : nodes;
     return nodes.map((node) => {
         if (node.type !== 'layout')
             return node;
-        if (node.id === parentID && !['columns', 'spacer', 'divider'].includes(node.layout))
+        if (node.id === parentID && canInsertAdapterNode(node, inserted) && !['columns', 'spacer', 'divider'].includes(node.layout) && (!node.block || getBlockDefinition(node.block.kind)?.container))
             return { ...node, children: insert(node.children ?? []) };
         return {
             ...node,
             children: insertSiteShellNode(node.children ?? [], parentID, inserted, beforeID),
-            columns: node.columns?.map((column) => column.id === parentID
+            columns: node.columns?.map((column) => column.id === parentID && canInsertAdapterNode(undefined, inserted)
                 ? { ...column, children: insert(column.children) }
-                : { ...column, children: insertSiteShellNode(column.children, parentID, inserted) }),
+                : { ...column, children: insertSiteShellNode(column.children, parentID, inserted, beforeID) }),
         };
     });
 }
@@ -112,7 +114,7 @@ function extract(nodes, id) {
 export function moveSiteShellNodeTo(nodes, id, parentID, beforeID) {
     const containers = (items) => items.flatMap((node) => node.type === 'layout'
         ? [
-            ...(!['columns', 'spacer', 'divider'].includes(node.layout) ? [node.id] : []),
+            ...(!['columns', 'spacer', 'divider'].includes(node.layout) && (!node.block || getBlockDefinition(node.block.kind)?.container) ? [node.id] : []),
             ...containers(node.children ?? []),
             ...(node.columns ?? []).flatMap((column) => [
                 column.id,
@@ -126,6 +128,8 @@ export function moveSiteShellNodeTo(nodes, id, parentID, beforeID) {
         id === parentID ||
         (parentID !== 'root' && !containers(nodes).includes(parentID)) ||
         containers([source]).includes(parentID))
+        return nodes;
+    if (!canInsertAdapterNode(findSiteShellNode(nodes, parentID), source, parentID === 'root'))
         return nodes;
     const result = extract(nodes, id);
     return result.node ? insertSiteShellNode(result.nodes, parentID, result.node, beforeID) : nodes;

@@ -1,3 +1,7 @@
+import { canInsertAdapterNode } from './blocks/adapters.js';
+import { getBlockDefinition } from './blocks/registry.js';
+import { validateContentLayout } from './content/model.js';
+import { validatePresentation } from './blocks/presentation.js';
 import { assertDesignCanDelete, assertTemplateCanDelete, getBlockDesignDependencies, getTemplateDependencies } from './dependencies.js';
 import { createPayloadDependencySource } from './payload-store.js';
 import { slugs } from './types.js';
@@ -182,6 +186,18 @@ export function createDesignCollections(options) {
                             if (!node.id || ids.has(node.id))
                                 throw new Error('Template element IDs must be present and unique');
                             ids.add(node.id);
+                            const presentationError = validatePresentation(node.style?.presentation);
+                            if (presentationError)
+                                throw new Error(presentationError);
+                            if (node.type === 'layout' && node.block) {
+                                if (getBlockDefinition(node.block.kind) && node.children?.some(child => !canInsertAdapterNode(node, child)))
+                                    throw new Error('Invalid child block for this container.');
+                                if (node.children?.length && getBlockDefinition(node.block.kind) && !getBlockDefinition(node.block.kind)?.container)
+                                    throw new Error('This registered block cannot contain children.');
+                                const valid = validateContentLayout({ version: 1, nodes: [{ ...node.block, id: node.id, kind: node.block.kind === 'column' ? 'group' : node.block.kind }] }, [...customFieldIDs].map(id => `templateValues.${id}`));
+                                if (valid !== true)
+                                    throw new Error(valid);
+                            }
                             if (node.type === 'field') {
                                 fields.add(node.id);
                                 if (node.content?.source === 'customField' && !customFieldIDs.has(node.content.fieldId))

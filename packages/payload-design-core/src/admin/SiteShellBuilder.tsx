@@ -1,10 +1,16 @@
 'use client'
 
 import { useDocumentInfo, useField, useForm } from '@payloadcms/ui'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BuilderCore, type BuilderDragItem } from '../builder/BuilderCore'
 import { type BuilderPickerElement } from '../builder/BuilderElementPicker'
-import { BuilderInspectorTabs, type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
+import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
+import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor'
+import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry'
+import { toShellBlock } from '../blocks/adapters'
+import { ContentBlock } from '../content/ContentRenderer'
+import { createContentNode } from '../content/model'
+import { type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model'
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar'
@@ -15,15 +21,14 @@ import {
 } from '../builder/BuilderTree'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { DropArea } from '../builder/DropArea'
+import { shellInspectorStyles } from '../site-shell'
+import { resolveStyle } from '../content/model'
 import type { BuilderViewport } from '../builder/contracts'
 import type {
-  ResponsiveValue,
   SiteShellElementKind,
   SiteShellLayoutKind,
   SiteShellNode,
   SiteShellRegionSettings,
-  SiteShellStyle,
-  SiteShellStyleScalar,
 } from '../site-shell'
 import {
   findSiteShellNode,
@@ -108,14 +113,6 @@ const ratios = [
   '25/25/25/25',
 ]
 const uid = (prefix: string) => `${prefix}_${crypto.randomUUID()}`
-const isResponsiveStyle = (
-  value: ResponsiveValue<SiteShellStyleScalar> | undefined,
-): value is {
-  desktop: SiteShellStyleScalar
-  tablet?: SiteShellStyleScalar
-  mobile?: SiteShellStyleScalar
-} => typeof value === 'object' && value !== null && 'desktop' in value
-
 export function SiteTemplateBuilder() {
   const { id } = useDocumentInfo()
   const name = useField<string>({ path: 'name' })
@@ -443,6 +440,8 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
   const [target, setTarget] = useState('root')
   const [viewport, setViewport] = useState<BuilderViewport>('desktop')
   const [history, setHistory] = useState<SiteShellNode[][]>([])
+  const [future, setFuture] = useState<SiteShellNode[][]>([])
+  const lastHistoryChange = useRef(0)
   const allowed = region === 'header' ? headerElements : footerElements
   const elementItems: BuilderPickerElement[] = allowed.map((value) => ({
     kind: 'element',
@@ -452,14 +451,49 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
     category: 'site',
     keywords: [value, ...elementDescriptions[value][0].toLowerCase().split(' ')],
   }))
-  const items = [...layoutDefinitions, ...elementItems]
-  const change = (next: SiteShellNode[]) => {
+  const items = [
+    ...layoutDefinitions,
+    ...elementItems,
+    ...listBlockDefinitions(region)
+      .filter(
+        (def) =>
+          def.type !== 'column' &&
+          ![...layoutDefinitions, ...elementItems].some(
+            (item) => item.label === def.label || item.value === def.type,
+          ),
+      )
+      .map((def) => ({
+        kind: 'registered',
+        value: def.type,
+        label: def.label,
+        description: def.description,
+        category: def.category,
+        keywords: def.keywords,
+      })),
+  ]
+  const change = (next: SiteShellNode[], typing = false) => {
     if (disabled) return
-    setHistory((previous) => [...previous, structuredClone(nodes)])
+    const now = Date.now()
+    if (!typing || now - lastHistoryChange.current > 700)
+      setHistory((previous) => [...previous.slice(-99), structuredClone(nodes)])
+    lastHistoryChange.current = typing ? now : 0
+    setFuture([])
     layoutField.setValue(next)
-    setSelected(current => current ? findSiteShellNode(next, current.id) : null)
+    setSelected((current) => (current ? findSiteShellNode(next, current.id) : null))
+  }
+  const redo = () => {
+    const next = future.at(-1)
+    if (!next || disabled) return
+    setFuture((items) => items.slice(0, -1))
+    setHistory((items) => [...items, structuredClone(nodes)])
+    layoutField.setValue(next)
+    setSelected(null)
+    lastHistoryChange.current = 0
   }
   const undo = () => {
+    if (disabled) return
+    setFuture((items) => [...items, structuredClone(nodes)])
+    lastHistoryChange.current = 0
     const previous = history.at(-1)
     if (!previous) return
     setHistory((entries) => entries.slice(0, -1))
@@ -488,8 +522,13 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
       if (selected?.id === id) setSelected(null)
     },
   }
-  const describe = (node: SiteShellNode): BuilderNodeDescriptor<SiteShellNode> =>
-    describeShellNode(node)
+  const describe = (node: SiteShellNode): BuilderNodeDescriptor<SiteShellNode> => ({
+    ...describeShellNode(node, viewport),
+    style:
+      node.type === 'layout' && node.block
+        ? undefined
+        : resolveStyle(shellInspectorStyles(node), viewport),
+  })
   return (
     <BuilderCore
       id={`site-shell-${region}-dnd`}
@@ -502,14 +541,23 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
           <button
             type="button"
             className="site-shell__undo"
-            disabled={!history.length}
+            disabled={disabled || !history.length}
             onClick={undo}
             aria-label="Undo last change"
           >
             ↶ Undo
           </button>
+          <button
+            type="button"
+            disabled={disabled || !future.length}
+            onClick={redo}
+            aria-label="Redo last change"
+          >
+            Redo
+          </button>
         </div>
         <BuilderWorkspace
+          readOnly={disabled}
           libraryOpen={sidebar.open}
           onLibraryOpenChange={sidebar.setOpen}
           libraryTitle=""
@@ -531,7 +579,10 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
                   setSidebarSelected(id)
                   const node = findSiteShellNode(nodes, id)
                   if (node) actions.edit(node)
-                  else {setSelected(null);setAdding(null)}
+                  else {
+                    setSelected(null)
+                    setAdding(null)
+                  }
                 },
                 onInsert: (item, target) => startAdd(item, target.parent, target.before),
                 onMove: (id, target) =>
@@ -594,9 +645,32 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
           }
           inspectorTitle="Settings"
           inspector={
-            adding || selected ? (
+            selected?.type === 'layout' && selected.block ? (
+              <RegisteredBlockEditor
+                viewport={viewport}
+                node={selected.block}
+                change={(block) =>
+                  change(updateSiteShellNode(nodes, selected.id, { ...selected, block }), true)
+                }
+              />
+            ) : adding?.kind === 'registered' ? (
+              <NewRegisteredBlock
+                key={adding.value}
+                node={createContentNode(adding.value)}
+                cancel={() => setAdding(null)}
+                create={(block) => {
+                  const node = toShellBlock(block)
+                  change(insertSiteShellNode(nodes, target, node, beforeTarget))
+                  setSelected(node)
+                  setAdding(null)
+                  sidebar.inserted()
+                }}
+              />
+            ) : adding || selected ? (
               <SiteShellInspector
-                key={selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`}
+                key={
+                  selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`
+                }
                 region={region}
                 item={adding}
                 node={selected}
@@ -610,6 +684,7 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
                     selected
                       ? updateSiteShellNode(nodes, selected.id, node)
                       : insertSiteShellNode(nodes, target, node, beforeTarget),
+                    !!selected,
                   )
                   setAdding(null)
                   setSelected(node)
@@ -631,7 +706,28 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
   )
 }
 
-function describeShellNode(node: SiteShellNode): BuilderNodeDescriptor<SiteShellNode> {
+function describeShellNode(
+  node: SiteShellNode,
+  viewport: BuilderViewport = 'desktop',
+): BuilderNodeDescriptor<SiteShellNode> {
+  if (node.type === 'layout' && node.block) {
+    const definition = getBlockDefinition(node.block.kind)
+    return {
+      title: node.block.label ?? definition?.label ?? node.block.kind,
+      icon: definition?.icon,
+      body: definition?.container ? null : <ContentBlock node={node.block} viewport={viewport} />,
+      wrap: definition?.container
+        ? (children) => (
+            <ContentBlock node={node.block!} viewport={viewport}>
+              {children}
+            </ContentBlock>
+          )
+        : undefined,
+      children: definition?.container
+        ? [{ id: node.id, label: 'Block contents', children: node.children ?? [] }]
+        : undefined,
+    }
+  }
   if (node.type === 'element') {
     const label = elementDescriptions[node.element][0]
     return {
@@ -758,141 +854,83 @@ function SiteShellInspector({
   save: (node: SiteShellNode) => void
 }) {
   const seed = node ?? (item ? createNode(item) : null)
-  const [draft, setDraft] = useState<SiteShellNode | null>(seed)
-  const [tab, setTab] = useState<BuilderInspectorTab>('settings')
+  const [draft, setDraftValue] = useState<SiteShellNode | null>(seed)
+  const setDraft = (next: SiteShellNode) => {
+    setDraftValue(next)
+    if (node) save(next)
+  }
+  const tab = 'settings' as BuilderInspectorTab
   if (!draft) return null
   const label = draft.type === 'layout' ? draft.layout : elementDescriptions[draft.element][0]
   const props = draft.type === 'element' ? (draft.props ?? {}) : {}
   const setProps = (next: Record<string, unknown>) =>
     draft.type === 'element' && setDraft({ ...draft, props: next })
-  const style = draft.style ?? {}
-  const setStyle = (next: SiteShellStyle) => setDraft({ ...draft, style: next })
-  const responsive = (name: string, fallback = '') => {
-    const value = style[name] as ResponsiveValue<string> | undefined
-    return typeof value === 'object' && value
-      ? (value[viewport] ?? value.desktop ?? fallback)
-      : viewport === 'desktop'
-        ? String(value ?? fallback)
-        : fallback
-  }
-  const setResponsive = (name: string, value: string) => {
-    const current = style[name]
-    const values = isResponsiveStyle(current) ? current : { desktop: current ?? '' }
-    setStyle({ ...style, [name]: { ...values, [viewport]: value } })
-  }
   if (draft.type === 'layout' && draft.layout === 'columns' && item && !node) {
     /* default is already valid */
   }
   return (
     <section aria-label="Configure Site Shell element">
       <h2>Configure {label}</h2>
-      <BuilderInspectorTabs
-        active={tab}
-        onChange={setTab}
-        settingsLabel={draft.type === 'layout' ? 'Layout' : 'Settings'}
-      />
-      {tab === 'settings' && draft.type === 'layout' && draft.layout === 'columns' && (
-        <div className="site-shell__controls">
-          <label>
-            Column layout
-            <select
-              aria-label="Column Layout"
-              value={draft.columns?.map((column) => column.width).join('/') ?? '50/50'}
-              onChange={(event) =>
-                setDraft({
-                  ...draft,
-                  columns: event.target.value
-                    .split('/')
-                    .map((width, index) => ({
+      <UnifiedBlockInspector
+        showFields={false}
+        node={{
+          id: draft.id,
+          kind:
+            draft.type === 'layout'
+              ? draft.layout === 'container' || draft.layout === 'stack'
+                ? 'group'
+                : draft.layout
+              : draft.element,
+          styles: shellInspectorStyles(draft),
+          presentation: draft.appearance,
+        }}
+        viewport={viewport}
+        onChange={(patch) => {
+          const next = {
+            ...draft,
+            responsiveStyles: patch.styles ?? draft.responsiveStyles,
+            appearance: patch.presentation ?? draft.appearance,
+          }
+          setDraft(next)
+        }}
+      >
+        {tab === 'settings' && draft.type === 'layout' && draft.layout === 'columns' && (
+          <div className="site-shell__controls">
+            <label>
+              Column layout
+              <select
+                aria-label="Column Layout"
+                value={draft.columns?.map((column) => column.width).join('/') ?? '50/50'}
+                onChange={(event) =>
+                  setDraft({
+                    ...draft,
+                    columns: event.target.value.split('/').map((width, index) => ({
                       id: draft.columns?.[index]?.id ?? uid('column'),
                       width: Number(width),
                       children: draft.columns?.[index]?.children ?? [],
                     })),
-                })
-              }
-            >
-              {ratios.map((ratio) => (
-                <option key={ratio}>{ratio}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-      {tab === 'settings' && draft.type === 'layout' && draft.layout !== 'columns' && (
-        <p>This layout accepts nested shell elements.</p>
-      )}
-      {tab === 'settings' && draft.type === 'element' && (
-        <ElementSettings
-          element={draft.element}
-          props={props}
-          setProps={setProps}
-          region={region}
-        />
-      )}
-      {tab === 'style' && (
-        <div className="site-shell__controls">
-          <p>Editing {viewport} values. Desktop cascades when no override exists.</p>
-          {[
-            'width',
-            'maxWidth',
-            'minHeight',
-            'alignment',
-            'justification',
-            'gap',
-            'padding',
-            'margin',
-            'background',
-            'textColor',
-            'border',
-            'borderRadius',
-            'shadow',
-            'fontSize',
-          ].map((name) => (
-            <label key={name}>
-              {name}
-              <input
-                aria-label={name}
-                value={responsive(name)}
-                onChange={(event) => setResponsive(name, event.target.value)}
-              />
+                  })
+                }
+              >
+                {ratios.map((ratio) => (
+                  <option key={ratio}>{ratio}</option>
+                ))}
+              </select>
             </label>
-          ))}
-        </div>
-      )}
-      {tab === 'advanced' && (
-        <div className="site-shell__controls">
-          <label>
-            HTML ID
-            <input
-              aria-label="HTML ID"
-              value={String(style.htmlID ?? '')}
-              onChange={(event) =>
-                setStyle({ ...style, htmlID: event.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })
-              }
-            />
-          </label>
-          <label>
-            CSS classes
-            <input
-              aria-label="CSS Classes"
-              value={String(style.cssClass ?? '')}
-              onChange={(event) => setStyle({ ...style, cssClass: event.target.value })}
-            />
-          </label>
-          <label>
-            Visibility ({viewport})
-            <select
-              aria-label="Visibility"
-              value={responsive('visibility', 'visible')}
-              onChange={(event) => setResponsive('visibility', event.target.value)}
-            >
-              <option value="visible">Visible</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </label>
-          <p>Stable ID: {draft.id}</p>
-        </div>
-      )}
+          </div>
+        )}
+        {tab === 'settings' && draft.type === 'layout' && draft.layout !== 'columns' && (
+          <p>This layout accepts nested shell elements.</p>
+        )}
+        {tab === 'settings' && draft.type === 'element' && (
+          <ElementSettings
+            element={draft.element}
+            props={props}
+            setProps={setProps}
+            region={region}
+          />
+        )}
+      </UnifiedBlockInspector>
       <div className="site-shell__actions">
         <button type="button" onClick={() => save(draft)}>
           Save Element

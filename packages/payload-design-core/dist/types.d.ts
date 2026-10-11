@@ -53,6 +53,7 @@ export type TemplateSection = {
 };
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship';
 export type TemplateElementStyle = {
+    presentation?: import('./blocks/presentation').BlockPresentation;
     responsive?: import('./content/model').ResponsiveBlockStyle;
     width?: 'content' | 'wide' | 'full';
     alignment?: 'left' | 'center' | 'right';
@@ -113,6 +114,7 @@ export type TemplateLayoutNode = {
     id: string;
     type: 'layout';
     layout: TemplateLayoutKind;
+    block?: import('./content/model').ContentNode;
     children?: TemplateNode[];
     columns?: TemplateColumn[];
     spacing?: 'small' | 'medium' | 'large';

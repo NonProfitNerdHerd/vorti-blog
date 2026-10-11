@@ -126,7 +126,7 @@ describe('TemplateBuilder regression boundary', () => {
     expect(within(dialog).getByRole('heading', { name: 'Layout' })).toBeTruthy()
     expect(within(dialog).getByRole('heading', { name: 'Data' })).toBeTruthy()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: /Image/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Image' }))
     expect(screen.getByRole('heading', { name: 'Configure Image' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Content Source'), { target: { value: 'document' } })
     expect((screen.getByLabelText('Document Field') as unknown as HTMLSelectElement).value).toBe('featuredImage')

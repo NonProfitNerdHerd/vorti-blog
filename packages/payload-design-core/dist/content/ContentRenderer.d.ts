@@ -1,10 +1,11 @@
 import { type ReactNode } from 'react';
 import { type ContentNode, type Viewport } from './model';
-export declare function ContentBlock({ node, children, body, viewport, }: {
+export declare function ContentBlock({ node, children, body, viewport, document, }: {
     node: ContentNode;
     children?: ReactNode;
     body?: ReactNode;
     viewport?: Viewport;
+    document?: Record<string, unknown>;
 }): import("react/jsx-runtime").JSX.Element;
 export declare function ContentRenderer({ nodes, viewport, }: {
     nodes: ContentNode[];

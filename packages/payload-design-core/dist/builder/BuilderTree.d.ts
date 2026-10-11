@@ -9,6 +9,7 @@ export type BuilderChildContainer<TNode> = {
 };
 export type BuilderNodeDescriptor<TNode> = {
     style?: CSSProperties;
+    wrap?: (children: ReactNode) => ReactNode;
     body: ReactNode;
     bodyAriaLabel?: string;
     children?: BuilderChildContainer<TNode>[];

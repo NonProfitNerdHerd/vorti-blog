@@ -14,7 +14,7 @@ export const contentWorkspace =
       collection.fields.push({
         name: 'contentLayout',
         type: 'json',
-        validate: validateContentLayout,
+        validate: (value) => validateContentLayout(value),
         admin: { hidden: true },
       })
       if (!enabled) continue

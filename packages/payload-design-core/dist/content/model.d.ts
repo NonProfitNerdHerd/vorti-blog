@@ -1,6 +1,8 @@
 import type { TemplateElementStyle } from '../types';
+import { type BlockPresentation } from '../blocks/presentation';
 export type Viewport = 'desktop' | 'tablet' | 'mobile';
 export type BlockStyle = {
+    [key: string]: string | undefined;
     backgroundColor?: string;
     color?: string;
     padding?: string;
@@ -18,9 +20,13 @@ export type BlockStyle = {
     gridTemplateColumns?: string;
 };
 export type ResponsiveBlockStyle = Partial<Record<Viewport, BlockStyle>>;
-export type ContentKind = 'heading' | 'paragraph' | 'richText' | 'list' | 'quote' | 'image' | 'gallery' | 'button' | 'video' | 'group' | 'row' | 'columns' | 'column' | 'spacer' | 'divider' | 'designed' | 'value';
+export type ContentKind = (string & {}) | 'heading' | 'paragraph' | 'richText' | 'list' | 'quote' | 'image' | 'gallery' | 'button' | 'video' | 'group' | 'row' | 'columns' | 'column' | 'spacer' | 'divider' | 'designed' | 'value';
 export type ContentNode = {
     id: string;
+    blockVersion?: number;
+    props?: Record<string, unknown>;
+    presentation?: BlockPresentation;
+    bindings?: Record<string, string>;
     kind: ContentKind;
     label?: string;
     text?: string;
@@ -58,7 +64,24 @@ export declare const contentLibrary: Array<{
     label: string;
     category: string;
 }>;
-export declare const containerKinds: Set<ContentKind>;
+export declare const containerKinds: {
+    has(kind: ContentKind): boolean;
+    add(value: ContentKind): /*elided*/ any;
+    clear(): void;
+    delete(value: ContentKind): boolean;
+    forEach(callbackfn: (value: ContentKind, value2: ContentKind, set: Set<ContentKind>) => void, thisArg?: any): void;
+    readonly size: number;
+    entries(): SetIterator<[ContentKind, ContentKind]>;
+    keys(): SetIterator<ContentKind>;
+    values(): SetIterator<ContentKind>;
+    [Symbol.iterator](): SetIterator<ContentKind>;
+    readonly [Symbol.toStringTag]: string;
+};
+export declare const getContentLibrary: () => {
+    kind: ContentKind;
+    label: string;
+    category: string;
+}[];
 export declare function createContentNode(kind: ContentKind): ContentNode;
 export declare function walkContent(nodes: ContentNode[]): ContentNode[];
 export declare function updateContent(nodes: ContentNode[], id: string, update: (node: ContentNode) => ContentNode): ContentNode[];
@@ -69,6 +92,6 @@ export declare function duplicateContent(node: ContentNode): ContentNode;
 export declare function textDocument(node: ContentNode): unknown;
 export declare function safeURL(value: unknown): string;
 export declare function validStyleValue(key: string, value: unknown): boolean;
-export declare function validateContentLayout(value: unknown): true | string;
+export declare function validateContentLayout(value: unknown, allowedBindingPaths?: string[]): true | string;
 export declare function resolveStyle(style: ResponsiveBlockStyle | undefined, viewport?: Viewport): BlockStyle;
 export declare function templateStyle(style?: TemplateElementStyle): ResponsiveBlockStyle;

@@ -1,3 +1,7 @@
+import { canInsertAdapterNode } from './blocks/adapters.js';
+import { getBlockDefinition } from './blocks/registry.js';
+import { validateContentLayout, validStyleValue } from './content/model.js';
+import { validatePresentation } from './blocks/presentation.js';
 export const SITE_SHELL_LAYOUT_KINDS = ['container', 'row', 'columns', 'stack', 'spacer', 'divider'];
 export const SITE_SHELL_ELEMENT_KINDS = [
     'logo',
@@ -45,6 +49,19 @@ function validateNodes(nodes, ids) {
         if (ids.has(node.id))
             return `Site Shell node id "${node.id}" is duplicated.`;
         ids.add(node.id);
+        const appearanceError = validatePresentation(node.appearance);
+        if (appearanceError)
+            return appearanceError;
+        const styleCheck = validateContentLayout({ version: 1, nodes: [{ id: 'validation', kind: 'group', styles: node.responsiveStyles, presentation: node.appearance }] });
+        if (styleCheck !== true)
+            return styleCheck;
+        if (node.block && getBlockDefinition(node.block.kind) && Array.isArray(node.children) && node.children.some(child => !canInsertAdapterNode(node, child)))
+            return 'Invalid child block for this container.';
+        if (node.block) {
+            const valid = validateContentLayout({ version: 1, nodes: [{ ...node.block, id: node.id, kind: node.block.kind === 'column' ? 'group' : node.block.kind }] });
+            if (valid !== true)
+                return valid;
+        }
         if (node.type === 'element') {
             if (!SITE_SHELL_ELEMENT_KINDS.includes(node.element))
                 return `Unsupported Site Shell element "${String(node.element)}".`;
@@ -54,6 +71,8 @@ function validateNodes(nodes, ids) {
             return `Unsupported Site Shell node type "${String(node.type)}".`;
         if (!SITE_SHELL_LAYOUT_KINDS.includes(node.layout))
             return `Unsupported Site Shell layout "${String(node.layout)}".`;
+        if (node.block && Array.isArray(node.children) && node.children.length && getBlockDefinition(node.block.kind) && !getBlockDefinition(node.block.kind)?.container)
+            return 'This registered block cannot contain children.';
         const children = node.children ?? [];
         if (!Array.isArray(children))
             return `Layout node "${node.id}" has invalid children.`;
@@ -89,4 +108,20 @@ function validateNodes(nodes, ids) {
         if (columns.length > 0 && Math.abs(width - 100) > 0.01)
             return `Columns node "${node.id}" widths must total 100.`;
     }
+}
+export const shellStyleKeys = { alignment: 'alignItems', justification: 'justifyContent', background: 'backgroundColor', textColor: 'color', shadow: 'boxShadow' };
+export function shellInspectorStyles(node) {
+    const result = { desktop: {}, tablet: {}, mobile: {} };
+    for (const [legacyKey, raw] of Object.entries(node.style ?? {})) {
+        const key = shellStyleKeys[legacyKey] ?? legacyKey;
+        const values = raw && typeof raw === 'object' ? raw : { desktop: raw };
+        for (const device of ['desktop', 'tablet', 'mobile']) {
+            const value = values[device];
+            if (value !== undefined && validStyleValue(key, String(value)))
+                result[device][key] = String(value);
+        }
+    }
+    for (const device of ['desktop', 'tablet', 'mobile'])
+        result[device] = { ...result[device], ...node.responsiveStyles?.[device] };
+    return result;
 }

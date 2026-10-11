@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { BlockInspectorStateProvider } from './UnifiedBlockInspector'
 
 /** Layout shared by content authoring, locked templates and template design adapters. */
 export function BuilderPanels({
@@ -22,7 +23,7 @@ export function BuilderPanels({
       data-library={leftOpen ? 'open' : 'closed'}
       data-inspector={rightOpen ? 'open' : 'closed'}
     >
-      {children}
+      <BlockInspectorStateProvider>{children}</BlockInspectorStateProvider>
     </div>
   )
 }
@@ -42,6 +43,7 @@ export function BuilderWorkspace({
   selectionKey,
   sidebar,
   sidebarControls,
+  readOnly,
 }: {
   canvas: ReactNode
   canvasLabel: string
@@ -57,6 +59,7 @@ export function BuilderWorkspace({
   selectionKey?: string
   sidebar?: ReactNode
   sidebarControls?: ReactNode
+  readOnly?: boolean
 }) {
   const [inspectorOpen, setInspectorOpen] = useState(true)
   const [tab, setTab] = useState<'block' | 'document'>('block')
@@ -166,7 +169,7 @@ export function BuilderWorkspace({
                   </button>
                 </div>
               )}
-              {tab === 'document' && documentSettings ? documentSettings : inspector}
+              <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{tab === 'document' && documentSettings ? documentSettings : inspector}</fieldset>
             </div>
           </aside>
         )}

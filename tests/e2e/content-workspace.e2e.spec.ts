@@ -1,3 +1,9 @@
+import { createContentNode } from '../../packages/payload-design-core/src/content/model'
+import { listBlockDefinitions } from '../../packages/payload-design-core/src/blocks/registry'
+import {
+  toTemplateBlock,
+  toShellBlock,
+} from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
 test('shared sidebar navigates outlines, inserts precisely, duplicates and restores focus', async ({
@@ -119,10 +125,15 @@ for (const collection of ['posts', 'pages'])
       'false',
     )
     await workspace.locator('.content-workspace__right').getByText('Style', { exact: true }).click()
-    await workspace.getByRole('textbox', { name: 'backgroundColor', exact: true }).fill('#ffeecc')
-    await workspace.getByRole('textbox', { name: 'backgroundColor', exact: true }).press('Tab')
-    await workspace.getByRole('textbox', { name: 'padding', exact: true }).fill('24px')
-    await workspace.getByRole('textbox', { name: 'padding', exact: true }).press('Tab')
+    await workspace
+      .locator('summary')
+      .filter({ hasText: /^Background$/ })
+      .click()
+    await workspace.getByRole('textbox', { name: 'Background color', exact: true }).fill('#ffeecc')
+    await workspace.getByRole('textbox', { name: 'Background color', exact: true }).press('Tab')
+    await workspace.getByRole('tab', { name: 'Layout', exact: true }).click()
+    await workspace.getByRole('textbox', { name: 'Padding', exact: true }).fill('24px')
+    await workspace.getByRole('textbox', { name: 'Padding', exact: true }).press('Tab')
     await expect(workspace.locator('[data-block-kind=heading]')).toHaveCSS(
       'background-color',
       'rgb(255, 238, 204)',
@@ -133,7 +144,7 @@ for (const collection of ['posts', 'pages'])
     const move = workspace.getByRole('combobox', { name: 'Move block into', exact: true })
     const firstColumn = await move
       .locator('option')
-      .filter({ hasText: /^column$/ })
+      .filter({ hasText: /^column$/i })
       .first()
       .getAttribute('value')
     await move.selectOption(firstColumn!)
@@ -297,9 +308,9 @@ test('rich text formatting and responsive styles survive save and appear in draf
   await editable.press('Control+b')
   await expect(editable.locator('strong')).toContainText('Rich text preview')
   await workspace.getByRole('combobox', { name: 'Preview width' }).selectOption('mobile')
-  await workspace.locator('.content-workspace__right').getByText('Style', { exact: true }).click()
-  await workspace.getByRole('textbox', { name: 'padding', exact: true }).fill('8px')
-  await workspace.getByRole('textbox', { name: 'padding', exact: true }).press('Tab')
+  await workspace.getByRole('tab', { name: 'Layout', exact: true }).click()
+  await workspace.getByRole('textbox', { name: 'Padding', exact: true }).fill('8px')
+  await workspace.getByRole('textbox', { name: 'Padding', exact: true }).press('Tab')
   await expect(workspace.locator('[data-block-kind=paragraph]')).toHaveCSS('padding-top', '8px')
   await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
   await workspace.locator('input[name=title]').fill(suffix)
@@ -316,4 +327,107 @@ test('rich text formatting and responsive styles survive save and appear in draf
   await expect(page.getByText('Rich text preview', { exact: true })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.locator('[data-block-kind=paragraph]')).toHaveCSS('padding-top', '8px')
+})
+
+test('complete registered catalog survives API saving in every storage adapter', async ({
+  page,
+}) => {
+  const suffix = `catalog-${Date.now()}`
+  const { user } = await (await page.request.get('/api/users/me')).json()
+  const nodes = listBlockDefinitions()
+    .filter((definition) => definition.type !== 'column')
+    .map((definition) => createContentNode(definition.type))
+  for (const collection of ['posts', 'pages']) {
+    const response = await page.request.post(`/api/${collection}`, {
+      data: {
+        title: suffix,
+        slug: suffix,
+        author: user.id,
+        _status: 'draft',
+        contentLayout: { version: 1, nodes },
+      },
+    })
+    expect(response.ok(), await response.text()).toBeTruthy()
+    const saved = (await response.json()).doc
+    const reloaded = await (
+      await page.request.get(`/api/${collection}/${saved.id}?draft=true`)
+    ).json()
+    expect(reloaded.contentLayout.nodes).toEqual(nodes)
+    const unsafe = await page.request.patch(`/api/${collection}/${saved.id}`, {
+      data: {
+        contentLayout: {
+          version: 1,
+          nodes: [{ ...nodes[0], presentation: { css: 'body { display:none }' } }],
+        },
+      },
+    })
+    expect(unsafe.ok()).toBeFalsy()
+    const published = await page.request.patch(`/api/${collection}/${saved.id}`, { data: { _status: 'published' } })
+    expect(published.ok(), await published.text()).toBeTruthy()
+    const rendered = await page.request.get(collection === 'posts' ? `/posts/${suffix}` : `/${suffix}`)
+    expect(rendered.ok()).toBeTruthy()
+    const html = await rendered.text()
+    for (const node of nodes) expect(html).toContain(`data-block-kind="${node.kind}"`)
+  }
+  const template = await page.request.post('/api/design-templates', {
+    data: {
+      name: suffix,
+      slug: suffix,
+      status: 'draft',
+      _status: 'draft',
+      allowedCollections: ['posts', 'pages'],
+      sections: [],
+      layout: nodes.map(toTemplateBlock),
+    },
+  })
+  expect(template.ok(), await template.text()).toBeTruthy()
+  expect((await template.json()).doc.layout).toEqual(nodes.map(toTemplateBlock))
+  const shell = await page.request.post('/api/site-templates', {
+    data: {
+      name: suffix,
+      slug: suffix,
+      _status: 'draft',
+      header: { layout: nodes.map(toShellBlock) },
+      footer: { layout: nodes.map(toShellBlock) },
+    },
+  })
+  expect(shell.ok(), await shell.text()).toBeTruthy()
+  expect((await shell.json()).doc.footer.layout).toEqual(nodes.map(toShellBlock))
+})
+
+test('registered block inspector updates canvas, preserves its tab and saves advanced settings', async ({
+  page,
+}) => {
+  const suffix = `inspector-${Date.now()}`
+  await page.goto('/admin/collections/pages/create')
+  const workspace = page.locator('.content-workspace')
+  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await workspace
+    .locator('.builder-sidebar')
+    .getByRole('button', { name: 'Progress Bar', exact: true })
+    .click()
+  const inspector = workspace.locator('.unified-block-inspector')
+  await inspector.getByRole('spinbutton', { name: /^Value/ }).fill('75')
+  await expect(workspace.locator('progress')).toHaveAttribute('value', '75')
+  await inspector.getByRole('tab', { name: 'Layout', exact: true }).click()
+  await inspector.getByRole('textbox', { name: 'Padding', exact: true }).fill('18px')
+  await inspector.getByRole('tab', { name: 'Advanced', exact: true }).click()
+  await inspector.getByText('Custom CSS', { exact: true }).click()
+  await inspector
+    .getByRole('textbox', { name: 'Custom CSS', exact: true })
+    .fill('& progress { accent-color: green; }')
+  await inspector.getByRole('textbox', { name: 'Custom CSS', exact: true }).press('Tab')
+  await page.screenshot({ path: '.wrangler/framework-inspector.png' })
+  await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
+  await workspace.locator('input[name=title]').fill(suffix)
+  await workspace.locator('input[name=slug]').fill(suffix)
+  await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+  await page.waitForURL(/collections\/pages\/\d+/)
+  const saved = await (
+    await page.request.get(`/api/pages/${page.url().split('/').at(-1)}?draft=true`)
+  ).json()
+  expect(saved.contentLayout.nodes[0].props.value).toBe(75)
+  expect(saved.contentLayout.nodes[0].presentation.css).toContain('accent-color')
+  await page.reload()
+  await expect(workspace.locator('progress')).toHaveAttribute('value', '75')
 })

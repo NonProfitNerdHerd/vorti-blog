@@ -23,6 +23,11 @@ export {
   SITE_SHELL_LAYOUT_KINDS,
   validateAdditionalCSS,
   validateSiteShellNodes,
+  shellStyleKeys,
+  shellInspectorStyles,
 } from './site-shell'
 export type * from './site-shell'
+export * from './blocks/registry'
+export * from './blocks/presentation'
+export * from './blocks/resolve'
 export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree'

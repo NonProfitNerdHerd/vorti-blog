@@ -6,7 +6,7 @@ export declare function BuilderPanels({ children, className, leftOpen, rightOpen
     leftOpen: boolean;
     rightOpen: boolean;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, inspector, inspectorTitle, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, sidebar, sidebarControls, }: {
+export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, inspector, inspectorTitle, library, libraryNavigation, libraryOpen, libraryTitle, onLibraryOpenChange, documentSettings, selectionKey, sidebar, sidebarControls, readOnly, }: {
     canvas: ReactNode;
     canvasLabel: string;
     canvasTitle: string;
@@ -21,4 +21,5 @@ export declare function BuilderWorkspace({ canvas, canvasLabel, canvasTitle, ins
     selectionKey?: string;
     sidebar?: ReactNode;
     sidebarControls?: ReactNode;
+    readOnly?: boolean;
 }): import("react/jsx-runtime").JSX.Element;

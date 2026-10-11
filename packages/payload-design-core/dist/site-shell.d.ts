@@ -1,3 +1,4 @@
+import { type ResponsiveBlockStyle } from './content/model';
 export declare const SITE_SHELL_LAYOUT_KINDS: readonly ["container", "row", "columns", "stack", "spacer", "divider"];
 export declare const SITE_SHELL_ELEMENT_KINDS: readonly ["logo", "siteName", "navigation", "button", "search", "text", "richText", "icon", "image", "socialLinks", "mobileMenuToggle", "copyright", "currentYear"];
 export type SiteShellLayoutKind = (typeof SITE_SHELL_LAYOUT_KINDS)[number];
@@ -14,6 +15,8 @@ export type SiteShellElementNode = {
     type: 'element';
     element: SiteShellElementKind;
     props?: Record<string, unknown>;
+    appearance?: import('./blocks/presentation').BlockPresentation;
+    responsiveStyles?: import('./content/model').ResponsiveBlockStyle;
     style?: SiteShellStyle;
 };
 export type SiteShellColumn = {
@@ -25,8 +28,11 @@ export type SiteShellLayoutNode = {
     id: string;
     type: 'layout';
     layout: SiteShellLayoutKind;
+    block?: import('./content/model').ContentNode;
     children?: SiteShellNode[];
     columns?: SiteShellColumn[];
+    appearance?: import('./blocks/presentation').BlockPresentation;
+    responsiveStyles?: import('./content/model').ResponsiveBlockStyle;
     style?: SiteShellStyle;
 };
 export type SiteShellNode = SiteShellLayoutNode | SiteShellElementNode;
@@ -55,3 +61,5 @@ export type SiteTemplateAssignment = {
 export declare const ADDITIONAL_CSS_MAX_LENGTH = 50000;
 export declare function validateAdditionalCSS(value: unknown): true | string;
 export declare function validateSiteShellNodes(value: unknown): true | string;
+export declare const shellStyleKeys: Record<string, string>;
+export declare function shellInspectorStyles(node: SiteShellNode): ResponsiveBlockStyle;

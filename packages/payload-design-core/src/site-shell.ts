@@ -1,3 +1,7 @@
+import { canInsertAdapterNode } from './blocks/adapters'
+import { getBlockDefinition } from './blocks/registry'
+import { validateContentLayout, validStyleValue, type ResponsiveBlockStyle } from './content/model'
+import { validatePresentation } from './blocks/presentation'
 export const SITE_SHELL_LAYOUT_KINDS = ['container', 'row', 'columns', 'stack', 'spacer', 'divider'] as const
 
 export const SITE_SHELL_ELEMENT_KINDS = [
@@ -29,6 +33,8 @@ export type SiteShellElementNode = {
   type: 'element'
   element: SiteShellElementKind
   props?: Record<string, unknown>
+  appearance?: import('./blocks/presentation').BlockPresentation
+  responsiveStyles?: import('./content/model').ResponsiveBlockStyle
   style?: SiteShellStyle
 }
 
@@ -42,8 +48,11 @@ export type SiteShellLayoutNode = {
   id: string
   type: 'layout'
   layout: SiteShellLayoutKind
+  block?: import('./content/model').ContentNode
   children?: SiteShellNode[]
   columns?: SiteShellColumn[]
+  appearance?: import('./blocks/presentation').BlockPresentation
+  responsiveStyles?: import('./content/model').ResponsiveBlockStyle
   style?: SiteShellStyle
 }
 
@@ -99,6 +108,10 @@ function validateNodes(nodes: unknown[], ids: Set<string>): string | undefined {
     if (typeof node.id !== 'string' || !node.id.trim()) return 'Every Site Shell node requires a stable id.'
     if (ids.has(node.id)) return `Site Shell node id "${node.id}" is duplicated.`
     ids.add(node.id)
+    const appearanceError = validatePresentation(node.appearance as import('./blocks/presentation').BlockPresentation); if (appearanceError) return appearanceError
+    const styleCheck = validateContentLayout({ version: 1, nodes: [{ id: 'validation', kind: 'group', styles: node.responsiveStyles, presentation: node.appearance }] }); if (styleCheck !== true) return styleCheck
+    if (node.block && getBlockDefinition((node.block as {kind: string}).kind) && Array.isArray(node.children) && node.children.some(child => !canInsertAdapterNode(node as SiteShellNode, child))) return 'Invalid child block for this container.'
+    if (node.block) { const valid = validateContentLayout({ version: 1, nodes: [{ ...(node.block as object), id: node.id, kind: (node.block as {kind: string}).kind === 'column' ? 'group' : (node.block as {kind: string}).kind }] }); if (valid !== true) return valid }
 
     if (node.type === 'element') {
       if (!SITE_SHELL_ELEMENT_KINDS.includes(node.element as SiteShellElementKind)) return `Unsupported Site Shell element "${String(node.element)}".`
@@ -108,6 +121,7 @@ function validateNodes(nodes: unknown[], ids: Set<string>): string | undefined {
     if (node.type !== 'layout') return `Unsupported Site Shell node type "${String(node.type)}".`
     if (!SITE_SHELL_LAYOUT_KINDS.includes(node.layout as SiteShellLayoutKind)) return `Unsupported Site Shell layout "${String(node.layout)}".`
 
+    if (node.block && Array.isArray(node.children) && node.children.length && getBlockDefinition((node.block as {kind: string}).kind) && !getBlockDefinition((node.block as {kind: string}).kind)?.container) return 'This registered block cannot contain children.'
     const children = node.children ?? []
     if (!Array.isArray(children)) return `Layout node "${node.id}" has invalid children.`
     const childError = validateNodes(children, ids)
@@ -132,4 +146,19 @@ function validateNodes(nodes: unknown[], ids: Set<string>): string | undefined {
     }
     if (columns.length > 0 && Math.abs(width - 100) > 0.01) return `Columns node "${node.id}" widths must total 100.`
   }
+}
+
+export const shellStyleKeys: Record<string, string> = { alignment: 'alignItems', justification: 'justifyContent', background: 'backgroundColor', textColor: 'color', shadow: 'boxShadow' }
+export function shellInspectorStyles(node: SiteShellNode): ResponsiveBlockStyle {
+  const result: ResponsiveBlockStyle = { desktop: {}, tablet: {}, mobile: {} }
+  for (const [legacyKey, raw] of Object.entries(node.style ?? {})) {
+    const key = shellStyleKeys[legacyKey] ?? legacyKey
+    const values: Partial<Record<'desktop' | 'tablet' | 'mobile', SiteShellStyleScalar>> = raw && typeof raw === 'object' ? raw : { desktop: raw as SiteShellStyleScalar }
+    for (const device of ['desktop', 'tablet', 'mobile'] as const) {
+      const value = values[device]
+      if (value !== undefined && validStyleValue(key, String(value))) result[device]![key] = String(value)
+    }
+  }
+  for (const device of ['desktop', 'tablet', 'mobile'] as const) result[device] = { ...result[device], ...node.responsiveStyles?.[device] }
+  return result
 }

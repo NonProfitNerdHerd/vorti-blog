@@ -1,3 +1,5 @@
+import { templateBlockValue, shellBlockValue } from '../blocks/adapters'
+import { getBlockDefinition } from '../blocks/registry'
 import type { ContentNode } from '../content/model'
 import type { TemplateNode } from '../types'
 import type { SiteShellNode } from '../site-shell'
@@ -142,15 +144,16 @@ export function contentSidebarNodes(nodes: ContentNode[]): SidebarNode[] {
       id: node.id,
       kind: node.kind,
       label: node.label || label(node.kind),
-      container: ['group', 'row', 'column'].includes(node.kind),
+      container: !!getBlockDefinition(node.kind)?.container && node.kind !== 'columns',
       children: [...contentSidebarNodes(node.children ?? []), ...rich, ...list],
-      text: rich.length || list.length ? undefined : node.text,
+      text: rich.length || list.length ? undefined : node.text ?? getBlockDefinition(node.kind)?.outline?.(node) ?? ['text','label','items'].map(key => typeof node.props?.[key] === 'string' ? node.props[key] : '').filter(Boolean).join(' '),
       heading: node.kind === 'heading' && !rich.length ? (node.level ?? 2) : undefined,
     }
   })
 }
 export function templateSidebarNodes(nodes: TemplateNode[]): SidebarNode[] {
   return nodes.map((node) => {
+    const block = templateBlockValue(node); if (block) return contentSidebarNodes([block])[0]
     if (node.type === 'layout')
       return {
         id: node.id,
@@ -184,6 +187,7 @@ export function templateSidebarNodes(nodes: TemplateNode[]): SidebarNode[] {
 }
 export function shellSidebarNodes(nodes: SiteShellNode[]): SidebarNode[] {
   return nodes.map((node) => {
+    const block = shellBlockValue(node); if (block) return contentSidebarNodes([block])[0]
     if (node.type === 'layout')
       return {
         id: node.id,
@@ -222,6 +226,7 @@ export function duplicateBuilderNode<T>(node: T): T {
     if (!value || typeof value !== 'object') return
     const record = value as Record<string, unknown>
     if (typeof record.id === 'string') record.id = `block_${crypto.randomUUID()}`
+    if (record.block && typeof record.block === 'object') (record.block as Record<string, unknown>).id = record.id
     if (record.style && typeof record.style === 'object')
       delete (record.style as Record<string, unknown>).anchor
     for (const key of ['children', 'columns'])

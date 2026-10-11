@@ -1,3 +1,6 @@
 export * from './model';
 export * from './ContentRenderer';
 export { createRendererRegistry } from '../registry';
+export * from '../blocks/registry';
+export * from '../blocks/presentation';
+export * from '../blocks/resolve';

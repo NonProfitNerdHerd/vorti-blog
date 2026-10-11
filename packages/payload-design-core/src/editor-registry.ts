@@ -1,7 +1,7 @@
 import type { TemplateFieldKind, TemplateLayoutKind } from './types'
 
 export type EditorElementCategory = 'text' | 'media' | 'layout' | 'data' | 'designed'
-export type EditorElementKind = 'layout' | 'field' | 'block'
+export type EditorElementKind = 'layout' | 'field' | 'block' | 'registered'
 
 export type EditorElementDefinition = {
   kind: EditorElementKind

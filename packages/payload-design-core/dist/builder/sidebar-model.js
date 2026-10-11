@@ -1,3 +1,5 @@
+import { templateBlockValue, shellBlockValue } from '../blocks/adapters.js';
+import { getBlockDefinition } from '../blocks/registry.js';
 export const flattenSidebar = (nodes) => nodes.flatMap((node) => [node, ...flattenSidebar(node.children ?? [])]);
 export function locateSidebar(nodes, id, parent = 'root') {
     for (let index = 0; index < nodes.length; index++) {
@@ -115,15 +117,18 @@ export function contentSidebarNodes(nodes) {
             id: node.id,
             kind: node.kind,
             label: node.label || label(node.kind),
-            container: ['group', 'row', 'column'].includes(node.kind),
+            container: !!getBlockDefinition(node.kind)?.container && node.kind !== 'columns',
             children: [...contentSidebarNodes(node.children ?? []), ...rich, ...list],
-            text: rich.length || list.length ? undefined : node.text,
+            text: rich.length || list.length ? undefined : node.text ?? getBlockDefinition(node.kind)?.outline?.(node) ?? ['text', 'label', 'items'].map(key => typeof node.props?.[key] === 'string' ? node.props[key] : '').filter(Boolean).join(' '),
             heading: node.kind === 'heading' && !rich.length ? (node.level ?? 2) : undefined,
         };
     });
 }
 export function templateSidebarNodes(nodes) {
     return nodes.map((node) => {
+        const block = templateBlockValue(node);
+        if (block)
+            return contentSidebarNodes([block])[0];
         if (node.type === 'layout')
             return {
                 id: node.id,
@@ -157,6 +162,9 @@ export function templateSidebarNodes(nodes) {
 }
 export function shellSidebarNodes(nodes) {
     return nodes.map((node) => {
+        const block = shellBlockValue(node);
+        if (block)
+            return contentSidebarNodes([block])[0];
         if (node.type === 'layout')
             return {
                 id: node.id,
@@ -196,6 +204,8 @@ export function duplicateBuilderNode(node) {
         const record = value;
         if (typeof record.id === 'string')
             record.id = `block_${crypto.randomUUID()}`;
+        if (record.block && typeof record.block === 'object')
+            record.block.id = record.id;
         if (record.style && typeof record.style === 'object')
             delete record.style.anchor;
         for (const key of ['children', 'columns'])

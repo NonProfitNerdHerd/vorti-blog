@@ -1,3 +1,5 @@
+import { canInsertAdapterNode } from './blocks/adapters'
+import { getBlockDefinition } from './blocks/registry'
 import type { TemplateField, TemplateNode } from './types'
 
 export function walkTemplate(nodes: TemplateNode[], visit: (node: TemplateNode, parent: string | null) => void, parent: string | null = null): void {
@@ -77,22 +79,23 @@ export function extractTemplateNode(nodes: TemplateNode[], id: string): { nodes:
 
 export function insertTemplateNode(nodes: TemplateNode[], containerID: string, nodeToInsert: TemplateNode, beforeID?: string): TemplateNode[] {
   const insert = (items: TemplateNode[]) => { const next=[...items];const at=beforeID?next.findIndex(item=>item.id===beforeID):-1;next.splice(at<0?next.length:at,0,nodeToInsert);return next }
-  if (containerID === 'root') return insert(nodes)
+  if (containerID === 'root') return canInsertAdapterNode(undefined, nodeToInsert, true) ? insert(nodes) : nodes
   return nodes.map((node) => {
     if (node.type !== 'layout') return node
-    if (node.id === containerID && !['columns','spacer','divider'].includes(node.layout)) return { ...node, children: insert(node.children ?? []) }
+    if (node.id === containerID && canInsertAdapterNode(node, nodeToInsert) && !['columns','spacer','divider'].includes(node.layout) && (!node.block || getBlockDefinition(node.block.kind)?.container)) return { ...node, children: insert(node.children ?? []) }
     return { ...node,
       children: insertTemplateNode(node.children ?? [], containerID, nodeToInsert, beforeID),
-      columns: node.columns?.map((column) => column.id === containerID ? { ...column, children: insert(column.children) } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert, beforeID) }),
+      columns: node.columns?.map((column) => column.id === containerID && canInsertAdapterNode(undefined, nodeToInsert) ? { ...column, children: insert(column.children) } : { ...column, children: insertTemplateNode(column.children, containerID, nodeToInsert, beforeID) }),
     }
   })
 }
 
 export function moveTemplateNodeTo(nodes: TemplateNode[], id: string, containerID: string, beforeID?: string): TemplateNode[] {
   if (id===beforeID) return nodes
-  const containers = (items: TemplateNode[]): string[] => items.flatMap(node=>node.type==='layout'?[...(!['columns','spacer','divider'].includes(node.layout)?[node.id]:[]),...containers(node.children??[]),...(node.columns??[]).flatMap(column=>[column.id,...containers(column.children)])]:[])
+  const containers = (items: TemplateNode[]): string[] => items.flatMap(node=>node.type==='layout'?[...(!['columns','spacer','divider'].includes(node.layout)&&(!node.block||getBlockDefinition(node.block.kind)?.container)?[node.id]:[]),...containers(node.children??[]),...(node.columns??[]).flatMap(column=>[column.id,...containers(column.children)])]:[])
   const source=findTemplateNode(nodes,id)
   if (!source || (containerID!=='root'&&!containers(nodes).includes(containerID)) || containerID===id || containers([source]).includes(containerID)) return nodes
+  if (!canInsertAdapterNode(findTemplateNode(nodes, containerID), source, containerID === 'root')) return nodes
   const result = extractTemplateNode(nodes, id)
   return result.extracted ? insertTemplateNode(result.nodes, containerID, result.extracted, beforeID) : nodes
 }

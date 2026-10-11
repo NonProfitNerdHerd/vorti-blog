@@ -6,14 +6,19 @@ import { useEffect, useRef, useState } from 'react'
 import { BuilderCore } from '../builder/BuilderCore'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { templateSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model'
-import { BuilderInspectorTabs, type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
+import { type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
 import {
   BuilderCanvasTree,
   type BuilderNodeDescriptor,
   type BuilderTreeActions,
 } from '../builder/BuilderTree'
+import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor'
+import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry'
+import { toTemplateBlock } from '../blocks/adapters'
+import { ContentBlock } from '../content/ContentRenderer'
+import { createContentNode } from '../content/model'
 import { resolveStyle, templateStyle } from '../content/model'
-import { BlockStyleControls } from '../builder/BlockStyleControls'
+import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar'
 import type { BuilderViewport } from '../builder/contracts'
@@ -100,7 +105,26 @@ type TreeActions = BuilderTreeActions<TemplateNode> & {
 function describeTemplateNode(
   node: TemplateNode,
   actions: TreeActions,
+  viewport: BuilderViewport = 'desktop',
 ): BuilderNodeDescriptor<TemplateNode> {
+  if (node.type === 'layout' && node.block) {
+    const definition = getBlockDefinition(node.block.kind)
+    return {
+      title: node.block.label ?? definition?.label ?? node.block.kind,
+      icon: definition?.icon,
+      body: definition?.container ? null : <ContentBlock node={node.block} viewport={viewport} />,
+      wrap: definition?.container
+        ? (children) => (
+            <ContentBlock node={node.block!} viewport={viewport}>
+              {children}
+            </ContentBlock>
+          )
+        : undefined,
+      children: definition?.container
+        ? [{ id: node.id, label: 'Block contents', children: node.children ?? [] }]
+        : undefined,
+    }
+  }
   const title = node.type === 'field' ? node.label : node.type === 'block' ? node.name : node.layout
   const previewText =
     node.type === 'field'
@@ -257,13 +281,17 @@ export function ContentTemplateBuilder({
     past: Array<{ nodes: TemplateNode[]; fields: TemplateCustomField[] }>
     future: Array<{ nodes: TemplateNode[]; fields: TemplateCustomField[] }>
   }>({ past: [], future: [] })
+  const lastHistoryChange = useRef(0)
   const snapshot = () => structuredClone({ nodes, fields: customFields })
-  const record = () => {
-    history.current.past.push(snapshot())
+  const record = (typing = false) => {
+    const now = Date.now()
+    if (!typing || now - lastHistoryChange.current > 700) history.current.past.push(snapshot())
+    lastHistoryChange.current = typing ? now : 0
     history.current.past = history.current.past.slice(-100)
     history.current.future = []
   }
   const restore = (redo = false) => {
+    lastHistoryChange.current = 0
     const next = (redo ? history.current.future : history.current.past).pop()
     if (!next) return
     ;(redo ? history.current.past : history.current.future).push(snapshot())
@@ -325,12 +353,12 @@ export function ContentTemplateBuilder({
     }
     void load()
   }, [customFieldsField, id, layoutField, sectionsField])
-  const setNodes = (next: TemplateNode[]) => {
+  const setNodes = (next: TemplateNode[], typing = false) => {
     if (disabled) return
-    record()
+    record(typing)
     modified.current = true
     layoutField.setValue(next)
-    setEditing(current => current ? findTemplateNode(next, current.id) : null)
+    setEditing((current) => (current ? findTemplateNode(next, current.id) : null))
   }
   const startAdd = (item: LibraryItem, container = 'root', before?: string) => {
     if (disabled) return
@@ -436,6 +464,7 @@ export function ContentTemplateBuilder({
           <>
             <BuilderPreviewToolbar value={viewport} onChange={setViewport} />
             <BuilderWorkspace
+              readOnly={disabled}
               documentSettings={
                 <>
                   <h3>Template Properties</h3>
@@ -508,6 +537,20 @@ export function ContentTemplateBuilder({
                     selected: sidebarSelected ?? editing?.id,
                     canEdit: !disabled,
                     items: [
+                      ...listBlockDefinitions('template')
+                        .filter(
+                          (def) =>
+                            def.type !== 'column' &&
+                            !coreEditorElements.some(
+                              (item) => item.label === def.label || item.value === def.type,
+                            ),
+                        )
+                        .map((def) => ({
+                          kind: 'registered',
+                          value: def.type,
+                          label: def.label,
+                          category: def.category,
+                        })),
                       ...coreEditorElements.map((item) => ({
                         ...toLibraryItem(item),
                         category: editorCategoryLabels[item.category],
@@ -524,7 +567,10 @@ export function ContentTemplateBuilder({
                       setSidebarSelected(id)
                       const node = findTemplateNode(nodes, id)
                       if (node) actions.edit(node)
-                      else {setEditing(null);setAdding(null)}
+                      else {
+                        setEditing(null)
+                        setAdding(null)
+                      }
                     },
                     onInsert: (item, target) =>
                       startAdd(item as LibraryItem, target.parent, target.before),
@@ -569,7 +615,7 @@ export function ContentTemplateBuilder({
                       nodes={nodes}
                       actions={actions}
                       describe={(node) => ({
-                        ...describeTemplateNode(node, actions),
+                        ...describeTemplateNode(node, actions, viewport),
                         style: resolveStyle(templateStyle(node.style), viewport),
                       })}
                       id={(node) => node.id}
@@ -591,9 +637,40 @@ export function ContentTemplateBuilder({
               }
               inspectorTitle="Settings"
               inspector={
-                adding || editing ? (
+                editing?.type === 'layout' && editing.block ? (
+                  <RegisteredBlockEditor
+                    bindingFields={customFields.map((field) => ({
+                      path: `templateValues.${field.id}`,
+                      label: field.label,
+                    }))}
+                    viewport={viewport}
+                    node={editing.block}
+                    change={(block) =>
+                      setNodes(
+                        updateTemplateNode(nodes, editing.id, () => ({ ...editing, block })),
+                        true,
+                      )
+                    }
+                  />
+                ) : adding?.kind === 'registered' ? (
+                  <NewRegisteredBlock
+                    key={adding.value}
+                    node={createContentNode(adding.value)}
+                    cancel={() => setAdding(null)}
+                    create={(block) => {
+                      const node = toTemplateBlock(block)
+                      setNodes(insertTemplateNode(nodes, target, node, beforeTarget))
+                      setEditing(node)
+                      setAdding(null)
+                      sidebar.inserted()
+                    }}
+                  />
+                ) : adding || editing ? (
                   <NodeEditor
-                    key={editing?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`}
+                    key={
+                      editing?.id ??
+                      `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`
+                    }
                     item={adding}
                     node={editing}
                     types={types}
@@ -612,8 +689,11 @@ export function ContentTemplateBuilder({
                       sidebar.inserted()
                     }}
                     update={(node) => {
-                      setNodes(updateTemplateNode(nodes, node.id, () => node))
-                      setEditing(null)
+                      setNodes(
+                        updateTemplateNode(nodes, node.id, () => node),
+                        true,
+                      )
+                      setEditing(node)
                     }}
                   />
                 ) : (
@@ -909,7 +989,7 @@ function NodeEditor({
   const allowOverride = false
   const [fields, setFields] = useState<TemplateField[]>(block?.fields ?? [])
   const [mappings, setMappings] = useState<Record<string, string>>(block?.slotMappings ?? {})
-  const [tab, setTab] = useState<BuilderInspectorTab>('settings')
+  const tab = 'settings' as BuilderInspectorTab
   const [style, setStyle] = useState<TemplateElementStyle>(node?.style ?? {})
   const documentFields: Array<{ label: string; value: TemplateDocumentField }> =
     value === 'image'
@@ -936,13 +1016,11 @@ function NodeEditor({
         style,
         ...(layout === 'columns'
           ? {
-              columns: ratio
-                .split('/')
-                .map((width, index) => ({
-                  id: oldColumns[index]?.id ?? uid('column'),
-                  width: Number(width),
-                  children: oldColumns[index]?.children ?? ([] as TemplateNode[]),
-                })),
+              columns: ratio.split('/').map((width, index) => ({
+                id: oldColumns[index]?.id ?? uid('column'),
+                width: Number(width),
+                children: oldColumns[index]?.children ?? ([] as TemplateNode[]),
+              })),
             }
           : ['spacer', 'divider'].includes(layout)
             ? {}
@@ -996,6 +1074,28 @@ function NodeEditor({
     if (node) update(next)
     else create(next)
   }
+  const contentRevision = JSON.stringify([
+    label,
+    required,
+    help,
+    placeholder,
+    contentSource,
+    customFieldID,
+    documentField,
+    staticValue,
+    ratio,
+    design,
+    fields,
+    mappings,
+  ])
+  const previousContent = useRef(contentRevision)
+  const commitContent = useRef(finish)
+  commitContent.current = finish
+  useEffect(() => {
+    if (previousContent.current === contentRevision) return
+    previousContent.current = contentRevision
+    if (node) commitContent.current()
+  }, [contentRevision, node])
   function mapSlot(slot: FieldDefinition) {
     const old = mappings[slot.key]
     if (old) {
@@ -1028,349 +1128,293 @@ function NodeEditor({
         {item?.label ??
           (node?.type === 'field' ? node.label : node?.type === 'block' ? node.name : node?.layout)}
       </h2>
-      <BuilderInspectorTabs
-        active={tab}
-        onChange={setTab}
-        settingsLabel={kind === 'layout' ? 'Layout' : 'Settings'}
-      />
-      {tab === 'settings' && kind === 'field' && (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <label style={control}>
-            <span>Block label</span>
-            <input
-              aria-label="Block Label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              style={{ width: '100%' }}
-            />
-          </label>
-          <label style={control}>
-            <span>Content source</span>
-            <select
-              aria-label="Content Source"
-              value={contentSource}
-              onChange={(event) => setContentSource(event.target.value as typeof contentSource)}
-            >
-              <option value="customField">Template custom field</option>
-              <option value="document">
-                {allowedCollections.includes('pages') && !allowedCollections.includes('posts')
-                  ? 'Page'
-                  : 'Post'}{' '}
-                field
-              </option>
-              <option value="static">Static template text</option>
-              <option value="custom">Legacy canvas field</option>
-            </select>
-          </label>
-          {contentSource === 'customField' && (
+      <UnifiedBlockInspector
+        node={{
+          id: node?.id ?? 'new',
+          kind:
+            kind === 'layout'
+              ? value === 'container' || value === 'stack'
+                ? 'group'
+                : value
+              : ((
+                  { shortText: 'heading', longText: 'paragraph', image: 'image' } as Record<
+                    string,
+                    string
+                  >
+                )[value] ?? value),
+          styles: templateStyle(style),
+          presentation: style.presentation,
+          anchor: style.anchor,
+        }}
+        onChange={(patch) => {
+          const next = {
+            ...style,
+            ...(patch.styles ? { responsive: patch.styles } : {}),
+            ...(patch.presentation ? { presentation: patch.presentation } : {}),
+            ...(patch.anchor !== undefined ? { anchor: patch.anchor } : {}),
+          }
+          setStyle(next)
+          if (node) update({ ...node, style: next })
+        }}
+      >
+        {tab === 'settings' && kind === 'field' && (
+          <div style={{ display: 'grid', gap: 14 }}>
             <label style={control}>
-              <span>Custom field</span>
-              <select
-                aria-label="Custom Field"
-                value={customFieldID}
-                onChange={(event) => setCustomFieldID(event.target.value)}
-              >
-                <option value="">Choose a custom field</option>
-                {customFields.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {field.label}
-                  </option>
-                ))}
-              </select>
-              {!customFields.length && <small>Create fields in the Custom Fields tab first.</small>}
-            </label>
-          )}
-          {contentSource === 'document' && (
-            <label style={control}>
-              <span>Document field</span>
-              <select
-                aria-label="Document Field"
-                value={documentField}
-                onChange={(event) => setDocumentField(event.target.value as TemplateDocumentField)}
-              >
-                {documentFields.map((field) => (
-                  <option key={field.value} value={field.value}>
-                    {field.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {contentSource === 'static' && (
-            <label style={control}>
-              <span>Text</span>
+              <span>Block label</span>
               <input
-                aria-label="Static Text"
-                value={staticValue}
-                onChange={(event) => setStaticValue(event.target.value)}
-              />
-            </label>
-          )}
-          {contentSource === 'document' && value !== 'image' && (
-            <label style={control}>
-              <span>Preview text</span>
-              <input
-                aria-label="Preview Text"
-                value={staticValue}
-                placeholder={`Sample ${documentField}`}
-                onChange={(event) => setStaticValue(event.target.value)}
-              />
-            </label>
-          )}
-          {(contentSource === 'custom' || contentSource === 'customField') && (
-            <label style={control}>
-              <span>Preview text</span>
-              <input
-                aria-label="Placeholder"
-                value={placeholder}
-                onChange={(e) => setPlaceholder(e.target.value)}
+                aria-label="Block Label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
                 style={{ width: '100%' }}
               />
             </label>
-          )}
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={required}
-              onChange={(e) => setRequired(e.target.checked)}
-            />{' '}
-            Required
-          </label>
-          <label style={control}>
-            <span>Help text</span>
-            <textarea
-              aria-label="Help Text"
-              value={help}
-              onChange={(e) => setHelp(e.target.value)}
-              rows={3}
-              style={{ width: '100%', resize: 'vertical' }}
-            />
-          </label>
-          <p style={{ margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }}>
-            The Block Label identifies this element in List View. It is not rendered on the page.
-          </p>
-        </div>
-      )}
-      {tab === 'settings' && kind === 'layout' && value === 'columns' && (
-        <div>
-          <h3 style={{ marginTop: 0 }}>Choose a variation</h3>
-          <div
-            role="radiogroup"
-            aria-label="Column Layout"
-            style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
-          >
-            {columnRatios.map((option) => (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={ratio === option}
-                onClick={() => setRatio(option)}
-                style={{
-                  padding: 10,
-                  border:
-                    ratio === option
-                      ? '2px solid var(--theme-success-500)'
-                      : '1px solid var(--theme-elevation-250)',
-                  borderRadius: 6,
-                  background: ratio === option ? 'var(--theme-elevation-100)' : 'transparent',
-                }}
+            <label style={control}>
+              <span>Content source</span>
+              <select
+                aria-label="Content Source"
+                value={contentSource}
+                onChange={(event) => setContentSource(event.target.value as typeof contentSource)}
               >
-                <span
-                  aria-hidden="true"
+                <option value="customField">Template custom field</option>
+                <option value="document">
+                  {allowedCollections.includes('pages') && !allowedCollections.includes('posts')
+                    ? 'Page'
+                    : 'Post'}{' '}
+                  field
+                </option>
+                <option value="static">Static template text</option>
+                <option value="custom">Legacy canvas field</option>
+              </select>
+            </label>
+            {contentSource === 'customField' && (
+              <label style={control}>
+                <span>Custom field</span>
+                <select
+                  aria-label="Custom Field"
+                  value={customFieldID}
+                  onChange={(event) => setCustomFieldID(event.target.value)}
+                >
+                  <option value="">Choose a custom field</option>
+                  {customFields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+                {!customFields.length && (
+                  <small>Create fields in the Custom Fields tab first.</small>
+                )}
+              </label>
+            )}
+            {contentSource === 'document' && (
+              <label style={control}>
+                <span>Document field</span>
+                <select
+                  aria-label="Document Field"
+                  value={documentField}
+                  onChange={(event) =>
+                    setDocumentField(event.target.value as TemplateDocumentField)
+                  }
+                >
+                  {documentFields.map((field) => (
+                    <option key={field.value} value={field.value}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {contentSource === 'static' && (
+              <label style={control}>
+                <span>Text</span>
+                <input
+                  aria-label="Static Text"
+                  value={staticValue}
+                  onChange={(event) => setStaticValue(event.target.value)}
+                />
+              </label>
+            )}
+            {contentSource === 'document' && value !== 'image' && (
+              <label style={control}>
+                <span>Preview text</span>
+                <input
+                  aria-label="Preview Text"
+                  value={staticValue}
+                  placeholder={`Sample ${documentField}`}
+                  onChange={(event) => setStaticValue(event.target.value)}
+                />
+              </label>
+            )}
+            {(contentSource === 'custom' || contentSource === 'customField') && (
+              <label style={control}>
+                <span>Preview text</span>
+                <input
+                  aria-label="Placeholder"
+                  value={placeholder}
+                  onChange={(e) => setPlaceholder(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </label>
+            )}
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={required}
+                onChange={(e) => setRequired(e.target.checked)}
+              />{' '}
+              Required
+            </label>
+            <label style={control}>
+              <span>Help text</span>
+              <textarea
+                aria-label="Help Text"
+                value={help}
+                onChange={(e) => setHelp(e.target.value)}
+                rows={3}
+                style={{ width: '100%', resize: 'vertical' }}
+              />
+            </label>
+            <p style={{ margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }}>
+              The Block Label identifies this element in List View. It is not rendered on the page.
+            </p>
+          </div>
+        )}
+        {tab === 'settings' && kind === 'layout' && value === 'columns' && (
+          <div>
+            <h3 style={{ marginTop: 0 }}>Choose a variation</h3>
+            <div
+              role="radiogroup"
+              aria-label="Column Layout"
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}
+            >
+              {columnRatios.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={ratio === option}
+                  onClick={() => setRatio(option)}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: option
-                      .split('/')
-                      .map((width) => `${width}fr`)
-                      .join(' '),
-                    gap: 3,
-                    height: 30,
-                    marginBottom: 6,
+                    padding: 10,
+                    border:
+                      ratio === option
+                        ? '2px solid var(--theme-success-500)'
+                        : '1px solid var(--theme-elevation-250)',
+                    borderRadius: 6,
+                    background: ratio === option ? 'var(--theme-elevation-100)' : 'transparent',
                   }}
                 >
-                  {option.split('/').map((_, index) => (
-                    <span
-                      key={index}
-                      style={{
-                        display: 'block',
-                        border: '1px solid currentColor',
-                        borderRadius: 2,
-                      }}
-                    />
-                  ))}
-                </span>
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {tab === 'settings' && kind === 'layout' && value !== 'columns' && (
-        <p>Use the Style tab to control this layout’s presentation.</p>
-      )}
-      {tab === 'settings' && kind === 'block' && type && (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <p>
-            Component: <strong>{type.name}</strong>
-          </p>
-          <label style={control}>
-            <span>Design</span>
-            <select
-              aria-label="Design"
-              value={String(design)}
-              onChange={(e) =>
-                setDesign(designs.find((option) => String(option.id) === e.target.value)?.id ?? '')
-              }
-              style={{ width: '100%' }}
-            >
-              <option value="">Choose Design</option>
-              {designs
-                .filter((option) => String(relationID(option.blockType)) === String(type.id))
-                .map((option) => (
-                  <option key={option.id} value={String(option.id)}>
-                    {option.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <h3>Content mapping</h3>
-          {(type.fields ?? []).map((slot) => {
-            const mapped = fields.find((field) => field.id === mappings[slot.key])
-            return (
-              <section key={slot.key} style={{ ...panel, padding: 10 }}>
-                <strong>{slot.label}</strong>{' '}
-                <button type="button" onClick={() => mapSlot(slot)}>
-                  {mapped ? 'Remove mapped field' : 'Add / Map Field'}
-                </button>
-                {mapped && (
-                  <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-                    <label style={control}>
-                      <span>Field label</span>
-                      <input
-                        aria-label={`${slot.label} Field Label`}
-                        value={mapped.label}
-                        onChange={(event) =>
-                          setFields(
-                            fields.map((field) =>
-                              field.id === mapped.id
-                                ? { ...field, label: event.target.value }
-                                : field,
-                            ),
-                          )
-                        }
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: option
+                        .split('/')
+                        .map((width) => `${width}fr`)
+                        .join(' '),
+                      gap: 3,
+                      height: 30,
+                      marginBottom: 6,
+                    }}
+                  >
+                    {option.split('/').map((_, index) => (
+                      <span
+                        key={index}
+                        style={{
+                          display: 'block',
+                          border: '1px solid currentColor',
+                          borderRadius: 2,
+                        }}
                       />
-                    </label>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={!!mapped.required}
-                        onChange={(event) =>
-                          setFields(
-                            fields.map((field) =>
-                              field.id === mapped.id
-                                ? { ...field, required: event.target.checked }
-                                : field,
-                            ),
-                          )
-                        }
-                      />{' '}
-                      Required
-                    </label>
-                  </div>
-                )}
-              </section>
-            )
-          })}
-        </div>
-      )}
-      {tab === 'style' && (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <SelectSetting
-            label="Width"
-            value={style.width ?? 'content'}
-            options={['content', 'wide', 'full']}
-            change={(width) =>
-              setStyle({ ...style, width: width as TemplateElementStyle['width'] })
-            }
-          />
-          <SelectSetting
-            label="Alignment"
-            value={style.alignment ?? 'left'}
-            options={['left', 'center', 'right']}
-            change={(alignment) =>
-              setStyle({ ...style, alignment: alignment as TemplateElementStyle['alignment'] })
-            }
-          />
-          <SelectSetting
-            label="Spacing"
-            value={style.spacing ?? 'medium'}
-            options={['none', 'small', 'medium', 'large']}
-            change={(spacing) =>
-              setStyle({ ...style, spacing: spacing as TemplateElementStyle['spacing'] })
-            }
-          />
-          <SelectSetting
-            label="Background"
-            value={style.background ?? 'transparent'}
-            options={['transparent', 'surface', 'muted', 'accent']}
-            change={(background) =>
-              setStyle({ ...style, background: background as TemplateElementStyle['background'] })
-            }
-          />
-          {kind === 'field' && (
-            <>
-              <SelectSetting
-                label="Text color"
-                value={style.textColor ?? 'default'}
-                options={['default', 'muted', 'accent', 'inverse']}
-                change={(textColor) =>
-                  setStyle({ ...style, textColor: textColor as TemplateElementStyle['textColor'] })
+                    ))}
+                  </span>
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {tab === 'settings' && kind === 'layout' && value !== 'columns' && (
+          <p>Use the Style tab to control this layout’s presentation.</p>
+        )}
+        {tab === 'settings' && kind === 'block' && type && (
+          <div style={{ display: 'grid', gap: 14 }}>
+            <p>
+              Component: <strong>{type.name}</strong>
+            </p>
+            <label style={control}>
+              <span>Design</span>
+              <select
+                aria-label="Design"
+                value={String(design)}
+                onChange={(e) =>
+                  setDesign(
+                    designs.find((option) => String(option.id) === e.target.value)?.id ?? '',
+                  )
                 }
-              />
-              <SelectSetting
-                label="Font size"
-                value={style.fontSize ?? 'medium'}
-                options={['small', 'medium', 'large', 'xlarge']}
-                change={(fontSize) =>
-                  setStyle({ ...style, fontSize: fontSize as TemplateElementStyle['fontSize'] })
-                }
-              />
-            </>
-          )}
-        </div>
-      )}
-      {tab === 'style' && (
-        <BlockStyleControls
-          value={style.responsive}
-          onChange={(responsive) => setStyle({ ...style, responsive })}
-        />
-      )}
-      {tab === 'advanced' && (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <label style={control}>
-            <span>HTML anchor</span>
-            <input
-              aria-label="HTML Anchor"
-              value={style.anchor ?? ''}
-              onChange={(event) =>
-                setStyle({ ...style, anchor: event.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })
-              }
-            />
-          </label>
-          <label style={control}>
-            <span>Additional CSS class</span>
-            <input
-              aria-label="Additional CSS Class"
-              value={style.cssClass ?? ''}
-              onChange={(event) => setStyle({ ...style, cssClass: event.target.value })}
-            />
-          </label>
-          <p style={{ margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }}>
-            Stable element ID: {node?.id ?? 'created when saved'}
-          </p>
-        </div>
-      )}
+                style={{ width: '100%' }}
+              >
+                <option value="">Choose Design</option>
+                {designs
+                  .filter((option) => String(relationID(option.blockType)) === String(type.id))
+                  .map((option) => (
+                    <option key={option.id} value={String(option.id)}>
+                      {option.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <h3>Content mapping</h3>
+            {(type.fields ?? []).map((slot) => {
+              const mapped = fields.find((field) => field.id === mappings[slot.key])
+              return (
+                <section key={slot.key} style={{ ...panel, padding: 10 }}>
+                  <strong>{slot.label}</strong>{' '}
+                  <button type="button" onClick={() => mapSlot(slot)}>
+                    {mapped ? 'Remove mapped field' : 'Add / Map Field'}
+                  </button>
+                  {mapped && (
+                    <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                      <label style={control}>
+                        <span>Field label</span>
+                        <input
+                          aria-label={`${slot.label} Field Label`}
+                          value={mapped.label}
+                          onChange={(event) =>
+                            setFields(
+                              fields.map((field) =>
+                                field.id === mapped.id
+                                  ? { ...field, label: event.target.value }
+                                  : field,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!!mapped.required}
+                          onChange={(event) =>
+                            setFields(
+                              fields.map((field) =>
+                                field.id === mapped.id
+                                  ? { ...field, required: event.target.checked }
+                                  : field,
+                              ),
+                            )
+                          }
+                        />{' '}
+                        Required
+                      </label>
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        )}
+      </UnifiedBlockInspector>
       <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
         <button type="button" onClick={finish}>
           Save Element
@@ -1380,30 +1424,5 @@ function NodeEditor({
         </button>
       </div>
     </section>
-  )
-}
-
-function SelectSetting({
-  label,
-  value,
-  options,
-  change,
-}: {
-  label: string
-  value: string
-  options: string[]
-  change: (value: string) => void
-}) {
-  return (
-    <label style={{ display: 'grid', gap: 6 }}>
-      <span>{label}</span>
-      <select aria-label={label} value={value} onChange={(event) => change(event.target.value)}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option[0].toUpperCase() + option.slice(1)}
-          </option>
-        ))}
-      </select>
-    </label>
   )
 }

@@ -21,7 +21,7 @@ export function BlockStyleControls({
   const viewport = suppliedViewport ?? device
   const current = resolveStyle(value, viewport)
   const [error, setError] = useState('')
-  const update = (key: keyof BlockStyle, next: string) => {
+  const update = (key: keyof BlockStyle & string, next: string) => {
     if (next && !validStyleValue(key, next)) {
       setError(`Invalid ${key}. Use a color or a size such as 16px, 1rem, or 100%.`)
       return

@@ -1,6 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 /* eslint-disable react-hooks/refs -- dnd-kit supplies callback refs; opener is only read in event handlers. */
+import { getBlockDefinition } from '../blocks/registry.js';
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { flattenSidebar, insertionTarget, locateSidebar, outlineSummary, } from './sidebar-model.js';
@@ -80,6 +81,9 @@ export function SidebarControls({ state, canInsert = true, }) {
                 }, children: _jsx("span", { "aria-hidden": "true", children: "\u2637" }) })] }));
 }
 function icon(kind) {
+    const registered = getBlockDefinition(kind);
+    if (registered)
+        return registered.icon;
     if (/heading|shortText/i.test(kind))
         return 'H';
     if (/image|gallery|logo|images/i.test(kind))

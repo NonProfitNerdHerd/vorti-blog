@@ -1,4 +1,4 @@
-import { getPayload } from 'payload'
+import { getPayload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
 import type { Page, Post } from '@/payload-types'
 import { createPayloadDesignStore, resolveContentTemplate } from '@design-system/payload-design-core'
@@ -20,10 +20,10 @@ type TemplatedDocumentExtras = {
   templateValues?: Record<string, unknown> | null
 }
 
-export async function resolveContentDesign(source: Post | Page): Promise<PostDesignSection[]> {
+export async function resolveContentDesign(source: Post | Page, context: { draft?: boolean; user?: PayloadRequest['user'] } = {}): Promise<PostDesignSection[]> {
   if ((source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
     const payload = await getPayload({ config })
-    const nodes = await resolveDocumentBlocks(payload, source as unknown as Record<string, unknown>)
+    const nodes = await resolveDocumentBlocks(payload, source as unknown as Record<string, unknown>, context)
     return (nodes ?? []).map(node => ({ key: node.id, kind: 'content' as const, node }))
   }
   const document = source as (Post | Page) & TemplatedDocumentExtras

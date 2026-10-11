@@ -45,6 +45,7 @@ export function templateContentNodes(template, document, types, designs, include
                 ? value
                 : undefined,
             styles: templateStyle(field.style),
+            presentation: field.style?.presentation,
             anchor: field.style?.anchor,
             binding: field.content?.source === 'static'
                 ? undefined
@@ -60,6 +61,22 @@ export function templateContentNodes(template, document, types, designs, include
         };
     }
     function convert(node) {
+        if (node.type === 'layout' && node.block) {
+            const props = { ...node.block.props }, fields = [];
+            for (const [key, path] of Object.entries(node.block.bindings ?? {})) {
+                const field = template.customFields?.find((field) => path === `templateValues.${field.id}`);
+                if (!field)
+                    continue;
+                props[key] = readPath(document, path);
+                fields.push(fieldNode({ ...field, type: 'field' }, path));
+            }
+            return {
+                ...node.block,
+                ...(fields.length ? { props, fields } : {}),
+                id: node.id,
+                children: node.children?.map(convert),
+            };
+        }
         if (node.type === 'field')
             return fieldNode(node);
         if (node.type === 'layout')
@@ -68,6 +85,7 @@ export function templateContentNodes(template, document, types, designs, include
                 kind: node.layout === 'container' || node.layout === 'stack' ? 'group' : node.layout,
                 label: node.layout,
                 anchor: node.style?.anchor,
+                presentation: node.style?.presentation,
                 styles: {
                     ...templateStyle(node.style),
                     desktop: {
@@ -101,6 +119,7 @@ export function templateContentNodes(template, document, types, designs, include
             design: design?.design,
             values,
             styles: templateStyle(node.style),
+            presentation: node.style?.presentation,
             fields: node.fields.map((field) => fieldNode(field)),
         };
     }

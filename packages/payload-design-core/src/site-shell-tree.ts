@@ -1,3 +1,5 @@
+import { canInsertAdapterNode } from './blocks/adapters'
+import { getBlockDefinition } from './blocks/registry'
 import type { SiteShellNode } from './site-shell'
 
 export function findSiteShellNode(nodes: SiteShellNode[], id: string): SiteShellNode | null {
@@ -65,18 +67,18 @@ export function insertSiteShellNode(
     next.splice(at < 0 ? next.length : at, 0, inserted)
     return next
   }
-  if (parentID === 'root') return insert(nodes)
+  if (parentID === 'root') return canInsertAdapterNode(undefined, inserted, true) ? insert(nodes) : nodes
   return nodes.map((node) => {
     if (node.type !== 'layout') return node
-    if (node.id === parentID && !['columns', 'spacer', 'divider'].includes(node.layout))
+    if (node.id === parentID && canInsertAdapterNode(node, inserted) && !['columns', 'spacer', 'divider'].includes(node.layout) && (!node.block || getBlockDefinition(node.block.kind)?.container))
       return { ...node, children: insert(node.children ?? []) }
     return {
       ...node,
       children: insertSiteShellNode(node.children ?? [], parentID, inserted, beforeID),
       columns: node.columns?.map((column) =>
-        column.id === parentID
+        column.id === parentID && canInsertAdapterNode(undefined, inserted)
           ? { ...column, children: insert(column.children) }
-          : { ...column, children: insertSiteShellNode(column.children, parentID, inserted) },
+          : { ...column, children: insertSiteShellNode(column.children, parentID, inserted, beforeID) },
       ),
     }
   })
@@ -142,7 +144,7 @@ export function moveSiteShellNodeTo(
     items.flatMap((node) =>
       node.type === 'layout'
         ? [
-            ...(!['columns', 'spacer', 'divider'].includes(node.layout) ? [node.id] : []),
+            ...(!['columns', 'spacer', 'divider'].includes(node.layout) && (!node.block || getBlockDefinition(node.block.kind)?.container) ? [node.id] : []),
             ...containers(node.children ?? []),
             ...(node.columns ?? []).flatMap((column) => [
               column.id,
@@ -160,6 +162,7 @@ export function moveSiteShellNodeTo(
     containers([source]).includes(parentID)
   )
     return nodes
+  if (!canInsertAdapterNode(findSiteShellNode(nodes, parentID), source, parentID === 'root')) return nodes
   const result = extract(nodes, id)
   return result.node ? insertSiteShellNode(result.nodes, parentID, result.node, beforeID) : nodes
 }

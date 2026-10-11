@@ -23,6 +23,7 @@ export type BlockDesign = { id: ID; slug: string; name: string; blockType: ID; s
 export type TemplateSection = { id?: ID; key: string; name: string; blockType: ID; blockDesign: ID; required?: boolean; allowDesignOverride?: boolean }
 export type TemplateFieldKind = 'shortText' | 'longText' | 'richText' | 'image' | 'images' | 'videoURL' | 'link' | 'date' | 'number' | 'select' | 'toggle' | 'relationship'
 export type TemplateElementStyle = {
+  presentation?: import('./blocks/presentation').BlockPresentation
   responsive?: import('./content/model').ResponsiveBlockStyle
   width?: 'content' | 'wide' | 'full'
   alignment?: 'left' | 'center' | 'right'
@@ -43,7 +44,7 @@ export type TemplateContentBinding =
 export type TemplateField = { id: string; type: 'field'; fieldType: TemplateFieldKind; label: string; required?: boolean; helpText?: string; placeholder?: string; content?: TemplateContentBinding; min?: number; max?: number; options?: string[]; relationTo?: string; style?: TemplateElementStyle }
 export type TemplateLayoutKind = 'container' | 'row' | 'columns' | 'stack' | 'spacer' | 'divider'
 export type TemplateColumn = { id: string; width: number; children: TemplateNode[] }
-export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large'; style?: TemplateElementStyle }
+export type TemplateLayoutNode = { id: string; type: 'layout'; layout: TemplateLayoutKind; block?: import('./content/model').ContentNode; children?: TemplateNode[]; columns?: TemplateColumn[]; spacing?: 'small' | 'medium' | 'large'; style?: TemplateElementStyle }
 export type TemplateBlockNode = { id: string; type: 'block'; name: string; blockType: ID; blockDesign: ID; allowDesignOverride?: boolean; fields: TemplateField[]; slotMappings: Record<string, string>; style?: TemplateElementStyle }
 export type TemplateNode = TemplateField | TemplateLayoutNode | TemplateBlockNode
 export type Template = { id: ID; slug: string; name: string; status: Lifecycle; allowedCollections: string[]; sections: TemplateSection[]; layout?: TemplateNode[]; customFields?: TemplateCustomField[]; _status?: 'draft' | 'published' }
