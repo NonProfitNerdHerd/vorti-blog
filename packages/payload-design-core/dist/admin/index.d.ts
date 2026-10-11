@@ -14,3 +14,5 @@ export { TemplateActionPlaceholder } from './TemplateActionPlaceholder';
 export { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder';
 export { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector';
 export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor';
+export { InspectorIcon, IconButton, Popover, DeviceControl, DimensionControl, } from '../builder/InspectorControls';
+export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl';

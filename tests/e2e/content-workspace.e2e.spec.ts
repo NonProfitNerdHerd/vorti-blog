@@ -6,6 +6,58 @@ import {
 } from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
+test('compact inspector synchronizes devices, resets individual spacing and restores focus', async ({
+  page,
+}) => {
+  await page.goto('/admin/collections/pages/create')
+  const workspace = page.locator('.content-workspace')
+  await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
+  await workspace
+    .locator('.builder-sidebar')
+    .getByRole('button', { name: 'Paragraph', exact: true })
+    .click()
+  const inspector = workspace.locator('.unified-block-inspector')
+  await expect(inspector.locator('header strong')).toHaveCount(1)
+  await expect(workspace.getByText('Move block into', { exact: true })).toHaveCount(0)
+  await expect(workspace.getByRole('tab', { name: 'Document settings' })).toHaveText('Page')
+  await inspector.getByRole('tab', { name: 'Layout', exact: true }).click()
+  await inspector.getByRole('textbox', { name: 'Padding', exact: true }).fill('24px')
+  await inspector.getByRole('button', { name: 'Padding device', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Tablet', exact: true }).click()
+  await expect(workspace.locator('.content-workspace__viewport')).toHaveAttribute(
+    'data-viewport',
+    'tablet',
+  )
+  await page.keyboard.press('Escape')
+  await expect(workspace.locator('.content-workspace__right')).toBeVisible()
+  await inspector.getByRole('button', { name: 'Unlink Padding sides', exact: true }).click()
+  await inspector.getByRole('textbox', { name: 'Padding top', exact: true }).fill('40px')
+  const block = workspace.locator('.content-workspace__viewport [data-block-kind=paragraph]')
+  await expect(block).toHaveCSS('padding-top', '40px')
+  await expect(block).toHaveCSS('padding-right', '24px')
+  await inspector.getByRole('button', { name: 'Reset Padding top', exact: true }).click()
+  await expect(block).toHaveCSS('padding-top', '24px')
+  await page.screenshot({ path: '.wrangler/compact-layout-desktop.png' })
+  await inspector.getByRole('tab', { name: 'Style', exact: true }).click()
+  await inspector.getByText('Background', { exact: true }).click()
+  await inspector.getByRole('button', { name: 'Background color', exact: true }).click()
+  await page
+    .getByRole('dialog')
+    .getByRole('textbox', { name: 'Background color value' })
+    .fill('#abcdef')
+  await expect(block).toHaveCSS('background-color', 'rgb(171, 205, 239)')
+  await page.keyboard.press('Escape')
+  await page.screenshot({ path: '.wrangler/compact-inspector-desktop.png' })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await workspace.getByRole('button', { name: 'Toggle inspector' }).click()
+  await page.screenshot({ path: '.wrangler/compact-inspector-mobile.png' })
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await page.screenshot({ path: '.wrangler/compact-inspector-mobile-dark.png' })
+  await page.keyboard.press('Escape')
+  await expect(workspace.locator('.content-workspace__right')).toHaveCount(0)
+  await expect(workspace.getByRole('button', { name: 'Toggle inspector' })).toBeFocused()
+})
+
 test('shared sidebar navigates outlines, inserts precisely, duplicates and restores focus', async ({
   page,
 }) => {
@@ -129,8 +181,12 @@ for (const collection of ['posts', 'pages'])
       .locator('summary')
       .filter({ hasText: /^Background$/ })
       .click()
-    await workspace.getByRole('textbox', { name: 'Background color', exact: true }).fill('#ffeecc')
-    await workspace.getByRole('textbox', { name: 'Background color', exact: true }).press('Tab')
+    await workspace.getByRole('button', { name: 'Background color', exact: true }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('textbox', { name: 'Background color value', exact: true })
+      .fill('#ffeecc')
+    await page.keyboard.press('Escape')
     await workspace.getByRole('tab', { name: 'Layout', exact: true }).click()
     await workspace.getByRole('textbox', { name: 'Padding', exact: true }).fill('24px')
     await workspace.getByRole('textbox', { name: 'Padding', exact: true }).press('Tab')
@@ -141,7 +197,8 @@ for (const collection of ['posts', 'pages'])
     await workspace.getByRole('button', { name: 'Add block', exact: true }).click()
     await library.getByRole('button', { name: 'Columns', exact: true }).click()
     await workspace.locator('textarea[aria-label="Heading"]').click()
-    const move = workspace.getByRole('combobox', { name: 'Move block into', exact: true })
+    await library.getByRole('button', { name: 'Actions for Heading' }).click()
+    const move = library.getByRole('combobox', { name: 'Move Heading into', exact: true })
     const firstColumn = await move
       .locator('option')
       .filter({ hasText: /^column$/i })
@@ -285,7 +342,9 @@ test('templates lock structure and styles, keep fields editable, and enforce the
   expect(invalid.status()).toBe(400)
   expect(JSON.stringify(await invalid.json())).toContain('templateValues.intro')
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(workspace.getByRole('button', { name: 'Inspector', exact: true })).toBeVisible()
+  await expect(
+    workspace.getByRole('button', { name: 'Toggle inspector', exact: true }),
+  ).toBeVisible()
 })
 
 test('rich text formatting and responsive styles survive save and appear in draft preview', async ({
@@ -362,9 +421,13 @@ test('complete registered catalog survives API saving in every storage adapter',
       },
     })
     expect(unsafe.ok()).toBeFalsy()
-    const published = await page.request.patch(`/api/${collection}/${saved.id}`, { data: { _status: 'published' } })
+    const published = await page.request.patch(`/api/${collection}/${saved.id}`, {
+      data: { _status: 'published' },
+    })
     expect(published.ok(), await published.text()).toBeTruthy()
-    const rendered = await page.request.get(collection === 'posts' ? `/posts/${suffix}` : `/${suffix}`)
+    const rendered = await page.request.get(
+      collection === 'posts' ? `/posts/${suffix}` : `/${suffix}`,
+    )
     expect(rendered.ok()).toBeTruthy()
     const html = await rendered.text()
     for (const node of nodes) expect(html).toContain(`data-block-kind="${node.kind}"`)

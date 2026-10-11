@@ -22,6 +22,14 @@ export const styleOptions = {
     ],
 };
 export const dimensionKeys = [
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'marginTop',
+    'marginRight',
+    'marginBottom',
+    'marginLeft',
     'height',
     'maxHeight',
     'minWidth',
@@ -48,5 +56,5 @@ export function extendedStyleValue(key, value) {
     if (key === 'boxShadow')
         return /^(none|[-\d.pxrem\s]+ (#[a-fA-F0-9]{3,8}|[a-z]+))$/.test(value);
     if (key === 'backgroundImage')
-        return /^linear-gradient\(\d+deg, #[a-fA-F0-9]{3,8}, #[a-fA-F0-9]{3,8}\)$/.test(value);
+        return /^linear-gradient\(\d+deg, #[a-fA-F0-9]{3,8}(, #[a-fA-F0-9]{3,8}){1,7}\)$/.test(value);
 }

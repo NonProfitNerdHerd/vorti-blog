@@ -8,8 +8,14 @@ import {
   type BlockPresentation,
   type Rule,
 } from '../blocks/presentation'
-import { styleOptions } from '../blocks/style-schema'
 import { resolveStyle, validStyleValue, type ContentNode, type Viewport } from '../content/model'
+import {
+  InspectorDevice,
+  InspectorIcon,
+  beginInspectorGesture,
+  endInspectorGesture,
+} from './InspectorControls'
+import { VisualStyleControl, PaintControl, FocalPoint } from './VisualStyleControl'
 import './block-inspector.css'
 
 const title = (key: string) =>
@@ -98,10 +104,11 @@ export function UnifiedBlockInspector({
   const sharedTab = useContext(InspectorTabContext)
   const tab = sharedTab?.tab ?? ownTab,
     setTab = sharedTab?.setTab ?? setOwnTab
-  const [device, setDevice] = useState<Viewport>('desktop')
+  const device: Viewport = 'desktop'
   const [state, setState] = useState<'normal' | 'hover' | 'focus'>('normal')
   const [error, setError] = useState('')
-  const viewport = suppliedViewport ?? device
+  const sharedDevice = useContext(InspectorDevice)
+  const viewport = sharedDevice?.viewport ?? suppliedViewport ?? device
   const definition = getBlockDefinition(node.kind)
   const presentation = node.presentation ?? {}
   const values = state === 'normal' ? (node.styles?.[viewport] ?? {}) : (presentation[state] ?? {})
@@ -137,48 +144,41 @@ export function UnifiedBlockInspector({
       },
     })
   return (
-    <fieldset disabled={disabled} className="unified-block-inspector">
-      <header>
-        <strong>
-          {definition?.icon} {definition?.label ?? node.label ?? node.kind}
-        </strong>
-        <p>{definition?.description ?? 'Block presentation settings.'}</p>
-      </header>
-      <div role="tablist" aria-label="Block controls">
-        {(['layout', 'style', 'advanced'] as const).map((name) => (
-          <button
-            type="button"
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
+    <fieldset
+      disabled={disabled}
+      className="unified-block-inspector"
+      onPointerDown={beginInspectorGesture}
+      onPointerUp={endInspectorGesture}
+      onPointerCancel={endInspectorGesture}
+      onFocus={beginInspectorGesture}
+      onBlur={endInspectorGesture}
+    >
+      <div className="inspector-sticky">
+        <header>
+          <strong
+            role="heading"
+            aria-level={3}
+            aria-label={definition?.label ?? node.label ?? node.kind}
           >
-            {title(name)}
-          </button>
-        ))}
-      </div>
-      {error && <p role="alert">{error}</p>}
-      <div className="block-inspector-device">
-        <label>
-          Device
-          <select
-            value={viewport}
-            onChange={(event) => setDevice(event.target.value as Viewport)}
-            disabled={!!suppliedViewport}
-          >
-            {['desktop', 'tablet', 'mobile'].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          State
-          <select value={state} onChange={(event) => setState(event.target.value as typeof state)}>
-            {['normal', 'hover', 'focus'].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
+            {definition?.icon} {definition?.label ?? node.label ?? node.kind}
+          </strong>
+          <p>{definition?.description ?? 'Block presentation settings.'}</p>
+        </header>
+        <div role="tablist" aria-label="Block controls">
+          {(['layout', 'style', 'advanced'] as const).map((name) => (
+            <button
+              type="button"
+              key={name}
+              role="tab"
+              aria-selected={tab === name}
+              onClick={() => setTab(name)}
+            >
+              <InspectorIcon name={name} />
+              {title(name)}
+            </button>
+          ))}
+        </div>
+        {error && <p role="alert">{error}</p>}
       </div>
       {tab === 'style' && (
         <details open>
@@ -218,18 +218,42 @@ export function UnifiedBlockInspector({
                         onChange({ props: { ...node.props, [field.key]: event.target.value } })
                       }
                     />
+                  ) : field.type === 'number' ? (
+                    <span className="inspector-number-row">
+                      <input
+                        type="range"
+                        aria-label={field.label + ' slider'}
+                        min={field.min ?? 0}
+                        max={field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0))}
+                        value={Number(node.props?.[field.key] ?? 0)}
+                        onChange={(event) =>
+                          onChange({
+                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                          })
+                        }
+                      />
+                      <input
+                        type="number"
+                        aria-label={field.label}
+                        min={field.min}
+                        max={field.max}
+                        value={String(node.props?.[field.key] ?? '')}
+                        onChange={(event) =>
+                          onChange({
+                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                          })
+                        }
+                      />
+                    </span>
                   ) : (
                     <input
-                      type={field.type === 'number' ? 'number' : 'text'}
+                      type="text"
                       value={String(node.props?.[field.key] ?? '')}
                       onChange={(event) =>
                         onChange({
                           props: {
                             ...node.props,
-                            [field.key]:
-                              field.type === 'number'
-                                ? Number(event.target.value)
-                                : event.target.value,
+                            [field.key]: event.target.value,
                           },
                         })
                       }
@@ -280,10 +304,36 @@ export function UnifiedBlockInspector({
         return (
           <details key={label} open={label === 'Size and spacing' || label === 'Typography'}>
             <summary>{label}</summary>
+            {label === 'Image' && (
+              <FocalPoint
+                url={
+                  node.media && typeof node.media === 'object' && 'url' in node.media
+                    ? String(node.media.url)
+                    : undefined
+                }
+                value={inherited.objectPosition ?? '50% 50%'}
+                update={(v) => update('objectPosition', v)}
+              />
+            )}
             {keys.map((key) => (
-              <StyleInput
-                key={`${node.id}-${viewport}-${state}-${key}`}
+              <VisualStyleControl
+                key={`${node.id}-${key}`}
                 name={key}
+                values={values}
+                inheritedValues={inherited}
+                responsive={state === 'normal'}
+                state={state}
+                setState={setState}
+                updateMany={(patch) => {
+                  const next = { ...values }
+                  for (const [k, v] of Object.entries(patch)) {
+                    if (v && !validStyleValue(k, v)) return
+                    if (v) next[k] = v
+                    else delete next[k]
+                  }
+                  if (state === 'normal') onChange({ styles: { ...node.styles, [viewport]: next } })
+                  else updatePresentation({ [state]: next })
+                }}
                 value={values[key] ?? ''}
                 inherited={inherited[key]}
                 update={(value) => update(key, value)}
@@ -305,17 +355,47 @@ export function UnifiedBlockInspector({
               }
             />
           </label>
+          <PaintControl
+            label="Overlay color"
+            value={presentation.background?.overlay ?? ''}
+            update={(overlay) =>
+              updatePresentation({
+                background: {
+                  ...presentation.background,
+                  overlay,
+                  opacity: presentation.background?.opacity ?? 1,
+                },
+              })
+            }
+          />
+          <PaintControl
+            label="Overlay gradient"
+            gradient
+            value={presentation.background?.gradient ?? ''}
+            update={(gradient) =>
+              updatePresentation({
+                background: {
+                  ...presentation.background,
+                  gradient,
+                  opacity: presentation.background?.opacity ?? 1,
+                },
+              })
+            }
+          />
           <label>
-            Overlay color
-            <input
-              type="color"
-              value={presentation.background?.overlay ?? '#000000'}
-              onChange={(event) =>
+            Overlay blend mode
+            <select
+              value={presentation.background?.blendMode ?? 'normal'}
+              onChange={(e) =>
                 updatePresentation({
-                  background: { ...presentation.background, overlay: event.target.value },
+                  background: { ...presentation.background, blendMode: e.target.value as 'normal' },
                 })
               }
-            />
+            >
+              {['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten'].map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
           </label>
           <label>
             Overlay opacity
@@ -648,182 +728,5 @@ function CommittedText({
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => onCommit(draft)}
     />
-  )
-}
-
-function StyleInput({
-  name,
-  value,
-  inherited,
-  update,
-}: {
-  name: string
-  value: string
-  inherited?: string
-  update: (value: string) => void
-}) {
-  const [separate, setSeparate] = useState(value.trim().split(/\s+/).length > 1)
-  const [draft, setDraft] = useState(value)
-  const [previous, setPrevious] = useState(value)
-  if (previous !== value) {
-    setPrevious(value)
-    setDraft(value)
-  }
-  const change = (next: string) => {
-    setDraft(next)
-    update(next)
-  }
-  if (name === 'backgroundImage') {
-    const match = /^linear-gradient\((\d+)deg, (#[a-fA-F0-9]{6}), (#[a-fA-F0-9]{6})\)$/.exec(value)
-    const angle = match?.[1] ?? '90',
-      first = match?.[2] ?? '#ffffff',
-      second = match?.[3] ?? '#333333'
-    const gradient = (direction: string, start: string, end: string) =>
-      update(`linear-gradient(${direction}deg, ${start}, ${end})`)
-    return (
-      <fieldset>
-        <legend>Gradient</legend>
-        <label>
-          Start color
-          <input
-            type="color"
-            value={first}
-            onChange={(event) => gradient(angle, event.target.value, second)}
-          />
-        </label>
-        <label>
-          End color
-          <input
-            type="color"
-            value={second}
-            onChange={(event) => gradient(angle, first, event.target.value)}
-          />
-        </label>
-        <label>
-          Angle
-          <input
-            type="range"
-            min="0"
-            max="360"
-            value={angle}
-            onChange={(event) => gradient(event.target.value, first, second)}
-          />
-        </label>
-        <button type="button" onClick={() => gradient(angle, first, second)}>
-          Apply gradient
-        </button>
-        <button type="button" onClick={() => update('')}>
-          Reset gradient
-        </button>
-      </fieldset>
-    )
-  }
-  if (name === 'padding' || name === 'margin') {
-    const parts = value.split(/\s+/),
-      sides = [
-        parts[0],
-        parts[1] ?? parts[0],
-        parts[2] ?? parts[0],
-        parts[3] ?? parts[1] ?? parts[0],
-      ]
-    return (
-      <fieldset>
-        <legend>{title(name)}</legend>
-        <label>
-          <input
-            type="checkbox"
-            checked={!separate}
-            onChange={(event) => setSeparate(!event.target.checked)}
-          />
-          Linked sides
-        </label>
-        {separate ? (
-          ['Top', 'Right', 'Bottom', 'Left'].map((side, index) => (
-            <label key={side}>
-              {side}
-              <input
-                value={sides[index] ?? ''}
-                onChange={(event) => {
-                  const next = sides.map((value) => value || '0')
-                  next[index] = event.target.value || '0'
-                  change(next.join(' '))
-                }}
-              />
-            </label>
-          ))
-        ) : (
-          <input
-            aria-label={title(name)}
-            value={draft}
-            placeholder={inherited ?? 'Inherit'}
-            onChange={(event) => change(event.target.value)}
-          />
-        )}
-        <button type="button" onClick={() => change('')}>
-          Reset {title(name)}
-        </button>
-      </fieldset>
-    )
-  }
-  const unit = /^(-?[\d.]+)(px|rem|em|%|vh|vw)$/.exec(value)
-  const dimension =
-    /^(width|height|minWidth|maxWidth|minHeight|maxHeight|fontSize|letterSpacing|gap|borderWidth|borderRadius|top|right|bottom|left)$/.test(
-      name,
-    )
-  return (
-    <label>
-      {title(name)}
-      <div className="block-inspector-control">
-        {styleOptions[name] ? (
-          <select value={value} onChange={(event) => change(event.target.value)}>
-            <option value="">Inherit</option>
-            {styleOptions[name].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        ) : (
-          <>
-            <input
-              aria-label={title(name)}
-              value={draft}
-              placeholder={inherited ?? 'Inherit'}
-              onChange={(event) => change(event.target.value)}
-            />
-            {dimension && (
-              <>
-                <input
-                  aria-label={`${title(name)} slider`}
-                  type="range"
-                  min="0"
-                  max={name === 'fontSize' ? 200 : 1000}
-                  value={Number(unit?.[1]) || 0}
-                  onChange={(event) => change(`${event.target.value}${unit?.[2] ?? 'px'}`)}
-                />
-                <select
-                  aria-label={`${title(name)} unit`}
-                  value={unit?.[2] ?? 'px'}
-                  onChange={(event) => change(`${unit?.[1] ?? 0}${event.target.value}`)}
-                >
-                  {['px', 'rem', 'em', '%', 'vh', 'vw'].map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </select>
-              </>
-            )}
-            {/Color$|^color$/.test(name) && (
-              <input
-                aria-label={`${title(name)} picker`}
-                type="color"
-                value={/^#[\da-f]{6}$/i.test(value) ? value : '#000000'}
-                onChange={(event) => change(event.target.value)}
-              />
-            )}
-          </>
-        )}
-        <button type="button" aria-label={`Reset ${title(name)}`} onClick={() => change('')}>
-          ↺
-        </button>
-      </div>
-    </label>
   )
 }

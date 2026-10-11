@@ -7,6 +7,8 @@ export type BlockPresentation = {
     background?: {
         imageURL?: string;
         overlay?: string;
+        gradient?: string;
+        blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten';
         opacity?: number;
     };
     tag?: 'div' | 'section' | 'article' | 'aside' | 'figure';

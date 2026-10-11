@@ -64,7 +64,7 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
                 content = _jsx("blockquote", { style: { whiteSpace: 'pre-wrap' }, children: node.text });
                 break;
             case 'image':
-                content = media.url ? (_jsxs("figure", { children: [_jsx("img", { src: safeURL(media.url), alt: node.alt ?? media.alt ?? '', style: { maxWidth: '100%' } }), node.text && _jsx("figcaption", { children: node.text })] })) : null;
+                content = media.url ? (_jsxs("figure", { children: [_jsx("span", { className: "block-image-surface", children: _jsx("img", { src: safeURL(media.url), alt: node.alt ?? media.alt ?? '', style: { maxWidth: '100%' } }) }), node.text && _jsx("figcaption", { children: node.text })] })) : null;
                 break;
             case 'gallery':
                 content = (_jsx("div", { style: { display: 'flex', flexWrap: 'wrap', gap: '16px' }, children: (Array.isArray(node.media) ? node.media : []).map((item, index) => {
@@ -112,15 +112,19 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
     const presentation = validatePresentation(node.presentation) ? {} : (node.presentation ?? {});
     const Tag = presentation.tag ?? 'div';
     const background = presentation.background;
-    const overlay = background?.overlay ?? '#000000';
-    const overlayColor = `${overlay}${Math.round((background?.opacity ?? 0) * 255)
-        .toString(16)
-        .padStart(2, '0')}`;
     const backgroundStyle = background?.imageURL
         ? {
-            backgroundImage: `linear-gradient(${overlayColor},${overlayColor}),url("${background.imageURL}")`,
+            backgroundImage: `url("${background.imageURL}")`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
+        }
+        : {};
+    const hasOverlay = !!(background?.overlay || background?.gradient);
+    const overlayVariables = hasOverlay && ['image', 'imageBox'].includes(node.kind)
+        ? {
+            '--block-overlay': background?.gradient || background?.overlay,
+            '--block-overlay-opacity': background?.opacity ?? 0,
+            '--block-overlay-blend': background?.blendMode ?? 'normal',
         }
         : {};
     const css = compileBlockCSS(presentation.css, `.${className}`);
@@ -135,12 +139,18 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
         rendered = (_jsx("a", { href: safeURL(presentation.link?.url), target: presentation.link?.newTab ? '_blank' : undefined, rel: presentation.link?.newTab ? 'noopener noreferrer' : presentation.link?.rel, title: presentation.link?.title, children: rendered }));
     const imageRule = (device) => {
         const resolved = resolveStyle(node.styles, device);
-        return `.${className} > figure > img{width:100%;object-fit:${resolved.objectFit ?? 'cover'};object-position:${resolved.objectPosition ?? '50% 50%'};aspect-ratio:${resolved.aspectRatio ?? 'auto'}}`;
+        return `.${className} > figure > .block-image-surface > img{width:100%;object-fit:${resolved.objectFit ?? 'cover'};object-position:${resolved.objectPosition ?? '50% 50%'};aspect-ratio:${resolved.aspectRatio ?? 'auto'}}`;
     };
     const imageCSS = viewport
         ? imageRule(viewport)
         : `${imageRule('desktop')}@media(max-width:1024px){${imageRule('tablet')}}@media(max-width:640px){${imageRule('mobile')}}`;
-    return (_jsxs(Tag, { ...presentation.attributes, className: `content-block ${className} ${presentation.className ?? ''}`, id: node.anchor, "data-motion-id": node.id, "data-block-kind": node.kind, style: viewport ? { ...base, ...styles, ...backgroundStyle } : backgroundStyle, children: [!viewport && (_jsx("style", { children: `.${className}{${declarations(node, 'desktop', base)}}@media(max-width:1024px){.${className}{${declarations(node, 'tablet', base)}}}@media(max-width:640px){.${className}{${declarations(node, 'mobile', base)}}}` })), _jsx("style", { children: `${css}${stateRule('hover')}${stateRule('focus')}${imageCSS}${!viewport ? ['desktop', 'tablet', 'mobile'].map((device) => (presentation.hidden?.[device] ? `@media ${device === 'desktop' ? '(min-width:1025px)' : device === 'tablet' ? '(min-width:641px) and (max-width:1024px)' : '(max-width:640px)'}{.${className}{display:none}}` : '')).join('') : ''}` }), viewport && presentation.hidden?.[viewport] && (_jsxs("p", { role: "status", children: ["Hidden on ", viewport, " in published content."] })), viewport && !conditionVisible(presentation.condition, document) && (_jsx("p", { role: "status", children: "Hidden by display conditions for this preview document." })), !viewport && presentation.motion && (_jsx(React.Suspense, { fallback: null, children: _jsx(Motion, { id: node.id, motion: presentation.motion }) })), rendered] }));
+    return (_jsxs(Tag, { ...presentation.attributes, className: `content-block ${className} ${presentation.className ?? ''}`, id: node.anchor, "data-motion-id": node.id, "data-block-kind": node.kind, style: viewport
+            ? { ...base, ...styles, ...backgroundStyle, ...overlayVariables }
+            : { ...backgroundStyle, ...overlayVariables }, children: [!viewport && (_jsx("style", { children: `.${className}{${declarations(node, 'desktop', base)}}@media(max-width:1024px){.${className}{${declarations(node, 'tablet', base)}}}@media(max-width:640px){.${className}{${declarations(node, 'mobile', base)}}}` })), _jsx("style", { children: `${css}${stateRule('hover')}${stateRule('focus')}${imageCSS}${!viewport ? ['desktop', 'tablet', 'mobile'].map((device) => (presentation.hidden?.[device] ? `@media ${device === 'desktop' ? '(min-width:1025px)' : device === 'tablet' ? '(min-width:641px) and (max-width:1024px)' : '(max-width:640px)'}{.${className}{display:none}}` : '')).join('') : ''}` }), viewport && presentation.hidden?.[viewport] && (_jsxs("p", { role: "status", children: ["Hidden on ", viewport, " in published content."] })), viewport && !conditionVisible(presentation.condition, document) && (_jsx("p", { role: "status", children: "Hidden by display conditions for this preview document." })), !viewport && presentation.motion && (_jsx(React.Suspense, { fallback: null, children: _jsx(Motion, { id: node.id, motion: presentation.motion }) })), _jsx("style", { children: `.${className} .block-image-surface{display:block;position:relative;isolation:isolate}.${className} .block-image-surface:after{content:'';position:absolute;inset:0;pointer-events:none;background:var(--block-overlay,transparent);opacity:var(--block-overlay-opacity,0);mix-blend-mode:var(--block-overlay-blend,normal);border-radius:inherit}.${className} .block-image-surface img{display:block}` }), hasOverlay && !['image', 'imageBox'].includes(node.kind) && (_jsxs(_Fragment, { children: [_jsx("style", { children: `.${className}{position:relative;isolation:isolate}.${className}>.block-overlay{position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:-1}` }), _jsx("span", { "aria-hidden": "true", className: "block-overlay", style: {
+                            background: background?.gradient || background?.overlay,
+                            opacity: background?.opacity ?? 0,
+                            mixBlendMode: background?.blendMode,
+                        } })] })), rendered] }));
 }
 export function ContentRenderer({ nodes, viewport, }) {
     return (_jsx(_Fragment, { children: nodes.map((node) => (_jsx(ContentBlock, { node: node, viewport: viewport, children: node.children?.map((child) => (_jsx(ContentRenderer, { nodes: [child], viewport: viewport }, child.id))) }, node.id))) }));

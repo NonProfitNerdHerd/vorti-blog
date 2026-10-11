@@ -12,3 +12,5 @@ export { TemplateActionPlaceholder } from './TemplateActionPlaceholder.js';
 export { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder.js';
 export { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor.js';
+export { InspectorIcon, IconButton, Popover, DeviceControl, DimensionControl, } from '../builder/InspectorControls.js';
+export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl.js';

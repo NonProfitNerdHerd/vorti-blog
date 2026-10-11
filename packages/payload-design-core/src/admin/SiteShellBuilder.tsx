@@ -19,6 +19,7 @@ import {
   type BuilderNodeDescriptor,
   type BuilderTreeActions,
 } from '../builder/BuilderTree'
+import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { DropArea } from '../builder/DropArea'
 import { shellInspectorStyles } from '../site-shell'
@@ -474,8 +475,13 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
   const change = (next: SiteShellNode[], typing = false) => {
     if (disabled) return
     const now = Date.now()
-    if (!typing || now - lastHistoryChange.current > 700)
+    if (
+      InspectorGesture.active
+        ? !InspectorGesture.changed
+        : InspectorGesture.pending || !typing || now - lastHistoryChange.current > 700
+    )
       setHistory((previous) => [...previous.slice(-99), structuredClone(nodes)])
+    markInspectorGesture()
     lastHistoryChange.current = typing ? now : 0
     setFuture([])
     layoutField.setValue(next)
@@ -557,6 +563,9 @@ export function SiteShellBuilder({ region }: { region: SiteShellRegion }) {
           </button>
         </div>
         <BuilderWorkspace
+          viewport={viewport}
+          onViewportChange={setViewport}
+          documentLabel="Site Template"
           readOnly={disabled}
           libraryOpen={sidebar.open}
           onLibraryOpenChange={sidebar.setOpen}
@@ -870,11 +879,11 @@ function SiteShellInspector({
   }
   return (
     <section aria-label="Configure Site Shell element">
-      <h2>Configure {label}</h2>
       <UnifiedBlockInspector
         showFields={false}
         node={{
           id: draft.id,
+          label,
           kind:
             draft.type === 'layout'
               ? draft.layout === 'container' || draft.layout === 'stack'

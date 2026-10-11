@@ -97,11 +97,13 @@ export function ContentBlock({
       case 'image':
         content = media.url ? (
           <figure>
-            <img
-              src={safeURL(media.url)}
-              alt={node.alt ?? media.alt ?? ''}
-              style={{ maxWidth: '100%' }}
-            />
+            <span className="block-image-surface">
+              <img
+                src={safeURL(media.url)}
+                alt={node.alt ?? media.alt ?? ''}
+                style={{ maxWidth: '100%' }}
+              />
+            </span>
             {node.text && <figcaption>{node.text}</figcaption>}
           </figure>
         ) : null
@@ -203,17 +205,22 @@ export function ContentBlock({
   const presentation = validatePresentation(node.presentation) ? {} : (node.presentation ?? {})
   const Tag = presentation.tag ?? 'div'
   const background = presentation.background
-  const overlay = background?.overlay ?? '#000000'
-  const overlayColor = `${overlay}${Math.round((background?.opacity ?? 0) * 255)
-    .toString(16)
-    .padStart(2, '0')}`
   const backgroundStyle: CSSProperties = background?.imageURL
     ? {
-        backgroundImage: `linear-gradient(${overlayColor},${overlayColor}),url("${background.imageURL}")`,
+        backgroundImage: `url("${background.imageURL}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
     : {}
+  const hasOverlay = !!(background?.overlay || background?.gradient)
+  const overlayVariables =
+    hasOverlay && ['image', 'imageBox'].includes(node.kind)
+      ? ({
+          '--block-overlay': background?.gradient || background?.overlay,
+          '--block-overlay-opacity': background?.opacity ?? 0,
+          '--block-overlay-blend': background?.blendMode ?? 'normal',
+        } as CSSProperties)
+      : {}
   const css = compileBlockCSS(presentation.css, `.${className}`)
   const stateRule = (state: 'hover' | 'focus') =>
     `.${className}:${state === 'focus' ? 'focus-within' : 'hover'}{${Object.entries(
@@ -246,7 +253,7 @@ export function ContentBlock({
     )
   const imageRule = (device: Viewport) => {
     const resolved = resolveStyle(node.styles, device)
-    return `.${className} > figure > img{width:100%;object-fit:${resolved.objectFit ?? 'cover'};object-position:${resolved.objectPosition ?? '50% 50%'};aspect-ratio:${resolved.aspectRatio ?? 'auto'}}`
+    return `.${className} > figure > .block-image-surface > img{width:100%;object-fit:${resolved.objectFit ?? 'cover'};object-position:${resolved.objectPosition ?? '50% 50%'};aspect-ratio:${resolved.aspectRatio ?? 'auto'}}`
   }
   const imageCSS = viewport
     ? imageRule(viewport)
@@ -258,7 +265,11 @@ export function ContentBlock({
       id={node.anchor}
       data-motion-id={node.id}
       data-block-kind={node.kind}
-      style={viewport ? { ...base, ...styles, ...backgroundStyle } : backgroundStyle}
+      style={
+        viewport
+          ? { ...base, ...styles, ...backgroundStyle, ...overlayVariables }
+          : { ...backgroundStyle, ...overlayVariables }
+      }
     >
       {!viewport && (
         <style>{`.${className}{${declarations(node, 'desktop', base)}}@media(max-width:1024px){.${className}{${declarations(node, 'tablet', base)}}}@media(max-width:640px){.${className}{${declarations(node, 'mobile', base)}}}`}</style>
@@ -274,6 +285,21 @@ export function ContentBlock({
         <React.Suspense fallback={null}>
           <Motion id={node.id} motion={presentation.motion} />
         </React.Suspense>
+      )}
+      <style>{`.${className} .block-image-surface{display:block;position:relative;isolation:isolate}.${className} .block-image-surface:after{content:'';position:absolute;inset:0;pointer-events:none;background:var(--block-overlay,transparent);opacity:var(--block-overlay-opacity,0);mix-blend-mode:var(--block-overlay-blend,normal);border-radius:inherit}.${className} .block-image-surface img{display:block}`}</style>
+      {hasOverlay && !['image', 'imageBox'].includes(node.kind) && (
+        <>
+          <style>{`.${className}{position:relative;isolation:isolate}.${className}>.block-overlay{position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:-1}`}</style>
+          <span
+            aria-hidden="true"
+            className="block-overlay"
+            style={{
+              background: background?.gradient || background?.overlay,
+              opacity: background?.opacity ?? 0,
+              mixBlendMode: background?.blendMode,
+            }}
+          />
+        </>
       )}
       {rendered}
     </Tag>

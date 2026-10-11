@@ -19,6 +19,7 @@ import { ContentBlock } from '../content/ContentRenderer'
 import { createContentNode } from '../content/model'
 import { resolveStyle, templateStyle } from '../content/model'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
+import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar'
 import type { BuilderViewport } from '../builder/contracts'
@@ -285,7 +286,13 @@ export function ContentTemplateBuilder({
   const snapshot = () => structuredClone({ nodes, fields: customFields })
   const record = (typing = false) => {
     const now = Date.now()
-    if (!typing || now - lastHistoryChange.current > 700) history.current.past.push(snapshot())
+    if (
+      InspectorGesture.active
+        ? !InspectorGesture.changed
+        : InspectorGesture.pending || !typing || now - lastHistoryChange.current > 700
+    )
+      history.current.past.push(snapshot())
+    markInspectorGesture()
     lastHistoryChange.current = typing ? now : 0
     history.current.past = history.current.past.slice(-100)
     history.current.future = []
@@ -464,6 +471,9 @@ export function ContentTemplateBuilder({
           <>
             <BuilderPreviewToolbar value={viewport} onChange={setViewport} />
             <BuilderWorkspace
+              viewport={viewport}
+              onViewportChange={setViewport}
+              documentLabel="Template"
               readOnly={disabled}
               documentSettings={
                 <>
@@ -1123,14 +1133,16 @@ function NodeEditor({
   const control = { display: 'grid', gap: 6 } as const
   return (
     <section aria-label="Configure element">
-      <h2 style={{ marginTop: 0 }}>
-        Configure{' '}
-        {item?.label ??
-          (node?.type === 'field' ? node.label : node?.type === 'block' ? node.name : node?.layout)}
-      </h2>
       <UnifiedBlockInspector
         node={{
           id: node?.id ?? 'new',
+          label:
+            item?.label ??
+            (node?.type === 'field'
+              ? node.label
+              : node?.type === 'block'
+                ? node.name
+                : node?.layout),
           kind:
             kind === 'layout'
               ? value === 'container' || value === 'stack'

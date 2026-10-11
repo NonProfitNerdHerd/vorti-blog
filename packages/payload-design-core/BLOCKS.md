@@ -32,3 +32,9 @@ Keep saved data for missing definitions. Restore the original definition to edit
 Run package tests/type checks and the editor Playwright suite. Include round-trip storage, responsive overrides, nesting/movement, keyboard interaction, published rendering, custom CSS boundaries, and API validation for new capabilities. Any database schema change requires a separate migration; extending these JSON fields does not.
 
 Select a section?s named child in List View to style that part independently. Section blocks compose ordinary registered children, so they need no separate inspector. Motion stays disabled in the editor until Preview motion is pressed; reduced-motion preferences apply to that preview too.
+
+## Inspector controls
+
+The workspace supplies `InspectorDevice` so every responsive control updates the same canvas viewport. Use the shared visual controls for dimensions, spacing, paint, alignment, and shadows. Popovers are portaled to avoid sidebar clipping, restore trigger focus, and let Escape dismiss the innermost panel first. Keep descriptive accessible names on icon-only controls.
+
+Spacing may use the existing padding/margin shorthand or individual CSS side properties. Resolve through `resolveStyle` before rendering: it expands shorthand only when individual sides are present, applies each device layer in order, and preserves inheritance when a side is reset. Overlay gradients and blend modes live in the existing presentation JSON and are server-validated. Image overlays use a separate media surface; captions remain outside it. No database columns change.

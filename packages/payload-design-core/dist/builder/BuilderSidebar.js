@@ -183,10 +183,10 @@ function Row({ node, adapter, choose, }) {
                         event.stopPropagation();
                         closeMenu();
                     }
-                }, children: [_jsx("button", { type: "button", disabled: location.index === 0, onClick: () => move({ parent: location.parent, before: location.siblings[location.index - 1]?.id }), children: "Move up" }), _jsx("button", { type: "button", disabled: location.index === location.siblings.length - 1, onClick: () => move({ parent: location.parent, before: location.siblings[location.index + 2]?.id }), children: "Move down" }), _jsxs("label", { children: ["Move into", _jsxs("select", { "aria-label": `Move ${node.label} into`, value: "", onChange: (event) => {
+                }, children: [_jsx("button", { type: "button", disabled: location.index === 0, onClick: () => move({ parent: location.parent, before: location.siblings[location.index - 1]?.id }), children: "Move up" }), _jsx("button", { type: "button", disabled: location.index === location.siblings.length - 1, onClick: () => move({ parent: location.parent, before: location.siblings[location.index + 2]?.id }), children: "Move down" }), _jsxs("label", { children: ["Move to\u2026", _jsxs("select", { "aria-label": `Move ${node.label} into`, value: "", onChange: (event) => {
                                     if (event.target.value)
                                         move({ parent: event.target.value });
-                                }, children: [_jsx("option", { value: "", children: "Choose destination" }), node.kind !== 'column' && _jsx("option", { value: "root", children: "Document" }), flattenSidebar(nodes)
+                                }, children: [_jsx("option", { value: "", children: "Choose destination" }), node.kind !== 'column' && _jsx("option", { value: "root", children: "Document top level" }), flattenSidebar(nodes)
                                         .filter((candidate) => candidate.container &&
                                         !flattenSidebar([node]).some((child) => child.id === candidate.id) &&
                                         node.kind !== 'column')

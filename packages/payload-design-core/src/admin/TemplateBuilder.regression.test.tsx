@@ -127,7 +127,7 @@ describe('TemplateBuilder regression boundary', () => {
     expect(within(dialog).getByRole('heading', { name: 'Data' })).toBeTruthy()
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Image' }))
-    expect(screen.getByRole('heading', { name: 'Configure Image' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Image' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Content Source'), { target: { value: 'document' } })
     expect((screen.getByLabelText('Document Field') as unknown as HTMLSelectElement).value).toBe('featuredImage')
     expect(screen.getByRole('option', { name: 'Featured Image' })).toBeTruthy()
@@ -139,7 +139,7 @@ describe('TemplateBuilder regression boundary', () => {
 
     fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(screen.getByRole('button', { name: 'Paragraph' }))
-    expect(screen.getByRole('heading', { name: 'Configure Paragraph' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Paragraph' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'field', fieldType: 'longText' })]))
 
@@ -181,7 +181,7 @@ describe('TemplateBuilder regression boundary', () => {
     render(<TemplateBuilder configuredCollections={['posts']} registeredRendererKeys={['hero-board']} />)
     fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(await screen.findByRole('button', { name: 'Hero Board' }))
-    expect(screen.getByRole('heading', { name: 'Configure Hero Board' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Hero Board' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Design'), { target: { value: '9' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(payloadForm.fields.get('layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'block', blockType: 7, blockDesign: 9 })]))

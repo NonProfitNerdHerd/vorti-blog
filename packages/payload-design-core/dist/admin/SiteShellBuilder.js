@@ -13,6 +13,7 @@ import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/B
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model.js';
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar.js';
 import { BuilderCanvasTree, } from '../builder/BuilderTree.js';
+import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 import { DropArea } from '../builder/DropArea.js';
 import { shellInspectorStyles } from '../site-shell.js';
@@ -249,8 +250,11 @@ export function SiteShellBuilder({ region }) {
         if (disabled)
             return;
         const now = Date.now();
-        if (!typing || now - lastHistoryChange.current > 700)
+        if (InspectorGesture.active
+            ? !InspectorGesture.changed
+            : InspectorGesture.pending || !typing || now - lastHistoryChange.current > 700)
             setHistory((previous) => [...previous.slice(-99), structuredClone(nodes)]);
+        markInspectorGesture();
         lastHistoryChange.current = typing ? now : 0;
         setFuture([]);
         layoutField.setValue(next);
@@ -308,7 +312,7 @@ export function SiteShellBuilder({ region }) {
             ? undefined
             : resolveStyle(shellInspectorStyles(node), viewport),
     });
-    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsxs("div", { className: "site-shell__editor-toolbar", children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx("button", { type: "button", className: "site-shell__undo", disabled: disabled || !history.length, onClick: undo, "aria-label": "Undo last change", children: "\u21B6 Undo" }), _jsx("button", { type: "button", disabled: disabled || !future.length, onClick: redo, "aria-label": "Redo last change", children: "Redo" })] }), _jsx(BuilderWorkspace, { readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsxs("div", { className: "site-shell__editor-toolbar", children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx("button", { type: "button", className: "site-shell__undo", disabled: disabled || !history.length, onClick: undo, "aria-label": "Undo last change", children: "\u21B6 Undo" }), _jsx("button", { type: "button", disabled: disabled || !future.length, onClick: redo, "aria-label": "Redo last change", children: "Redo" })] }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Site Template", readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
                             nodes: shellSidebarNodes(nodes),
                             selected: sidebarSelected ?? selected?.id,
                             canEdit: !disabled,
@@ -491,8 +495,9 @@ function SiteShellInspector({ item, node, region, viewport, cancel, save, }) {
     if (draft.type === 'layout' && draft.layout === 'columns' && item && !node) {
         /* default is already valid */
     }
-    return (_jsxs("section", { "aria-label": "Configure Site Shell element", children: [_jsxs("h2", { children: ["Configure ", label] }), _jsxs(UnifiedBlockInspector, { showFields: false, node: {
+    return (_jsxs("section", { "aria-label": "Configure Site Shell element", children: [_jsxs(UnifiedBlockInspector, { showFields: false, node: {
                     id: draft.id,
+                    label,
                     kind: draft.type === 'layout'
                         ? draft.layout === 'container' || draft.layout === 'stack'
                             ? 'group'

@@ -15,11 +15,17 @@ import {
 } from '@payloadcms/ui'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import {
+  InspectorGesture,
+  markInspectorGesture,
+  InspectorToggle,
+} from '../builder/InspectorControls'
 import { BuilderPanels } from '../builder/BuilderWorkspace'
 import { BuilderCore } from '../builder/BuilderCore'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/sidebar-model'
 import { builderCapabilities } from '../builder/contracts'
+import { getBlockDefinition } from '../blocks/registry'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { ContentBlock } from '../content/ContentRenderer'
 import {
@@ -80,6 +86,13 @@ export const ContentWorkspace = (
 ) => {
   const { field, groups, lexicalSchemaPath, readOnly, permissions, indexPath, schemaPath } = props
   const { collectionSlug, id: documentID } = useDocumentInfo()
+  const { config: workspaceConfig } = useConfig()
+  const singular = workspaceConfig.collections.find((c) => c.slug === collectionSlug)?.labels
+    ?.singular
+  const documentLabel =
+    typeof singular === 'string'
+      ? singular
+      : (collectionSlug ?? 'Document').replace(/s$/, '').replace(/^./, (c) => c.toUpperCase())
   const { disabled } = useForm()
   const [ready, setReady] = useState(false)
   // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR controls must stay disabled until event handlers are hydrated.
@@ -286,8 +299,13 @@ export const ContentWorkspace = (
     if (JSON.stringify(next) === JSON.stringify(current)) return
     // eslint-disable-next-line react-hooks/purity -- commit is called only by input/drag handlers, never during render.
     const now = Date.now()
-    if (!typing || now - history.current.last > 700)
+    if (
+      InspectorGesture.active
+        ? !InspectorGesture.changed
+        : InspectorGesture.pending || !typing || now - history.current.last > 700
+    )
       history.current.past.push(structuredClone(current))
+    markInspectorGesture()
     history.current.past = history.current.past.slice(-100)
     history.current.future = []
     history.current.last = typing ? now : 0
@@ -553,7 +571,12 @@ export const ContentWorkspace = (
               setSelected('')
             }}
           >
-            <ContentBlock node={resolvedNode(node)} viewport={viewport} document={document} body={editorBody(node)}>
+            <ContentBlock
+              node={resolvedNode(node)}
+              viewport={viewport}
+              document={document}
+              body={editorBody(node)}
+            >
               {containerKinds.has(node.kind) && tree(node.children ?? [], node.id)}
             </ContentBlock>
           </EditableNode>
@@ -601,10 +624,8 @@ export const ContentWorkspace = (
       <section
         className="content-workspace"
         onKeyDown={(event) => {
-          if (event.key === 'Escape' && window.matchMedia('(max-width: 1100px)').matches) {
+          if (event.key === 'Escape' && !right && window.matchMedia('(max-width: 1100px)').matches)
             sidebar.close()
-            setRight(false)
-          }
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
             event.preventDefault()
             event.stopPropagation()
@@ -644,16 +665,13 @@ export const ContentWorkspace = (
               <option key={device}>{device}</option>
             ))}
           </select>
-          <button
-            type="button"
-            aria-expanded={right}
-            onClick={() => {
-              setRight(!right)
-              if (window.matchMedia('(max-width: 1100px)').matches) setLeft(false)
+          <InspectorToggle
+            open={right}
+            change={(open) => {
+              setRight(open)
+              if (open && window.matchMedia('(max-width: 1100px)').matches) setLeft(false)
             }}
-          >
-            Inspector
-          </button>
+          />
         </div>
         {error && <p role="alert">{error}</p>}
         {issues.length > 0 && (
@@ -688,7 +706,13 @@ export const ContentWorkspace = (
             ))}
           </div>
         )}
-        <BuilderPanels className="content-workspace__layout" leftOpen={left} rightOpen={right}>
+        <BuilderPanels
+          viewport={viewport}
+          onViewportChange={setViewport}
+          className="content-workspace__layout"
+          leftOpen={left}
+          rightOpen={right}
+        >
           {left && (
             <aside className="content-workspace__left" aria-label="Block library and hierarchy">
               <BuilderSidebar
@@ -761,9 +785,6 @@ export const ContentWorkspace = (
           </div>
           {right && (
             <aside className="content-workspace__right" aria-label="Inspector">
-              <button type="button" onClick={() => setRight(false)}>
-                Close inspector
-              </button>
               <div role="tablist" aria-label="Inspector tabs">
                 <button
                   type="button"
@@ -781,7 +802,7 @@ export const ContentWorkspace = (
                   aria-selected={panel === 'document'}
                   onClick={() => setPanel('document')}
                 >
-                  ⚙
+                  {documentLabel}
                 </button>
               </div>
               {panel === 'document' ? (
@@ -790,10 +811,15 @@ export const ContentWorkspace = (
                 <p>Select a block on the canvas or in List view.</p>
               ) : (
                 <>
-                  <h3>{active.label ?? active.kind}</h3>
                   {locked ? (
                     <>
-                      <p>Template structure and design are locked.</p>
+                      <header className="inspector-locked-heading">
+                        <strong>
+                          {getBlockDefinition(active.kind)?.icon}{' '}
+                          {active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind}
+                        </strong>
+                        <p>Template structure and design are locked.</p>
+                      </header>
                       {active.binding
                         ? bindField(active)
                         : (active.fields?.map(bindField) ?? (
@@ -802,33 +828,6 @@ export const ContentWorkspace = (
                     </>
                   ) : (
                     <>
-                      <label>
-                        Move block into
-                        <select
-                          aria-label="Move block into"
-                          value=""
-                          disabled={lockedForm}
-                          onChange={(event) => {
-                            if (event.target.value)
-                              setNodes(moveContent(nodes, active.id, event.target.value))
-                          }}
-                        >
-                          <option value="">Choose destination?</option>
-                          {active.kind !== 'column' && <option value="root">Document</option>}
-                          {walkContent(nodes)
-                            .filter(
-                              (node) =>
-                                containerKinds.has(node.kind) &&
-                                (node.kind === 'columns') === (active.kind === 'column') &&
-                                !walkContent([active]).some((child) => child.id === node.id),
-                            )
-                            .map((node) => (
-                              <option key={node.id} value={node.id}>
-                                {node.label ?? node.kind}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
                       <BlockInspector
                         node={active}
                         disabled={lockedForm}

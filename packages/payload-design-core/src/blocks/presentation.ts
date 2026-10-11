@@ -4,7 +4,13 @@ export type Rule = {
   value?: string
 }
 export type BlockPresentation = {
-  background?: { imageURL?: string; overlay?: string; opacity?: number }
+  background?: {
+    imageURL?: string
+    overlay?: string
+    gradient?: string
+    blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten'
+    opacity?: number
+  }
   tag?: 'div' | 'section' | 'article' | 'aside' | 'figure'
   className?: string
   attributes?: Record<string, string>
@@ -181,8 +187,22 @@ export function validatePresentation(value: BlockPresentation | undefined): stri
         /["'<>\\\s]/.test(value.background.imageURL))
     )
       return 'Invalid background image URL.'
-    if (value.background.overlay && !/^#[\da-f]{6}$/i.test(value.background.overlay))
-      return 'Use a six-digit overlay color.'
+    if (value.background.overlay && !/^#[\da-f]{6}([\da-f]{2})?$/i.test(value.background.overlay))
+      return 'Use a hexadecimal overlay color.'
+    if (
+      value.background.gradient &&
+      !/^linear-gradient\(\d+deg, #[a-fA-F0-9]{3,8}(, #[a-fA-F0-9]{3,8}){1,7}\)$/.test(
+        value.background.gradient,
+      )
+    )
+      return 'Invalid overlay gradient.'
+    if (
+      value.background.blendMode &&
+      !['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten'].includes(
+        value.background.blendMode,
+      )
+    )
+      return 'Invalid overlay blend mode.'
     if (
       value.background.opacity !== undefined &&
       (!Number.isFinite(value.background.opacity) ||

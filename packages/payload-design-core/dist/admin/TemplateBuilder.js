@@ -14,6 +14,7 @@ import { ContentBlock } from '../content/ContentRenderer.js';
 import { createContentNode } from '../content/model.js';
 import { resolveStyle, templateStyle } from '../content/model.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
+import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 import { BuilderPreviewFrame, BuilderPreviewToolbar } from '../builder/BuilderPreviewToolbar.js';
 import { DropArea } from '../builder/DropArea.js';
@@ -167,8 +168,11 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const snapshot = () => structuredClone({ nodes, fields: customFields });
     const record = (typing = false) => {
         const now = Date.now();
-        if (!typing || now - lastHistoryChange.current > 700)
+        if (InspectorGesture.active
+            ? !InspectorGesture.changed
+            : InspectorGesture.pending || !typing || now - lastHistoryChange.current > 700)
             history.current.past.push(snapshot());
+        markInspectorGesture();
         lastHistoryChange.current = typing ? now : 0;
         history.current.past = history.current.past.slice(-100);
         history.current.future = [];
@@ -289,7 +293,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
             },
         });
     }
-    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsxs("div", { className: "template-editor__editing-toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx("button", { type: "button", disabled: disabled || !history.current.past.length, onClick: () => restore(), children: "Undo" }), _jsx("button", { type: "button", disabled: disabled || !history.current.future.length, onClick: () => restore(true), children: "Redo" })] }), _jsxs("header", { className: "template-editor__header", children: [_jsxs("div", { children: [_jsx("h1", { children: name || 'Create Template' }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] }))] }), _jsx("strong", { className: "template-editor__status", children: statusField.value === 'published' ? 'Published' : 'Draft' })] }), _jsxs(_Fragment, { children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx(BuilderWorkspace, { readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { children: ["Name", _jsx("input", { "aria-label": "Name", value: name, onChange: (e) => nameField.setValue(e.target.value) })] }), _jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
+    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsxs("div", { className: "template-editor__editing-toolbar", children: [_jsx("button", { type: "button", "aria-expanded": nav.navOpen, onClick: () => nav.setNavOpen(!nav.navOpen), children: "Menu" }), _jsx("button", { type: "button", disabled: disabled || !history.current.past.length, onClick: () => restore(), children: "Undo" }), _jsx("button", { type: "button", disabled: disabled || !history.current.future.length, onClick: () => restore(true), children: "Redo" })] }), _jsxs("header", { className: "template-editor__header", children: [_jsxs("div", { children: [_jsx("h1", { children: name || 'Create Template' }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] }))] }), _jsx("strong", { className: "template-editor__status", children: statusField.value === 'published' ? 'Published' : 'Draft' })] }), _jsxs(_Fragment, { children: [_jsx(BuilderPreviewToolbar, { value: viewport, onChange: setViewport }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Template", readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { children: ["Name", _jsx("input", { "aria-label": "Name", value: name, onChange: (e) => nameField.setValue(e.target.value) })] }), _jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
                                                             display: 'block',
                                                             width: '100%',
                                                             minHeight: 88,
@@ -585,9 +589,14 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
         setMappings({ ...mappings, [slot.key]: field.id });
     }
     const control = { display: 'grid', gap: 6 };
-    return (_jsxs("section", { "aria-label": "Configure element", children: [_jsxs("h2", { style: { marginTop: 0 }, children: ["Configure", ' ', item?.label ??
-                        (node?.type === 'field' ? node.label : node?.type === 'block' ? node.name : node?.layout)] }), _jsxs(UnifiedBlockInspector, { node: {
+    return (_jsxs("section", { "aria-label": "Configure element", children: [_jsxs(UnifiedBlockInspector, { node: {
                     id: node?.id ?? 'new',
+                    label: item?.label ??
+                        (node?.type === 'field'
+                            ? node.label
+                            : node?.type === 'block'
+                                ? node.name
+                                : node?.layout),
                     kind: kind === 'layout'
                         ? value === 'container' || value === 'stack'
                             ? 'group'

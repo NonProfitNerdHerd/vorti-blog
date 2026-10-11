@@ -403,11 +403,35 @@ export function resolveStyle(
   style: ResponsiveBlockStyle | undefined,
   viewport: Viewport = 'desktop',
 ): BlockStyle {
-  return {
-    ...style?.desktop,
-    ...(viewport !== 'desktop' ? style?.tablet : {}),
-    ...(viewport === 'mobile' ? style?.mobile : {}),
+  const result: BlockStyle = {}
+  for (const device of (viewport === 'mobile'
+    ? ['desktop', 'tablet', 'mobile']
+    : viewport === 'tablet'
+      ? ['desktop', 'tablet']
+      : ['desktop']) as Viewport[]) {
+    const layer = style?.[device]
+    if (!layer) continue
+    for (const key of ['padding', 'margin']) {
+      if (
+        !Object.values(style ?? {}).some((layer) =>
+          ['Top', 'Right', 'Bottom', 'Left'].some((side) => layer?.[key + side] !== undefined),
+        )
+      )
+        continue
+      if (layer[key] !== undefined) {
+        const p = layer[key]!.trim().split(/\s+/)
+        const sides = [p[0], p[1] ?? p[0], p[2] ?? p[0], p[3] ?? p[1] ?? p[0]]
+        ;['Top', 'Right', 'Bottom', 'Left'].forEach((side, i) => {
+          result[key + side] = sides[i]
+        })
+      }
+    }
+    Object.assign(result, layer)
   }
+  for (const key of ['padding', 'margin'])
+    if (['Top', 'Right', 'Bottom', 'Left'].some((side) => result[key + side] !== undefined))
+      delete result[key]
+  return result
 }
 export function templateStyle(style?: TemplateElementStyle): ResponsiveBlockStyle {
   const spacing = { none: '0', small: '8px', medium: '16px', large: '32px' }

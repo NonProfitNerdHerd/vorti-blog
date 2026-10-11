@@ -431,7 +431,7 @@ function Row({
             Move down
           </button>
           <label>
-            Move into
+            Move to…
             <select
               aria-label={`Move ${node.label} into`}
               value=""
@@ -440,7 +440,7 @@ function Row({
               }}
             >
               <option value="">Choose destination</option>
-              {node.kind !== 'column' && <option value="root">Document</option>}
+              {node.kind !== 'column' && <option value="root">Document top level</option>}
               {flattenSidebar(nodes)
                 .filter(
                   (candidate) =>
