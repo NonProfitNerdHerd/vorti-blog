@@ -14,7 +14,7 @@ export function DocumentPicker({
 }) {
   const { config } = useConfig()
   const [search, setSearch] = useState(''),
-    [docs, setDocs] = useState<Array<{ id: string | number; title?: string; name?: string }>>([]),
+    [docs, setDocs] = useState<Array<{ id: string | number; title?: string; name?: string; singular?: string }>>([]),
     [error, setError] = useState('')
   const selected = value
     .split(',')
@@ -24,13 +24,14 @@ export function DocumentPicker({
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       try {
+        const titleField = collection === 'post-types' ? 'singular' : ['categories', 'tags', 'saved-views'].includes(collection) ? 'name' : 'title'
         const params = new URLSearchParams({
           limit: '50',
           depth: '0',
-          sort: ['categories','saved-views'].includes(collection) ? 'name' : 'title',
+          sort: titleField,
         })
         if (search)
-          params.set(`where[${['categories','saved-views'].includes(collection) ? 'name' : 'title'}][like]`, search)
+          params.set(`where[${titleField}][like]`, search)
         const response = await fetch(
           `${config.serverURL ?? ''}${config.routes.api}/${collection}?${params}`,
           { signal: controller.signal, credentials: 'same-origin' },
@@ -83,7 +84,7 @@ export function DocumentPicker({
                 )
               }
             />
-            {doc.title ?? doc.name ?? String(doc.id)}
+            {doc.title ?? doc.name ?? doc.singular ?? String(doc.id)}
           </label>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { isViewPlacement } from '../views/model.js';
 import { conditionVisible, publicDocumentFields, readPublicDocumentField } from './presentation.js';
 import { getBlockDefinition } from './registry.js';
 import { walkContent } from '../content/model.js';
@@ -21,7 +22,7 @@ export async function resolveBlocks(source, context) {
             }
             if (node.children)
                 node.children = await resolve(node.children);
-            if (node.kind === 'savedView' && context.view && node.props?.viewID) {
+            if (isViewPlacement(node.kind) && context.view && node.props?.viewID) {
                 try {
                     node.props = { ...node.props, resolvedView: await context.view(String(node.props.viewID)) };
                 }

@@ -192,6 +192,11 @@ export function registerView(view: ViewDefinition) {
 export const listContentSources = () => [...sources.values()]
 export const listViews = () => [...views.values()]
 export const getView = (key: string) => views.get(key)
+/** Named inserter entries remain central Saved View references after setup. */
+export const viewBlockKind = (layout: string) => `contentView-${layout}`
+export const viewForBlock = (kind: string) =>
+  kind.startsWith('contentView-') ? getView(kind.slice('contentView-'.length)) : undefined
+export const isViewPlacement = (kind: string) => kind === 'savedView' || !!viewForBlock(kind)
 registerContentSource({
   key: 'posts',
   label: 'Posts',

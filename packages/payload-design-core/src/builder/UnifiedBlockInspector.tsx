@@ -1,4 +1,6 @@
 'use client'
+import { isViewPlacement } from '../views/model'
+import { ViewPlacementSetup } from '../views/ViewPlacementSetup'
 import { BlockGlyph } from '../blocks/BlockGlyph'
 import { SaveReusableView } from '../views/SaveReusableView'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
@@ -252,7 +254,7 @@ export function UnifiedBlockInspector({
           Reset layout styling
         </button>
       )}
-      {tab === 'style' && target === 'block' && node.kind !== 'savedView' && (
+      {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && (
         <details open>
           <summary>Content</summary>
           {children}
@@ -446,11 +448,12 @@ export function UnifiedBlockInspector({
         </details>
       )}
       {node.kind === 'postListing' && tab === 'layout' && <SaveReusableView node={node} onChange={onChange} disabled={disabled} />}
-      {node.kind === 'savedView' && showFields && renderDocumentPicker?.(
+      {isViewPlacement(node.kind) && showFields && <ViewPlacementSetup key={node.id} node={node} onChange={onChange} renderPicker={renderDocumentPicker} />}
+      {isViewPlacement(node.kind) && showFields && renderDocumentPicker?.(
         'saved-views', 'Saved View', String(node.props?.viewID ?? ''),
         value => onChange({ props: { ...node.props, viewID: value.split(',').filter(Boolean).pop() || '' } }),
       )}
-      {node.kind === 'savedView' && <p>Query and internal styling are managed in <a href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`} target="_blank" rel="noreferrer">Saved Views</a>.</p>}
+      {isViewPlacement(node.kind) && <p>Query and internal styling are managed in <a href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`} target="_blank" rel="noreferrer">Saved Views</a>.</p>}
       {Object.entries(sections[tab]).map(([label, keys]) => {
         const capability =
           label === 'Typography'
@@ -482,7 +485,7 @@ export function UnifiedBlockInspector({
                 update={(v) => update('objectPosition', v)}
               />
             )}
-            {keys.filter(key => node.kind !== 'savedView' || ['width', 'minWidth', 'maxWidth', 'padding', 'margin'].includes(key)).map((key) => (
+            {keys.filter(key => !isViewPlacement(node.kind) || ['width', 'minWidth', 'maxWidth', 'padding', 'margin'].includes(key)).map((key) => (
               <VisualStyleControl
                 key={`${node.id}-${key}`}
                 name={key}
@@ -509,7 +512,7 @@ export function UnifiedBlockInspector({
           </details>
         )
       })}
-      {tab === 'style' && target === 'block' && node.kind !== 'savedView' && (
+      {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && (
         <BackgroundControls
           key={node.id + viewport}
           background={presentation.background}
@@ -683,7 +686,7 @@ export function UnifiedBlockInspector({
           </button>
         </details>
       )}
-      {tab === 'advanced' && node.kind !== 'savedView' && (
+      {tab === 'advanced' && !isViewPlacement(node.kind) && (
         <>
           <details>
             <summary>General</summary>

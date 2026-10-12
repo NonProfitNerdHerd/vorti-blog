@@ -1,4 +1,5 @@
-import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { isViewPlacement } from '../views/model.js';
 import React, { lazy, Suspense } from 'react';
 import { safeURL } from '../content/model.js';
 import { getBlockDefinition } from './registry.js';
@@ -24,8 +25,10 @@ export const blockIcons = {
 export function CatalogRenderer({ node, children, editing, viewport, }) {
     const props = node.props ?? {}, text = (key, fallback = '') => String(props[key] ?? fallback);
     const definition = getBlockDefinition(node.kind);
-    if (node.kind === 'savedView')
-        return _jsx(DynamicView, { viewID: text('viewID'), initial: props.resolvedView, editing: editing });
+    if (isViewPlacement(node.kind))
+        return !props.viewID && editing
+            ? _jsxs("div", { role: "status", children: [_jsx("strong", { children: definition?.label }), _jsx("p", { children: "Select this block to set up its content filters in the inspector, or choose an existing Saved View." })] })
+            : _jsx(DynamicView, { viewID: text('viewID'), initial: props.resolvedView, editing: editing });
     if (definition?.render)
         return _jsx(_Fragment, { children: definition.render(node, children) });
     if ([

@@ -6,6 +6,10 @@ Templates define a full page. Resolution is the Post's explicit Template, the ty
 
 Saved Views define reusable queries and presentation. Create one at `/admin/collections/saved-views`, choose a layout and source, configure filters, and publish. Insert the Saved View block or rich-text embed, or declare a Saved View relationship field in a Template. Placements store a reference, not a copy; publishing the view changes every placement on subsequent requests. Each placement has independent search, filtering, page, and calendar state. Only outer width and spacing belong to the placement.
 
+The block inserter also exposes all 36 built-in display layouts directly under **Events** and **Post displays** in Posts, Pages, content Templates, and Site Template Header/Footer editors. Search `events` or `postx`, or choose a named layout such as Month Calendar or Post Grid 7. Select the block and use its inspector to choose Post Types, categories/tags, matching rules, item count, and pagination, then select **Create view and use here**. This creates a published central Saved View and attaches its ID; it does not publish the document. Alternatively, select an existing Saved View. Template insertion retains its existing **Save Element** step.
+
+After setup, use the inspector's **Saved Views** link for the full query and design builder. Named placements have the same outer-spacing-only restrictions, permissions, usage tracking, and published resolution as the generic Saved View block. Setup choices remain in the document's draft JSON until the view is created. Event queries always restrict results to event-capable types, even when the Post Types selector is empty. These are our shared renderers, not WordPress plugins or shortcode parsing.
+
 `/framework-demo` links to all demonstration layouts. Demo records are clearly named; setup reuses existing media and never creates production credentials. No old sample deletion is required by this additive release. Tasks remain separate and unchanged.
 
 ## Capability and evidence matrix

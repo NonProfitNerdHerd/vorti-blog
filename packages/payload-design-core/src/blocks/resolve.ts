@@ -1,3 +1,4 @@
+import { isViewPlacement } from '../views/model'
 import { conditionVisible, publicDocumentFields, readPublicDocumentField } from './presentation'
 import { getBlockDefinition } from './registry'
 import { walkContent, type ContentNode } from '../content/model'
@@ -41,7 +42,7 @@ export async function resolveBlocks(
         node.props = { ...node.props, [key]: readPublicDocumentField(context.document, field) }
       }
       if (node.children) node.children = await resolve(node.children)
-      if(node.kind==='savedView'&&context.view&&node.props?.viewID) {
+      if(isViewPlacement(node.kind)&&context.view&&node.props?.viewID) {
         try {node.props={...node.props,resolvedView:await context.view(String(node.props.viewID))}}
         catch {node.props={...node.props,resolvedView:undefined}}
       }

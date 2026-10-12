@@ -1,3 +1,4 @@
+import { isViewPlacement } from '../views/model.js';
 import { blockDefaults, canInsertBlock, getBlockDefinition, listBlockDefinitions, } from '../blocks/registry.js';
 import { publicDocumentFields, validatePresentation, } from '../blocks/presentation.js';
 import { dimensionKeys, extendedStyleValue } from '../blocks/style-schema.js';
@@ -38,7 +39,7 @@ export const getContentLibrary = () => [
     ...listBlockDefinitions()
         .filter((item) => item.type !== 'column' && !contentLibrary.some((existing) => existing.kind === item.type))
         .map((item) => ({ kind: item.type, label: item.label, category: item.category })),
-];
+].map(item => ({ ...item, keywords: getBlockDefinition(item.kind)?.keywords ?? [] }));
 export function createContentNode(kind) {
     const node = {
         id: `b_${crypto.randomUUID()}`,
@@ -240,7 +241,7 @@ export function validateContentLayout(value, allowedBindingPaths = []) {
             ids.add(node.id);
             if (typeof node.kind !== 'string' || !node.kind)
                 return 'Missing block type.';
-            if (node.kind === 'savedView') {
+            if (isViewPlacement(node.kind)) {
                 for (const values of Object.values(node.styles ?? {}))
                     for (const key of Object.keys(values ?? {}))
                         if (!['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'width', 'minWidth', 'maxWidth'].includes(key))

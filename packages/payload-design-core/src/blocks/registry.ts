@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { ContentNode } from '../content/model'
+import { listViews, viewBlockKind } from '../views/model'
 import { separatorPaths } from './Separator'
 import {
   variationsFor,
@@ -438,6 +439,15 @@ for (const [type, label, icon, category, container, fields = []] of catalog)
       'advanced',
     ],
   })
+
+for (const view of listViews()) registerBlock({
+  type: viewBlockKind(view.key), version: 1, label: view.label,
+  icon: 'view', category: view.family === 'events' ? 'Events' : 'Post displays',
+  description: `${view.label}. Choose content filters and create a reusable view, or select an existing Saved View.`,
+  keywords: [view.label.toLowerCase(), view.key, view.family, view.family === 'events' ? 'calendar' : 'postx'],
+  contexts: ['content', 'template', 'header', 'footer'],
+  fields: [field('viewID', 'Saved View')], controls: ['layout'],
+})
 
 export function blockDefaults(kind: string): Partial<ContentNode> {
   const definition = getBlockDefinition(kind)

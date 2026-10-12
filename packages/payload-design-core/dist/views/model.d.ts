@@ -174,6 +174,10 @@ export declare function registerView(view: ViewDefinition): void;
 export declare const listContentSources: () => ContentSourceDefinition[];
 export declare const listViews: () => ViewDefinition[];
 export declare const getView: (key: string) => ViewDefinition | undefined;
+/** Named inserter entries remain central Saved View references after setup. */
+export declare const viewBlockKind: (layout: string) => string;
+export declare const viewForBlock: (kind: string) => ViewDefinition | undefined;
+export declare const isViewPlacement: (kind: string) => boolean;
 export declare const defaultView: ViewConfig;
 export declare function documentURL(post: {
     slug?: string | null;

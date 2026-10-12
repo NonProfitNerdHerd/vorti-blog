@@ -84,6 +84,7 @@ export declare const containerKinds: {
     readonly [Symbol.toStringTag]: string;
 };
 export declare const getContentLibrary: () => {
+    keywords: string[];
     kind: ContentKind;
     label: string;
     category: string;

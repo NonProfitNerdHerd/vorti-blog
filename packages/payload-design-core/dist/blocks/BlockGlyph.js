@@ -1,4 +1,5 @@
 import { jsx as _jsx } from "react/jsx-runtime";
+import { listViews, viewBlockKind } from '../views/model.js';
 export function registerBlockIcon(key, path) {
     if (!/^[a-zA-Z][\w-]*$/.test(key) || blockGlyphs[key])
         throw new Error(`Invalid or duplicate icon ${key}`);
@@ -65,6 +66,21 @@ export const blockGlyphs = {
     designed: 'm12 2 10 6-10 6L2 8Zm-10 11 10 6 10-6M2 18l10 6 10-6',
     value: 'M5 3h14v18H5ZM8 8l3 3-3 3M13 15h4',
 };
+const viewGlyphs = {
+    grid: 'M2 2h8v5H2ZM14 2h8v5h-8ZM2 10h8v5H2ZM14 10h8v5h-8Z',
+    list: 'M2 2h5v5H2ZM10 3h12M10 6h8M2 10h5v5H2ZM10 11h12M10 14h8',
+    calendar: 'M2 3h20v12H2ZM2 7h20M7 1v4M17 1v4M8 7v8M15 7v8M2 11h20',
+    map: 'm2 4 6-2 8 3 6-3v11l-6 3-8-3-6 3ZM8 2v11M16 5v11',
+    slider: 'M6 2h12v13H6ZM2 5v7M22 5v7',
+    split: 'M2 2h11v13H2ZM16 3h6M16 7h6M16 11h6M16 15h6',
+};
+// Bundled vector numerals distinguish the layout variants within each family.
+const digitSegments = ['abcedf', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgecd', 'abc', 'abcdefg', 'abfgcd'];
+const segments = { a: 'M0 0h3', b: 'M3 0v2', c: 'M3 2v2', d: 'M0 4h3', e: 'M0 2v2', f: 'M0 0v2', g: 'M0 2h3' };
+for (const [index, view] of listViews().entries()) {
+    const marks = String(index + 1).split('').map((digit, position) => digitSegments[Number(digit)].split('').map(segment => segments[segment].replace(/M(\d) (\d)/g, (_, x, y) => `M${Number(x) + 8 + position * 5} ${Number(y) + 19}`)).join('')).join('');
+    blockGlyphs[viewBlockKind(view.key)] = viewGlyphs[view.thumbnail] + marks;
+}
 export function BlockGlyph({ kind, style }) {
     const aliases = {
         shortText: 'heading',

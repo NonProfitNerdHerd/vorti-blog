@@ -1,3 +1,4 @@
+import { listViews, viewBlockKind } from '../views/model.js';
 import { separatorPaths } from './Separator.js';
 import { variationsFor, targetsFor, registerVariations, } from './variations.js';
 const entries = new Map();
@@ -370,6 +371,15 @@ for (const [type, label, icon, category, container, fields = []] of catalog)
             ...(type === 'image' ? ['image'] : []),
             'advanced',
         ],
+    });
+for (const view of listViews())
+    registerBlock({
+        type: viewBlockKind(view.key), version: 1, label: view.label,
+        icon: 'view', category: view.family === 'events' ? 'Events' : 'Post displays',
+        description: `${view.label}. Choose content filters and create a reusable view, or select an existing Saved View.`,
+        keywords: [view.label.toLowerCase(), view.key, view.family, view.family === 'events' ? 'calendar' : 'postx'],
+        contexts: ['content', 'template', 'header', 'footer'],
+        fields: [field('viewID', 'Saved View')], controls: ['layout'],
     });
 export function blockDefaults(kind) {
     const definition = getBlockDefinition(kind);

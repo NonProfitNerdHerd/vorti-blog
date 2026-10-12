@@ -1,3 +1,4 @@
+import { isViewPlacement } from '../views/model'
 import type { TemplateElementStyle } from '../types'
 import {
   blockDefaults,
@@ -136,7 +137,7 @@ export const getContentLibrary = () => [
         item.type !== 'column' && !contentLibrary.some((existing) => existing.kind === item.type),
     )
     .map((item) => ({ kind: item.type, label: item.label, category: item.category })),
-]
+].map(item => ({ ...item, keywords: getBlockDefinition(item.kind)?.keywords ?? [] }))
 export function createContentNode(kind: ContentKind): ContentNode {
   const node: ContentNode = {
     id: `b_${crypto.randomUUID()}`,
@@ -353,7 +354,7 @@ export function validateContentLayout(
         return 'Block IDs must be unique.'
       ids.add(node.id)
       if (typeof node.kind !== 'string' || !node.kind) return 'Missing block type.'
-      if (node.kind === 'savedView') {
+      if (isViewPlacement(node.kind)) {
         for (const values of Object.values(node.styles ?? {}))
           for (const key of Object.keys(values ?? {}))
             if (!['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'width', 'minWidth', 'maxWidth'].includes(key)) return 'Saved View placements only support outer spacing and width.'
