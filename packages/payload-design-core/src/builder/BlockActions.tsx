@@ -1,9 +1,9 @@
 'use client'
+import { BlockGlyph } from '../blocks/BlockGlyph'
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { SidebarAdapter, SidebarState } from './BuilderSidebar'
 import { flattenSidebar, locateSidebar, type SidebarNode } from './sidebar-model'
-import { getBlockDefinition } from '../blocks/registry'
 import { InspectorIcon } from './InspectorControls'
 import './block-actions.css'
 
@@ -290,7 +290,7 @@ export function SelectedBlockToolbar({
       }}
     >
       <span title={node.label} aria-label={node.label}>
-        {getBlockDefinition(node.kind)?.icon ?? '◇'}
+        {<BlockGlyph kind={node.kind}/>}
       </span>
       <button
         type="button"

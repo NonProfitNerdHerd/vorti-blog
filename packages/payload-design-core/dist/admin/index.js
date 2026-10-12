@@ -16,3 +16,6 @@ export { InspectorIcon, IconButton, Popover, DeviceControl, DimensionControl, } 
 export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl.js';
 export { EditorTitleSlot, EditorHistorySlot, EditorPreviewSlot } from '../builder/EditorHeader.js';
 export { DocumentReviewPanel } from '../builder/DocumentReviewPanel.js';
+export { ViewDesignEditor } from '../views/ViewDesignEditor.js';
+export { BackgroundMediaPicker } from '../builder/BackgroundMediaPicker.js';
+export { BlockGlyph, registerBlockIcon } from '../blocks/BlockGlyph.js';

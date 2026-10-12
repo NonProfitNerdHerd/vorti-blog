@@ -9,6 +9,7 @@ import { getBlockDefinition } from '../blocks/registry.js';
 import { effectiveStyles, compositeKinds } from '../blocks/variations.js';
 import { Composition } from '../blocks/Composition.js';
 import { Separator } from '../blocks/Separator.js';
+import { savedViewConverters } from '../views/RichView.js';
 import { compileBlockCSS, conditionVisible, validatePresentation, resolveBackground, } from '../blocks/presentation.js';
 const Motion = React.lazy(() => import('../blocks/Motion'));
 const InteractiveBlock = React.lazy(() => import('../blocks/InteractiveBlock'));
@@ -39,7 +40,7 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
         styles.borderStyle = 'solid';
     let headingIndex = 0;
     const converters = ({ defaultConverters }) => ({
-        ...defaultConverters,
+        ...savedViewConverters({ defaultConverters }),
         heading: ({ node: heading, nodesToJSX }) => React.createElement(/^h[1-6]$/.test(heading.tag) ? heading.tag : 'h2', { id: `heading-${node.id}-${++headingIndex}` }, nodesToJSX({ nodes: heading.children })),
     });
     let content = children;

@@ -353,6 +353,12 @@ export function validateContentLayout(
         return 'Block IDs must be unique.'
       ids.add(node.id)
       if (typeof node.kind !== 'string' || !node.kind) return 'Missing block type.'
+      if (node.kind === 'savedView') {
+        for (const values of Object.values(node.styles ?? {}))
+          for (const key of Object.keys(values ?? {}))
+            if (!['margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'width', 'minWidth', 'maxWidth'].includes(key)) return 'Saved View placements only support outer spacing and width.'
+        if (Object.keys(node.presentation ?? {}).some(key => key !== 'hidden')) return 'Saved View design is managed in Saved Views.'
+      }
       const presentationError = validatePresentation(node.presentation)
       if (presentationError) return presentationError
       const variationError = validateVariation(node)

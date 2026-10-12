@@ -14,6 +14,7 @@ import {
   validateContentLayout,
 } from '@design-system/payload-design-core'
 import { mediaURL } from './media'
+import {readSavedView,queryView} from '../content-framework/query'
 
 /** Shared resolver for publication and authenticated draft previews. */
 export async function resolveDocumentBlocks(
@@ -120,6 +121,7 @@ export async function resolveDocumentBlocks(
       if (node.kind === 'postListing') node.props = { ...node.props, draft: true }
   return resolveBlocks(result, {
     document,
+    view: async id => queryView(payload,await readSavedView(payload,id,context),undefined,context),
     list: (props, page) => queryBlockListing(payload, props, page, context),
   })
 }

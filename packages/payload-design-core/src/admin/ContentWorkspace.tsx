@@ -1,5 +1,6 @@
 'use client'
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
+import { BlockGlyph } from '../blocks/BlockGlyph'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { GroupFieldClientComponent, ClientField, CollectionSlug } from 'payload'
 import {
@@ -96,7 +97,7 @@ export const ContentWorkspace = (
   const { config: workspaceConfig } = useConfig()
   const singular = workspaceConfig.collections.find((c) => c.slug === collectionSlug)?.labels
     ?.singular
-  const documentLabel =
+  const collectionLabel =
     typeof singular === 'string'
       ? singular
       : (collectionSlug ?? 'Document').replace(/s$/, '').replace(/^./, (c) => c.toUpperCase())
@@ -115,13 +116,28 @@ export const ContentWorkspace = (
   }, [nav])
   const layoutField = useField<ContentLayout | null>({ path: 'contentLayout' })
   const valuesField = useField<Record<string, unknown>>({ path: 'templateValues' })
+  const typeValuesField = useField<Record<string, unknown>>({ path: 'postTypeValues' })
   const templateField = useField<unknown>({ path: 'designTemplate' })
+  const postTypeField = useField<unknown>({ path: 'postType' })
+  const postTypeID = relationID(postTypeField.value)
+  const [postType, setPostType] = useState<{ id: string | number; singular: string; defaultTemplate?: unknown; templates?: unknown[] } | null>(null)
+  const documentLabel = postType?.singular || collectionLabel
+  useEffect(() => {
+    if (collectionSlug !== 'posts') return
+    const controller = new AbortController()
+    const where = postTypeID ? `where[id][equals]=${encodeURIComponent(postTypeID)}` : 'where[key][equals]=post'
+    fetch(`/api/post-types?${where}&where[_status][equals]=published&depth=0&draft=false`, { signal: controller.signal, credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() as Promise<{ docs?: Array<{ id: string | number; singular: string; defaultTemplate?: unknown; templates?: unknown[] }> }> : Promise.reject(new Error('Post Type is unavailable')))
+      .then(result => setPostType(result.docs?.[0] ?? null))
+      .catch(() => { if (!controller.signal.aborted) setPostType(null) })
+    return () => controller.abort()
+  }, [collectionSlug, postTypeID])
   const allFields = useFormFields(([fields]) => fields)
   const document = useMemo(
     () => Object.fromEntries(Object.entries(allFields).map(([key, value]) => [key, value.value])),
     [allFields],
   )
-  const templateID = relationID(templateField.value)
+  const templateID = relationID(templateField.value) || relationID(postType?.defaultTemplate)
   const locked = Boolean(templateID)
   const capabilities = builderCapabilities(locked ? 'template-content' : 'freeform', lockedForm)
   const [template, setTemplate] = useState<Template | null>(null)
@@ -425,11 +441,11 @@ export const ContentWorkspace = (
           <select
             aria-label="Template"
             disabled={lockedForm || templateField.disabled}
-            value={templateID}
+            value={relationID(templateField.value)}
             onChange={(event) => changeTemplate(event.target.value)}
           >
-            <option value="">No template — freeform blocks</option>
-            {templates.map((template) => (
+            <option value="">{postType?.defaultTemplate ? 'Use Post Type default' : 'Built-in layout — freeform blocks'}</option>
+            {templates.filter(template => !postType || postType.templates?.some(id => relationID(id) === String(template.id))).map((template) => (
               <option key={template.id} value={template.id}>
                 {template.name}
               </option>
@@ -455,7 +471,7 @@ export const ContentWorkspace = (
     </>
   )
   const bindField = (node: ContentNode) =>
-    node.binding && !node.binding.path.startsWith('templateValues.') ? (
+    node.binding && !node.binding.path.startsWith('templateValues.') && !node.binding.path.startsWith('postTypeValues.') ? (
       <React.Fragment key={node.id}>{renderFields([node.binding.path])}</React.Fragment>
     ) : (
       <React.Fragment key={node.id}>
@@ -467,6 +483,7 @@ export const ContentWorkspace = (
           lexicalSchemaPath={lexicalSchemaPath}
           disabled={lockedForm}
           onValues={(path, value) => {
+            if(path.startsWith('postTypeValues.')) {typeValuesField.setValue({...typeValuesField.value,[path.slice('postTypeValues.'.length)]:value});return}
             const next = structuredClone(current.values)
             const segments = path.replace(/^templateValues\./, '').split('.')
             let cursor = next
@@ -820,7 +837,7 @@ export const ContentWorkspace = (
                     <>
                       <header className="inspector-locked-heading">
                         <strong>
-                          {getBlockDefinition(active.kind)?.icon}{' '}
+                          {<BlockGlyph kind={active.kind}/>}{' '}
                           {active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind}
                         </strong>
                         <p>Template structure and design are locked.</p>
@@ -1018,11 +1035,11 @@ function BoundValue({
   const binding = node.binding!
   const field = useField({
     path: binding.path,
-    disableFormData: binding.path.startsWith('templateValues.'),
+    disableFormData: binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.'),
   })
   const value = readPath(document, binding.path)
   const update = (value: unknown) =>
-    binding.path.startsWith('templateValues.')
+    binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.')
       ? onValues(binding.path, value)
       : field.setValue(value)
   if (binding.kind === 'image' || binding.kind === 'images')

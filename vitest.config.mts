@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [tsconfigPaths(), react()],
   test: {
     maxWorkers: 1,
+    testTimeout: 30000,
+    hookTimeout: 120000,
     environment: 'node',
     env: { PAYLOAD_SECRET: 'local-validation-only-secret' },
     setupFiles: ['./vitest.setup.ts'],

@@ -16,6 +16,7 @@ export type BlockResolveContext = {
     document: Record<string, unknown>;
     now?: number;
     preview?: boolean;
+    view?: (id: string) => Promise<unknown>;
     list?: (props: Record<string, unknown>, page: number) => Promise<ListingResult>;
 };
 export declare function resolveBlocks(source: ContentNode[], context: BlockResolveContext): Promise<ContentNode[]>;

@@ -1,6 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
+import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RenderFields, UploadInput, RelationshipInput, useConfig, useDocumentInfo, useField, useForm, useFormFields, useNav, } from '@payloadcms/ui';
 import { RenderLexical } from '@payloadcms/richtext-lexical/client';
@@ -60,7 +61,7 @@ export const ContentWorkspace = (props) => {
     const { config: workspaceConfig } = useConfig();
     const singular = workspaceConfig.collections.find((c) => c.slug === collectionSlug)?.labels
         ?.singular;
-    const documentLabel = typeof singular === 'string'
+    const collectionLabel = typeof singular === 'string'
         ? singular
         : (collectionSlug ?? 'Document').replace(/s$/, '').replace(/^./, (c) => c.toUpperCase());
     const { disabled } = useForm();
@@ -78,10 +79,27 @@ export const ContentWorkspace = (props) => {
     }, [nav]);
     const layoutField = useField({ path: 'contentLayout' });
     const valuesField = useField({ path: 'templateValues' });
+    const typeValuesField = useField({ path: 'postTypeValues' });
     const templateField = useField({ path: 'designTemplate' });
+    const postTypeField = useField({ path: 'postType' });
+    const postTypeID = relationID(postTypeField.value);
+    const [postType, setPostType] = useState(null);
+    const documentLabel = postType?.singular || collectionLabel;
+    useEffect(() => {
+        if (collectionSlug !== 'posts')
+            return;
+        const controller = new AbortController();
+        const where = postTypeID ? `where[id][equals]=${encodeURIComponent(postTypeID)}` : 'where[key][equals]=post';
+        fetch(`/api/post-types?${where}&where[_status][equals]=published&depth=0&draft=false`, { signal: controller.signal, credentials: 'same-origin' })
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('Post Type is unavailable')))
+            .then(result => setPostType(result.docs?.[0] ?? null))
+            .catch(() => { if (!controller.signal.aborted)
+            setPostType(null); });
+        return () => controller.abort();
+    }, [collectionSlug, postTypeID]);
     const allFields = useFormFields(([fields]) => fields);
     const document = useMemo(() => Object.fromEntries(Object.entries(allFields).map(([key, value]) => [key, value.value])), [allFields]);
-    const templateID = relationID(templateField.value);
+    const templateID = relationID(templateField.value) || relationID(postType?.defaultTemplate);
     const locked = Boolean(templateID);
     const capabilities = builderCapabilities(locked ? 'template-content' : 'freeform', lockedForm);
     const [template, setTemplate] = useState(null);
@@ -330,13 +348,17 @@ export const ContentWorkspace = (props) => {
         'responsiveDesigns',
         'designTemplate',
     ]);
-    const gear = (_jsxs(_Fragment, { children: [_jsxs("details", { open: true, children: [_jsx("summary", { children: "Template" }), _jsxs("label", { children: ["Template", _jsxs("select", { "aria-label": "Template", disabled: lockedForm || templateField.disabled, value: templateID, onChange: (event) => changeTemplate(event.target.value), children: [_jsx("option", { value: "", children: "No template \u2014 freeform blocks" }), templates.map((template) => (_jsx("option", { value: template.id, children: template.name }, template.id))), templateID && !templates.some((template) => String(template.id) === templateID) && (_jsx("option", { value: templateID, children: "Current template (unavailable)" }))] })] }), renderFields((groups.Template ?? []).filter((name) => !internal.has(name)))] }), Object.entries(groups)
+    const gear = (_jsxs(_Fragment, { children: [_jsxs("details", { open: true, children: [_jsx("summary", { children: "Template" }), _jsxs("label", { children: ["Template", _jsxs("select", { "aria-label": "Template", disabled: lockedForm || templateField.disabled, value: relationID(templateField.value), onChange: (event) => changeTemplate(event.target.value), children: [_jsx("option", { value: "", children: postType?.defaultTemplate ? 'Use Post Type default' : 'Built-in layout — freeform blocks' }), templates.filter(template => !postType || postType.templates?.some(id => relationID(id) === String(template.id))).map((template) => (_jsx("option", { value: template.id, children: template.name }, template.id))), templateID && !templates.some((template) => String(template.id) === templateID) && (_jsx("option", { value: templateID, children: "Current template (unavailable)" }))] })] }), renderFields((groups.Template ?? []).filter((name) => !internal.has(name)))] }), Object.entries(groups)
                 .filter(([name]) => name !== 'Template' && name !== 'Content')
                 .map(([name, names]) => {
                 const visible = names.filter((name) => !internal.has(name));
                 return visible.length ? (_jsxs("details", { open: true, children: [_jsx("summary", { children: name }), renderFields(visible)] }, name)) : null;
             })] }));
-    const bindField = (node) => node.binding && !node.binding.path.startsWith('templateValues.') ? (_jsx(React.Fragment, { children: renderFields([node.binding.path]) }, node.id)) : (_jsxs(React.Fragment, { children: [node.binding?.helpText && _jsx("p", { children: node.binding.helpText }), _jsx(BoundValue, { node: node, document: document, lexicalSchemaPath: lexicalSchemaPath, disabled: lockedForm, onValues: (path, value) => {
+    const bindField = (node) => node.binding && !node.binding.path.startsWith('templateValues.') && !node.binding.path.startsWith('postTypeValues.') ? (_jsx(React.Fragment, { children: renderFields([node.binding.path]) }, node.id)) : (_jsxs(React.Fragment, { children: [node.binding?.helpText && _jsx("p", { children: node.binding.helpText }), _jsx(BoundValue, { node: node, document: document, lexicalSchemaPath: lexicalSchemaPath, disabled: lockedForm, onValues: (path, value) => {
+                    if (path.startsWith('postTypeValues.')) {
+                        typeValuesField.setValue({ ...typeValuesField.value, [path.slice('postTypeValues.'.length)]: value });
+                        return;
+                    }
                     const next = structuredClone(current.values);
                     const segments = path.replace(/^templateValues\./, '').split('.');
                     let cursor = next;
@@ -451,7 +473,7 @@ export const ContentWorkspace = (props) => {
                                             }
                                         }, children: String(value.errorMessage) }, path))) })), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
                                         maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
-                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [getBlockDefinition(active.kind)?.icon, ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
+                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
                                                 ? bindField(active)
                                                 : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
                                                 .filter((node) => node.kind === 'postListing')
@@ -513,10 +535,10 @@ function BoundValue({ node, document, lexicalSchemaPath, disabled, onValues, }) 
     const binding = node.binding;
     const field = useField({
         path: binding.path,
-        disableFormData: binding.path.startsWith('templateValues.'),
+        disableFormData: binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.'),
     });
     const value = readPath(document, binding.path);
-    const update = (value) => binding.path.startsWith('templateValues.')
+    const update = (value) => binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.')
         ? onValues(binding.path, value)
         : field.setValue(value);
     if (binding.kind === 'image' || binding.kind === 'images')

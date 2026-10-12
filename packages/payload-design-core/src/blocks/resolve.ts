@@ -14,6 +14,7 @@ export type BlockResolveContext = {
   document: Record<string, unknown>
   now?: number
   preview?: boolean
+  view?: (id: string) => Promise<unknown>
   list?: (props: Record<string, unknown>, page: number) => Promise<ListingResult>
 }
 export async function resolveBlocks(
@@ -40,6 +41,10 @@ export async function resolveBlocks(
         node.props = { ...node.props, [key]: readPublicDocumentField(context.document, field) }
       }
       if (node.children) node.children = await resolve(node.children)
+      if(node.kind==='savedView'&&context.view&&node.props?.viewID) {
+        try {node.props={...node.props,resolvedView:await context.view(String(node.props.viewID))}}
+        catch {node.props={...node.props,resolvedView:undefined}}
+      }
       if (node.kind === 'postListing' && context.list)
         node.props = { ...node.props, ...(await context.list(node.props ?? {}, 1)) }
       result.push(node)

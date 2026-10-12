@@ -1,7 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 /* eslint-disable react-hooks/refs -- dnd-kit supplies callback refs; opener is only read in event handlers. */
-import { getBlockDefinition } from '../blocks/registry.js';
+import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import { useEffect, useRef, useState } from 'react';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { flattenSidebar, insertionTarget, locateSidebar, outlineSummary, } from './sidebar-model.js';
@@ -81,26 +81,6 @@ export function SidebarControls({ state, canInsert = true, }) {
                     state.setOpen(!(state.open && state.mode !== 'blocks'));
                 }, children: _jsx("span", { "aria-hidden": "true", children: "\u2637" }) })] }));
 }
-function icon(kind) {
-    const registered = getBlockDefinition(kind);
-    if (registered)
-        return registered.icon;
-    if (/heading|shortText/i.test(kind))
-        return 'H';
-    if (/image|gallery|logo|images/i.test(kind))
-        return '▧';
-    if (/column|row|group|container|stack/i.test(kind))
-        return '▤';
-    if (/list/i.test(kind))
-        return '☷';
-    if (/quote/i.test(kind))
-        return '❞';
-    if (/button|link|navigation/i.test(kind))
-        return '↗';
-    if (/text|paragraph/i.test(kind))
-        return '¶';
-    return '◇';
-}
 export function BuilderSidebar({ state, adapter, }) {
     const [query, setQuery] = useState('');
     const panel = useRef(null);
@@ -139,7 +119,7 @@ function Tile({ item, onClick }) {
         id: `sidebar-library:${item.kind}:${item.value}`,
         data: { library: item },
     });
-    return (_jsxs("button", { type: "button", ref: drag.setNodeRef, ...drag.attributes, ...drag.listeners, className: "builder-sidebar__tile", onClick: onClick, "aria-label": item.label, children: [_jsx("span", { "aria-hidden": "true", children: icon(item.value || item.kind) }), _jsx("span", { children: item.label })] }));
+    return (_jsxs("button", { type: "button", ref: drag.setNodeRef, ...drag.attributes, ...drag.listeners, className: "builder-sidebar__tile", onClick: onClick, "aria-label": item.label, children: [_jsx("span", { "aria-hidden": "true", children: _jsx(BlockGlyph, { kind: item.value || item.kind }) }), _jsx("span", { children: item.label })] }));
 }
 function TreeDrop({ target, label }) {
     const drop = useDroppable({
@@ -176,5 +156,5 @@ function Row({ node, adapter, choose, state, }) {
                         }, ...(editable ? drag.attributes : {}), ...(editable ? drag.listeners : {}), "aria-current": selected === node.id ? 'true' : undefined, onClick: () => {
                             if (!drag.isDragging)
                                 choose(node);
-                        }, title: node.label, children: [_jsx("span", { "aria-hidden": "true", children: icon(node.kind) }), _jsx("span", { children: node.label }), locked && _jsx("span", { "aria-label": "Locked", children: "\u25A3" })] }), editable && _jsx(BlockActionMenu, { node: node, adapter: adapter, state: state })] }), hasChildren && !collapsed && (_jsx("ul", { children: node.children.map((child) => (_jsx(Row, { node: child, adapter: adapter, choose: choose, state: state }, child.id))) })), node.container && canEdit && !locked && !node.ownerID && (_jsx(TreeDrop, { target: { parent: node.id }, label: `Insert into ${node.label}` }))] }));
+                        }, title: node.label, children: [_jsx("span", { "aria-hidden": "true", children: _jsx(BlockGlyph, { kind: node.kind }) }), _jsx("span", { children: node.label }), locked && _jsx("span", { "aria-label": "Locked", children: "\u25A3" })] }), editable && _jsx(BlockActionMenu, { node: node, adapter: adapter, state: state })] }), hasChildren && !collapsed && (_jsx("ul", { children: node.children.map((child) => (_jsx(Row, { node: child, adapter: adapter, choose: choose, state: state }, child.id))) })), node.container && canEdit && !locked && !node.ownerID && (_jsx(TreeDrop, { target: { parent: node.id }, label: `Insert into ${node.label}` }))] }));
 }

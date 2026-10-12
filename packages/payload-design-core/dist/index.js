@@ -17,3 +17,5 @@ export * from './blocks/registry.js';
 export * from './blocks/presentation.js';
 export * from './blocks/resolve.js';
 export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree.js';
+export * from './views/model.js';
+export * from './views/schedule.js';

@@ -1,4 +1,5 @@
 import type { Field, Plugin, GroupField } from 'payload'
+import { publishedType, refID } from '../content-framework/collections'
 import { getFieldPaths } from 'payload/shared'
 import { validateContentLayout, configureEditorHeader } from '@design-system/payload-design-core'
 
@@ -89,12 +90,19 @@ export const contentWorkspace =
         path: '@design-system/payload-design-core/admin#ContentWorkspace',
         clientProps: { groups, lexicalSchemaPath },
       }
+      const typeValues = fields.find(field => 'name' in field && field.name === 'postTypeValues')
+      if (typeValues) typeValues.admin = { ...typeValues.admin, components: { Field: { path: './content-framework/TypeValues#TypeValues', clientProps: { lexicalSchemaPath } } } }
       collection.hooks = {
         ...collection.hooks,
         beforeChange: [
-          ({ data, originalDoc }) => {
+          async ({ data, originalDoc, req }) => {
+            const type =
+              collection.slug === 'posts'
+                ? await publishedType(req.payload, data.postType ?? originalDoc?.postType, req)
+                : undefined
             const template =
-              'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate
+              ('designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate) ||
+              refID(type?.defaultTemplate)
             for (const key of ['designOverrides', 'responsiveDesigns']) {
               if (
                 key in data &&

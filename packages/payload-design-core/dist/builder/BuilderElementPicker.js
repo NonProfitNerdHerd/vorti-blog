@@ -1,5 +1,6 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import { useState } from 'react';
 export function BuilderElementPicker({ categories, categoryLabels, close, elements, onChoose, }) {
     const [query, setQuery] = useState('');
@@ -16,5 +17,5 @@ export function BuilderElementPicker({ categories, categoryLabels, close, elemen
                             : _jsx("div", { className: "template-editor__picker-grid", children: matches.map((item) => _jsx(PickerOption, { item: item, choose: onChoose }, `${item.kind}:${item.value}`)) }), !matches.length && _jsxs("div", { className: "template-editor__picker-empty", children: [_jsx("strong", { children: "No matching blocks" }), _jsx("span", { children: "Try another search or category." })] })] })] }) }));
 }
 function PickerOption({ choose, item }) {
-    return _jsxs("button", { type: "button", className: "template-editor__picker-card", onClick: () => choose(item), children: [_jsx("span", { className: "template-editor__picker-card-icon", "aria-hidden": "true", children: item.kind === 'layout' ? '▦' : item.kind === 'block' ? '◆' : '¶' }), _jsxs("span", { children: [_jsx("strong", { children: item.label }), _jsx("small", { children: item.description })] })] });
+    return _jsxs("button", { type: "button", className: "template-editor__picker-card", onClick: () => choose(item), children: [_jsx("span", { className: "template-editor__picker-card-icon", "aria-hidden": "true", children: _jsx(BlockGlyph, { kind: item.value || item.kind }) }), _jsxs("span", { children: [_jsx("strong", { children: item.label }), _jsx("small", { children: item.description })] })] });
 }

@@ -37,6 +37,7 @@ export type TemplateElementStyle = {
 export type TemplateDocumentField = 'title' | 'excerpt' | 'publishedAt' | 'author' | 'slug' | 'featuredImage'
 export type TemplateCustomField = { id: string; label: string; fieldType: TemplateFieldKind; required?: boolean; helpText?: string; placeholder?: string; options?: string[]; relationTo?: string }
 export type TemplateContentBinding =
+  | { source: 'postType'; fieldId: string }
   | { source: 'custom' }
   | { source: 'static'; value: string }
   | { source: 'document'; field: TemplateDocumentField; preview?: string }

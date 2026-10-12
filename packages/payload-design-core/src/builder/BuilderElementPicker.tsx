@@ -1,5 +1,6 @@
 'use client'
 
+import { BlockGlyph } from '../blocks/BlockGlyph'
 import { useState } from 'react'
 import type { BuilderDragItem } from './BuilderCore'
 
@@ -54,5 +55,5 @@ export function BuilderElementPicker({
 }
 
 function PickerOption({ choose, item }: { choose: (item: BuilderDragItem) => void; item: BuilderPickerElement }) {
-  return <button type="button" className="template-editor__picker-card" onClick={() => choose(item)}><span className="template-editor__picker-card-icon" aria-hidden="true">{item.kind === 'layout' ? '▦' : item.kind === 'block' ? '◆' : '¶'}</span><span><strong>{item.label}</strong><small>{item.description}</small></span></button>
+  return <button type="button" className="template-editor__picker-card" onClick={() => choose(item)}><span className="template-editor__picker-card-icon" aria-hidden="true">{<BlockGlyph kind={item.value || item.kind}/>}</span><span><strong>{item.label}</strong><small>{item.description}</small></span></button>
 }

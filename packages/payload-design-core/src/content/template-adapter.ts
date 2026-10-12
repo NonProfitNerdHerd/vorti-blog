@@ -20,12 +20,12 @@ export function templateContentNodes(
   function fieldNode(field: TemplateField, path?: string): ContentNode {
     const bindingPath =
       path ??
-      (field.content?.source === 'document'
+      (field.content?.source === 'postType' ? `postTypeValues.${field.content.fieldId}` : field.content?.source === 'document'
         ? field.content.field
         : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`)
     const value =
       field.content?.source === 'static' ? field.content.value : readPath(document, bindingPath)
-    const kind =
+    const kind = field.fieldType==='relationship'&&field.relationTo==='saved-views'?'savedView':
       (
         {
           shortText: 'heading',
@@ -40,6 +40,7 @@ export function templateContentNodes(
     return {
       id: field.id,
       kind,
+      ...(kind==='savedView'?{props:{viewID:typeof value==='object'&&value?'id' in value?value.id:undefined:value}}:{}),
       label: field.label,
       text:
         typeof value === 'string' || typeof value === 'number'

@@ -9,6 +9,7 @@ import { getBlockDefinition } from '../blocks/registry'
 import { effectiveStyles, compositeKinds } from '../blocks/variations'
 import { Composition } from '../blocks/Composition'
 import { Separator } from '../blocks/Separator'
+import {savedViewConverters} from '../views/RichView'
 import {
   compileBlockCSS,
   conditionVisible,
@@ -68,7 +69,7 @@ export function ContentBlock({
   if (styles.borderWidth) styles.borderStyle = 'solid'
   let headingIndex = 0
   const converters: JSXConvertersFunction = ({ defaultConverters }) => ({
-    ...defaultConverters,
+    ...savedViewConverters({defaultConverters}),
     heading: ({ node: heading, nodesToJSX }) =>
       React.createElement(
         /^h[1-6]$/.test(heading.tag) ? heading.tag : 'h2',

@@ -436,10 +436,7 @@ for (const collection of ['posts', 'pages'])
     await page.locator('input[name=title]').fill(`Editor ${suffix}`)
     await workspace.locator('input[name=slug]').fill(suffix)
     if (collection === 'posts') {
-      await workspace
-        .locator('.content-workspace__right input[role=combobox]')
-        .nth(2)
-        .fill('dev@payloadcms.com')
+      await workspace.locator('#field-author input[role=combobox]').fill('dev@payloadcms.com')
       await page.getByRole('option', { name: 'dev@payloadcms.com', exact: true }).click()
     }
     await page.getByRole('button', { name: 'Save Draft', exact: true }).click()

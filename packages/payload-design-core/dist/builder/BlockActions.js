@@ -1,9 +1,9 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { flattenSidebar, locateSidebar } from './sidebar-model.js';
-import { getBlockDefinition } from '../blocks/registry.js';
 import { InspectorIcon } from './InspectorControls.js';
 import './block-actions.css';
 export function BlockActionMenu({ node, adapter, state, }) {
@@ -150,7 +150,7 @@ export function SelectedBlockToolbar({ adapter, state, scope, }) {
             left: position.left,
             top: position.top,
             visibility: position.visible ? 'visible' : 'hidden',
-        }, children: [_jsx("span", { title: node.label, "aria-label": node.label, children: getBlockDefinition(node.kind)?.icon ?? '◇' }), _jsx("button", { type: "button", title: "Move up", "aria-label": `Move ${node.label} up`, disabled: location.index === 0, onClick: () => adapter.onMove(node.id, {
+        }, children: [_jsx("span", { title: node.label, "aria-label": node.label, children: _jsx(BlockGlyph, { kind: node.kind }) }), _jsx("button", { type: "button", title: "Move up", "aria-label": `Move ${node.label} up`, disabled: location.index === 0, onClick: () => adapter.onMove(node.id, {
                     parent: location.parent,
                     before: location.siblings[location.index - 1]?.id,
                 }), children: _jsx(InspectorIcon, { name: "up" }) }), _jsx("button", { type: "button", title: "Move down", "aria-label": `Move ${node.label} down`, disabled: location.index === location.siblings.length - 1, onClick: () => adapter.onMove(node.id, {

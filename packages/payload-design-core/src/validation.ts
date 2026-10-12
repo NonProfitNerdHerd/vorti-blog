@@ -88,7 +88,7 @@ export async function validateTemplatedContent(store: DesignStore, content: Temp
   }
   const values = (content.templateValues ?? {}) as unknown as Record<string, unknown>
   for (const field of templateFields(layout)) {
-    if (field.content?.source === 'static' || field.content?.source === 'document') continue
+    if (field.content?.source === 'static' || field.content?.source === 'document' || field.content?.source === 'postType') continue
     const value = values[field.content?.source === 'customField' ? field.content.fieldId : field.id]
     const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0) || (field.fieldType === 'richText' && !hasLexicalContent(value))
     if (field.required && missing) issues.push({ path: `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`, message: `${field.label} is required` })

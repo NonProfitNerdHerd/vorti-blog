@@ -77,6 +77,9 @@ export interface Config {
     'review-tasks': ReviewTask;
     'review-comments': ReviewComment;
     'review-activity': ReviewActivity;
+    'post-types': PostType;
+    'saved-views': SavedView;
+    'event-series': EventSery;
     'design-block-types': DesignBlockType;
     'design-block-designs': DesignBlockDesign;
     'design-templates': DesignTemplate;
@@ -108,6 +111,9 @@ export interface Config {
     'review-tasks': ReviewTasksSelect<false> | ReviewTasksSelect<true>;
     'review-comments': ReviewCommentsSelect<false> | ReviewCommentsSelect<true>;
     'review-activity': ReviewActivitySelect<false> | ReviewActivitySelect<true>;
+    'post-types': PostTypesSelect<false> | PostTypesSelect<true>;
+    'saved-views': SavedViewsSelect<false> | SavedViewsSelect<true>;
+    'event-series': EventSeriesSelect<false> | EventSeriesSelect<true>;
     'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
     'design-block-designs': DesignBlockDesignsSelect<false> | DesignBlockDesignsSelect<true>;
     'design-templates': DesignTemplatesSelect<false> | DesignTemplatesSelect<true>;
@@ -176,6 +182,19 @@ export interface UserAuthOperations {
  */
 export interface Post {
   id: number;
+  /**
+   * Content fields and available Templates come from this Post Type.
+   */
+  postType?: (number | null) | PostType;
+  postTypeValues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   title: string;
   /**
    * Generated from title when left empty. You can edit it.
@@ -249,6 +268,35 @@ export interface Post {
     | number
     | boolean
     | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "post-types".
+ */
+export interface PostType {
+  id: number;
+  key: string;
+  singular: string;
+  plural: string;
+  prefix: string;
+  icon?: string | null;
+  capability: 'content' | 'event';
+  schemaVersion?: number | null;
+  fieldDefinitions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  templates?: (number | DesignTemplate)[] | null;
+  defaultTemplate?: (number | null) | DesignTemplate;
+  archived?: boolean | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -746,6 +794,48 @@ export interface ReviewActivity {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "saved-views".
+ */
+export interface SavedView {
+  id: number;
+  name: string;
+  configuration:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-series".
+ */
+export interface EventSery {
+  id: number;
+  post: number | Post;
+  start: string;
+  end: string;
+  recurring?: boolean | null;
+  schedule:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1208,6 +1298,18 @@ export interface PayloadLockedDocument {
         value: number | ReviewActivity;
       } | null)
     | ({
+        relationTo: 'post-types';
+        value: number | PostType;
+      } | null)
+    | ({
+        relationTo: 'saved-views';
+        value: number | SavedView;
+      } | null)
+    | ({
+        relationTo: 'event-series';
+        value: number | EventSery;
+      } | null)
+    | ({
         relationTo: 'design-block-types';
         value: number | DesignBlockType;
       } | null)
@@ -1282,6 +1384,8 @@ export interface PayloadMigration {
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
+  postType?: T;
+  postTypeValues?: T;
   title?: T;
   slug?: T;
   responsiveDesigns?: T;
@@ -1500,6 +1604,50 @@ export interface ReviewActivitySelect<T extends boolean = true> {
   documentDeleted?: T;
   actor?: T;
   message?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "post-types_select".
+ */
+export interface PostTypesSelect<T extends boolean = true> {
+  key?: T;
+  singular?: T;
+  plural?: T;
+  prefix?: T;
+  icon?: T;
+  capability?: T;
+  schemaVersion?: T;
+  fieldDefinitions?: T;
+  templates?: T;
+  defaultTemplate?: T;
+  archived?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "saved-views_select".
+ */
+export interface SavedViewsSelect<T extends boolean = true> {
+  name?: T;
+  configuration?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-series_select".
+ */
+export interface EventSeriesSelect<T extends boolean = true> {
+  post?: T;
+  start?: T;
+  end?: T;
+  recurring?: T;
+  schedule?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2114,6 +2262,9 @@ export interface TaskCreateCollectionExport {
       | 'review-tasks'
       | 'review-comments'
       | 'review-activity'
+      | 'post-types'
+      | 'saved-views'
+      | 'event-series'
       | 'design-block-types'
       | 'design-block-designs'
       | 'design-templates'

@@ -157,6 +157,7 @@ describe('API', () => {
   })
 
   it('looks up only published Pages and Posts for the public frontend', async () => {
+    const suffix = Date.now()
     const content = {
       root: {
         type: 'root', format: '' as const, indent: 0, version: 1,
@@ -166,13 +167,13 @@ describe('API', () => {
       },
     }
     const author = await payload.create({ collection: 'users', data: {
-      email: 'frontend-validation@example.invalid', password: 'local-validation-password',
+      email: `frontend-validation-${suffix}@example.invalid`, password: 'local-validation-password',
     } })
     const page = await payload.create({ collection: 'pages', draft: true, data: {
-      title: 'Frontend Validation Page', slug: 'frontend-validation-page', content,
+      title: 'Frontend Validation Page', slug: `frontend-validation-page-${suffix}`, content,
     } })
     const post = await payload.create({ collection: 'posts', draft: true, data: {
-      title: 'Frontend Validation Post', slug: 'frontend-validation-post', content, author: author.id,
+      title: 'Frontend Validation Post', slug: `frontend-validation-post-${suffix}`, content, author: author.id,
     } })
     try {
       expect(await getPublishedPage(page.slug)).toBeNull()

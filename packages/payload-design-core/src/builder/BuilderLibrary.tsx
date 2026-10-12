@@ -1,5 +1,6 @@
 'use client'
 
+import { BlockGlyph } from '../blocks/BlockGlyph'
 import type { BuilderDragItem } from './BuilderCore'
 
 let pendingPointerItem: BuilderDragItem | null = null
@@ -27,7 +28,7 @@ export function BuilderLibraryButton({ item, onAdd }: { item: BuilderDragItem; o
           event.dataTransfer.setData('text/plain', serialized)
         }}
       >
-        {item.kind === 'layout' ? '▦' : item.kind === 'block' ? '◆' : '¶'}
+        {<BlockGlyph kind={item.value || item.kind}/>}
       </button>
       <button type="button" className="template-editor__library-action" onClick={onAdd}>
         {item.label}

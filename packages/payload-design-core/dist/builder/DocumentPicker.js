@@ -16,10 +16,10 @@ export function DocumentPicker({ collection, label, value, change, }) {
                 const params = new URLSearchParams({
                     limit: '50',
                     depth: '0',
-                    sort: collection === 'categories' ? 'name' : 'title',
+                    sort: ['categories', 'saved-views'].includes(collection) ? 'name' : 'title',
                 });
                 if (search)
-                    params.set(`where[${collection === 'categories' ? 'name' : 'title'}][like]`, search);
+                    params.set(`where[${['categories', 'saved-views'].includes(collection) ? 'name' : 'title'}][like]`, search);
                 const response = await fetch(`${config.serverURL ?? ''}${config.routes.api}/${collection}?${params}`, { signal: controller.signal, credentials: 'same-origin' });
                 if (!response.ok)
                     throw new Error('Unable to load choices.');

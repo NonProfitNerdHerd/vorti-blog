@@ -1,6 +1,7 @@
 'use client'
 /* eslint-disable react-hooks/refs -- dnd-kit supplies callback refs; opener is only read in event handlers. */
-import { getBlockDefinition } from '../blocks/registry'
+import { BlockGlyph } from '../blocks/BlockGlyph'
+
 import { useEffect, useRef, useState } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import type { BuilderDragItem } from './BuilderCore'
@@ -117,18 +118,6 @@ export function SidebarControls({
       </button>
     </span>
   )
-}
-function icon(kind: string) {
-  const registered = getBlockDefinition(kind)
-  if (registered) return registered.icon
-  if (/heading|shortText/i.test(kind)) return 'H'
-  if (/image|gallery|logo|images/i.test(kind)) return '▧'
-  if (/column|row|group|container|stack/i.test(kind)) return '▤'
-  if (/list/i.test(kind)) return '☷'
-  if (/quote/i.test(kind)) return '❞'
-  if (/button|link|navigation/i.test(kind)) return '↗'
-  if (/text|paragraph/i.test(kind)) return '¶'
-  return '◇'
 }
 export type SidebarAdapter = {
   nodes: SidebarNode[]
@@ -291,7 +280,7 @@ function Tile({ item, onClick }: { item: SidebarItem; onClick: () => void }) {
       onClick={onClick}
       aria-label={item.label}
     >
-      <span aria-hidden="true">{icon(item.value || item.kind)}</span>
+      <span aria-hidden="true">{<BlockGlyph kind={item.value || item.kind}/>}</span>
       <span>{item.label}</span>
     </button>
   )
@@ -378,7 +367,7 @@ function Row({
           }}
           title={node.label}
         >
-          <span aria-hidden="true">{icon(node.kind)}</span>
+          <span aria-hidden="true">{<BlockGlyph kind={node.kind}/>}</span>
           <span>{node.label}</span>
           {locked && <span aria-label="Locked">▣</span>}
         </button>

@@ -1,5 +1,6 @@
 import type { Payload, PayloadRequest, Where } from 'payload'
 import { mediaURL } from './media'
+import {documentURL} from '@design-system/payload-design-core/content'
 /** Only publicly accessible document data crosses the block rendering boundary. */
 export async function queryBlockListing(
   payload: Payload,
@@ -42,7 +43,7 @@ export async function queryBlockListing(
       const item = doc as unknown as Record<string, unknown>
       return {
         title: String(item.title ?? ''),
-        url: collection === 'posts' ? `/posts/${item.slug}` : `/${item.slug}`,
+        url: collection === 'posts' ? documentURL(item) : `/${item.slug}`,
         excerpt: String(item.excerpt ?? ''),
         publishedAt: String(item.publishedAt ?? ''),
         image:

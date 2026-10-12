@@ -5,6 +5,8 @@ import { getBlockDefinition } from './registry'
 import { BlockIcon } from './Icons'
 import { Separator } from './Separator'
 import { blockItems } from './items'
+import { DynamicView } from '../views/DynamicView'
+import type { ViewResult } from '../views/model'
 const Listing = lazy(() => import('./Listing'))
 const ListingNavigation = lazy(() =>
   import('./Listing').then((module) => ({ default: module.ListingNavigation })),
@@ -36,6 +38,7 @@ export function CatalogRenderer({
   const props = node.props ?? {},
     text = (key: string, fallback = '') => String(props[key] ?? fallback)
   const definition = getBlockDefinition(node.kind)
+  if(node.kind==='savedView') return <DynamicView viewID={text('viewID')} initial={props.resolvedView as ViewResult|undefined} editing={editing}/>
   if (definition?.render) return <>{definition.render(node, children)}</>
   if (
     [

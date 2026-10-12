@@ -1,0 +1,101 @@
+.cf-editor {
+  max-width: 1100px;
+  color: var(--theme-text);
+}
+.cf-editor fieldset {
+  border: 1px solid var(--theme-elevation-200);
+  padding: 16px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.cf-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.cf-editor input,
+.cf-editor select,
+.cf-editor textarea {
+  padding: 8px;
+  background: var(--theme-input-bg, var(--theme-elevation-0));
+  color: inherit;
+  border: 1px solid var(--theme-elevation-300);
+  border-radius: 3px;
+  max-width: 100%;
+  min-width: 0;
+}
+.cf-editor input[type='checkbox'] {
+  align-self: flex-start;
+}
+.cf-editor textarea {
+  min-height: 100px;
+}
+.cf-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cf-row > label {
+  flex: 1;
+  min-width: 110px;
+}
+.cf-editor button {
+  padding: 8px 12px;
+  border: 1px solid var(--theme-elevation-300);
+  background: var(--theme-elevation-50);
+  color: inherit;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.cf-editor button:focus-visible,
+.cf-editor input:focus-visible,
+.cf-editor select:focus-visible {
+  outline: 2px solid #4565ed;
+  outline-offset: 2px;
+}
+.cf-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+.cf-choices button[aria-pressed='true'] {
+  outline: 2px solid #4565ed;
+}
+.cf-choices svg {
+  display: block;
+  margin: auto;
+  width: 64px;
+  height: 38px;
+}
+.cf-picker-results {
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--theme-elevation-200);
+  padding: 8px;
+}
+.cf-picker-results label {
+  flex-direction: row;
+}
+.cf-preview {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--theme-elevation-200);
+}
+.cf-icon-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 170px;
+  overflow: auto;
+}
+.cf-icon-picker button {
+  padding: 8px;
+}
+.cf-icon-picker svg {
+  width: 24px;
+  height: 24px;
+}
+.cf-icon-picker button[aria-pressed='true'] {
+  outline: 2px solid var(--theme-success-500, #4565ed);
+}

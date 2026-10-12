@@ -5,6 +5,7 @@ import { createPayloadDesignStore, resolveContentTemplate } from '@design-system
 import type { TemplateNode } from '@design-system/payload-design-core'
 import type { HeroBoardValues } from '@design-system/payload-design-core/hero-board'
 import { mediaURL } from './media'
+import {withPostType} from '../content-framework/presentation'
 import { resolveDocumentBlocks } from './content-layout'
 import type { ContentNode } from '@design-system/payload-design-core'
 
@@ -21,6 +22,7 @@ type TemplatedDocumentExtras = {
 }
 
 export async function resolveContentDesign(source: Post | Page, context: { draft?: boolean; user?: PayloadRequest['user'] } = {}): Promise<PostDesignSection[]> {
+  if('postType' in source) source=await withPostType(await getPayload({config}),source as unknown as Record<string,unknown>) as unknown as Post
   if ((source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
     const payload = await getPayload({ config })
     const nodes = await resolveDocumentBlocks(payload, source as unknown as Record<string, unknown>, context)

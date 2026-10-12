@@ -1,4 +1,6 @@
 'use client'
+import { BlockGlyph } from '../blocks/BlockGlyph'
+import { SaveReusableView } from '../views/SaveReusableView'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { getBlockDefinition } from '../blocks/registry'
 import { IconPicker } from './IconPicker'
@@ -100,6 +102,8 @@ export function UnifiedBlockInspector({
   renderBackgroundMedia,
   renderDocumentPicker,
   listings = [],
+  activeTab,
+  hideHeader = false,
 }: {
   node: ContentNode
   listings?: Array<{ id: string; label: string }>
@@ -119,10 +123,12 @@ export function UnifiedBlockInspector({
   viewport?: Viewport
   disabled?: boolean
   children?: ReactNode
+  activeTab?: InspectorTab
+  hideHeader?: boolean
 }) {
   const [ownTab, setOwnTab] = useState<InspectorTab>('style')
   const sharedTab = useContext(InspectorTabContext)
-  const tab = sharedTab?.tab ?? ownTab,
+  const tab = activeTab ?? sharedTab?.tab ?? ownTab,
     setTab = sharedTab?.setTab ?? setOwnTab
   const device: Viewport = 'desktop'
   const [state, setState] = useState<'normal' | 'hover' | 'focus'>('normal')
@@ -193,14 +199,14 @@ export function UnifiedBlockInspector({
       onFocus={beginInspectorGesture}
       onBlur={endInspectorGesture}
     >
-      <div className="inspector-sticky">
+      {!hideHeader && <div className="inspector-sticky">
         <header>
           <strong
             role="heading"
             aria-level={3}
             aria-label={definition?.label ?? node.label ?? node.kind}
           >
-            {definition?.icon} {definition?.label ?? node.label ?? node.kind}
+            {<BlockGlyph kind={node.kind}/>} {definition?.label ?? node.label ?? node.kind}
           </strong>
           <p>{definition?.description ?? 'Block presentation settings.'}</p>
         </header>
@@ -219,7 +225,7 @@ export function UnifiedBlockInspector({
           ))}
         </div>
         {error && <p role="alert">{error}</p>}
-      </div>
+      </div>}
       {!!definition?.targets?.length && (
         <label className="inspector-target-picker">
           Style target
@@ -246,7 +252,7 @@ export function UnifiedBlockInspector({
           Reset layout styling
         </button>
       )}
-      {tab === 'style' && target === 'block' && (
+      {tab === 'style' && target === 'block' && node.kind !== 'savedView' && (
         <details open>
           <summary>Content</summary>
           {children}
@@ -317,6 +323,8 @@ export function UnifiedBlockInspector({
                           </option>
                         ))}
                       </select>
+                    ) : node.kind === 'savedView' && field.key === 'viewID' && renderDocumentPicker ? (
+                      renderDocumentPicker('saved-views','Saved View',String(node.props?.viewID??''),value=>onChange({props:{viewID:value.split(',').filter(Boolean).pop()||''}}))
                     ) : node.kind === 'postListing' &&
                       ['ids', 'categories'].includes(field.key) &&
                       renderDocumentPicker ? (
@@ -439,6 +447,8 @@ export function UnifiedBlockInspector({
             })}
         </details>
       )}
+      {node.kind === 'postListing' && tab === 'layout' && <SaveReusableView node={node} onChange={onChange} disabled={disabled} />}
+      {node.kind === 'savedView' && <p>Query and internal styling are managed in <a href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`} target="_blank" rel="noreferrer">Saved Views</a>.</p>}
       {Object.entries(sections[tab]).map(([label, keys]) => {
         const capability =
           label === 'Typography'
@@ -470,7 +480,7 @@ export function UnifiedBlockInspector({
                 update={(v) => update('objectPosition', v)}
               />
             )}
-            {keys.map((key) => (
+            {keys.filter(key => node.kind !== 'savedView' || ['width', 'minWidth', 'maxWidth', 'padding', 'margin'].includes(key)).map((key) => (
               <VisualStyleControl
                 key={`${node.id}-${key}`}
                 name={key}
@@ -497,7 +507,7 @@ export function UnifiedBlockInspector({
           </details>
         )
       })}
-      {tab === 'style' && target === 'block' && (
+      {tab === 'style' && target === 'block' && node.kind !== 'savedView' && (
         <BackgroundControls
           key={node.id + viewport}
           background={presentation.background}
@@ -671,7 +681,7 @@ export function UnifiedBlockInspector({
           </button>
         </details>
       )}
-      {tab === 'advanced' && (
+      {tab === 'advanced' && node.kind !== 'savedView' && (
         <>
           <details>
             <summary>General</summary>

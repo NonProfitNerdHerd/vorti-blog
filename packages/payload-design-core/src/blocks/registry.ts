@@ -382,6 +382,7 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     ],
   ],
   ['postListing', 'Blog Post / Listing', '▤', 'Data', false, queryFields],
+  ['savedView', 'Saved View', '▦', 'Data', false, [field('viewID', 'Saved View')]],
   ['pagination', 'Pagination', '↔', 'Data', false, [field('listingID', 'Listing block ID')]],
   [
     'loadMore',
@@ -428,7 +429,7 @@ for (const [type, label, icon, category, container, fields = []] of catalog)
     description: `${label} content with responsive layout and presentation controls.`,
     keywords: [type, label.toLowerCase()],
     contexts: ['content', 'template', 'header', 'footer'],
-    controls: [
+    controls: type === 'savedView' ? ['layout'] : [
       'layout',
       'typography',
       'background',

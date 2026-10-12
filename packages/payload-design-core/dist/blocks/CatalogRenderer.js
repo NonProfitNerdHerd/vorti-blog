@@ -1,10 +1,11 @@
-import { Fragment as _Fragment, jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 import React, { lazy, Suspense } from 'react';
 import { safeURL } from '../content/model.js';
 import { getBlockDefinition } from './registry.js';
 import { BlockIcon } from './Icons.js';
 import { Separator } from './Separator.js';
 import { blockItems } from './items.js';
+import { DynamicView } from '../views/DynamicView.js';
 const Listing = lazy(() => import('./Listing'));
 const ListingNavigation = lazy(() => import('./Listing').then((module) => ({ default: module.ListingNavigation })));
 const InteractiveBlock = lazy(() => import('./InteractiveBlock'));
@@ -23,6 +24,8 @@ export const blockIcons = {
 export function CatalogRenderer({ node, children, editing, viewport, }) {
     const props = node.props ?? {}, text = (key, fallback = '') => String(props[key] ?? fallback);
     const definition = getBlockDefinition(node.kind);
+    if (node.kind === 'savedView')
+        return _jsx(DynamicView, { viewID: text('viewID'), initial: props.resolvedView, editing: editing });
     if (definition?.render)
         return _jsx(_Fragment, { children: definition.render(node, children) });
     if ([

@@ -35,3 +35,6 @@ export {
 export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl'
 export { EditorTitleSlot, EditorHistorySlot, EditorPreviewSlot } from '../builder/EditorHeader'
 export { DocumentReviewPanel } from '../builder/DocumentReviewPanel'
+export { ViewDesignEditor } from '../views/ViewDesignEditor'
+export { BackgroundMediaPicker } from '../builder/BackgroundMediaPicker'
+export { BlockGlyph, registerBlockIcon } from '../blocks/BlockGlyph'

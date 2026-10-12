@@ -1,8 +1,10 @@
+import { TypeValues as TypeValues_929597aba4f53a9dc7a909deb6c59515 } from '../../../content-framework/TypeValues'
 import { ResponsiveDesignControls as ResponsiveDesignControls_60750271a9be6497fbbe2f4207783c1e } from '../../../components/ResponsiveDesignControls'
 import { TemplateContentEditor as TemplateContentEditor_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
+import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { InlineToolbarFeatureClient as InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { UploadFeatureClient as UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
@@ -28,16 +30,19 @@ import { MetaTitleComponent as MetaTitleComponent_a8a977ebc872c5d5ea7ee689724c08
 import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
-import { ContentWorkspace as ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
-import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
-import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
 import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
-import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
+import { TypeIcon as TypeIcon_3221402a39773c4eae838b562cc3f8e5 } from '../../../content-framework/TypeIcon'
+import { FieldsEditor as FieldsEditor_fd102340ae664c8fafb380461e34656b } from '../../../content-framework/FieldsEditor'
+import { ViewBuilder as ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677 } from '../../../content-framework/ViewBuilder'
+import { ViewUsage as ViewUsage_42abdaa6faa79619caba725f5a4909ba } from '../../../content-framework/ViewUsage'
 import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateActionPlaceholder as TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
@@ -62,11 +67,13 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "./content-framework/TypeValues#TypeValues": TypeValues_929597aba4f53a9dc7a909deb6c59515,
   "./components/ResponsiveDesignControls#ResponsiveDesignControls": ResponsiveDesignControls_60750271a9be6497fbbe2f4207783c1e,
   "@design-system/payload-design-core/admin#TemplateContentEditor": TemplateContentEditor_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
+  "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#InlineToolbarFeatureClient": InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#HorizontalRuleFeatureClient": HorizontalRuleFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#UploadFeatureClient": UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
@@ -92,16 +99,19 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#MetaDescriptionComponent": MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#MetaImageComponent": MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
-  "@design-system/payload-design-core/admin#ContentWorkspace": ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
-  "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
-  "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
   "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
-  "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
+  "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
+  "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
+  "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
+  "./content-framework/TypeIcon#TypeIcon": TypeIcon_3221402a39773c4eae838b562cc3f8e5,
+  "./content-framework/FieldsEditor#FieldsEditor": FieldsEditor_fd102340ae664c8fafb380461e34656b,
+  "./content-framework/ViewBuilder#ViewBuilder": ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677,
+  "./content-framework/ViewUsage#ViewUsage": ViewUsage_42abdaa6faa79619caba725f5a4909ba,
   "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateBuilder": TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateActionPlaceholder": TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37,

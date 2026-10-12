@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { sqliteD1Adapter } from '@payloadcms/db-d1-sqlite'
-import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { lexicalEditor, BlocksFeature } from '@payloadcms/richtext-lexical'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import { CloudflareContext, getCloudflareContext } from '@opennextjs/cloudflare'
@@ -30,6 +30,10 @@ import { canManageDesign, isDesignManager } from './access/design'
 import { heroBoardRegistration } from '@design-system/payload-design-core/hero-board/registration'
 import { ReviewTasks, ReviewComments, ReviewActivity } from './review/collections'
 import { documentReview } from './review/plugin'
+import { PostTypes, SavedViews, EventSeries } from './content-framework/collections'
+import { contentTypes } from './content-framework/plugin'
+import { publishedType } from './content-framework/collections'
+import { documentURL } from '@design-system/payload-design-core'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -85,10 +89,10 @@ export default buildConfig({
     },
     livePreview: {
       collections: ['posts', 'pages'],
-      url: ({ collectionConfig, data }) => {
+      url: async ({ collectionConfig, data, req }) => {
         if (!collectionConfig || !['posts', 'pages'].includes(collectionConfig.slug)) return null
         const slug = typeof data.slug === 'string' && data.slug ? data.slug : '__preview__'
-        const path = collectionConfig.slug === 'posts' ? `/posts/${encodeURIComponent(slug)}` : `/${encodeURIComponent(slug)}`
+        const path = collectionConfig.slug === 'posts' ? documentURL({ slug, postType: await publishedType(req.payload, data.postType, req) }) : `/${encodeURIComponent(slug)}`
         const id = typeof data.id === 'number' || typeof data.id === 'string' ? data.id : 'new'
         return `${path}?livePreview=${encodeURIComponent(String(id))}`
       },
@@ -102,9 +106,9 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, PostTypes, SavedViews, EventSeries],
   globals: [Navigation, SiteSettings],
-  editor: lexicalEditor(),
+  editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
@@ -156,6 +160,7 @@ export default buildConfig({
       bucket: cloudflare.env.R2,
       collections: { media: true, exports: true, imports: true },
     }),
+    contentTypes,
     contentWorkspace({ enabled: process.env.CONTENT_WORKSPACE_ENABLED === 'true' }),
     documentReview,
   ],

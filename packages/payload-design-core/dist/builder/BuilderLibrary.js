@@ -1,5 +1,6 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { BlockGlyph } from '../blocks/BlockGlyph.js';
 let pendingPointerItem = null;
 export function takePendingLibraryItem() {
     const item = pendingPointerItem;
@@ -12,5 +13,5 @@ export function BuilderLibraryButton({ item, onAdd }) {
                     event.dataTransfer.effectAllowed = 'copy';
                     event.dataTransfer.setData('application/x-template-library', serialized);
                     event.dataTransfer.setData('text/plain', serialized);
-                }, children: item.kind === 'layout' ? '▦' : item.kind === 'block' ? '◆' : '¶' }), _jsx("button", { type: "button", className: "template-editor__library-action", onClick: onAdd, children: item.label })] }));
+                }, children: _jsx(BlockGlyph, { kind: item.value || item.kind }) }), _jsx("button", { type: "button", className: "template-editor__library-action", onClick: onAdd, children: item.label })] }));
 }

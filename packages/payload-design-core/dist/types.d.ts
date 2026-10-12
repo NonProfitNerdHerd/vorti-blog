@@ -76,6 +76,9 @@ export type TemplateCustomField = {
     relationTo?: string;
 };
 export type TemplateContentBinding = {
+    source: 'postType';
+    fieldId: string;
+} | {
     source: 'custom';
 } | {
     source: 'static';

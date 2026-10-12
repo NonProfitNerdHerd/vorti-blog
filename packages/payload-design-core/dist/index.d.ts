@@ -24,3 +24,5 @@ export * from './blocks/registry';
 export * from './blocks/presentation';
 export * from './blocks/resolve';
 export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode } from './site-shell-tree';
+export * from './views/model';
+export * from './views/schedule';

@@ -68,4 +68,6 @@ export const migrations = [
     name: '20261002_200000_content_workspace',
   },
   { up: migration_20261011_233000_document_review.up, down: migration_20261011_233000_document_review.down, name: '20261011_233000_document_review' },
+  {up:migration_20261012_040000_post_types_views.up,down:migration_20261012_040000_post_types_views.down,name:'20261012_040000_post_types_views'},
 ];
+import * as migration_20261012_040000_post_types_views from './20261012_040000_post_types_views';
