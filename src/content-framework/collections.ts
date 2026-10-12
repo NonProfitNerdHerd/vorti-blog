@@ -190,31 +190,53 @@ export const PostTypes: CollectionConfig = {
       async ({ data, originalDoc, req }) => {
         if (!data) return data
         const combined = { ...originalDoc, ...data }
-        if (!/^[a-z][a-z0-9-]*$/.test(combined.key) || !/^[a-z][a-z0-9-]*$/.test(combined.prefix))
-          throw new Error('Keys and URL prefixes use lowercase letters, numbers, and hyphens')
+        const invalid = (path: string, message: string): never => {
+          throw new ValidationError({ errors: [{ path, message }] })
+        }
+        for (const path of ['key', 'prefix'] as const) {
+          if (typeof combined[path] !== 'string' || !/^[a-z][a-z0-9-]*$/.test(combined[path]))
+            invalid(path, 'Use lowercase letters, numbers, and hyphens, starting with a letter.')
+        }
         if (
           reservedPrefixes.includes(combined.prefix) &&
           !(combined.key === 'post' && combined.prefix === 'posts')
         )
-          throw new Error('This URL prefix is reserved')
+          invalid('prefix', 'This URL prefix is reserved')
         if (
           originalDoc?.id &&
           ((data.key && data.key !== originalDoc.key) ||
             (data.prefix && data.prefix !== originalDoc.prefix))
         )
-          throw new Error('Type key and prefix are stable after creation')
+          invalid(
+            data.key !== undefined && data.key !== originalDoc.key ? 'key' : 'prefix',
+            'Type key and prefix are fixed after the first successful save.',
+          )
         const fields = (combined.fieldDefinitions || []) as TypeField[]
         validateFields(fields)
         const defaults = Object.fromEntries(fields.map((field) => [field.id, field.defaultValue]))
         const media: MediaFacts = {}
         for (const field of fields) {
           if (field.defaultValue && ['media', 'relationship'].includes(field.kind)) {
-            const doc = await req.payload.findByID({
-              collection: (field.kind === 'media' ? 'media' : field.relationTo) as CollectionSlug,
-              id: Number(field.defaultValue),
-              overrideAccess: false,
-              req,
-            })
+            const doc = await req.payload
+              .findByID({
+                collection: (field.kind === 'media' ? 'media' : field.relationTo) as CollectionSlug,
+                id: Number(field.defaultValue),
+                overrideAccess: false,
+                req,
+              })
+              .catch((error: unknown) => {
+                if (
+                  error &&
+                  typeof error === 'object' &&
+                  'status' in error &&
+                  [400, 403, 404].includes(Number(error.status))
+                )
+                  invalid(
+                    'fieldDefinitions',
+                    `${field.label} (${field.id}): choose an accessible existing default item.`,
+                  )
+                throw error
+              })
             if (field.kind === 'media') media[field.id] = doc as MediaFacts[string]
           }
         }
@@ -244,36 +266,54 @@ export const PostTypes: CollectionConfig = {
         const capability = listContentCapabilities().find(
           (item) => item.key === combined.capability,
         )
-        if (!capability) throw new Error('Choose a registered capability')
+        if (!capability) invalid('capability', 'Choose a registered capability')
         for (const kind of capability.requiredKinds || [])
           if (!fields.some((field) => field.kind === kind && field.required && field.public))
-            throw new Error(`${capability.label} requires a public ${kind} field`)
+            invalid(
+              'fieldDefinitions',
+              `${capability.label} requires a public, required ${kind === 'eventSchedule' ? 'Event Schedule' : kind} field. Restore it in Fields.`,
+            )
         if (
           combined.capability === 'event' &&
           !fields.some((f) => f.kind === 'eventSchedule' && f.required && f.public)
         )
-          throw new Error('Event types require a public, required Event Schedule field')
+          invalid(
+            'fieldDefinitions',
+            'Event types require a public, required Event Schedule field. Restore it in Fields.',
+          )
         for (const old of (originalDoc?.fieldDefinitions || []) as TypeField[])
           if (!fields.some((f) => f.id === old.id && f.kind === old.kind))
-            throw new Error(
-              'Existing fields cannot be removed or change kind; add a replacement field',
+            invalid(
+              'fieldDefinitions',
+              `${old.label} (${old.id}): saved fields cannot be removed or change type; add a replacement field.`,
             )
         const templates = (combined.templates || []).map(refID)
         if (combined.defaultTemplate && !templates.includes(refID(combined.defaultTemplate)))
-          throw new Error('Default Template must be in the allowed Templates')
+          invalid('defaultTemplate', 'Include the default Template in Allowed Templates.')
         for (const id of templates) {
-          const template = await req.payload.findByID({
-            collection: 'design-templates',
-            id,
-            depth: 0,
-            overrideAccess: false,
-            req,
-          })
+          const template = await req.payload
+            .findByID({
+              collection: 'design-templates',
+              id,
+              depth: 0,
+              overrideAccess: false,
+              req,
+            })
+            .catch((error: unknown) => {
+              if (
+                error &&
+                typeof error === 'object' &&
+                'status' in error &&
+                [400, 403, 404].includes(Number(error.status))
+              )
+                invalid('templates', 'Choose an accessible published Template allowed for Posts.')
+              throw error
+            })
           if (
             !(template.allowedCollections || []).includes('posts') ||
             template._status !== 'published'
           )
-            throw new Error('Choose published Templates allowed for Posts')
+            invalid('templates', 'Choose published Templates allowed for Posts')
           const visit = (node: unknown): void => {
             if (!node || typeof node !== 'object') return
             if (Array.isArray(node)) {
@@ -282,7 +322,10 @@ export const PostTypes: CollectionConfig = {
             }
             const obj = node as Record<string, unknown>
             if (obj.source === 'postType' && !fields.some((f) => f.id === obj.fieldId && f.public))
-              throw new Error('Template binds a missing or private Post Type field')
+              invalid(
+                'templates',
+                `Template binds a missing or private Post Type field: ${String(obj.fieldId)}. Make the field public or choose another Template.`,
+              )
             Object.values(obj).forEach(visit)
           }
           visit(template.layout)

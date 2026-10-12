@@ -1,6 +1,12 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { RenderFields, useDocumentInfo, useField, useFormFields } from '@payloadcms/ui'
+import { useEffect, useState, useRef } from 'react'
+import {
+  RenderFields,
+  useDocumentInfo,
+  useField,
+  useFormFields,
+  useFormProcessing,
+} from '@payloadcms/ui'
 import type { RowFieldClientComponent } from 'payload'
 import { SetupWizard } from '@design-system/payload-design-core/admin'
 import { validateRuleDefinitions, type TypeField } from '@design-system/payload-design-core/content'
@@ -47,9 +53,16 @@ export const PostTypeWizard: RowFieldClientComponent = ({
 }) => {
   const [step, setStep] = useState(0),
     [iconVisited, setIconVisited] = useState(false)
-  const { id } = useDocumentInfo()
+  const { id, data } = useDocumentInfo()
   const access = usePostTypeAccess(readOnly)
   const formFields = useFormFields(([fields]) => fields)
+  const errorSummary = useRef<HTMLDivElement>(null)
+  const processing = useFormProcessing()
+  const awaitingErrors = useRef(false)
+  const focusErrors = useRef(false)
+  const [retainedErrors, setRetainedErrors] = useState<
+    { step: number; path: string; message: string; value?: string; revision: string }[]
+  >([])
   const values = Object.fromEntries(
     Object.entries(formFields).map(([key, field]) => [key, field.value]),
   )
@@ -143,7 +156,11 @@ export const PostTypeWizard: RowFieldClientComponent = ({
     capability === 'event' &&
     !definitions.some((f) => f.kind === 'eventSchedule' && f.public && f.required)
   )
-    issues.push({ step: 3, message: 'Events require a public, required Event Schedule field.' })
+    issues.push({
+      step: 5,
+      message:
+        'Events require a public, required Event Schedule field. Use Restore Event Schedule in Fields.',
+    })
   issues.push(
     ...validateRuleDefinitions(definitions).map((issue) => ({ step: 5, message: issue.message })),
   )
@@ -182,8 +199,49 @@ export const PostTypeWizard: RowFieldClientComponent = ({
     }
   }
   const unrestricted = !!id || !access.writable
+  const revision = JSON.stringify([id, data?.updatedAt])
+  const incomingErrors = Object.entries(formFields)
+    .filter(([, f]) => f.valid === false && f.errorMessage)
+    .map(([path, f]) => ({
+      path,
+      revision,
+      step: Math.max(
+        0,
+        groups.findIndex((names) => names.includes(path)),
+      ),
+      message: String(f.errorMessage),
+      value: JSON.stringify(f.value),
+    }))
+  const incomingErrorKey = JSON.stringify(incomingErrors)
+  const serverIssues = retainedErrors.filter(
+    (issue) => issue.revision === revision && JSON.stringify(values[issue.path]) === issue.value,
+  )
+  const serverIssueKey = JSON.stringify(serverIssues)
+  useEffect(() => {
+    awaitingErrors.current = false
+  }, [revision])
+  useEffect(() => {
+    if (processing) awaitingErrors.current = true
+    else if (awaitingErrors.current && incomingErrorKey !== '[]') {
+      awaitingErrors.current = false
+      focusErrors.current = true
+      setRetainedErrors(JSON.parse(incomingErrorKey))
+    }
+  }, [incomingErrorKey, processing])
+  useEffect(() => {
+    if (focusErrors.current && serverIssueKey !== '[]') {
+      focusErrors.current = false
+      requestAnimationFrame(() => errorSummary.current?.focus())
+    }
+  }, [serverIssueKey])
   const canVisit = (next: number) =>
-    unrestricted || visited.includes(next) || !issues.some((issue) => issue.step < next)
+    unrestricted ||
+    visited.includes(next) ||
+    serverIssues.some((issue) => issue.step === next) ||
+    (next === 5 &&
+      capability === 'event' &&
+      !definitions.some((f) => f.kind === 'eventSchedule' && f.public && f.required)) ||
+    !issues.some((issue) => issue.step < next)
   const go = (next: number) => {
     if (!canVisit(next)) return
     setStep(next)
@@ -194,10 +252,50 @@ export const PostTypeWizard: RowFieldClientComponent = ({
     <SetupWizard
       steps={steps}
       current={step}
-      canAdvance={!access.writable || !issues.some((issue) => issue.step <= step)}
+      canAdvance={
+        !access.writable ||
+        visited.includes(step + 1) ||
+        !issues.some((issue) => issue.step <= step)
+      }
       canVisit={canVisit}
+      issueSteps={[...new Set([...issues, ...serverIssues].map((issue) => issue.step))]}
       onChange={go}
     >
+      {serverIssues.length > 0 && (
+        <div
+          ref={errorSummary}
+          tabIndex={-1}
+          role="alert"
+          className="pt-error-summary"
+          aria-label="Post Type save errors"
+        >
+          <h3>These settings need attention</h3>
+          {serverIssues.map((issue, index) => (
+            <p key={index}>
+              <button
+                type="button"
+                onClick={() => {
+                  go(issue.step)
+                  requestAnimationFrame(() => {
+                    const match = definitions.find(
+                      (field) =>
+                        issue.message.includes(field.id) || issue.message.includes(field.label),
+                    )
+                    const button = Array.from(
+                      document.querySelectorAll<HTMLButtonElement>('[data-field-id]'),
+                    ).find((el) => el.dataset.fieldId === match?.id)
+                    button?.click()
+                    button?.focus()
+                  })
+                }}
+              >
+                {steps[issue.step]}
+              </button>
+              : {issue.message}
+            </p>
+          ))}
+        </div>
+      )}
       <p className="pt-step-help">{help[step]}</p>
       {groups.map((names, i) => (
         <div key={i} hidden={step !== i}>

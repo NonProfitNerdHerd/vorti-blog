@@ -208,11 +208,11 @@ test('document header owns the inline title and controls across editor contexts'
       const navigation = page.getByRole('button', { name: 'Close', exact: true })
       const navBounds = await navigation.boundingBox()
       if (navBounds && navBounds.x >= 0 && navBounds.x < 390) await navigation.click()
-      await page.screenshot({ path: '.wrangler/header-mobile.png' })
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
         .toBe(true)
-      expect((await controls.boundingBox())!.height).toBeLessThan(230)
+      await expect.poll(async () => (await controls.boundingBox())!.height).toBeLessThan(230)
+      await page.screenshot({ path: '.wrangler/header-mobile.png' })
       await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
       await page.screenshot({ path: '.wrangler/header-mobile-dark.png' })
       await page.setViewportSize({ width: 1800, height: 1100 })

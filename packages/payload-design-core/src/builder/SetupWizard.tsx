@@ -7,6 +7,7 @@ export function SetupWizard({
   children,
   canAdvance = true,
   canVisit = () => true,
+  issueSteps = [],
 }: {
   steps: string[]
   current: number
@@ -14,6 +15,7 @@ export function SetupWizard({
   children: ReactNode
   canAdvance?: boolean
   canVisit?: (step: number) => boolean
+  issueSteps?: number[]
 }) {
   const id = useId(),
     heading = useRef<HTMLHeadingElement>(null)
@@ -30,11 +32,14 @@ export function SetupWizard({
             <li key={step}>
               <button
                 type="button"
+                aria-label={`${index + 1}. ${step}`}
                 aria-current={current === index ? 'step' : undefined}
                 disabled={!canVisit(index)}
+                title={issueSteps.includes(index) ? 'This step needs attention' : undefined}
                 onClick={() => go(index)}
               >
                 {index + 1}. {step}
+                {issueSteps.includes(index) && <span aria-label="Needs attention"> · !</span>}
               </button>
             </li>
           ))}

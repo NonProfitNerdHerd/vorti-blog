@@ -1,6 +1,7 @@
 'use client'
-import { useState, type ReactNode } from 'react'
-import type { TypeField, FieldRule } from '../views/model'
+import { useState, useRef, useEffect, useId, type ReactNode } from 'react'
+import { Trash2 } from 'lucide-react'
+import type { TypeField, FieldRule, TypeFieldKind } from '../views/model'
 import { availableRules, ruleLabels, validateRuleDefinitions } from '../views/field-rules'
 export const typeFieldDescriptions: Record<TypeField['kind'], string> = {
   text: 'A short answer, name, or email address.',
@@ -33,11 +34,13 @@ function RuleEditor({
   field,
   fields,
   change,
+  remove,
 }: {
   rule: FieldRule
   field: TypeField
   fields: TypeField[]
   change: (patch: Partial<FieldRule>) => void
+  remove: (trigger: HTMLButtonElement) => void
 }) {
   const related = fields.find((f) => f.id === rule.field)
   const scalar = ['text', 'textarea', 'select', 'number', 'boolean', 'date', 'url']
@@ -51,6 +54,15 @@ function RuleEditor({
   return (
     <div className="pt-rule">
       <strong>{ruleLabels[rule.kind]}</strong>
+      <button
+        type="button"
+        className="pt-rule-delete"
+        aria-label={`Delete ${ruleLabels[rule.kind]} rule`}
+        title={`Delete ${ruleLabels[rule.kind]} rule`}
+        onClick={(e) => remove(e.currentTarget)}
+      >
+        <Trash2 size={18} aria-hidden="true" />
+      </button>
       {['compare', 'requiredWhen'].includes(rule.kind) && (
         <>
           <label>
@@ -189,6 +201,8 @@ export function TypeFieldBuilder({
   disabled,
   preview,
   renderDefault,
+  requiredKinds = [],
+  serverError,
 }: {
   fields: TypeField[]
   onChange: (fields: TypeField[]) => void
@@ -196,10 +210,41 @@ export function TypeFieldBuilder({
   disabled?: boolean
   preview: ReactNode
   renderDefault?: (field: TypeField, change: (value: unknown) => void) => ReactNode
+  requiredKinds?: TypeFieldKind[]
+  serverError?: string
 }) {
   const [selected, setSelected] = useState(0),
     [showPreview, setShowPreview] = useState(false)
   const field = fields[selected]
+  const settings = useRef<HTMLFieldSetElement>(null)
+  const errors = useRef<HTMLDivElement>(null)
+  const dialog = useRef<HTMLDialogElement>(null)
+  const dialogTitleID = useId()
+  const [deleting, setDeleting] = useState<{
+    index: number
+    fieldID: string
+    trigger: HTMLButtonElement
+  } | null>(null)
+  const [applied, setApplied] = useState<Record<string, string>>({})
+  const protectedField =
+    !!field &&
+    requiredKinds.includes(field.kind) &&
+    !fields.some((f, i) => i !== selected && f.kind === field.kind && f.public && f.required)
+  useEffect(() => {
+    if (deleting) dialog.current?.showModal()
+  }, [deleting])
+  const closeDelete = (removed = false) => {
+    dialog.current?.close()
+    const trigger = deleting?.trigger
+    setDeleting(null)
+    requestAnimationFrame(() => {
+      if (!removed && trigger?.isConnected) trigger.focus()
+      else
+        (
+          settings.current?.querySelector('[data-add-rule]') as unknown as HTMLSelectElement
+        )?.focus()
+    })
+  }
   const locked = !!field && savedFields.some((f) => f.id === field.id)
   const update = (patch: Partial<TypeField>) =>
     onChange(fields.map((f, i) => (i === selected ? { ...f, ...patch } : f)))
@@ -218,6 +263,14 @@ export function TypeFieldBuilder({
     setSelected(fields.length)
   }
   const issues = validateRuleDefinitions(fields)
+  const applyField = () => {
+    if (disabled || !field) return
+    if (issues.some((issue) => issue.field === field.id)) {
+      errors.current?.focus()
+      return
+    }
+    setApplied((old) => ({ ...old, [field.id]: JSON.stringify(field) }))
+  }
   return (
     <section className="pt-field-builder">
       <div className="pt-builder-heading">
@@ -230,6 +283,15 @@ export function TypeFieldBuilder({
           {showPreview ? 'Hide' : 'Show'} author form preview
         </button>
       </div>
+      <p>
+        Configure what authors enter below. Required values belong to content, not this setup or its
+        sample preview. Field edits are included when you use Save Draft or Publish in the header.
+      </p>
+      {serverError && (
+        <div role="alert" className="pt-error" tabIndex={-1}>
+          {serverError}
+        </div>
+      )}
       {showPreview && (
         <section className="pt-preview">
           <h4>Try the author form</h4>
@@ -241,12 +303,19 @@ export function TypeFieldBuilder({
         </section>
       )}
       <div className="pt-field-layout">
-        <div>
+        <div className="pt-field-directory">
+          <h4>Fields in this type</h4>
           <ol className="pt-field-list">
             {fields.map((f, i) => (
               <li key={i}>
-                <button type="button" aria-pressed={selected === i} onClick={() => setSelected(i)}>
+                <button
+                  type="button"
+                  data-field-id={f.id}
+                  aria-pressed={selected === i}
+                  onClick={() => setSelected(i)}
+                >
                   <strong>{f.label}</strong>
+                  {requiredKinds.includes(f.kind) && <small>Required by behavior</small>}
                   <small>
                     {f.kind} · {f.public ? 'Public' : 'Private'}
                     {f.required ? ' · Required' : ''}
@@ -281,13 +350,14 @@ export function TypeFieldBuilder({
           </button>
         </div>
         {field ? (
-          <fieldset disabled={disabled} className="pt-field-settings">
+          <fieldset ref={settings} disabled={disabled} className="pt-field-settings">
             <legend>{field.label}</legend>
+            <h4>Identity</h4>
             <label>
               Label
               <input value={field.label} onChange={(e) => update({ label: e.target.value })} />
             </label>
-            <label>
+            <label className="pt-control-short">
               Field ID
               <input
                 value={field.id}
@@ -310,11 +380,11 @@ export function TypeFieldBuilder({
                 Suggest ID from label
               </button>
             )}
-            <label>
+            <label className="pt-control-short">
               Field type
               <select
                 value={field.kind}
-                disabled={locked}
+                disabled={locked || protectedField}
                 onChange={(e) =>
                   update({
                     kind: e.target.value as TypeField['kind'],
@@ -337,6 +407,13 @@ export function TypeFieldBuilder({
                 them. Add a replacement field if needed.
               </p>
             )}
+            {protectedField && (
+              <p className="pt-protected">
+                This field is required by the selected behavior. Its type, Required, and Public
+                settings must stay enabled, and it cannot be removed.
+              </p>
+            )}
+            <h4>Author instructions</h4>
             <label>
               Help text
               <textarea
@@ -348,6 +425,7 @@ export function TypeFieldBuilder({
               <input
                 type="checkbox"
                 checked={!!field.required}
+                disabled={protectedField && !!field.required}
                 onChange={(e) => update({ required: e.target.checked })}
               />{' '}
               Required for publication
@@ -356,6 +434,7 @@ export function TypeFieldBuilder({
               <input
                 type="checkbox"
                 checked={!!field.public}
+                disabled={protectedField && !!field.public}
                 onChange={(e) => update({ public: e.target.checked })}
               />{' '}
               Public: available to Templates and Saved Views
@@ -382,6 +461,10 @@ export function TypeFieldBuilder({
                 </select>
               </label>
             )}
+            <h4>Defaults</h4>
+            <p>
+              Optional starting values for new content. A required field does not need a default.
+            </p>
             {!['richText', 'eventSchedule', 'media', 'relationship'].includes(field.kind) && (
               <label>
                 Default value (optional)
@@ -447,18 +530,14 @@ export function TypeFieldBuilder({
                       rules: field.rules!.map((r, i) => (i === index ? { ...r, ...patch } : r)),
                     })
                   }
+                  remove={(trigger) => setDeleting({ index, fieldID: field.id, trigger })}
                 />
-                <button
-                  type="button"
-                  onClick={() => update({ rules: field.rules!.filter((_, i) => i !== index) })}
-                >
-                  Remove {ruleLabels[rule.kind]} rule
-                </button>
               </div>
             ))}
             <label>
               Add rule
               <select
+                data-add-rule
                 value=""
                 onChange={(e) =>
                   update({
@@ -474,14 +553,23 @@ export function TypeFieldBuilder({
                 ))}
               </select>
             </label>
-            {issues
-              .filter((i) => i.field === field.id)
-              .map((issue, i) => (
-                <p className="pt-error" key={i}>
-                  {issue.message}
-                </p>
-              ))}
+            <div ref={errors} tabIndex={-1} className="pt-field-errors" aria-label="Field issues">
+              {issues
+                .filter((i) => i.field === field.id)
+                .map((issue, i) => (
+                  <p className="pt-error" key={i}>
+                    {issue.message}
+                  </p>
+                ))}
+            </div>
+            <div role="status">
+              {applied[field.id] === JSON.stringify(field) &&
+                'Applied to setup—save the Post Type to persist.'}
+            </div>
             <div className="pt-wizard-actions">
+              <button type="button" className="pt-apply-field" onClick={applyField}>
+                {locked || applied[field.id] ? 'Update Field' : 'Save Field'}
+              </button>
               <button
                 type="button"
                 disabled={fields.length >= 100}
@@ -501,7 +589,14 @@ export function TypeFieldBuilder({
               </button>
               <button
                 type="button"
-                disabled={locked}
+                disabled={locked || protectedField}
+                title={
+                  locked
+                    ? 'Saved fields cannot be removed because content may reference them.'
+                    : protectedField
+                      ? 'Required by the selected behavior.'
+                      : undefined
+                }
                 onClick={() => {
                   onChange(fields.filter((_, i) => i !== selected))
                   setSelected(Math.max(0, selected - 1))
@@ -515,6 +610,48 @@ export function TypeFieldBuilder({
           <p>Add your first field to describe the information authors should enter.</p>
         )}
       </div>
+      <dialog
+        ref={dialog}
+        className="pt-rule-dialog"
+        aria-labelledby={dialogTitleID}
+        onCancel={(e) => {
+          e.preventDefault()
+          closeDelete()
+        }}
+      >
+        <h3 id={dialogTitleID}>Delete rule?</h3>
+        <p>
+          Delete{' '}
+          {deleting &&
+            ruleLabels[
+              fields.find((f) => f.id === deleting.fieldID)?.rules?.[deleting.index]?.kind ||
+                'email'
+            ]}{' '}
+          from {field?.label}?
+        </p>
+        <div className="pt-wizard-actions">
+          <button type="button" autoFocus onClick={() => closeDelete()}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              if (!disabled && deleting)
+                onChange(
+                  fields.map((f) =>
+                    f.id === deleting.fieldID
+                      ? { ...f, rules: f.rules?.filter((_, i) => i !== deleting.index) }
+                      : f,
+                  ),
+                )
+              closeDelete(true)
+            }}
+          >
+            Delete rule
+          </button>
+        </div>
+      </dialog>
     </section>
   )
 }

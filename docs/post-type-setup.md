@@ -15,6 +15,10 @@ Keys and prefixes become fixed after the first save. Saved field IDs and types c
 
 New types progress through validated steps. Next appears once preceding and current steps are valid, including key/prefix availability checks. Completed steps remain available for corrections; errors prevent unlocking later steps. Existing types and read-only users can inspect all steps directly. Validation never locks typing; only saved identifiers, actual permissions, and another user's document lock restrict editing. An unsuccessful save does not make identifiers permanent. Availability failures offer Retry and retain the entered value.
 
+The Fields step separates the field directory, field settings, and author preview. Save Field / Update Field validates the selected field and confirms it is applied to the working setup; it does not make a server request. All edits already participate in document dirty-state tracking, so the native Save Draft / Publish action always includes the current field edits. Required content values do not need defaults or preview samples. Invalid configured defaults and rule definitions still prevent saving.
+
+Rules have a trash action with a confirmation dialog. Cancel or Escape retains the rule; deletion returns focus to Add rule. The last field satisfying a behavior requirement is protected even before saving. Missing Event Schedule configurations offer Restore Event Schedule, reusing an existing schedule without removing custom fields. Visited steps remain reachable through their links and Next even while another step has errors. Save failures show a summary linking back to the affected step and, where identified, the affected field.
+
 ## Field rules
 
 Rules are typed JSON in `TypeField.rules`; no database columns or migrations are added. `availableRules`, `validateRuleDefinitions`, and `evaluateFieldRules` are exported from the shared framework's root and content entrypoints. Evaluations return `{ field, message }` issues. The application validates definition shape and defaults, resolves accessible relationship/media records, and enforces the same rules before content publication.

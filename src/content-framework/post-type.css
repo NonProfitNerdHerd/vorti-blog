@@ -1,9 +1,9 @@
 .pt-wizard {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
-  gap: 32px;
-  max-width: 1200px;
-  margin: 24px auto;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  max-width: none;
+  margin: 24px;
 }
 .pt-wizard nav ol,
 .pt-field-list {
@@ -97,7 +97,7 @@
 }
 .pt-field-layout {
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr);
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   gap: 20px;
 }
 .pt-field-list li {
@@ -122,6 +122,86 @@
   border: 0;
   padding: 0;
   min-width: 0;
+}
+.pt-field-directory {
+  padding: 16px;
+  background: var(--theme-elevation-50);
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 6px;
+  align-self: start;
+  min-width: 0;
+}
+.pt-field-settings {
+  padding: 20px;
+  background: var(--theme-elevation-0);
+  border: 1px solid var(--theme-elevation-250);
+  border-radius: 6px;
+}
+.pt-field-settings legend {
+  font-size: 1.2rem;
+  font-weight: 600;
+  padding: 0 8px;
+}
+.pt-field-settings h4 {
+  border-bottom: 1px solid var(--theme-elevation-200);
+  padding-bottom: 8px;
+  margin-top: 24px;
+}
+.pt-field-settings > label,
+.pt-field-settings > p {
+  max-width: 72ch;
+}
+.pt-field-settings .pt-control-short {
+  max-width: 32rem;
+}
+.pt-field-settings input[type='number'] {
+  max-width: 14rem;
+}
+.pt-protected,
+.pt-error-summary {
+  padding: 16px;
+  border: 1px solid var(--theme-elevation-300);
+  background: var(--theme-elevation-100);
+  margin: 16px 0;
+}
+.pt-wizard .pt-apply-field {
+  background: var(--theme-text);
+  color: var(--theme-elevation-0);
+}
+.pt-rule {
+  position: relative;
+  padding-top: 20px;
+}
+.pt-rule > strong {
+  display: block;
+  padding-right: 44px;
+}
+.pt-rule .pt-rule-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  padding: 6px;
+}
+.pt-rule-dialog {
+  max-width: min(480px, calc(100vw - 24px));
+  background: var(--theme-elevation-0);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-elevation-300);
+  border-radius: 8px;
+  padding: 24px;
+}
+.pt-rule-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.pt-field-errors:focus-visible,
+.pt-error-summary:focus-visible {
+  outline: 2px solid var(--theme-success-500);
+}
+@media (max-width: 1100px) {
+  .pt-field-layout {
+    grid-template-columns: 1fr;
+  }
 }
 .pt-rule,
 .pt-preview {
@@ -158,6 +238,7 @@
   .pt-wizard {
     grid-template-columns: 1fr;
     gap: 12px;
+    margin: 12px;
   }
   .pt-wizard nav {
     position: static;
