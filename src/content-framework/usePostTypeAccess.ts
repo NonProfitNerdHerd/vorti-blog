@@ -3,13 +3,17 @@ import { useAuth, useDocumentInfo } from '@payloadcms/ui'
 
 /** Presentational rows do not inherit collection write permissions automatically. */
 export function usePostTypeAccess(readOnly?: boolean) {
-  const { permissions } = useAuth()
-  const { id, docPermissions, documentIsLocked } = useDocumentInfo()
+  const { permissions, user } = useAuth()
+  const { id, docPermissions, documentIsLocked, currentEditor } = useDocumentInfo()
+  const editorID = typeof currentEditor === 'object' ? currentEditor?.id : currentEditor
+  // Payload also sets this flag for our own editing session, even before first save.
+  const lockedByAnother =
+    !!id && documentIsLocked && editorID != null && String(editorID) !== String(user?.id)
   const access = docPermissions || permissions?.collections?.['post-types']
   const operation = id ? 'update' : 'create'
   const writable =
     !readOnly &&
-    !documentIsLocked &&
+    !lockedByAnother &&
     !!access &&
     (id ? access.update === true : 'create' in access && access.create === true)
   const fields = access?.fields

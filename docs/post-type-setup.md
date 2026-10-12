@@ -13,6 +13,8 @@ Post Types now use the same eight-step wizard for creation and editing. The nati
 
 Keys and prefixes become fixed after the first save. Saved field IDs and types cannot be changed or removed, because content and Template bindings reference them. Duplicate a field or add a replacement instead. Template selection never changes field values.
 
+New types progress through validated steps. Next appears once preceding and current steps are valid, including key/prefix availability checks. Completed steps remain available for corrections; errors prevent unlocking later steps. Existing types and read-only users can inspect all steps directly. Validation never locks typing; only saved identifiers, actual permissions, and another user's document lock restrict editing. An unsuccessful save does not make identifiers permanent. Availability failures offer Retry and retain the entered value.
+
 ## Field rules
 
 Rules are typed JSON in `TypeField.rules`; no database columns or migrations are added. `availableRules`, `validateRuleDefinitions`, and `evaluateFieldRules` are exported from the shared framework's root and content entrypoints. Evaluations return `{ field, message }` issues. The application validates definition shape and defaults, resolves accessible relationship/media records, and enforces the same rules before content publication.

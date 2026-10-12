@@ -60,17 +60,24 @@ export const PostTypeWizard: RowFieldClientComponent = ({
   const { value: capability, setValue: setCapability } = useField<string>({ path: 'capability' })
   const keyValue = values.key,
     prefixValue = values.prefix
-  const [unique, setUnique] = useState<Record<string, string>>({})
+  const [visited, setVisited] = useState<number[]>([0])
+  const [retry, setRetry] = useState(0)
+  const [unique, setUnique] = useState<
+    Record<
+      string,
+      {
+        value: string
+        status: 'available' | 'duplicate' | 'error'
+      }
+    >
+  >({})
   useEffect(() => {
     if (id) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
       for (const name of ['key', 'prefix']) {
         const value = String((name === 'key' ? keyValue : prefixValue) || '')
-        if (!value) {
-          setUnique((old) => ({ ...old, [name]: '' }))
-          continue
-        }
+        if (!/^[a-z][a-z0-9-]*$/.test(value)) continue
         void fetch(
           `/api/post-types?limit=1&depth=0&draft=true&where[${name}][equals]=${encodeURIComponent(value)}`,
           { signal: controller.signal },
@@ -79,17 +86,18 @@ export const PostTypeWizard: RowFieldClientComponent = ({
             if (!response.ok) throw new Error()
             return response.json() as Promise<{ totalDocs: number }>
           })
-          .then((result) =>
-            setUnique((old) => ({
-              ...old,
-              [name]: result.totalDocs ? `This ${name} is already in use.` : '',
-            })),
-          )
+          .then((result) => {
+            if (!controller.signal.aborted)
+              setUnique((old) => ({
+                ...old,
+                [name]: { value, status: result.totalDocs ? 'duplicate' : 'available' },
+              }))
+          })
           .catch(() => {
             if (!controller.signal.aborted)
               setUnique((old) => ({
                 ...old,
-                [name]: 'Availability could not be checked. Saving will verify it.',
+                [name]: { value, status: 'error' },
               }))
           })
       }
@@ -98,7 +106,7 @@ export const PostTypeWizard: RowFieldClientComponent = ({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [id, keyValue, prefixValue])
+  }, [id, keyValue, prefixValue, retry])
   const issues: { step: number; message: string }[] = []
   for (const [name, number] of [
     ['key', 0],
@@ -109,14 +117,27 @@ export const PostTypeWizard: RowFieldClientComponent = ({
         step: number,
         message: `${name}: use lowercase letters, numbers, and hyphens, starting with a letter.`,
       })
-    if (unique[name]) issues.push({ step: number, message: unique[name] })
+    if (!id && /^[a-z][a-z0-9-]*$/.test(String(values[name] || ''))) {
+      const check = unique[name]
+      const status = check?.value === values[name] ? check.status : 'pending'
+      if (status !== 'available')
+        issues.push({
+          step: number,
+          message:
+            status === 'pending'
+              ? `Checking ${name} availability…`
+              : status === 'duplicate'
+                ? `This ${name} is already in use.`
+                : `Could not check ${name} availability. Retry to continue.`,
+        })
+    }
   }
   if (
     reserved.includes(String(values.prefix)) &&
     !(values.key === 'post' && values.prefix === 'posts')
   )
     issues.push({ step: 2, message: 'This URL prefix is reserved.' })
-  if (!values.singular || !values.plural)
+  if (!String(values.singular || '').trim() || !String(values.plural || '').trim())
     issues.push({ step: 1, message: 'Enter both singular and plural names.' })
   if (
     capability === 'event' &&
@@ -160,14 +181,22 @@ export const PostTypeWizard: RowFieldClientComponent = ({
       )
     }
   }
+  const unrestricted = !!id || !access.writable
+  const canVisit = (next: number) =>
+    unrestricted || visited.includes(next) || !issues.some((issue) => issue.step < next)
+  const go = (next: number) => {
+    if (!canVisit(next)) return
+    setStep(next)
+    setVisited((old) => (old.includes(next) ? old : [...old, next]))
+    if (next === 4) setIconVisited(true)
+  }
   return (
     <SetupWizard
       steps={steps}
       current={step}
-      onChange={(next) => {
-        setStep(next)
-        if (next === 4) setIconVisited(true)
-      }}
+      canAdvance={!access.writable || !issues.some((issue) => issue.step <= step)}
+      canVisit={canVisit}
+      onChange={go}
     >
       <p className="pt-step-help">{help[step]}</p>
       {groups.map((names, i) => (
@@ -230,7 +259,7 @@ export const PostTypeWizard: RowFieldClientComponent = ({
               {!id && (
                 <button
                   type="button"
-                  disabled={readOnly}
+                  disabled={!access.canWrite('prefix')}
                   onClick={() =>
                     setPrefix(
                       String(values.plural || values.key || '')
@@ -286,12 +315,33 @@ export const PostTypeWizard: RowFieldClientComponent = ({
           .filter((issue) => step === 7 || issue.step === step)
           .map((issue, i) => (
             <p className="pt-error" key={i}>
-              <button type="button" onClick={() => setStep(issue.step)}>
-                {steps[issue.step]}
-              </button>
-              : {issue.message}
+              {step === 7 && (
+                <>
+                  <button type="button" onClick={() => go(issue.step)}>
+                    {steps[issue.step]}
+                  </button>
+                  :{' '}
+                </>
+              )}
+              {issue.message}
             </p>
           ))}
+        {['key', 'prefix'].some(
+          (name) =>
+            unique[name]?.status === 'error' &&
+            unique[name]?.value === values[name] &&
+            (step === (name === 'key' ? 0 : 2) || step === 7),
+        ) && (
+          <button
+            type="button"
+            onClick={() => {
+              setUnique({})
+              setRetry((n) => n + 1)
+            }}
+          >
+            Retry availability check
+          </button>
+        )}
       </div>
     </SetupWizard>
   )

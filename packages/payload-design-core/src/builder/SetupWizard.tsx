@@ -5,15 +5,20 @@ export function SetupWizard({
   current,
   onChange,
   children,
+  canAdvance = true,
+  canVisit = () => true,
 }: {
   steps: string[]
   current: number
   onChange: (step: number) => void
   children: ReactNode
+  canAdvance?: boolean
+  canVisit?: (step: number) => boolean
 }) {
   const id = useId(),
     heading = useRef<HTMLHeadingElement>(null)
   const go = (step: number) => {
+    if (!canVisit(step)) return
     onChange(step)
     requestAnimationFrame(() => heading.current?.focus())
   }
@@ -26,6 +31,7 @@ export function SetupWizard({
               <button
                 type="button"
                 aria-current={current === index ? 'step' : undefined}
+                disabled={!canVisit(index)}
                 onClick={() => go(index)}
               >
                 {index + 1}. {step}
@@ -46,13 +52,15 @@ export function SetupWizard({
           <span>
             {current + 1} of {steps.length}
           </span>
-          <button
-            type="button"
-            disabled={current === steps.length - 1}
-            onClick={() => go(current + 1)}
-          >
-            Next
-          </button>
+          {canAdvance && current < steps.length - 1 && (
+            <button
+              type="button"
+              disabled={current === steps.length - 1}
+              onClick={() => go(current + 1)}
+            >
+              Next
+            </button>
+          )}
         </div>
       </div>
     </section>
