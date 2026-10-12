@@ -1,13 +1,19 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { getBlockDefinition } from '../blocks/registry.js';
-import { blockIcons } from '../blocks/CatalogRenderer.js';
+import { IconPicker } from './IconPicker.js';
+import { ItemsEditor } from './ItemsEditor.js';
+import { BackgroundControls } from './BackgroundControls.js';
+import { RepeatedItemsControl } from './RepeatedItemsControl.js';
 import { publicDocumentFields, validatePresentation, } from '../blocks/presentation.js';
 import { resolveStyle, validStyleValue } from '../content/model.js';
 import { InspectorDevice, InspectorIcon, beginInspectorGesture, endInspectorGesture, } from './InspectorControls.js';
 import { VisualStyleControl, PaintControl, FocalPoint } from './VisualStyleControl.js';
 import './block-inspector.css';
+import { VariationPicker } from './VariationPicker.js';
+import { effectiveStyles, resetLayoutStyles } from '../blocks/variations.js';
+import { separatorPaths } from '../blocks/Separator.js';
 const title = (key) => key
     .replace(/[A-Z]/g, (char) => ` ${char.toLowerCase()}`)
     .replace(/^./, (char) => char.toUpperCase());
@@ -66,7 +72,7 @@ const sections = {
         'Transform and transition': ['transform', 'transition'],
     },
 };
-export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewport, disabled, children, bindingFields = [], showFields = true, }) {
+export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewport, disabled, children, bindingFields = [], showFields = true, renderBackgroundMedia, renderDocumentPicker, listings = [], }) {
     const [ownTab, setOwnTab] = useState('style');
     const sharedTab = useContext(InspectorTabContext);
     const tab = sharedTab?.tab ?? ownTab, setTab = sharedTab?.setTab ?? setOwnTab;
@@ -76,9 +82,22 @@ export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewpo
     const sharedDevice = useContext(InspectorDevice);
     const viewport = sharedDevice?.viewport ?? suppliedViewport ?? device;
     const definition = getBlockDefinition(node.kind);
+    const [selectedTarget, setSelectedTarget] = useState('block');
+    const target = definition?.targets?.some((item) => item.id === selectedTarget)
+        ? selectedTarget
+        : 'block';
+    useEffect(() => {
+        const blocks = Array.from(document.querySelectorAll('[data-motion-id]')).filter((element) => element.dataset.motionId === node.id);
+        blocks.forEach((element) => (element.dataset.inspectorTarget = target));
+        return () => blocks.forEach((element) => delete element.dataset.inspectorTarget);
+    }, [node.id, target]);
+    const authoredStyles = target === 'block' ? node.styles : node.targetStyles?.[target];
+    const writeStyles = (next) => target === 'block'
+        ? onChange({ styles: next })
+        : onChange({ targetStyles: { ...node.targetStyles, [target]: next ?? {} } });
     const presentation = node.presentation ?? {};
-    const values = state === 'normal' ? (node.styles?.[viewport] ?? {}) : (presentation[state] ?? {});
-    const inherited = resolveStyle(node.styles, viewport);
+    const values = state === 'normal' ? (authoredStyles?.[viewport] ?? {}) : (presentation[state] ?? {});
+    const inherited = resolveStyle(target === 'block' ? effectiveStyles(node) : authoredStyles, viewport);
     const updatePresentation = (patch) => {
         const next = { ...presentation, ...patch }, problem = validatePresentation(next);
         if (problem) {
@@ -100,7 +119,7 @@ export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewpo
         else
             delete next[key];
         if (state === 'normal')
-            onChange({ styles: { ...node.styles, [viewport]: next } });
+            writeStyles({ ...authoredStyles, [viewport]: next });
         else
             updatePresentation({ [state]: next });
     };
@@ -111,19 +130,34 @@ export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewpo
             rules: condition.rules.map((rule, i) => (index === i ? { ...rule, ...patch } : rule)),
         },
     });
-    return (_jsxs("fieldset", { disabled: disabled, className: "unified-block-inspector", onPointerDown: beginInspectorGesture, onPointerUp: endInspectorGesture, onPointerCancel: endInspectorGesture, onFocus: beginInspectorGesture, onBlur: endInspectorGesture, children: [_jsxs("div", { className: "inspector-sticky", children: [_jsxs("header", { children: [_jsxs("strong", { role: "heading", "aria-level": 3, "aria-label": definition?.label ?? node.label ?? node.kind, children: [definition?.icon, " ", definition?.label ?? node.label ?? node.kind] }), _jsx("p", { children: definition?.description ?? 'Block presentation settings.' })] }), _jsx("div", { role: "tablist", "aria-label": "Block controls", children: ['layout', 'style', 'advanced'].map((name) => (_jsxs("button", { type: "button", role: "tab", "aria-selected": tab === name, onClick: () => setTab(name), children: [_jsx(InspectorIcon, { name: name }), title(name)] }, name))) }), error && _jsx("p", { role: "alert", children: error })] }), tab === 'style' && (_jsxs("details", { open: true, children: [_jsx("summary", { children: "Content" }), children, showFields &&
-                        definition?.fields.map((field) => (_jsxs("div", { children: [_jsxs("label", { children: [field.label, field.type === 'toggle' ? (_jsx("input", { type: "checkbox", checked: Boolean(node.props?.[field.key]), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.checked } }) })) : field.type === 'select' || field.type === 'icon' ? (_jsx("select", { value: String(node.props?.[field.key] ?? field.defaultValue ?? ''), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.value } }), children: (field.type === 'icon'
-                                                ? Object.keys(blockIcons)
-                                                : (field.options ?? [])).map((value) => (_jsx("option", { children: value }, value))) })) : field.type === 'textarea' ? (_jsx("textarea", { value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.value } }) })) : field.type === 'number' ? (_jsxs("span", { className: "inspector-number-row", children: [_jsx("input", { type: "range", "aria-label": field.label + ' slider', min: field.min ?? 0, max: field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0)), value: Number(node.props?.[field.key] ?? 0), onChange: (event) => onChange({
-                                                        props: { ...node.props, [field.key]: Number(event.target.value) },
-                                                    }) }), _jsx("input", { type: "number", "aria-label": field.label, min: field.min, max: field.max, value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({
-                                                        props: { ...node.props, [field.key]: Number(event.target.value) },
-                                                    }) })] })) : (_jsx("input", { type: "text", value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({
-                                                props: {
-                                                    ...node.props,
-                                                    [field.key]: event.target.value,
-                                                },
-                                            }) }))] }), field.bindable && (_jsxs("select", { "aria-label": `Bind ${field.label}`, value: node.bindings?.[field.key] ?? '', onChange: (event) => onChange({ bindings: { ...node.bindings, [field.key]: event.target.value } }), children: [_jsx("option", { value: "", children: "Static value" }), bindingFields.map((field) => (_jsx("option", { value: field.path, children: field.label }, field.path))), publicDocumentFields.map((key) => (_jsxs("option", { value: key, children: ["Document ", key] }, key)))] }))] }, field.key)))] })), Object.entries(sections[tab]).map(([label, keys]) => {
+    return (_jsxs("fieldset", { disabled: disabled, className: "unified-block-inspector", onPointerDown: beginInspectorGesture, onPointerUp: endInspectorGesture, onPointerCancel: endInspectorGesture, onFocus: beginInspectorGesture, onBlur: endInspectorGesture, children: [_jsxs("div", { className: "inspector-sticky", children: [_jsxs("header", { children: [_jsxs("strong", { role: "heading", "aria-level": 3, "aria-label": definition?.label ?? node.label ?? node.kind, children: [definition?.icon, " ", definition?.label ?? node.label ?? node.kind] }), _jsx("p", { children: definition?.description ?? 'Block presentation settings.' })] }), _jsx("div", { role: "tablist", "aria-label": "Block controls", children: ['layout', 'style', 'advanced'].map((name) => (_jsxs("button", { type: "button", role: "tab", "aria-selected": tab === name, onClick: () => setTab(name), children: [_jsx(InspectorIcon, { name: name }), title(name)] }, name))) }), error && _jsx("p", { role: "alert", children: error })] }), !!definition?.targets?.length && (_jsxs("label", { className: "inspector-target-picker", children: ["Style target", _jsxs("select", { "aria-label": "Style target", value: target, onChange: (event) => {
+                            setSelectedTarget(event.target.value);
+                            setState('normal');
+                        }, children: [_jsx("option", { value: "block", children: "Block" }), definition.targets.map((item) => (_jsx("option", { value: item.id, children: item.label }, item.id)))] })] })), tab === 'layout' && _jsx(VariationPicker, { node: node, onChange: onChange, disabled: disabled }), tab === 'layout' && node.variation && (_jsx("button", { type: "button", onClick: () => onChange({ styles: resetLayoutStyles(node) }), children: "Reset layout styling" })), tab === 'style' && target === 'block' && (_jsxs("details", { open: true, children: [_jsx("summary", { children: "Content" }), children, _jsx(RepeatedItemsControl, { node: node, change: onChange }), node.role === 'item' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Entry date", _jsx("input", { type: "date", value: String(node.props?.date ?? ''), onChange: (event) => onChange({ props: { ...node.props, date: event.target.value } }) })] }), _jsxs("label", { children: ["Marker label", _jsx("input", { value: String(node.props?.marker ?? ''), onChange: (event) => onChange({ props: { ...node.props, marker: event.target.value } }) })] })] })), showFields &&
+                        definition?.fields.map((field) => {
+                            const FieldLabel = ['items', 'icon'].includes(field.type) ||
+                                (node.kind === 'postListing' && ['ids', 'categories'].includes(field.key))
+                                ? 'div'
+                                : 'label';
+                            return (_jsxs("div", { children: [_jsxs(FieldLabel, { children: [field.label, field.key === 'initialPanel' ? (_jsxs("select", { value: String(node.props?.initialPanel ?? (node.kind === 'accordion' ? -1 : 0)), onChange: (event) => onChange({
+                                                    props: { ...node.props, initialPanel: Number(event.target.value) },
+                                                }), children: [node.kind === 'accordion' && _jsx("option", { value: "-1", children: "All panels closed" }), node.children?.map((child, index) => (_jsx("option", { value: index, children: child.label || 'Item ' + (index + 1) }, child.id)))] })) : field.key === 'listingID' ? (_jsxs("select", { value: String(node.props?.listingID ?? ''), onChange: (event) => onChange({ props: { ...node.props, listingID: event.target.value } }), children: [_jsx("option", { value: "", children: "Choose a listing" }), listings.map((listing) => (_jsx("option", { value: listing.id, children: listing.label }, listing.id)))] })) : node.kind === 'postListing' &&
+                                                ['ids', 'categories'].includes(field.key) &&
+                                                renderDocumentPicker ? (renderDocumentPicker(field.key === 'categories'
+                                                ? 'categories'
+                                                : String(node.props?.collection ?? 'posts'), field.key === 'categories' ? 'Categories' : 'Documents', String(node.props?.[field.key] ?? ''), (value) => onChange({ props: { ...node.props, [field.key]: value } }))) : field.type === 'toggle' ? (_jsx("input", { type: "checkbox", checked: Boolean(node.props?.[field.key]), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.checked } }) })) : field.type === 'items' ? (_jsx(ItemsEditor, { value: node.props?.[field.key], social: node.kind === 'socialButtons', change: (value) => onChange({ props: { ...node.props, [field.key]: value } }) })) : field.type === 'icon' ? (_jsx(IconPicker, { value: String(node.props?.[field.key] ?? field.defaultValue ?? 'star'), change: (value) => onChange({ props: { ...node.props, [field.key]: value } }) })) : field.type === 'select' ? (_jsx("select", { value: String(node.props?.[field.key] ?? field.defaultValue ?? ''), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.value } }), children: (field.options ?? []).map((value) => (_jsx("option", { children: value }, value))) })) : field.type === 'textarea' ? (_jsx("textarea", { value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({ props: { ...node.props, [field.key]: event.target.value } }) })) : field.type === 'number' ? (_jsxs("span", { className: "inspector-number-row", children: [_jsx("input", { type: "range", "aria-label": field.label + ' slider', min: field.min ?? 0, max: field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0)), value: Number(node.props?.[field.key] ?? 0), onChange: (event) => onChange({
+                                                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                                                        }) }), _jsx("input", { type: "number", "aria-label": field.label, min: field.min, max: field.max, value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({
+                                                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                                                        }) })] })) : (_jsx("input", { type: "text", value: String(node.props?.[field.key] ?? ''), onChange: (event) => onChange({
+                                                    props: {
+                                                        ...node.props,
+                                                        [field.key]: event.target.value,
+                                                    },
+                                                }) }))] }), field.bindable && (_jsxs("select", { "aria-label": `Bind ${field.label}`, value: node.bindings?.[field.key] ?? '', onChange: (event) => onChange({
+                                            bindings: { ...node.bindings, [field.key]: event.target.value },
+                                        }), children: [_jsx("option", { value: "", children: "Static value" }), bindingFields.map((field) => (_jsx("option", { value: field.path, children: field.label }, field.path))), publicDocumentFields.map((key) => (_jsxs("option", { value: key, children: ["Document ", key] }, key)))] }))] }, field.key));
+                        })] })), Object.entries(sections[tab]).map(([label, keys]) => {
                 const capability = label === 'Typography'
                     ? 'typography'
                     : label === 'Background'
@@ -139,11 +173,13 @@ export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewpo
                     return null;
                 if (label === 'Image' && node.kind !== 'image')
                     return null;
+                if (label === 'Background' && target === 'block')
+                    return null;
                 if (label === 'Arrangement' && !definition?.container)
                     return null;
                 return (_jsxs("details", { open: label === 'Size and spacing' || label === 'Typography', children: [_jsx("summary", { children: label }), label === 'Image' && (_jsx(FocalPoint, { url: node.media && typeof node.media === 'object' && 'url' in node.media
                                 ? String(node.media.url)
-                                : undefined, value: inherited.objectPosition ?? '50% 50%', update: (v) => update('objectPosition', v) })), keys.map((key) => (_jsx(VisualStyleControl, { name: key, values: values, inheritedValues: inherited, responsive: state === 'normal', state: state, setState: setState, updateMany: (patch) => {
+                                : undefined, value: inherited.objectPosition ?? '50% 50%', update: (v) => update('objectPosition', v) })), keys.map((key) => (_jsx(VisualStyleControl, { name: key, values: values, inheritedValues: inherited, responsive: state === 'normal', state: state, setState: target === 'block' ? setState : undefined, updateMany: (patch) => {
                                 const next = { ...values };
                                 for (const [k, v] of Object.entries(patch)) {
                                     if (v && !validStyleValue(k, v))
@@ -154,27 +190,60 @@ export function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewpo
                                         delete next[k];
                                 }
                                 if (state === 'normal')
-                                    onChange({ styles: { ...node.styles, [viewport]: next } });
+                                    writeStyles({ ...authoredStyles, [viewport]: next });
                                 else
                                     updatePresentation({ [state]: next });
                             }, value: values[key] ?? '', inherited: inherited[key], update: (value) => update(key, value) }, `${node.id}-${key}`)))] }, label));
-            }), tab === 'style' && (_jsxs("details", { children: [_jsx("summary", { children: "Background image and overlay" }), _jsxs("label", { children: ["Background image URL", _jsx(CommittedText, { value: presentation.background?.imageURL ?? '', onCommit: (value) => updatePresentation({ background: { ...presentation.background, imageURL: value } }) }, `${node.id}-background`)] }), _jsx(PaintControl, { label: "Overlay color", value: presentation.background?.overlay ?? '', update: (overlay) => updatePresentation({
-                            background: {
-                                ...presentation.background,
-                                overlay,
-                                opacity: presentation.background?.opacity ?? 1,
+            }), tab === 'style' && target === 'block' && (_jsx(BackgroundControls, { background: presentation.background, device: viewport, change: (background) => updatePresentation({ background }), renderMedia: renderBackgroundMedia, color: inherited.backgroundColor ?? '', gradient: inherited.backgroundImage ?? '', styleChange: (key, value) => {
+                    if (value && !validStyleValue(key, value)) {
+                        setError('Invalid background value.');
+                        return;
+                    }
+                    const next = { ...node.styles?.[viewport] };
+                    if (value)
+                        next[key] = value;
+                    else
+                        delete next[key];
+                    onChange({ styles: { ...node.styles, [viewport]: next } });
+                }, reset: () => {
+                    const next = { ...node.styles?.[viewport] };
+                    delete next.backgroundColor;
+                    delete next.backgroundImage;
+                    onChange({
+                        styles: { ...node.styles, [viewport]: next },
+                        presentation: {
+                            ...presentation,
+                            background: viewport === 'desktop'
+                                ? { responsive: presentation.background?.responsive }
+                                : {
+                                    ...presentation.background,
+                                    responsive: {
+                                        ...presentation.background?.responsive,
+                                        [viewport]: undefined,
+                                    },
+                                },
+                        },
+                    });
+                } }, node.id + viewport)), tab === 'style' && target === 'block' && definition?.container && (_jsxs("details", { children: [_jsx("summary", { children: "Top and bottom separators" }), ['top', 'bottom'].map((side) => {
+                        const settings = presentation.separators?.[side];
+                        const change = (patch) => updatePresentation({
+                            separators: {
+                                ...presentation.separators,
+                                [side]: { shape: 'wave', ...settings, ...patch },
                             },
-                        }) }), _jsx(PaintControl, { label: "Overlay gradient", gradient: true, value: presentation.background?.gradient ?? '', update: (gradient) => updatePresentation({
-                            background: {
-                                ...presentation.background,
-                                gradient,
-                                opacity: presentation.background?.opacity ?? 1,
-                            },
-                        }) }), _jsxs("label", { children: ["Overlay blend mode", _jsx("select", { value: presentation.background?.blendMode ?? 'normal', onChange: (e) => updatePresentation({
-                                    background: { ...presentation.background, blendMode: e.target.value },
-                                }), children: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten'].map((v) => (_jsx("option", { children: v }, v))) })] }), _jsxs("label", { children: ["Overlay opacity", _jsx("input", { type: "range", min: "0", max: "1", step: "0.05", value: presentation.background?.opacity ?? 0, onChange: (event) => updatePresentation({
-                                    background: { ...presentation.background, opacity: Number(event.target.value) },
-                                }) })] }), _jsx("button", { type: "button", onClick: () => updatePresentation({ background: undefined }), children: "Reset background image" })] })), tab === 'advanced' && (_jsxs(_Fragment, { children: [_jsxs("details", { children: [_jsx("summary", { children: "General" }), _jsxs("label", { children: ["HTML anchor", _jsx("input", { value: node.anchor ?? '', onChange: (event) => onChange({ anchor: event.target.value }) })] }), _jsxs("label", { children: ["HTML tag", _jsx("select", { value: presentation.tag ?? 'div', onChange: (event) => updatePresentation({ tag: event.target.value }), children: ['div', 'section', 'article', 'aside', 'figure'].map((value) => (_jsx("option", { children: value }, value))) })] }), _jsxs("label", { children: ["CSS classes", _jsx("input", { value: presentation.className ?? '', onChange: (event) => updatePresentation({ className: event.target.value }) })] })] }), _jsxs("details", { children: [_jsx("summary", { children: "Link" }), ['url', 'title', 'rel'].map((key) => (_jsxs("label", { children: [title(key), _jsx(CommittedText, { value: String(presentation.link?.[key] ?? ''), onCommit: (value) => updatePresentation({ link: { ...presentation.link, [key]: value } }) }, `${node.id}-${key}`)] }, key))), ['newTab', 'lightbox'].map((key) => (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!presentation.link?.[key], onChange: (event) => updatePresentation({
+                        });
+                        return (_jsxs("fieldset", { children: [_jsx("legend", { children: title(side) }), _jsxs("label", { children: ["Shape", _jsxs("select", { value: settings?.shape ?? '', onChange: (event) => event.target.value
+                                                ? change({ shape: event.target.value })
+                                                : updatePresentation({
+                                                    separators: { ...presentation.separators, [side]: undefined },
+                                                }), children: [_jsx("option", { value: "", children: "None" }), Object.keys(separatorPaths).map((shape) => (_jsx("option", { children: shape }, shape)))] })] }), settings && (_jsxs(_Fragment, { children: [_jsx(PaintControl, { label: `${title(side)} separator color`, value: settings.color ?? '', update: (color) => change({ color }) }), ['height', 'width', 'layers'].map((key) => (_jsxs("label", { children: [title(key), _jsx("input", { type: "number", min: 1, max: key === 'layers' ? 3 : 1000, value: settings[key] ?? (key === 'layers' ? 1 : key === 'width' ? 100 : 48), onChange: (event) => change({ [key]: Number(event.target.value) }) })] }, key))), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!settings.flip, onChange: (event) => change({ flip: event.target.checked }) }), "Flip"] }), _jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!settings.shadow, onChange: (event) => change({ shadow: event.target.checked }) }), "Shadow"] })] }))] }, side));
+                    })] })), tab === 'style' && (node.kind === 'image' || target === 'media') && (_jsxs("details", { open: true, children: [_jsx("summary", { children: "Image treatments" }), ['zoom', 'brightness', 'contrast', 'saturation', 'grayscale', 'blur'].map((key) => (_jsxs("label", { children: [title(key), _jsx("input", { type: "range", min: 0, max: key === 'blur' ? 40 : key === 'grayscale' ? 1 : 5, step: 0.05, value: presentation.media?.[key] ?? (['grayscale', 'blur'].includes(key) ? 0 : 1), onChange: (event) => updatePresentation({
+                                    media: { ...presentation.media, [key]: Number(event.target.value) },
+                                }) }), _jsx("input", { "aria-label": `${title(key)} value`, type: "number", min: 0, max: key === 'blur' ? 40 : key === 'grayscale' ? 1 : 5, step: 0.05, value: presentation.media?.[key] ?? (['grayscale', 'blur'].includes(key) ? 0 : 1), onChange: (event) => updatePresentation({
+                                    media: { ...presentation.media, [key]: Number(event.target.value) },
+                                }) })] }, key))), _jsxs("label", { children: ["Image shape", _jsx("select", { value: presentation.media?.shape ?? 'none', onChange: (event) => updatePresentation({
+                                    media: { ...presentation.media, shape: event.target.value },
+                                }), children: ['none', 'circle', 'ellipse', 'rounded', 'blob', 'diagonal'].map((shape) => (_jsx("option", { children: shape }, shape))) })] }), _jsx("button", { type: "button", onClick: () => updatePresentation({ media: undefined }), children: "Reset image treatments" })] })), tab === 'advanced' && (_jsxs(_Fragment, { children: [_jsxs("details", { children: [_jsx("summary", { children: "General" }), _jsxs("label", { children: ["HTML anchor", _jsx("input", { value: node.anchor ?? '', onChange: (event) => onChange({ anchor: event.target.value }) })] }), _jsxs("label", { children: ["HTML tag", _jsx("select", { value: presentation.tag ?? 'div', onChange: (event) => updatePresentation({ tag: event.target.value }), children: ['div', 'section', 'article', 'aside', 'figure'].map((value) => (_jsx("option", { children: value }, value))) })] }), _jsxs("label", { children: ["CSS classes", _jsx("input", { value: presentation.className ?? '', onChange: (event) => updatePresentation({ className: event.target.value }) })] })] }), _jsxs("details", { children: [_jsx("summary", { children: "Link" }), ['url', 'title', 'rel'].map((key) => (_jsxs("label", { children: [title(key), _jsx(CommittedText, { value: String(presentation.link?.[key] ?? ''), onCommit: (value) => updatePresentation({ link: { ...presentation.link, [key]: value } }) }, `${node.id}-${key}`)] }, key))), ['newTab', 'lightbox'].map((key) => (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!presentation.link?.[key], onChange: (event) => updatePresentation({
                                             link: { ...presentation.link, [key]: event.target.checked },
                                         }) }), title(key)] }, key)))] }), _jsxs("details", { children: [_jsx("summary", { children: "Responsive visibility" }), ['desktop', 'tablet', 'mobile'].map((key) => (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!presentation.hidden?.[key], onChange: (event) => updatePresentation({
                                             hidden: { ...presentation.hidden, [key]: event.target.checked },

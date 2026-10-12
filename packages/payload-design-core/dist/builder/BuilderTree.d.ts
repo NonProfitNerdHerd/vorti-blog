@@ -10,6 +10,8 @@ export type BuilderChildContainer<TNode> = {
 export type BuilderNodeDescriptor<TNode> = {
     style?: CSSProperties;
     wrap?: (children: ReactNode) => ReactNode;
+    directChildren?: boolean;
+    before?: ReactNode;
     body: ReactNode;
     bodyAriaLabel?: string;
     children?: BuilderChildContainer<TNode>[];
@@ -26,7 +28,7 @@ export type BuilderTreeActions<TNode> = {
     move: (id: string, direction: -1 | 1) => void;
     remove: (id: string) => void;
 };
-export declare function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID, parentID }: {
+export declare function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID, parentID, }: {
     parentID?: string;
     actions: BuilderTreeActions<TNode>;
     describe: (node: TNode) => BuilderNodeDescriptor<TNode>;
@@ -34,7 +36,7 @@ export declare function BuilderCanvasTree<TNode>({ actions, describe, id, nodes,
     nodes: TNode[];
     selectedID?: string;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function BuilderListView<TNode>({ describe, id, nodes, onSelect, selectedID, depth }: {
+export declare function BuilderListView<TNode>({ describe, id, nodes, onSelect, selectedID, depth, }: {
     depth?: number;
     describe: (node: TNode) => BuilderNodeDescriptor<TNode>;
     id: (node: TNode) => string;

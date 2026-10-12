@@ -29,7 +29,7 @@ export function EditorHistorySlot() {
 export function EditorPreviewSlot() {
     return (_jsxs(_Fragment, { children: [_jsx(HeaderSlot, { slot: "navigation" }), _jsx(HeaderSlot, { slot: "preview" }), _jsx(HeaderSlot, { slot: "actions" })] }));
 }
-export function EditorHeaderPortal({ slot, children }) {
+export function EditorHeaderPortal({ slot, children, waitForTarget = false, }) {
     const key = useDocumentKey();
     const marker = useRef(null);
     const [target, setTarget] = useState(null);
@@ -48,7 +48,7 @@ export function EditorHeaderPortal({ slot, children }) {
         observer.observe(document.body, { childList: true, subtree: true });
         return () => observer.disconnect();
     }, [key, slot]);
-    return (_jsxs(_Fragment, { children: [_jsx("span", { ref: marker, hidden: true }), target ? (createPortal(children, target)) : (_jsx("div", { className: `editor-header__fallback editor-header__fallback--${slot}`, children: children }))] }));
+    return (_jsxs(_Fragment, { children: [_jsx("span", { ref: marker, hidden: true }), target ? (createPortal(children, target)) : waitForTarget ? null : (_jsx("div", { className: `editor-header__fallback editor-header__fallback--${slot}`, children: children }))] }));
 }
 export function EditorHistory({ undo, redo, canUndo, canRedo, }) {
     return (_jsx(EditorHeaderPortal, { slot: "history", children: _jsxs("div", { className: "editor-header__buttons", role: "group", "aria-label": "Edit history", children: [_jsx(IconButton, { label: "Undo", icon: "undo", onClick: undo, disabled: !canUndo }), _jsx(IconButton, { label: "Redo", icon: "redo", onClick: redo, disabled: !canRedo })] }) }));
@@ -65,6 +65,9 @@ export function EditorName() {
     const permission = fields && typeof fields === 'object' ? fields.name : undefined;
     const readOnly = disabled ||
         hasSavePermission === false ||
-        (fields !== undefined && fields !== true && permission !== true && !permission?.[id ? 'update' : 'create']);
+        (fields !== undefined &&
+            fields !== true &&
+            permission !== true &&
+            !permission?.[id ? 'update' : 'create']);
     return (_jsx(EditorHeaderPortal, { slot: "title", children: _jsxs("div", { className: "editor-header__title", children: [_jsx("input", { id: "field-name", name: "name", "aria-label": "Name", placeholder: "Add title", value: value ?? '', readOnly: readOnly, "aria-invalid": showError || undefined, "aria-required": "true", onChange: (event) => setValue(event.target.value) }), showError && _jsx("p", { role: "alert", children: errorMessage })] }) }));
 }

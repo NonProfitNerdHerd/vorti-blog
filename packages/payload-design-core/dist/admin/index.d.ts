@@ -17,3 +17,4 @@ export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor';
 export { InspectorIcon, IconButton, Popover, DeviceControl, DimensionControl, } from '../builder/InspectorControls';
 export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl';
 export { EditorTitleSlot, EditorHistorySlot, EditorPreviewSlot } from '../builder/EditorHeader';
+export { DocumentReviewPanel } from '../builder/DocumentReviewPanel';

@@ -6,14 +6,22 @@ import type { HeroBoardValues } from '../hero-board/HeroBoard'
 import { resolveStyle, safeURL, validStyleValue, type ContentNode, type Viewport } from './model'
 import { CatalogRenderer } from '../blocks/CatalogRenderer'
 import { getBlockDefinition } from '../blocks/registry'
-import { compileBlockCSS, conditionVisible, validatePresentation } from '../blocks/presentation'
+import { effectiveStyles, compositeKinds } from '../blocks/variations'
+import { Composition } from '../blocks/Composition'
+import { Separator } from '../blocks/Separator'
+import {
+  compileBlockCSS,
+  conditionVisible,
+  validatePresentation,
+  resolveBackground,
+} from '../blocks/presentation'
 const Motion = React.lazy(() => import('../blocks/Motion'))
 const InteractiveBlock = React.lazy(() => import('../blocks/InteractiveBlock'))
 
 const mediaInfo = (value: unknown): { url?: string; alt?: string } =>
   value && typeof value === 'object' ? (value as { url?: string; alt?: string }) : {}
 function declarations(node: ContentNode, viewport: Viewport, base: CSSProperties = {}) {
-  const style = resolveStyle(node.styles, viewport)
+  const style = resolveStyle(effectiveStyles(node), viewport)
   return (
     (style.borderWidth ? 'border-style:solid;' : '') +
     Object.entries({
@@ -53,7 +61,7 @@ export function ContentBlock({
         ? { display: 'flex', flexWrap: 'wrap', gap: '16px' }
         : {}
   const styles = Object.fromEntries(
-    Object.entries(resolveStyle(node.styles, viewport)).filter(([key, value]) =>
+    Object.entries(resolveStyle(effectiveStyles(node), viewport)).filter(([key, value]) =>
       validStyleValue(key, value),
     ),
   ) as CSSProperties
@@ -164,7 +172,7 @@ export function ContentBlock({
           )
         break
       default:
-        content = <CatalogRenderer node={node} editing={!!viewport} />
+        content = <CatalogRenderer node={node} editing={!!viewport} viewport={viewport} />
     }
   if (
     children &&
@@ -172,8 +180,12 @@ export function ContentBlock({
     !['group', 'row', 'columns', 'column'].includes(node.kind)
   )
     content = (
-      <CatalogRenderer node={node} editing={!!viewport}>
-        {children}
+      <CatalogRenderer node={node} editing={!!viewport} viewport={viewport}>
+        {compositeKinds.has(node.kind) ? (
+          <Composition node={node}>{children}</Composition>
+        ) : (
+          children
+        )}
       </CatalogRenderer>
     )
   if (
@@ -204,15 +216,22 @@ export function ContentBlock({
     )
   const presentation = validatePresentation(node.presentation) ? {} : (node.presentation ?? {})
   const Tag = presentation.tag ?? 'div'
-  const background = presentation.background
-  const backgroundStyle: CSSProperties = background?.imageURL
-    ? {
-        backgroundImage: `url("${background.imageURL}")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    : {}
-  const hasOverlay = !!(background?.overlay || background?.gradient)
+  const background = resolveBackground(presentation.background, viewport)
+  const backgroundStyle: CSSProperties =
+    background?.imageURL && (!background.mode || background.mode === 'image')
+      ? {
+          backgroundImage: `url("${background.imageURL}")`,
+          backgroundSize: background.fit ?? 'cover',
+          backgroundPosition: background.position ?? 'center',
+          backgroundRepeat: background.repeat ?? 'no-repeat',
+        }
+      : background.mode === 'solid' || background.mode === 'image'
+        ? { backgroundImage: 'none' }
+        : {}
+  const hasOverlay = (['desktop', 'tablet', 'mobile'] as const).some((device) => {
+    const value = resolveBackground(presentation.background, device)
+    return !!(value.overlay || value.gradient)
+  })
   const overlayVariables =
     hasOverlay && ['image', 'imageBox'].includes(node.kind)
       ? ({
@@ -258,6 +277,42 @@ export function ContentBlock({
   const imageCSS = viewport
     ? imageRule(viewport)
     : `${imageRule('desktop')}@media(max-width:1024px){${imageRule('tablet')}}@media(max-width:640px){${imageRule('mobile')}}`
+  const treatment = presentation.media
+  const shape = treatment?.shape
+  const mediaRoot =
+    node.kind === 'image'
+      ? `.${className} > figure > .block-image-surface`
+      : `.${className} > .block-composition > .block-media`
+  const treatmentCSS = treatment
+    ? `${mediaRoot}{overflow:hidden;${shape === 'circle' ? 'clip-path:circle(50%)' : shape === 'ellipse' ? 'clip-path:ellipse(50% 40%)' : shape === 'diagonal' ? 'clip-path:polygon(15% 0,100% 0,85% 100%,0 100%)' : shape === 'blob' ? 'border-radius:40% 60% 55% 45% / 35% 45% 55% 65%' : shape === 'rounded' ? 'border-radius:24px' : ''}}${mediaRoot} img{transform:scale(${treatment.zoom ?? 1});filter:brightness(${treatment.brightness ?? 1}) contrast(${treatment.contrast ?? 1}) saturate(${treatment.saturation ?? 1}) grayscale(${treatment.grayscale ?? 0}) blur(${treatment.blur ?? 0}px)}`
+    : ''
+  const targetRule = (device: Viewport) =>
+    (definition?.targets ?? [])
+      .map((target) => {
+        const styles = node.targetStyles?.[target.id]
+        const selector = `.${className} ${target.selector}`
+        return `${selector}{${declarations({ ...node, variation: undefined, styles }, device)}}${viewport ? `.${className}[data-inspector-target="${target.id}"] ${target.selector}{outline:2px dashed #3858e9;outline-offset:3px}` : ''}`
+      })
+      .join('')
+  const targetCSS = viewport
+    ? targetRule(viewport)
+    : `${targetRule('desktop')}@media(max-width:1024px){${targetRule('tablet')}}@media(max-width:640px){${targetRule('mobile')}}`
+  const backgroundRule = (device: Viewport) => {
+    if (!presentation.background) return ''
+    const value = resolveBackground(presentation.background, device)
+    const image =
+      value.mode === 'solid'
+        ? 'none'
+        : value.imageURL && (!value.mode || value.mode === 'image')
+          ? `url("${value.imageURL}")`
+          : value.mode === 'image'
+            ? 'none'
+            : undefined
+    return `.${className}{${image ? `background-image:${image};` : ''}background-size:${value.fit ?? 'cover'};background-position:${value.position ?? 'center'};background-repeat:${value.repeat ?? 'no-repeat'};--block-overlay:${value.gradient || value.overlay || 'transparent'};--block-overlay-opacity:${value.opacity ?? 0};--block-overlay-blend:${value.blendMode ?? 'normal'}}`
+  }
+  const backgroundCSS = viewport
+    ? backgroundRule(viewport)
+    : `${backgroundRule('desktop')}@media(max-width:1024px){${backgroundRule('tablet')}}@media(max-width:640px){${backgroundRule('mobile')}}`
   return (
     <Tag
       {...presentation.attributes}
@@ -265,16 +320,22 @@ export function ContentBlock({
       id={node.anchor}
       data-motion-id={node.id}
       data-block-kind={node.kind}
-      style={
-        viewport
-          ? { ...base, ...styles, ...backgroundStyle, ...overlayVariables }
-          : { ...backgroundStyle, ...overlayVariables }
+      data-variation={node.variation?.id}
+      data-role={node.role}
+      data-heading-decoration={
+        node.kind === 'heading' ? String(node.props?.decoration ?? 'none') : undefined
       }
+      data-editor-device={viewport}
+      style={viewport ? { ...base, ...styles, ...backgroundStyle, ...overlayVariables } : undefined}
     >
+      <style>{targetCSS + treatmentCSS}</style>
+      {node.kind === 'heading' && (
+        <style>{`.${className}[data-heading-decoration]:before,.${className}[data-heading-decoration]:after{display:block;width:${Math.min(100, Math.max(1, Number(node.props?.decorationWidth ?? 30)))}%;border-top:3px solid currentColor;margin-block:12px}.${className}[data-heading-decoration='top-line']:before,.${className}[data-heading-decoration='both-lines']:before,.${className}[data-heading-decoration='bottom-line']:after,.${className}[data-heading-decoration='both-lines']:after{content:''}`}</style>
+      )}
       {!viewport && (
         <style>{`.${className}{${declarations(node, 'desktop', base)}}@media(max-width:1024px){.${className}{${declarations(node, 'tablet', base)}}}@media(max-width:640px){.${className}{${declarations(node, 'mobile', base)}}}`}</style>
       )}
-      <style>{`${css}${stateRule('hover')}${stateRule('focus')}${imageCSS}${!viewport ? (['desktop', 'tablet', 'mobile'] as const).map((device) => (presentation.hidden?.[device] ? `@media ${device === 'desktop' ? '(min-width:1025px)' : device === 'tablet' ? '(min-width:641px) and (max-width:1024px)' : '(max-width:640px)'}{.${className}{display:none}}` : '')).join('') : ''}`}</style>
+      <style>{`${css}${stateRule('hover')}${stateRule('focus')}${imageCSS}${backgroundCSS}${!viewport ? (['desktop', 'tablet', 'mobile'] as const).map((device) => (presentation.hidden?.[device] ? `@media ${device === 'desktop' ? '(min-width:1025px)' : device === 'tablet' ? '(min-width:641px) and (max-width:1024px)' : '(max-width:640px)'}{.${className}{display:none}}` : '')).join('') : ''}`}</style>
       {viewport && presentation.hidden?.[viewport] && (
         <p role="status">Hidden on {viewport} in published content.</p>
       )}
@@ -294,14 +355,16 @@ export function ContentBlock({
             aria-hidden="true"
             className="block-overlay"
             style={{
-              background: background?.gradient || background?.overlay,
-              opacity: background?.opacity ?? 0,
-              mixBlendMode: background?.blendMode,
+              background: 'var(--block-overlay)',
+              opacity: 'var(--block-overlay-opacity)',
+              mixBlendMode: 'var(--block-overlay-blend)' as CSSProperties['mixBlendMode'],
             }}
           />
         </>
       )}
+      {presentation.separators?.top && <Separator settings={presentation.separators.top} />}
       {rendered}
+      {presentation.separators?.bottom && <Separator settings={presentation.separators.bottom} />}
     </Tag>
   )
 }

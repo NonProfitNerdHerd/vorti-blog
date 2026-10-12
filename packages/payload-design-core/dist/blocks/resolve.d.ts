@@ -19,3 +19,5 @@ export type BlockResolveContext = {
     list?: (props: Record<string, unknown>, page: number) => Promise<ListingResult>;
 };
 export declare function resolveBlocks(source: ContentNode[], context: BlockResolveContext): Promise<ContentNode[]>;
+/** Derived preview data; never write the result back into the document form. */
+export declare function resolveDocumentHeadings(source: ContentNode[]): ContentNode[];

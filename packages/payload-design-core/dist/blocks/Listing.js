@@ -13,9 +13,42 @@ export default function Listing({ node, editing }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const query = new URLSearchParams(Object.fromEntries(Object.entries(props)
+        .filter(([key]) => ['collection', 'limit', 'sort', 'ids', 'categories'].includes(key))
+        .map(([key, value]) => [key, String(value)]))).toString();
+    useEffect(() => {
+        if (!editing)
+            return;
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const response = await fetch(`/api/block-listing?${query}&draft=true`, {
+                    signal: controller.signal,
+                    credentials: 'same-origin',
+                });
+                if (!response.ok)
+                    throw new Error('Unable to load the listing preview.');
+                setResult((await response.json()));
+            }
+            catch (error) {
+                if (!controller.signal.aborted)
+                    setError(error.message);
+            }
+            finally {
+                if (!controller.signal.aborted)
+                    setLoading(false);
+            }
+        }, 200);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [editing, query]);
     useEffect(() => {
         const element = document.getElementById(`listing-${node.id}`);
-        if (!element || editing)
+        if (!element)
             return;
         let controller;
         const load = async (event) => {
@@ -32,6 +65,8 @@ export default function Listing({ node, editing }) {
                     .filter(([key]) => ['collection', 'limit', 'sort', 'ids', 'categories', 'draft'].includes(key))
                     .map(([key, value]) => [key, String(value)])));
                 params.set('page', String(next));
+                if (editing)
+                    params.set('draft', 'true');
                 const response = await fetch(`/api/block-listing?${params}`, { signal: controller.signal });
                 if (!response.ok)
                     throw new Error('Unable to load content. Please try again.');
@@ -57,17 +92,19 @@ export default function Listing({ node, editing }) {
     }, [node.id, props, result, editing]);
     return (_jsxs("section", { id: `listing-${node.id}`, "aria-label": "Content listing", "aria-busy": loading, "data-listing-page": result.page, "data-listing-pages": result.totalPages, children: [_jsx("div", { style: {
                     display: 'grid',
-                    gridTemplateColumns: props.presentation === 'list' ? '1fr' : 'repeat(auto-fit,minmax(220px,1fr))',
+                    gridTemplateColumns: props.presentation === 'list' || node.variation?.id === 'list'
+                        ? '1fr'
+                        : 'repeat(auto-fit,minmax(220px,1fr))',
                     gap: '1rem',
-                }, children: result.results.map((item, index) => (_jsxs("article", { children: [props.showImage !== false && item.image && (_jsx("img", { src: safeURL(item.image), alt: "", style: { maxWidth: '100%' } })), props.showTitle !== false && _jsx("h3", { children: item.title }), props.showExcerpt !== false && _jsx("p", { children: item.excerpt }), props.showDate !== false && item.publishedAt && (_jsx("time", { dateTime: item.publishedAt, children: item.publishedAt.slice(0, 10) })), props.showTaxonomy !== false && _jsx("p", { children: item.taxonomy }), props.showLink !== false && _jsx("a", { href: safeURL(item.url), children: "Read more" })] }, `${item.url}-${index}`))) }), _jsx("p", { role: "status", children: loading
+                }, children: result.results.map((item, index) => (_jsxs("article", { className: "listing-item", children: [props.showImage !== false && item.image && (_jsx("img", { className: "listing-image", src: safeURL(item.image), alt: "", style: { maxWidth: '100%' } })), props.showTitle !== false && _jsx("h3", { className: "listing-title", children: item.title }), props.showExcerpt !== false && _jsx("p", { className: "listing-excerpt", children: item.excerpt }), props.showDate !== false && item.publishedAt && (_jsx("time", { className: "listing-meta", dateTime: item.publishedAt, children: item.publishedAt.slice(0, 10) })), props.showTaxonomy !== false && _jsx("p", { className: "listing-meta", children: item.taxonomy }), props.showLink !== false && (_jsx("a", { className: "listing-link", href: safeURL(item.url), onClick: editing ? (event) => event.preventDefault() : undefined, children: "Read more" }))] }, `${item.url}-${index}`))) }), _jsx("p", { role: "status", children: loading
                     ? 'Loading content…'
                     : !result.results.length
                         ? editing
-                            ? 'Listing content is shown in preview.'
+                            ? 'No matching content. Choose documents or adjust the listing filters.'
                             : 'No matching content.'
                         : `Page ${result.page} of ${result.totalPages}` }), error && _jsx("p", { role: "alert", children: error })] }));
 }
-export function ListingNavigation({ node, editing }) {
+export function ListingNavigation({ node }) {
     const [status, setStatus] = useState('');
     const move = (direction) => {
         const listing = document.getElementById(`listing-${node.props?.listingID}`);
@@ -83,5 +120,5 @@ export function ListingNavigation({ node, editing }) {
         listing.dispatchEvent(new CustomEvent('listing-page', { detail: { direction, append: node.kind === 'loadMore' } }));
         setStatus('');
     };
-    return (_jsxs("nav", { "aria-label": "Listing pagination", children: [node.kind === 'pagination' && (_jsx("button", { disabled: editing, type: "button", onClick: () => move(-1), children: "Previous" })), _jsx("button", { disabled: editing, type: "button", onClick: () => move(1), children: node.kind === 'loadMore' ? String(node.props?.label ?? 'Load more') : 'Next' }), _jsx("span", { role: "status", children: status })] }));
+    return (_jsxs("nav", { "aria-label": "Listing pagination", children: [node.kind === 'pagination' && (_jsx("button", { type: "button", onClick: () => move(-1), children: "Previous" })), _jsx("button", { type: "button", onClick: () => move(1), children: node.kind === 'loadMore' ? String(node.props?.label ?? 'Load more') : 'Next' }), _jsx("span", { role: "status", children: status })] }));
 }

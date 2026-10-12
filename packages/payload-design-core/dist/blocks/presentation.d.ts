@@ -1,15 +1,37 @@
+import { type SeparatorSettings } from './Separator';
 export type Rule = {
     field: string;
     operator: 'equals' | 'notEquals' | 'empty' | 'notEmpty' | 'contains';
     value?: string;
 };
+export type BackgroundSettings = {
+    mode?: 'solid' | 'gradient' | 'image';
+    mediaID?: string | number;
+    imageURL?: string;
+    fit?: 'cover' | 'contain' | 'auto';
+    position?: string;
+    repeat?: 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y';
+    overlay?: string;
+    gradient?: string;
+    blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten';
+    opacity?: number;
+};
 export type BlockPresentation = {
-    background?: {
-        imageURL?: string;
-        overlay?: string;
-        gradient?: string;
-        blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten';
-        opacity?: number;
+    media?: {
+        zoom?: number;
+        brightness?: number;
+        contrast?: number;
+        saturation?: number;
+        grayscale?: number;
+        blur?: number;
+        shape?: 'none' | 'circle' | 'ellipse' | 'rounded' | 'blob' | 'diagonal';
+    };
+    separators?: {
+        top?: SeparatorSettings;
+        bottom?: SeparatorSettings;
+    };
+    background?: BackgroundSettings & {
+        responsive?: Partial<Record<'tablet' | 'mobile', BackgroundSettings>>;
     };
     tag?: 'div' | 'section' | 'article' | 'aside' | 'figure';
     className?: string;
@@ -45,6 +67,7 @@ export type BlockPresentation = {
         easing?: 'ease' | 'linear' | 'ease-in' | 'ease-out';
     };
 };
+export declare function resolveBackground(background: BlockPresentation['background'], device?: 'desktop' | 'tablet' | 'mobile'): BackgroundSettings;
 export declare const publicDocumentFields: string[];
 /** Host applications opt in additional publicly renderable fields in a shared server/admin entry. */
 export declare function registerPublicDocumentField(path: string): void;

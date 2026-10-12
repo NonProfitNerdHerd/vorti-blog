@@ -28,6 +28,8 @@ import { contentWorkspace } from './plugins/contentWorkspace'
 import { designSystemPlugin } from '@design-system/payload-design-core'
 import { canManageDesign, isDesignManager } from './access/design'
 import { heroBoardRegistration } from '@design-system/payload-design-core/hero-board/registration'
+import { ReviewTasks, ReviewComments, ReviewActivity } from './review/collections'
+import { documentReview } from './review/plugin'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -100,7 +102,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity],
   globals: [Navigation, SiteSettings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
@@ -155,6 +157,7 @@ export default buildConfig({
       collections: { media: true, exports: true, imports: true },
     }),
     contentWorkspace({ enabled: process.env.CONTENT_WORKSPACE_ENABLED === 'true' }),
+    documentReview,
   ],
 })
 

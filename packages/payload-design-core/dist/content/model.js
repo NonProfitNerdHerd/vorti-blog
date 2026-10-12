@@ -1,6 +1,7 @@
 import { blockDefaults, canInsertBlock, getBlockDefinition, listBlockDefinitions, } from '../blocks/registry.js';
 import { publicDocumentFields, validatePresentation, } from '../blocks/presentation.js';
 import { dimensionKeys, extendedStyleValue } from '../blocks/style-schema.js';
+import { validateVariation, variationsFor, applyVariation, compositeKinds, } from '../blocks/variations.js';
 export const contentLibrary = [
     ['heading', 'Heading', 'Text'],
     ['paragraph', 'Paragraph', 'Text'],
@@ -58,6 +59,37 @@ export function createContentNode(kind) {
         node.level = 2;
     if (kind === 'spacer')
         node.styles = { desktop: { minHeight: '32px' } };
+    const initializeChildren = (children) => children.map((child) => {
+        const nested = { ...child, children: child.children && initializeChildren(child.children) };
+        const variation = variationsFor(child.kind)[0];
+        return variation
+            ? applyVariation({ ...nested, styles: compositeKinds.has(child.kind) ? undefined : child.styles }, variation.id)
+            : nested;
+    });
+    if (node.children)
+        node.children = initializeChildren(node.children);
+    if (['card', 'hero'].includes(kind))
+        node.children = [
+            createContentNode('image'),
+            createContentNode('heading'),
+            createContentNode('paragraph'),
+            createContentNode('button'),
+        ].map((child) => ({
+            ...child,
+            text: child.kind === 'heading'
+                ? node.label
+                : child.kind === 'paragraph'
+                    ? 'Add your content here'
+                    : child.kind === 'button'
+                        ? 'Learn more'
+                        : undefined,
+        }));
+    const variation = variationsFor(kind)[0];
+    if (variation) {
+        if (compositeKinds.has(kind))
+            node.styles = undefined;
+        return applyVariation(node, variation.id);
+    }
     return node;
 }
 export function walkContent(nodes) {
@@ -211,6 +243,26 @@ export function validateContentLayout(value, allowedBindingPaths = []) {
             const presentationError = validatePresentation(node.presentation);
             if (presentationError)
                 return presentationError;
+            const variationError = validateVariation(node);
+            for (const [target, responsive] of Object.entries(node.targetStyles ?? {})) {
+                if (getBlockDefinition(node.kind) &&
+                    !getBlockDefinition(node.kind)?.targets?.some((item) => item.id === target))
+                    return 'Unknown styling target.';
+                if (!responsive || typeof responsive !== 'object' || Array.isArray(responsive))
+                    return 'Invalid target styles.';
+                for (const [device, values] of Object.entries(responsive)) {
+                    if (!['desktop', 'tablet', 'mobile'].includes(device) ||
+                        !values ||
+                        typeof values !== 'object' ||
+                        Array.isArray(values))
+                        return 'Invalid target device styles.';
+                    for (const [key, value] of Object.entries(values))
+                        if (!validStyleValue(key, value))
+                            return 'Invalid target style.';
+                }
+            }
+            if (variationError)
+                return variationError;
             const definition = getBlockDefinition(node.kind);
             if (node.blockVersion !== undefined &&
                 (!Number.isInteger(node.blockVersion) || node.blockVersion < 1))
@@ -242,7 +294,17 @@ export function validateContentLayout(value, allowedBindingPaths = []) {
                     ((field.min !== undefined && Number(val) < field.min) ||
                         (field.max !== undefined && Number(val) > field.max)))
                     return `Invalid ${field.label} range.`;
-                if (!['number', 'toggle'].includes(field.type) && typeof val !== 'string')
+                if (field.type === 'items' && typeof val !== 'string') {
+                    if (!Array.isArray(val) ||
+                        val.length > 100 ||
+                        val.some((item) => !item ||
+                            typeof item !== 'object' ||
+                            typeof item.label !== 'string' ||
+                            (item.url && !safeURL(item.url)) ||
+                            (item.icon && typeof item.icon !== 'string')))
+                        return 'Invalid list items.';
+                }
+                if (!['number', 'toggle', 'items'].includes(field.type) && typeof val !== 'string')
                     return `Invalid ${field.label}.`;
                 if (field.type === 'date' &&
                     (!Number.isFinite(Date.parse(String(val))) || !/(Z|[+-]\d\d:\d\d)$/.test(String(val))))

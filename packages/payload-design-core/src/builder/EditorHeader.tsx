@@ -56,7 +56,15 @@ export function EditorPreviewSlot() {
   )
 }
 
-export function EditorHeaderPortal({ slot, children }: { slot: Slot; children: ReactNode }) {
+export function EditorHeaderPortal({
+  slot,
+  children,
+  waitForTarget = false,
+}: {
+  slot: Slot
+  children: ReactNode
+  waitForTarget?: boolean
+}) {
   const key = useDocumentKey()
   const marker = useRef<HTMLSpanElement>(null)
   const [target, setTarget] = useState<Element | null>(null)
@@ -83,7 +91,7 @@ export function EditorHeaderPortal({ slot, children }: { slot: Slot; children: R
       <span ref={marker} hidden />
       {target ? (
         createPortal(children, target)
-      ) : (
+      ) : waitForTarget ? null : (
         <div className={`editor-header__fallback editor-header__fallback--${slot}`}>{children}</div>
       )}
     </>
@@ -143,7 +151,10 @@ export function EditorName() {
   const readOnly =
     disabled ||
     hasSavePermission === false ||
-    (fields !== undefined && fields !== true && permission !== true && !permission?.[id ? 'update' : 'create'])
+    (fields !== undefined &&
+      fields !== true &&
+      permission !== true &&
+      !permission?.[id ? 'update' : 'create'])
   return (
     <EditorHeaderPortal slot="title">
       <div className="editor-header__title">

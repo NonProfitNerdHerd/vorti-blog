@@ -1,7 +1,10 @@
 'use client'
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { getBlockDefinition } from '../blocks/registry'
-import { blockIcons } from '../blocks/CatalogRenderer'
+import { IconPicker } from './IconPicker'
+import { ItemsEditor } from './ItemsEditor'
+import { BackgroundControls } from './BackgroundControls'
+import { RepeatedItemsControl } from './RepeatedItemsControl'
 import {
   publicDocumentFields,
   validatePresentation,
@@ -17,6 +20,9 @@ import {
 } from './InspectorControls'
 import { VisualStyleControl, PaintControl, FocalPoint } from './VisualStyleControl'
 import './block-inspector.css'
+import { VariationPicker } from './VariationPicker'
+import { effectiveStyles, resetLayoutStyles } from '../blocks/variations'
+import { separatorPaths } from '../blocks/Separator'
 
 const title = (key: string) =>
   key
@@ -91,8 +97,22 @@ export function UnifiedBlockInspector({
   children,
   bindingFields = [],
   showFields = true,
+  renderBackgroundMedia,
+  renderDocumentPicker,
+  listings = [],
 }: {
   node: ContentNode
+  listings?: Array<{ id: string; label: string }>
+  renderDocumentPicker?: (
+    collection: string,
+    label: string,
+    value: string,
+    change: (value: string) => void,
+  ) => ReactNode
+  renderBackgroundMedia?: (
+    value: BlockPresentation['background'],
+    change: (value: NonNullable<BlockPresentation['background']>) => void,
+  ) => ReactNode
   showFields?: boolean
   bindingFields?: Array<{ path: string; label: string }>
   onChange: (patch: Partial<ContentNode>) => void
@@ -110,9 +130,29 @@ export function UnifiedBlockInspector({
   const sharedDevice = useContext(InspectorDevice)
   const viewport = sharedDevice?.viewport ?? suppliedViewport ?? device
   const definition = getBlockDefinition(node.kind)
+  const [selectedTarget, setSelectedTarget] = useState('block')
+  const target = definition?.targets?.some((item) => item.id === selectedTarget)
+    ? selectedTarget
+    : 'block'
+  useEffect(() => {
+    const blocks = Array.from(document.querySelectorAll<HTMLElement>('[data-motion-id]')).filter(
+      (element) => element.dataset.motionId === node.id,
+    )
+    blocks.forEach((element) => (element.dataset.inspectorTarget = target))
+    return () => blocks.forEach((element) => delete element.dataset.inspectorTarget)
+  }, [node.id, target])
+  const authoredStyles = target === 'block' ? node.styles : node.targetStyles?.[target]
+  const writeStyles = (next: typeof node.styles) =>
+    target === 'block'
+      ? onChange({ styles: next })
+      : onChange({ targetStyles: { ...node.targetStyles, [target]: next ?? {} } })
   const presentation = node.presentation ?? {}
-  const values = state === 'normal' ? (node.styles?.[viewport] ?? {}) : (presentation[state] ?? {})
-  const inherited = resolveStyle(node.styles, viewport)
+  const values =
+    state === 'normal' ? (authoredStyles?.[viewport] ?? {}) : (presentation[state] ?? {})
+  const inherited = resolveStyle(
+    target === 'block' ? effectiveStyles(node) : authoredStyles,
+    viewport,
+  )
   const updatePresentation = (patch: Partial<BlockPresentation>) => {
     const next = { ...presentation, ...patch },
       problem = validatePresentation(next)
@@ -132,7 +172,7 @@ export function UnifiedBlockInspector({
     const next = { ...values }
     if (value) next[key] = value
     else delete next[key]
-    if (state === 'normal') onChange({ styles: { ...node.styles, [viewport]: next } })
+    if (state === 'normal') writeStyles({ ...authoredStyles, [viewport]: next })
     else updatePresentation({ [state]: next })
   }
   const condition = presentation.condition ?? { match: 'all' as const, rules: [] }
@@ -180,109 +220,223 @@ export function UnifiedBlockInspector({
         </div>
         {error && <p role="alert">{error}</p>}
       </div>
-      {tab === 'style' && (
+      {!!definition?.targets?.length && (
+        <label className="inspector-target-picker">
+          Style target
+          <select
+            aria-label="Style target"
+            value={target}
+            onChange={(event) => {
+              setSelectedTarget(event.target.value)
+              setState('normal')
+            }}
+          >
+            <option value="block">Block</option>
+            {definition.targets.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {tab === 'layout' && <VariationPicker node={node} onChange={onChange} disabled={disabled} />}
+      {tab === 'layout' && node.variation && (
+        <button type="button" onClick={() => onChange({ styles: resetLayoutStyles(node) })}>
+          Reset layout styling
+        </button>
+      )}
+      {tab === 'style' && target === 'block' && (
         <details open>
           <summary>Content</summary>
           {children}
+          <RepeatedItemsControl node={node} change={onChange} />
+          {node.role === 'item' && (
+            <>
+              <label>
+                Entry date
+                <input
+                  type="date"
+                  value={String(node.props?.date ?? '')}
+                  onChange={(event) =>
+                    onChange({ props: { ...node.props, date: event.target.value } })
+                  }
+                />
+              </label>
+              <label>
+                Marker label
+                <input
+                  value={String(node.props?.marker ?? '')}
+                  onChange={(event) =>
+                    onChange({ props: { ...node.props, marker: event.target.value } })
+                  }
+                />
+              </label>
+            </>
+          )}
           {showFields &&
-            definition?.fields.map((field) => (
-              <div key={field.key}>
-                <label>
-                  {field.label}
-                  {field.type === 'toggle' ? (
-                    <input
-                      type="checkbox"
-                      checked={Boolean(node.props?.[field.key])}
-                      onChange={(event) =>
-                        onChange({ props: { ...node.props, [field.key]: event.target.checked } })
-                      }
-                    />
-                  ) : field.type === 'select' || field.type === 'icon' ? (
-                    <select
-                      value={String(node.props?.[field.key] ?? field.defaultValue ?? '')}
-                      onChange={(event) =>
-                        onChange({ props: { ...node.props, [field.key]: event.target.value } })
-                      }
-                    >
-                      {(field.type === 'icon'
-                        ? Object.keys(blockIcons)
-                        : (field.options ?? [])
-                      ).map((value) => (
-                        <option key={value}>{value}</option>
-                      ))}
-                    </select>
-                  ) : field.type === 'textarea' ? (
-                    <textarea
-                      value={String(node.props?.[field.key] ?? '')}
-                      onChange={(event) =>
-                        onChange({ props: { ...node.props, [field.key]: event.target.value } })
-                      }
-                    />
-                  ) : field.type === 'number' ? (
-                    <span className="inspector-number-row">
-                      <input
-                        type="range"
-                        aria-label={field.label + ' slider'}
-                        min={field.min ?? 0}
-                        max={field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0))}
-                        value={Number(node.props?.[field.key] ?? 0)}
+            definition?.fields.map((field) => {
+              const FieldLabel =
+                ['items', 'icon'].includes(field.type) ||
+                (node.kind === 'postListing' && ['ids', 'categories'].includes(field.key))
+                  ? 'div'
+                  : 'label'
+              return (
+                <div key={field.key}>
+                  <FieldLabel>
+                    {field.label}
+                    {field.key === 'initialPanel' ? (
+                      <select
+                        value={String(
+                          node.props?.initialPanel ?? (node.kind === 'accordion' ? -1 : 0),
+                        )}
                         onChange={(event) =>
                           onChange({
-                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                            props: { ...node.props, initialPanel: Number(event.target.value) },
                           })
                         }
-                      />
+                      >
+                        {node.kind === 'accordion' && <option value="-1">All panels closed</option>}
+                        {node.children?.map((child, index) => (
+                          <option key={child.id} value={index}>
+                            {child.label || 'Item ' + (index + 1)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.key === 'listingID' ? (
+                      <select
+                        value={String(node.props?.listingID ?? '')}
+                        onChange={(event) =>
+                          onChange({ props: { ...node.props, listingID: event.target.value } })
+                        }
+                      >
+                        <option value="">Choose a listing</option>
+                        {listings.map((listing) => (
+                          <option key={listing.id} value={listing.id}>
+                            {listing.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : node.kind === 'postListing' &&
+                      ['ids', 'categories'].includes(field.key) &&
+                      renderDocumentPicker ? (
+                      renderDocumentPicker(
+                        field.key === 'categories'
+                          ? 'categories'
+                          : String(node.props?.collection ?? 'posts'),
+                        field.key === 'categories' ? 'Categories' : 'Documents',
+                        String(node.props?.[field.key] ?? ''),
+                        (value) => onChange({ props: { ...node.props, [field.key]: value } }),
+                      )
+                    ) : field.type === 'toggle' ? (
                       <input
-                        type="number"
-                        aria-label={field.label}
-                        min={field.min}
-                        max={field.max}
+                        type="checkbox"
+                        checked={Boolean(node.props?.[field.key])}
+                        onChange={(event) =>
+                          onChange({ props: { ...node.props, [field.key]: event.target.checked } })
+                        }
+                      />
+                    ) : field.type === 'items' ? (
+                      <ItemsEditor
+                        value={node.props?.[field.key]}
+                        social={node.kind === 'socialButtons'}
+                        change={(value) =>
+                          onChange({ props: { ...node.props, [field.key]: value } })
+                        }
+                      />
+                    ) : field.type === 'icon' ? (
+                      <IconPicker
+                        value={String(node.props?.[field.key] ?? field.defaultValue ?? 'star')}
+                        change={(value) =>
+                          onChange({ props: { ...node.props, [field.key]: value } })
+                        }
+                      />
+                    ) : field.type === 'select' ? (
+                      <select
+                        value={String(node.props?.[field.key] ?? field.defaultValue ?? '')}
+                        onChange={(event) =>
+                          onChange({ props: { ...node.props, [field.key]: event.target.value } })
+                        }
+                      >
+                        {(field.options ?? []).map((value) => (
+                          <option key={value}>{value}</option>
+                        ))}
+                      </select>
+                    ) : field.type === 'textarea' ? (
+                      <textarea
+                        value={String(node.props?.[field.key] ?? '')}
+                        onChange={(event) =>
+                          onChange({ props: { ...node.props, [field.key]: event.target.value } })
+                        }
+                      />
+                    ) : field.type === 'number' ? (
+                      <span className="inspector-number-row">
+                        <input
+                          type="range"
+                          aria-label={field.label + ' slider'}
+                          min={field.min ?? 0}
+                          max={field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0))}
+                          value={Number(node.props?.[field.key] ?? 0)}
+                          onChange={(event) =>
+                            onChange({
+                              props: { ...node.props, [field.key]: Number(event.target.value) },
+                            })
+                          }
+                        />
+                        <input
+                          type="number"
+                          aria-label={field.label}
+                          min={field.min}
+                          max={field.max}
+                          value={String(node.props?.[field.key] ?? '')}
+                          onChange={(event) =>
+                            onChange({
+                              props: { ...node.props, [field.key]: Number(event.target.value) },
+                            })
+                          }
+                        />
+                      </span>
+                    ) : (
+                      <input
+                        type="text"
                         value={String(node.props?.[field.key] ?? '')}
                         onChange={(event) =>
                           onChange({
-                            props: { ...node.props, [field.key]: Number(event.target.value) },
+                            props: {
+                              ...node.props,
+                              [field.key]: event.target.value,
+                            },
                           })
                         }
                       />
-                    </span>
-                  ) : (
-                    <input
-                      type="text"
-                      value={String(node.props?.[field.key] ?? '')}
+                    )}
+                  </FieldLabel>
+                  {field.bindable && (
+                    <select
+                      aria-label={`Bind ${field.label}`}
+                      value={node.bindings?.[field.key] ?? ''}
                       onChange={(event) =>
                         onChange({
-                          props: {
-                            ...node.props,
-                            [field.key]: event.target.value,
-                          },
+                          bindings: { ...node.bindings, [field.key]: event.target.value },
                         })
                       }
-                    />
+                    >
+                      <option value="">Static value</option>
+                      {bindingFields.map((field) => (
+                        <option key={field.path} value={field.path}>
+                          {field.label}
+                        </option>
+                      ))}
+                      {publicDocumentFields.map((key) => (
+                        <option key={key} value={key}>
+                          Document {key}
+                        </option>
+                      ))}
+                    </select>
                   )}
-                </label>
-                {field.bindable && (
-                  <select
-                    aria-label={`Bind ${field.label}`}
-                    value={node.bindings?.[field.key] ?? ''}
-                    onChange={(event) =>
-                      onChange({ bindings: { ...node.bindings, [field.key]: event.target.value } })
-                    }
-                  >
-                    <option value="">Static value</option>
-                    {bindingFields.map((field) => (
-                      <option key={field.path} value={field.path}>
-                        {field.label}
-                      </option>
-                    ))}
-                    {publicDocumentFields.map((key) => (
-                      <option key={key} value={key}>
-                        Document {key}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
         </details>
       )}
       {Object.entries(sections[tab]).map(([label, keys]) => {
@@ -300,6 +454,7 @@ export function UnifiedBlockInspector({
                     : 'layout'
         if (definition && !definition.controls.includes(capability)) return null
         if (label === 'Image' && node.kind !== 'image') return null
+        if (label === 'Background' && target === 'block') return null
         if (label === 'Arrangement' && !definition?.container) return null
         return (
           <details key={label} open={label === 'Size and spacing' || label === 'Typography'}>
@@ -323,7 +478,7 @@ export function UnifiedBlockInspector({
                 inheritedValues={inherited}
                 responsive={state === 'normal'}
                 state={state}
-                setState={setState}
+                setState={target === 'block' ? setState : undefined}
                 updateMany={(patch) => {
                   const next = { ...values }
                   for (const [k, v] of Object.entries(patch)) {
@@ -331,7 +486,7 @@ export function UnifiedBlockInspector({
                     if (v) next[k] = v
                     else delete next[k]
                   }
-                  if (state === 'normal') onChange({ styles: { ...node.styles, [viewport]: next } })
+                  if (state === 'normal') writeStyles({ ...authoredStyles, [viewport]: next })
                   else updatePresentation({ [state]: next })
                 }}
                 value={values[key] ?? ''}
@@ -342,78 +497,177 @@ export function UnifiedBlockInspector({
           </details>
         )
       })}
-      {tab === 'style' && (
+      {tab === 'style' && target === 'block' && (
+        <BackgroundControls
+          key={node.id + viewport}
+          background={presentation.background}
+          device={viewport}
+          change={(background) => updatePresentation({ background })}
+          renderMedia={renderBackgroundMedia}
+          color={inherited.backgroundColor ?? ''}
+          gradient={inherited.backgroundImage ?? ''}
+          styleChange={(key, value) => {
+            if (value && !validStyleValue(key, value)) {
+              setError('Invalid background value.')
+              return
+            }
+            const next = { ...node.styles?.[viewport] }
+            if (value) next[key] = value
+            else delete next[key]
+            onChange({ styles: { ...node.styles, [viewport]: next } })
+          }}
+          reset={() => {
+            const next = { ...node.styles?.[viewport] }
+            delete next.backgroundColor
+            delete next.backgroundImage
+            onChange({
+              styles: { ...node.styles, [viewport]: next },
+              presentation: {
+                ...presentation,
+                background:
+                  viewport === 'desktop'
+                    ? { responsive: presentation.background?.responsive }
+                    : {
+                        ...presentation.background,
+                        responsive: {
+                          ...presentation.background?.responsive,
+                          [viewport]: undefined,
+                        },
+                      },
+              },
+            })
+          }}
+        />
+      )}
+      {tab === 'style' && target === 'block' && definition?.container && (
         <details>
-          <summary>Background image and overlay</summary>
-          <label>
-            Background image URL
-            <CommittedText
-              key={`${node.id}-background`}
-              value={presentation.background?.imageURL ?? ''}
-              onCommit={(value) =>
-                updatePresentation({ background: { ...presentation.background, imageURL: value } })
-              }
-            />
-          </label>
-          <PaintControl
-            label="Overlay color"
-            value={presentation.background?.overlay ?? ''}
-            update={(overlay) =>
+          <summary>Top and bottom separators</summary>
+          {(['top', 'bottom'] as const).map((side) => {
+            const settings = presentation.separators?.[side]
+            const change = (patch: Partial<NonNullable<typeof settings>>) =>
               updatePresentation({
-                background: {
-                  ...presentation.background,
-                  overlay,
-                  opacity: presentation.background?.opacity ?? 1,
+                separators: {
+                  ...presentation.separators,
+                  [side]: { shape: 'wave', ...settings, ...patch },
                 },
               })
-            }
-          />
-          <PaintControl
-            label="Overlay gradient"
-            gradient
-            value={presentation.background?.gradient ?? ''}
-            update={(gradient) =>
-              updatePresentation({
-                background: {
-                  ...presentation.background,
-                  gradient,
-                  opacity: presentation.background?.opacity ?? 1,
-                },
-              })
-            }
-          />
+            return (
+              <fieldset key={side}>
+                <legend>{title(side)}</legend>
+                <label>
+                  Shape
+                  <select
+                    value={settings?.shape ?? ''}
+                    onChange={(event) =>
+                      event.target.value
+                        ? change({ shape: event.target.value })
+                        : updatePresentation({
+                            separators: { ...presentation.separators, [side]: undefined },
+                          })
+                    }
+                  >
+                    <option value="">None</option>
+                    {Object.keys(separatorPaths).map((shape) => (
+                      <option key={shape}>{shape}</option>
+                    ))}
+                  </select>
+                </label>
+                {settings && (
+                  <>
+                    <PaintControl
+                      label={`${title(side)} separator color`}
+                      value={settings.color ?? ''}
+                      update={(color) => change({ color })}
+                    />
+                    {(['height', 'width', 'layers'] as const).map((key) => (
+                      <label key={key}>
+                        {title(key)}
+                        <input
+                          type="number"
+                          min={1}
+                          max={key === 'layers' ? 3 : 1000}
+                          value={
+                            settings[key] ?? (key === 'layers' ? 1 : key === 'width' ? 100 : 48)
+                          }
+                          onChange={(event) => change({ [key]: Number(event.target.value) })}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.flip}
+                        onChange={(event) => change({ flip: event.target.checked })}
+                      />
+                      Flip
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!settings.shadow}
+                        onChange={(event) => change({ shadow: event.target.checked })}
+                      />
+                      Shadow
+                    </label>
+                  </>
+                )}
+              </fieldset>
+            )
+          })}
+        </details>
+      )}
+      {tab === 'style' && (node.kind === 'image' || target === 'media') && (
+        <details open>
+          <summary>Image treatments</summary>
+          {(['zoom', 'brightness', 'contrast', 'saturation', 'grayscale', 'blur'] as const).map(
+            (key) => (
+              <label key={key}>
+                {title(key)}
+                <input
+                  type="range"
+                  min={0}
+                  max={key === 'blur' ? 40 : key === 'grayscale' ? 1 : 5}
+                  step={0.05}
+                  value={presentation.media?.[key] ?? (['grayscale', 'blur'].includes(key) ? 0 : 1)}
+                  onChange={(event) =>
+                    updatePresentation({
+                      media: { ...presentation.media, [key]: Number(event.target.value) },
+                    })
+                  }
+                />
+                <input
+                  aria-label={`${title(key)} value`}
+                  type="number"
+                  min={0}
+                  max={key === 'blur' ? 40 : key === 'grayscale' ? 1 : 5}
+                  step={0.05}
+                  value={presentation.media?.[key] ?? (['grayscale', 'blur'].includes(key) ? 0 : 1)}
+                  onChange={(event) =>
+                    updatePresentation({
+                      media: { ...presentation.media, [key]: Number(event.target.value) },
+                    })
+                  }
+                />
+              </label>
+            ),
+          )}
           <label>
-            Overlay blend mode
+            Image shape
             <select
-              value={presentation.background?.blendMode ?? 'normal'}
-              onChange={(e) =>
+              value={presentation.media?.shape ?? 'none'}
+              onChange={(event) =>
                 updatePresentation({
-                  background: { ...presentation.background, blendMode: e.target.value as 'normal' },
+                  media: { ...presentation.media, shape: event.target.value as 'none' },
                 })
               }
             >
-              {['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten'].map((v) => (
-                <option key={v}>{v}</option>
+              {['none', 'circle', 'ellipse', 'rounded', 'blob', 'diagonal'].map((shape) => (
+                <option key={shape}>{shape}</option>
               ))}
             </select>
           </label>
-          <label>
-            Overlay opacity
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={presentation.background?.opacity ?? 0}
-              onChange={(event) =>
-                updatePresentation({
-                  background: { ...presentation.background, opacity: Number(event.target.value) },
-                })
-              }
-            />
-          </label>
-          <button type="button" onClick={() => updatePresentation({ background: undefined })}>
-            Reset background image
+          <button type="button" onClick={() => updatePresentation({ media: undefined })}>
+            Reset image treatments
           </button>
         </details>
       )}

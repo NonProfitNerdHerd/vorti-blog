@@ -253,7 +253,7 @@ export function VisualStyleControl({
   updateMany: (patch: Record<string, string>) => void
   responsive?: boolean
   state: string
-  setState: (v: 'normal' | 'hover' | 'focus') => void
+  setState?: (v: 'normal' | 'hover' | 'focus') => void
 }) {
   const vertical =
     name === 'alignItems'
@@ -277,18 +277,25 @@ export function VisualStyleControl({
       <div className="inspector-property-heading">
         <span>{label}</span>
         {responsive && <DeviceControl label={label} />}
-        <Popover
-          label={`${label} state`}
-          trigger={state === 'normal' ? '○' : state === 'hover' ? '↗' : '◎'}
-        >
-          <div className="inspector-segments">
-            {(['normal', 'hover', 'focus'] as const).map((v) => (
-              <button type="button" key={v} aria-pressed={state === v} onClick={() => setState(v)}>
-                {v}
-              </button>
-            ))}
-          </div>
-        </Popover>
+        {setState && (
+          <Popover
+            label={`${label} state`}
+            trigger={state === 'normal' ? '○' : state === 'hover' ? '↗' : '◎'}
+          >
+            <div className="inspector-segments">
+              {(['normal', 'hover', 'focus'] as const).map((v) => (
+                <button
+                  type="button"
+                  key={v}
+                  aria-pressed={state === v}
+                  onClick={() => setState(v)}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </Popover>
+        )}
         <IconButton
           label={`Reset ${label}`}
           icon="reset"

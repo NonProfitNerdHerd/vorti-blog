@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import type { ContentNode } from '../content/model';
+import { type BlockVariation, type StylingTarget } from './variations';
 export type BlockContext = 'content' | 'template' | 'header' | 'footer';
 export type InspectorSection = 'layout' | 'style' | 'advanced';
 export type BlockField = {
     key: string;
     label: string;
-    type: 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'url' | 'date' | 'icon';
+    type: 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'url' | 'date' | 'icon' | 'items';
     options?: string[];
     defaultValue?: string | number | boolean;
     min?: number;
@@ -13,6 +14,8 @@ export type BlockField = {
     bindable?: boolean;
 };
 export type BlockDefinition = {
+    variations?: BlockVariation[];
+    targets?: StylingTarget[];
     type: string;
     version: number;
     label: string;

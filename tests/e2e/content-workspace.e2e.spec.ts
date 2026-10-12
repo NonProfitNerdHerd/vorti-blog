@@ -6,6 +6,75 @@ import {
 } from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
+test('Hero variation chooser preserves editable content through layout changes and reload', async ({
+  page,
+}) => {
+  const response = await page.request.post('/api/pages', {
+    data: {
+      title: 'Hero layout review',
+      slug: `hero-review-${Date.now()}`,
+      contentLayout: { version: 1, nodes: [] },
+      _status: 'draft',
+    },
+  })
+  expect(response.ok(), await response.text()).toBeTruthy()
+  const { doc } = await response.json()
+  await page.goto(`/admin/collections/pages/${doc.id}`)
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page
+    .locator('.content-workspace__left')
+    .getByRole('button', { name: 'Hero', exact: true })
+    .click()
+  const canvas = page.locator('.content-workspace__center')
+  await expect(canvas.getByText('Select a variation to start with')).toBeVisible()
+  await canvas.getByRole('button', { name: 'Horizontal', exact: true }).click()
+  await expect(canvas.locator('[data-block-kind="hero"]')).toHaveAttribute(
+    'data-variation',
+    'horizontal',
+  )
+  await canvas.locator('textarea[aria-label="Heading"]').fill('Preserved hero headline')
+  await page
+    .locator('.content-workspace__left')
+    .getByRole('button', { name: 'Hero', exact: true })
+    .click()
+  const inspector = page.locator('.content-workspace__right')
+  await inspector.getByRole('tab', { name: 'Layout', exact: true }).click()
+  await inspector.getByRole('button', { name: 'Center Overlay', exact: true }).click()
+  await expect(canvas.locator('textarea[aria-label="Heading"]')).toHaveValue(
+    'Preserved hero headline',
+  )
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(canvas.locator('[data-block-kind="hero"]')).toHaveAttribute(
+    'data-variation',
+    'horizontal',
+  )
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await expect(canvas.locator('[data-block-kind="hero"]')).toHaveAttribute(
+    'data-variation',
+    'center-overlay',
+  )
+  await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+  await expect
+    .poll(async () => {
+      const result = await page.request.get(`/api/pages/${doc.id}?draft=true`)
+      return (await result.json()).contentLayout.nodes[0]?.variation?.id
+    })
+    .toBe('center-overlay')
+  await page.reload()
+  await expect(page.locator('.builder-frame')).toHaveAttribute('data-integrated', 'true')
+  await expect(canvas.locator('[data-block-kind="hero"]')).toHaveAttribute(
+    'data-variation',
+    'center-overlay',
+  )
+  await expect(canvas.getByText('Select a variation to start with')).toHaveCount(0)
+  await expect(canvas.locator('textarea[aria-label="Heading"]')).toHaveValue(
+    'Preserved hero headline',
+  )
+  await page.screenshot({ path: '.wrangler/hero-variation-desktop.png' })
+  await page.getByRole('button', { name: 'Phone', exact: true }).click()
+  await page.screenshot({ path: '.wrangler/hero-variation-phone.png' })
+})
+
 test('full-height panels and contextual actions keep the canvas clear', async ({ page }) => {
   const nodes = Array.from({ length: 35 }, (_, index) => ({
     ...createContentNode('paragraph'),
@@ -66,7 +135,9 @@ test('full-height panels and contextual actions keep the canvas clear', async ({
   await page.keyboard.press('Escape')
   await expect(left).toBeHidden()
   await expect(page.getByRole('button', { name: 'List View', exact: true })).toBeFocused()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true)
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
   await page.screenshot({ path: '.wrangler/panels-mobile-dark.png' })
 })
@@ -221,7 +292,18 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
   expect(drag && drop).toBeTruthy()
   await page.mouse.move(drag!.x + drag!.width / 2, drag!.y + drag!.height / 2)
   await page.mouse.down()
-  await page.mouse.move(drop!.x + drop!.width / 2, drop!.y + drop!.height / 2, { steps: 12 })
+  // Activate the row drag before measuring the live target; selection can scroll the panel.
+  await page.mouse.move(drag!.x + drag!.width / 2 + 8, drag!.y + drag!.height / 2, { steps: 2 })
+  const activeDrop = await sidebar.locator('[aria-label="Insert before Heading"]').boundingBox()
+  await page.mouse.move(
+    activeDrop!.x + activeDrop!.width / 2,
+    activeDrop!.y + activeDrop!.height / 2,
+    { steps: 12 },
+  )
+  await expect(sidebar.locator('[aria-label="Insert before Heading"]')).toHaveAttribute(
+    'data-over',
+    'true',
+  )
   await page.mouse.up()
   await expect(
     workspace.locator('.content-workspace__viewport [data-block-kind]').first(),
@@ -606,14 +688,14 @@ test('registered block inspector updates canvas, preserves its tab and saves adv
     .click()
   const inspector = workspace.locator('.unified-block-inspector')
   await inspector.getByRole('spinbutton', { name: /^Value/ }).fill('75')
-  await expect(workspace.locator('progress')).toHaveAttribute('value', '75')
+  await expect(workspace.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')
   await inspector.getByRole('tab', { name: 'Layout', exact: true }).click()
   await inspector.getByRole('textbox', { name: 'Padding', exact: true }).fill('18px')
   await inspector.getByRole('tab', { name: 'Advanced', exact: true }).click()
   await inspector.getByText('Custom CSS', { exact: true }).click()
   await inspector
     .getByRole('textbox', { name: 'Custom CSS', exact: true })
-    .fill('& progress { accent-color: green; }')
+    .fill('& .progress-fill { background-color: green; }')
   await inspector.getByRole('textbox', { name: 'Custom CSS', exact: true }).press('Tab')
   await page.screenshot({ path: '.wrangler/framework-inspector.png' })
   await workspace.getByRole('tab', { name: 'Document settings', exact: true }).click()
@@ -625,7 +707,7 @@ test('registered block inspector updates canvas, preserves its tab and saves adv
     await page.request.get(`/api/pages/${page.url().split('/').at(-1)}?draft=true`)
   ).json()
   expect(saved.contentLayout.nodes[0].props.value).toBe(75)
-  expect(saved.contentLayout.nodes[0].presentation.css).toContain('accent-color')
+  expect(saved.contentLayout.nodes[0].presentation.css).toContain('background-color')
   await page.reload()
-  await expect(workspace.locator('progress')).toHaveAttribute('value', '75')
+  await expect(workspace.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')
 })

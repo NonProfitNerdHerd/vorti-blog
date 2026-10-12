@@ -74,6 +74,9 @@ export interface Config {
     media: Media;
     'site-templates': SiteTemplate;
     users: User;
+    'review-tasks': ReviewTask;
+    'review-comments': ReviewComment;
+    'review-activity': ReviewActivity;
     'design-block-types': DesignBlockType;
     'design-block-designs': DesignBlockDesign;
     'design-templates': DesignTemplate;
@@ -102,6 +105,9 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'site-templates': SiteTemplatesSelect<false> | SiteTemplatesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'review-tasks': ReviewTasksSelect<false> | ReviewTasksSelect<true>;
+    'review-comments': ReviewCommentsSelect<false> | ReviewCommentsSelect<true>;
+    'review-activity': ReviewActivitySelect<false> | ReviewActivitySelect<true>;
     'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
     'design-block-designs': DesignBlockDesignsSelect<false> | DesignBlockDesignsSelect<true>;
     'design-templates': DesignTemplatesSelect<false> | DesignTemplatesSelect<true>;
@@ -686,6 +692,60 @@ export interface SiteTemplate {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-tasks".
+ */
+export interface ReviewTask {
+  id: number;
+  title: string;
+  description?: string | null;
+  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
+  documentID: string;
+  documentDeleted?: boolean | null;
+  documentTitle?: string | null;
+  region?: ('document' | 'header' | 'footer') | null;
+  parent?: (number | null) | ReviewTask;
+  status: 'open' | 'in-progress' | 'ready-for-review' | 'done';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  assignee?: (number | null) | User;
+  dueDate?: string | null;
+  creator?: (number | null) | User;
+  archived?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-comments".
+ */
+export interface ReviewComment {
+  id: number;
+  task: number | ReviewTask;
+  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
+  documentID: string;
+  documentDeleted?: boolean | null;
+  author?: (number | null) | User;
+  body: string;
+  moderated?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-activity".
+ */
+export interface ReviewActivity {
+  id: number;
+  task: number | ReviewTask;
+  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
+  documentID: string;
+  documentDeleted?: boolean | null;
+  actor?: (number | null) | User;
+  message: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1136,6 +1196,18 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'review-tasks';
+        value: number | ReviewTask;
+      } | null)
+    | ({
+        relationTo: 'review-comments';
+        value: number | ReviewComment;
+      } | null)
+    | ({
+        relationTo: 'review-activity';
+        value: number | ReviewActivity;
+      } | null)
+    | ({
         relationTo: 'design-block-types';
         value: number | DesignBlockType;
       } | null)
@@ -1379,6 +1451,57 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-tasks_select".
+ */
+export interface ReviewTasksSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  documentType?: T;
+  documentID?: T;
+  documentDeleted?: T;
+  documentTitle?: T;
+  region?: T;
+  parent?: T;
+  status?: T;
+  priority?: T;
+  assignee?: T;
+  dueDate?: T;
+  creator?: T;
+  archived?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-comments_select".
+ */
+export interface ReviewCommentsSelect<T extends boolean = true> {
+  task?: T;
+  documentType?: T;
+  documentID?: T;
+  documentDeleted?: T;
+  author?: T;
+  body?: T;
+  moderated?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "review-activity_select".
+ */
+export interface ReviewActivitySelect<T extends boolean = true> {
+  task?: T;
+  documentType?: T;
+  documentID?: T;
+  documentDeleted?: T;
+  actor?: T;
+  message?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1988,6 +2111,9 @@ export interface TaskCreateCollectionExport {
       | 'media'
       | 'site-templates'
       | 'users'
+      | 'review-tasks'
+      | 'review-comments'
+      | 'review-activity'
       | 'design-block-types'
       | 'design-block-designs'
       | 'design-templates'

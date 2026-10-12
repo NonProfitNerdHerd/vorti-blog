@@ -47,6 +47,11 @@ export async function resolveBlocks(
     return result
   }
   const result = await resolve(source)
+  return resolveDocumentHeadings(result)
+}
+/** Derived preview data; never write the result back into the document form. */
+export function resolveDocumentHeadings(source: ContentNode[]): ContentNode[] {
+  const result = structuredClone(source)
   const headings: Array<{ id: string; text: string; level: number }> = []
   for (const node of walkContent(result)) {
     if (node.kind === 'heading' && node.text) {

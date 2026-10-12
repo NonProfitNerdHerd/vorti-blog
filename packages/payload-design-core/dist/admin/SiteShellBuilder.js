@@ -6,9 +6,11 @@ import { BuilderCore } from '../builder/BuilderCore.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor.js';
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry.js';
-import { toShellBlock } from '../blocks/adapters.js';
+import { toShellBlock, shellBlockValue, adapterListings, adapterPreviewNodes, mergeShellBlock, } from '../blocks/adapters.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
-import { createContentNode } from '../content/model.js';
+import { createContentNode, walkContent } from '../content/model.js';
+import { variationsFor, styleOnlyKinds } from '../blocks/variations.js';
+import { VariationPicker } from '../builder/VariationPicker.js';
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model.js';
 import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar.js';
@@ -108,6 +110,12 @@ export function SiteTemplateBuilder() {
     const priority = useField({ path: 'assignment.priority' });
     const [tab, setTab] = useState('overview');
     const [isDefault, setIsDefault] = useState(false);
+    useEffect(() => {
+        const region = new URLSearchParams(window.location.search).get('reviewRegion');
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the region requested by a task deep link.
+        if (region === 'header' || region === 'footer')
+            setTab(region);
+    }, []);
     useEffect(() => {
         if (!id)
             return;
@@ -220,8 +228,10 @@ export function SiteShellBuilder({ region, navigation, }) {
     const layoutField = useField({ path: `${region}.layout` });
     const settingsField = useField({ path: `${region}.settings` });
     const nodes = Array.isArray(layoutField.value) ? layoutField.value : [];
+    const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]));
     const [selected, setSelected] = useState(null);
     const [adding, setAdding] = useState(null);
+    const [variationChooser, setVariationChooser] = useState('');
     const [target, setTarget] = useState('root');
     const [viewport, setViewport] = useState('desktop');
     const [history, setHistory] = useState([]);
@@ -291,6 +301,18 @@ export function SiteShellBuilder({ region, navigation, }) {
     const startAdd = (item, parent = 'root', before) => {
         if (disabled)
             return;
+        if (item.kind === 'registered' &&
+            variationsFor(item.value).length > 1 &&
+            !styleOnlyKinds.has(item.value)) {
+            const node = toShellBlock(createContentNode(item.value));
+            change(insertSiteShellNode(nodes, parent, node, before));
+            setSelected(node);
+            setSidebarSelected(node.id);
+            setVariationChooser(node.id);
+            setAdding(null);
+            sidebar.inserted();
+            return;
+        }
         setBeforeTarget(before);
         setAdding(item);
         setTarget(parent);
@@ -312,7 +334,8 @@ export function SiteShellBuilder({ region, navigation, }) {
         },
     };
     const describe = (node) => ({
-        ...describeShellNode(node, viewport),
+        ...describeShellNode(node, viewport, previews),
+        before: !disabled && variationChooser === node.id && node.type === 'layout' && node.block ? (_jsx(VariationPicker, { node: shellBlockValue(node), initial: true, onChange: (next) => change(updateSiteShellNode(nodes, node.id, toShellBlock(next))), onDone: () => setVariationChooser('') })) : undefined,
         style: node.type === 'layout' && node.block
             ? undefined
             : resolveStyle(shellInspectorStyles(node), viewport),
@@ -350,7 +373,7 @@ export function SiteShellBuilder({ region, navigation, }) {
                                     actions.edit(copy);
                                 }
                             },
-                        } }), canvasLabel: `${region} shell canvas`, canvasTitle: "", canvasNavigation: navigation, canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs("div", { className: `site-shell__preview site-shell__preview--${region}`, children: [region === 'footer' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" })), _jsxs(DropArea, { id: "root", label: `${region} shell drop area`, add: () => sidebar.insert({ parent: 'root' }), addItem: startAdd, children: [!nodes.length && (_jsx("div", { className: "template-editor__empty", children: _jsxs("p", { children: ["Add the first element to this ", region, "."] }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: describe, id: (node) => node.id, selectedID: sidebarSelected ?? selected?.id })] }), region === 'header' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" }))] }) }), inspectorTitle: "Settings", inspector: selected?.type === 'layout' && selected.block ? (_jsx(RegisteredBlockEditor, { viewport: viewport, node: selected.block, change: (block) => change(updateSiteShellNode(nodes, selected.id, { ...selected, block }), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
+                        } }), canvasLabel: `${region} shell canvas`, canvasTitle: "", canvasNavigation: navigation, canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs("div", { className: `site-shell__preview site-shell__preview--${region}`, children: [region === 'footer' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" })), _jsxs(DropArea, { id: "root", label: `${region} shell drop area`, add: () => sidebar.insert({ parent: 'root' }), addItem: startAdd, children: [!nodes.length && (_jsx("div", { className: "template-editor__empty", children: _jsxs("p", { children: ["Add the first element to this ", region, "."] }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: describe, id: (node) => node.id, selectedID: sidebarSelected ?? selected?.id })] }), region === 'header' && (_jsx("div", { className: "site-shell__sample", children: "Sample page content" }))] }) }), inspectorTitle: "Settings", inspector: selected?.type === 'layout' && selected.block ? (_jsx(RegisteredBlockEditor, { listings: adapterListings(nodes), viewport: viewport, node: shellBlockValue(selected), change: (block) => change(updateSiteShellNode(nodes, selected.id, mergeShellBlock(selected, block)), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
                             const node = toShellBlock(block);
                             change(insertSiteShellNode(nodes, target, node, beforeTarget));
                             setSelected(node);
@@ -369,15 +392,16 @@ export function SiteShellBuilder({ region, navigation, }) {
                             sidebar.inserted();
                         } }, selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx(RegionSettings, { region: region, value: settingsField.value ?? {}, change: settingsField.setValue })) })] }) }));
 }
-function describeShellNode(node, viewport = 'desktop') {
+function describeShellNode(node, viewport = 'desktop', previews = new Map()) {
     if (node.type === 'layout' && node.block) {
         const definition = getBlockDefinition(node.block.kind);
         return {
             title: node.block.label ?? definition?.label ?? node.block.kind,
             icon: definition?.icon,
-            body: definition?.container ? null : _jsx(ContentBlock, { node: node.block, viewport: viewport }),
+            directChildren: true,
+            body: definition?.container ? null : (_jsx(ContentBlock, { node: previews.get(node.id) ?? node.block, viewport: viewport })),
             wrap: definition?.container
-                ? (children) => (_jsx(ContentBlock, { node: node.block, viewport: viewport, children: children }))
+                ? (children) => (_jsx(ContentBlock, { node: shellBlockValue(node), viewport: viewport, children: children }))
                 : undefined,
             children: definition?.container
                 ? [{ id: node.id, label: 'Block contents', children: node.children ?? [] }]

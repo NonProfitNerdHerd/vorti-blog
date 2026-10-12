@@ -1,12 +1,20 @@
 import type { ReactNode } from 'react'
 import type { ContentNode } from '../content/model'
+import { separatorPaths } from './Separator'
+import {
+  variationsFor,
+  targetsFor,
+  registerVariations,
+  type BlockVariation,
+  type StylingTarget,
+} from './variations'
 
 export type BlockContext = 'content' | 'template' | 'header' | 'footer'
 export type InspectorSection = 'layout' | 'style' | 'advanced'
 export type BlockField = {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'url' | 'date' | 'icon'
+  type: 'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'url' | 'date' | 'icon' | 'items'
   options?: string[]
   defaultValue?: string | number | boolean
   min?: number
@@ -14,6 +22,8 @@ export type BlockField = {
   bindable?: boolean
 }
 export type BlockDefinition = {
+  variations?: BlockVariation[]
+  targets?: StylingTarget[]
   type: string
   version: number
   label: string
@@ -45,6 +55,7 @@ export function registerBlock(definition: BlockDefinition) {
   if (entries.has(definition.type))
     throw new Error(`Duplicate block definition: ${definition.type}`)
   entries.set(definition.type, definition)
+  registerVariations(definition.type, definition.variations)
 }
 export const getBlockDefinition = (type: string) => entries.get(type)
 export const listBlockDefinitions = (context: BlockContext = 'content') =>
@@ -80,6 +91,9 @@ const valueFields = [
   field('value', 'Value', 'number', 60),
   field('max', 'Maximum', 'number', 100),
   field('label', 'Label', 'text', 'Progress'),
+  field('thickness', 'Thickness', 'number', 8),
+  field('size', 'Circle size', 'number', 120),
+  field('rounded', 'Rounded ends', 'toggle', true),
 ]
 const queryFields = [
   field('collection', 'Collection', 'select', 'posts', ['posts', 'pages']),
@@ -99,7 +113,22 @@ const queryFields = [
 ]
 const linkFields = [field('label', 'Label', 'text', 'Learn more'), field('url', 'URL', 'url')]
 const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> = [
-  ['heading', 'Heading', 'H', 'Text'],
+  [
+    'heading',
+    'Heading',
+    'H',
+    'Text',
+    false,
+    [
+      field('decoration', 'Heading decoration', 'select', 'none', [
+        'none',
+        'top-line',
+        'bottom-line',
+        'both-lines',
+      ]),
+      { ...field('decorationWidth', 'Line width (%)', 'number', 30), min: 1, max: 100 },
+    ],
+  ],
   ['paragraph', 'Paragraph', '¶', 'Text'],
   ['richText', 'Rich Text', '¶', 'Text'],
   ['list', 'List', '☷', 'Text'],
@@ -129,8 +158,11 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     'Text',
     false,
     [
-      field('items', 'Items (one per line)', 'textarea', 'First item\nSecond item'),
+      field('items', 'List items', 'items', 'First item\nSecond item'),
       field('icon', 'Icon', 'icon', 'check'),
+      { ...field('columns', 'Columns', 'number', 1), min: 1, max: 6 },
+      { ...field('itemGap', 'Item gap', 'number', 8), min: 0, max: 200 },
+      { ...field('indent', 'Indent', 'number', 0), min: 0, max: 200 },
     ],
   ],
   [
@@ -148,7 +180,10 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     '⌄',
     'Interactive',
     true,
-    [field('multiple', 'Allow multiple open panels', 'toggle', false)],
+    [
+      field('multiple', 'Allow multiple open panels', 'toggle', false),
+      field('initialPanel', 'Initially open panel', 'number', -1),
+    ],
   ],
   [
     'notification',
@@ -167,9 +202,28 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     [
       field('autoplay', 'Autoplay', 'toggle', false),
       field('interval', 'Slide interval (seconds)', 'number', 5),
+      field('loop', 'Loop slides', 'toggle', true),
+      { ...field('slidesPerView', 'Desktop visible slides', 'number', 1), min: 1, max: 8 },
+      { ...field('tabletSlides', 'Tablet visible slides', 'number', 1), min: 1, max: 8 },
+      { ...field('mobileSlides', 'Phone visible slides', 'number', 1), min: 1, max: 8 },
+      field('dots', 'Show slide dots', 'toggle', true),
+      field('transition', 'Slide transition', 'select', 'fade', ['none', 'fade', 'slide']),
+      field('initialPanel', 'Initially selected slide', 'number', 0),
     ],
   ],
-  ['horizontalScroller', 'Horizontal Scroller', '↔', 'Interactive', true],
+  [
+    'horizontalScroller',
+    'Horizontal Scroller',
+    '↔',
+    'Interactive',
+    true,
+    [
+      field('columns', 'Visible items', 'number', 3),
+      field('gap', 'Item gap', 'number', 24),
+      field('snap', 'Snap to items', 'toggle', true),
+      field('scrollbar', 'Show scrollbar', 'toggle', true),
+    ],
+  ],
   [
     'expand',
     'Expand',
@@ -179,9 +233,17 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     [
       field('label', 'Expand label', 'text', 'Read more'),
       field('collapseLabel', 'Collapse label', 'text', 'Show less'),
+      field('initialOpen', 'Initially expanded', 'toggle', false),
     ],
   ],
-  ['tabs', 'Tabs', '▤', 'Interactive', true],
+  [
+    'tabs',
+    'Tabs',
+    '▤',
+    'Interactive',
+    true,
+    [field('initialPanel', 'Initially selected tab', 'number', 0)],
+  ],
   [
     'videoPopup',
     'Video Popup',
@@ -198,7 +260,18 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     '#',
     'Indicators',
     false,
-    [field('value', 'Number', 'number', 1), field('label', 'Label', 'text', 'Step')],
+    [
+      field('value', 'Number', 'number', 1),
+      field('label', 'Label', 'text', 'Step'),
+      field('shape', 'Number shape', 'select', 'none', [
+        'none',
+        'circle',
+        'square',
+        'rounded',
+        'diamond',
+      ]),
+      { ...field('size', 'Number size', 'number', 64), min: 16, max: 400 },
+    ],
   ],
   [
     'countUp',
@@ -222,6 +295,16 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     false,
     [
       field('deadline', 'Deadline (ISO date with timezone)', 'date'),
+      field('timezone', 'Schedule timezone', 'select', 'UTC', [
+        'UTC',
+        ...Intl.supportedValuesOf('timeZone'),
+      ]),
+      field('recurrence', 'Repeat schedule', 'select', 'none', [
+        'none',
+        'daily',
+        'weekly',
+        'monthly',
+      ]),
       field('completeText', 'Completion text', 'text', 'The time has arrived'),
     ],
   ],
@@ -232,7 +315,11 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     'Layout',
     false,
     [
-      field('shape', 'Shape', 'select', 'wave', ['wave', 'angle', 'curve']),
+      field('shape', 'Shape', 'select', 'wave', Object.keys(separatorPaths)),
+      field('height', 'Shape height', 'number', 48),
+      field('width', 'Shape width (%)', 'number', 100),
+      field('layers', 'Layers', 'number', 1),
+      field('shadow', 'Shape shadow', 'toggle', false),
       field('flip', 'Flip', 'toggle', false),
     ],
   ],
@@ -242,7 +329,7 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     '↗',
     'Text',
     false,
-    [field('links', 'Links (label | URL, one per line)', 'textarea')],
+    [field('links', 'Social links', 'items')],
   ],
   ['card', 'Card', '▣', 'Sections', true],
   [
@@ -289,6 +376,9 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
     [
       field('minLevel', 'Minimum heading level', 'number', 2),
       field('maxLevel', 'Maximum heading level', 'number', 6),
+      { ...field('columns', 'Columns', 'number', 1), min: 1, max: 6 },
+      field('numbered', 'Numbered headings', 'toggle', false),
+      { ...field('itemGap', 'Heading gap', 'number', 8), min: 0, max: 100 },
     ],
   ],
   ['postListing', 'Blog Post / Listing', '▤', 'Data', false, queryFields],
@@ -326,6 +416,8 @@ const catalog: Array<[string, string, string, string, boolean?, BlockField[]?]> 
 ]
 for (const [type, label, icon, category, container, fields = []] of catalog)
   registerBlock({
+    variations: variationsFor(type),
+    targets: targetsFor(type),
     type,
     label,
     icon,
@@ -380,7 +472,11 @@ export function blockDefaults(kind: string): Partial<ContentNode> {
       child('button', 'Choose plan'),
     ]
   if (kind === 'testimonial')
-    children = [child('quote', 'Customer testimonial'), child('paragraph', 'Name and role')]
+    children = [
+      child('image'),
+      child('quote', 'Customer testimonial'),
+      child('paragraph', 'Name and role'),
+    ]
   if (kind === 'iconBox')
     children = [
       child('icon'),
@@ -405,6 +501,8 @@ export function blockDefaults(kind: string): Partial<ContentNode> {
     children = [1, 2, 3].map((index) => ({
       ...child('group'),
       label: `Timeline item ${index}`,
+      role: 'item',
+      props: { date: '', marker: String(index) },
       styles: {
         desktop: {
           borderWidth: '2px',

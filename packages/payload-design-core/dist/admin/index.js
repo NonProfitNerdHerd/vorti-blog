@@ -15,3 +15,4 @@ export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor.js';
 export { InspectorIcon, IconButton, Popover, DeviceControl, DimensionControl, } from '../builder/InspectorControls.js';
 export { PaintControl, VisualStyleControl, FocalPoint } from '../builder/VisualStyleControl.js';
 export { EditorTitleSlot, EditorHistorySlot, EditorPreviewSlot } from '../builder/EditorHeader.js';
+export { DocumentReviewPanel } from '../builder/DocumentReviewPanel.js';

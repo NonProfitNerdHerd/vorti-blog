@@ -10,7 +10,8 @@ import { ContentRenderer } from '../content/ContentRenderer'
 import { listBlockDefinitions, registerBlock } from './registry'
 import { compileBlockCSS, conditionVisible, validatePresentation } from './presentation'
 import { resolveBlocks } from './resolve'
-import { toTemplateBlock, toShellBlock } from './adapters'
+import { toTemplateBlock, toShellBlock, templateBlockValue, shellBlockValue } from './adapters'
+import { applyVariation, effectiveStyles } from './variations'
 import { templateContentNodes } from '../content/template-adapter'
 import type { Template } from '../types'
 
@@ -143,11 +144,30 @@ describe('registered block framework', () => {
       contexts: ['content', 'template', 'header', 'footer'],
       fields: [],
       controls: ['layout'],
-      render: () => <mark>Custom badge</mark>,
+      variations: [
+        { id: 'plain', label: 'Plain', thumbnail: 'stack' },
+        {
+          id: 'framed',
+          label: 'Framed',
+          thumbnail: 'stack',
+          styles: { desktop: { padding: '16px' } },
+        },
+      ],
+      targets: [{ id: 'label', label: 'Label', selector: '.badge-label' }],
+      render: () => <mark className="badge-label">Custom badge</mark>,
     })
     expect(
       renderToStaticMarkup(<ContentRenderer nodes={[createContentNode('testBadge')]} />),
     ).toContain('Custom badge')
+    const badge = applyVariation(createContentNode('testBadge'), 'framed')
+    badge.targetStyles = { label: { desktop: { color: '#123456' } } }
+    expect(effectiveStyles(badge).desktop?.padding).toBe('16px')
+    expect(templateBlockValue(toTemplateBlock(badge))).toEqual(badge)
+    expect(shellBlockValue(toShellBlock(badge))).toEqual(badge)
+    expect(validateContentLayout({ version: 1, nodes: [badge] })).toBe(true)
+    expect(renderToStaticMarkup(<ContentRenderer nodes={[badge]} />)).toContain(
+      '.badge-label{color:#123456}',
+    )
     const unknown = { id: 'missing', kind: 'missing-extension', props: { retained: true } }
     expect(validateContentLayout({ version: 1, nodes: [unknown] })).toBe(true)
     expect(renderToStaticMarkup(<ContentRenderer nodes={[unknown]} />)).toContain(

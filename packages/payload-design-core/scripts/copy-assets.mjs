@@ -1,4 +1,7 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
+mkdirSync(new URL('../dist/blocks/', import.meta.url), {recursive:true})
+copyFileSync(new URL('../src/blocks/variations.css', import.meta.url), new URL('../dist/blocks/variations.css', import.meta.url))
+copyFileSync(new URL('../src/builder/variations-editor.css', import.meta.url), new URL('../dist/builder/variations-editor.css', import.meta.url))
 
 mkdirSync(new URL('../dist/hero-board/', import.meta.url), { recursive: true })
 copyFileSync(new URL('../src/hero-board/hero-board.css', import.meta.url), new URL('../dist/hero-board/hero-board.css', import.meta.url))

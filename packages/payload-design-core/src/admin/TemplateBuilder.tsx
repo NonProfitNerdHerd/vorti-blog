@@ -14,9 +14,17 @@ import {
 } from '../builder/BuilderTree'
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor'
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry'
-import { toTemplateBlock } from '../blocks/adapters'
+import {
+  toTemplateBlock,
+  templateBlockValue,
+  adapterListings,
+  adapterPreviewNodes,
+  mergeTemplateBlock,
+} from '../blocks/adapters'
 import { ContentBlock } from '../content/ContentRenderer'
-import { createContentNode } from '../content/model'
+import { createContentNode, walkContent, type ContentNode } from '../content/model'
+import { variationsFor, styleOnlyKinds } from '../blocks/variations'
+import { VariationPicker } from '../builder/VariationPicker'
 import { resolveStyle, templateStyle } from '../content/model'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
@@ -108,16 +116,20 @@ function describeTemplateNode(
   node: TemplateNode,
   actions: TreeActions,
   viewport: BuilderViewport = 'desktop',
+  previews = new Map<string, ContentNode>(),
 ): BuilderNodeDescriptor<TemplateNode> {
   if (node.type === 'layout' && node.block) {
     const definition = getBlockDefinition(node.block.kind)
     return {
       title: node.block.label ?? definition?.label ?? node.block.kind,
       icon: definition?.icon,
-      body: definition?.container ? null : <ContentBlock node={node.block} viewport={viewport} />,
+      directChildren: true,
+      body: definition?.container ? null : (
+        <ContentBlock node={previews.get(node.id) ?? node.block} viewport={viewport} />
+      ),
       wrap: definition?.container
         ? (children) => (
-            <ContentBlock node={node.block!} viewport={viewport}>
+            <ContentBlock node={templateBlockValue(node)!} viewport={viewport}>
               {children}
             </ContentBlock>
           )
@@ -257,6 +269,7 @@ export function ContentTemplateBuilder({
   const name = nameField.value ?? ''
   const collections = Array.isArray(collectionsField.value) ? collectionsField.value : []
   const nodes = Array.isArray(layoutField.value) ? layoutField.value : []
+  const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]))
   const customFields = Array.isArray(customFieldsField.value) ? customFieldsField.value : []
   const legacy = Array.isArray(sectionsField.value) ? sectionsField.value : []
   const [types, setTypes] = useState<BlockTypeOption[]>([])
@@ -264,6 +277,7 @@ export function ContentTemplateBuilder({
   const [impact, setImpact] = useState<Impact[]>([])
   const [editing, setEditing] = useState<TemplateNode | null>(null)
   const [adding, setAdding] = useState<LibraryItem | null>(null)
+  const [variationChooser, setVariationChooser] = useState('')
   const [target, setTarget] = useState('root')
   const [beforeTarget, setBeforeTarget] = useState<string | undefined>()
   const sidebar = useBuilderSidebar(`template:${id ?? 'new'}`)
@@ -369,6 +383,20 @@ export function ContentTemplateBuilder({
   }
   const startAdd = (item: LibraryItem, container = 'root', before?: string) => {
     if (disabled) return
+    if (
+      item.kind === 'registered' &&
+      variationsFor(item.value).length > 1 &&
+      !styleOnlyKinds.has(item.value)
+    ) {
+      const node = toTemplateBlock(createContentNode(item.value))
+      setNodes(insertTemplateNode(nodes, container, node, before))
+      setEditing(node)
+      setSidebarSelected(node.id)
+      setVariationChooser(node.id)
+      setAdding(null)
+      sidebar.inserted()
+      return
+    }
     setBeforeTarget(before)
     setAdding(item)
     setTarget(container)
@@ -594,7 +622,23 @@ export function ContentTemplateBuilder({
                       nodes={nodes}
                       actions={actions}
                       describe={(node) => ({
-                        ...describeTemplateNode(node, actions, viewport),
+                        ...describeTemplateNode(node, actions, viewport, previews),
+                        before:
+                          !disabled &&
+                          variationChooser === node.id &&
+                          node.type === 'layout' &&
+                          node.block ? (
+                            <VariationPicker
+                              node={templateBlockValue(node)!}
+                              initial
+                              onChange={(next) =>
+                                setNodes(
+                                  updateTemplateNode(nodes, node.id, () => toTemplateBlock(next)),
+                                )
+                              }
+                              onDone={() => setVariationChooser('')}
+                            />
+                          ) : undefined,
                         style: resolveStyle(templateStyle(node.style), viewport),
                       })}
                       id={(node) => node.id}
@@ -618,15 +662,18 @@ export function ContentTemplateBuilder({
               inspector={
                 editing?.type === 'layout' && editing.block ? (
                   <RegisteredBlockEditor
+                    listings={adapterListings(nodes)}
                     bindingFields={customFields.map((field) => ({
                       path: `templateValues.${field.id}`,
                       label: field.label,
                     }))}
                     viewport={viewport}
-                    node={editing.block}
+                    node={templateBlockValue(editing)!}
                     change={(block) =>
                       setNodes(
-                        updateTemplateNode(nodes, editing.id, () => ({ ...editing, block })),
+                        updateTemplateNode(nodes, editing.id, () =>
+                          mergeTemplateBlock(editing, block),
+                        ),
                         true,
                       )
                     }

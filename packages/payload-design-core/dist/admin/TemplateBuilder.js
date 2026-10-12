@@ -9,9 +9,11 @@ import { templateSidebarNodes, duplicateBuilderNode, locateSidebar } from '../bu
 import { BuilderCanvasTree, } from '../builder/BuilderTree.js';
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor.js';
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry.js';
-import { toTemplateBlock } from '../blocks/adapters.js';
+import { toTemplateBlock, templateBlockValue, adapterListings, adapterPreviewNodes, mergeTemplateBlock, } from '../blocks/adapters.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
-import { createContentNode } from '../content/model.js';
+import { createContentNode, walkContent } from '../content/model.js';
+import { variationsFor, styleOnlyKinds } from '../blocks/variations.js';
+import { VariationPicker } from '../builder/VariationPicker.js';
 import { resolveStyle, templateStyle } from '../content/model.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
@@ -56,15 +58,16 @@ async function fetchDocs(url) {
     const body = (await response.json());
     return body.docs ?? [];
 }
-function describeTemplateNode(node, actions, viewport = 'desktop') {
+function describeTemplateNode(node, actions, viewport = 'desktop', previews = new Map()) {
     if (node.type === 'layout' && node.block) {
         const definition = getBlockDefinition(node.block.kind);
         return {
             title: node.block.label ?? definition?.label ?? node.block.kind,
             icon: definition?.icon,
-            body: definition?.container ? null : _jsx(ContentBlock, { node: node.block, viewport: viewport }),
+            directChildren: true,
+            body: definition?.container ? null : (_jsx(ContentBlock, { node: previews.get(node.id) ?? node.block, viewport: viewport })),
             wrap: definition?.container
-                ? (children) => (_jsx(ContentBlock, { node: node.block, viewport: viewport, children: children }))
+                ? (children) => (_jsx(ContentBlock, { node: templateBlockValue(node), viewport: viewport, children: children }))
                 : undefined,
             children: definition?.container
                 ? [{ id: node.id, label: 'Block contents', children: node.children ?? [] }]
@@ -142,6 +145,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const name = nameField.value ?? '';
     const collections = Array.isArray(collectionsField.value) ? collectionsField.value : [];
     const nodes = Array.isArray(layoutField.value) ? layoutField.value : [];
+    const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]));
     const customFields = Array.isArray(customFieldsField.value) ? customFieldsField.value : [];
     const legacy = Array.isArray(sectionsField.value) ? sectionsField.value : [];
     const [types, setTypes] = useState([]);
@@ -149,6 +153,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const [impact, setImpact] = useState([]);
     const [editing, setEditing] = useState(null);
     const [adding, setAdding] = useState(null);
+    const [variationChooser, setVariationChooser] = useState('');
     const [target, setTarget] = useState('root');
     const [beforeTarget, setBeforeTarget] = useState();
     const sidebar = useBuilderSidebar(`template:${id ?? 'new'}`);
@@ -246,6 +251,18 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const startAdd = (item, container = 'root', before) => {
         if (disabled)
             return;
+        if (item.kind === 'registered' &&
+            variationsFor(item.value).length > 1 &&
+            !styleOnlyKinds.has(item.value)) {
+            const node = toTemplateBlock(createContentNode(item.value));
+            setNodes(insertTemplateNode(nodes, container, node, before));
+            setEditing(node);
+            setSidebarSelected(node.id);
+            setVariationChooser(node.id);
+            setAdding(null);
+            sidebar.inserted();
+            return;
+        }
         setBeforeTarget(before);
         setAdding(item);
         setTarget(container);
@@ -353,12 +370,16 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
                                     }
                                 },
                             } }), canvasNotice: error && _jsx("p", { role: "alert", children: error }), canvasLabel: "Template Canvas", canvasTitle: "Template Canvas", canvas: _jsx(BuilderPreviewFrame, { viewport: viewport, children: _jsxs(DropArea, { id: "root", label: "Template Canvas drop area", add: () => openPickerFor('root'), addItem: (item) => startAdd(item, 'root'), children: [!nodes.length && !legacy.length && (_jsx("div", { className: "template-editor__empty", children: _jsx("p", { children: "Add the first block to this template." }) })), _jsx(BuilderCanvasTree, { nodes: nodes, actions: actions, describe: (node) => ({
-                                            ...describeTemplateNode(node, actions, viewport),
+                                            ...describeTemplateNode(node, actions, viewport, previews),
+                                            before: !disabled &&
+                                                variationChooser === node.id &&
+                                                node.type === 'layout' &&
+                                                node.block ? (_jsx(VariationPicker, { node: templateBlockValue(node), initial: true, onChange: (next) => setNodes(updateTemplateNode(nodes, node.id, () => toTemplateBlock(next))), onDone: () => setVariationChooser('') })) : undefined,
                                             style: resolveStyle(templateStyle(node.style), viewport),
-                                        }), id: (node) => node.id, selectedID: sidebarSelected ?? editing?.id }), legacy.length > 0 && (_jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => (_jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key)))] }))] }) }), inspectorTitle: "Settings", inspector: editing?.type === 'layout' && editing.block ? (_jsx(RegisteredBlockEditor, { bindingFields: customFields.map((field) => ({
+                                        }), id: (node) => node.id, selectedID: sidebarSelected ?? editing?.id }), legacy.length > 0 && (_jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => (_jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key)))] }))] }) }), inspectorTitle: "Settings", inspector: editing?.type === 'layout' && editing.block ? (_jsx(RegisteredBlockEditor, { listings: adapterListings(nodes), bindingFields: customFields.map((field) => ({
                                 path: `templateValues.${field.id}`,
                                 label: field.label,
-                            })), viewport: viewport, node: editing.block, change: (block) => setNodes(updateTemplateNode(nodes, editing.id, () => ({ ...editing, block })), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
+                            })), viewport: viewport, node: templateBlockValue(editing), change: (block) => setNodes(updateTemplateNode(nodes, editing.id, () => mergeTemplateBlock(editing, block)), true) })) : adding?.kind === 'registered' ? (_jsx(NewRegisteredBlock, { node: createContentNode(adding.value), cancel: () => setAdding(null), create: (block) => {
                                 const node = toTemplateBlock(block);
                                 setNodes(insertTemplateNode(nodes, target, node, beforeTarget));
                                 setEditing(node);

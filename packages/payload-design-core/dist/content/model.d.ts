@@ -22,6 +22,11 @@ export type BlockStyle = {
 export type ResponsiveBlockStyle = Partial<Record<Viewport, BlockStyle>>;
 export type ContentKind = (string & {}) | 'heading' | 'paragraph' | 'richText' | 'list' | 'quote' | 'image' | 'gallery' | 'button' | 'video' | 'group' | 'row' | 'columns' | 'column' | 'spacer' | 'divider' | 'designed' | 'value';
 export type ContentNode = {
+    variation?: {
+        id: string;
+        version: 1;
+    };
+    role?: string;
     id: string;
     blockVersion?: number;
     props?: Record<string, unknown>;
@@ -38,6 +43,7 @@ export type ContentNode = {
     alt?: string;
     children?: ContentNode[];
     styles?: ResponsiveBlockStyle;
+    targetStyles?: Record<string, ResponsiveBlockStyle>;
     anchor?: string;
     blockType?: string | number;
     blockDesign?: string | number;

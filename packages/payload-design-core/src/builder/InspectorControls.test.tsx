@@ -50,7 +50,11 @@ it('renders image overlays on the media surface without fading captions', () => 
   expect(screen.getByText('Readable caption').closest('.block-image-surface')).toBeNull()
   const block = container.querySelector<HTMLElement>('[data-block-kind=image]')!
   expect(block.style.opacity).toBe('')
-  expect(block.style.getPropertyValue('--block-overlay-opacity')).toBe('0.4')
+  expect(
+    Array.from(block.querySelectorAll('style'))
+      .map((style) => style.textContent)
+      .join(''),
+  ).toContain('--block-overlay-opacity:0.4')
 })
 it('changes the shared device without writing a style and restores popover focus', () => {
   const change = vi.fn()

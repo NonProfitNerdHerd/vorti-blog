@@ -2,6 +2,9 @@ import React, { lazy, Suspense, type ReactNode } from 'react'
 import type { ContentNode } from '../content/model'
 import { safeURL } from '../content/model'
 import { getBlockDefinition } from './registry'
+import { BlockIcon } from './Icons'
+import { Separator } from './Separator'
+import { blockItems } from './items'
 const Listing = lazy(() => import('./Listing'))
 const ListingNavigation = lazy(() =>
   import('./Listing').then((module) => ({ default: module.ListingNavigation })),
@@ -23,10 +26,12 @@ export function CatalogRenderer({
   node,
   children,
   editing,
+  viewport,
 }: {
   node: ContentNode
   children?: ReactNode
   editing?: boolean
+  viewport?: 'desktop' | 'tablet' | 'mobile'
 }) {
   const props = node.props ?? {},
     text = (key: string, fallback = '') => String(props[key] ?? fallback)
@@ -46,12 +51,12 @@ export function CatalogRenderer({
   )
     return (
       <Suspense fallback={<div>{children}</div>}>
-        <InteractiveBlock node={node} editing={editing}>
+        <InteractiveBlock node={node} editing={editing} viewport={viewport}>
           {children}
         </InteractiveBlock>
       </Suspense>
     )
-  const icon = <span aria-hidden="true">{blockIcons[text('icon', 'star')] ?? '★'}</span>
+  const icon = <BlockIcon name={text('icon', 'star')} />
   switch (node.kind) {
     case 'icon':
       return (
@@ -61,7 +66,11 @@ export function CatalogRenderer({
       )
     case 'iconButton':
       return (
-        <a href={safeURL(props.url)} aria-label={text('label', 'Learn more')}>
+        <a
+          className="icon-button"
+          href={safeURL(props.url)}
+          aria-label={text('label', 'Learn more')}
+        >
           {icon}
         </a>
       )
@@ -73,14 +82,27 @@ export function CatalogRenderer({
       )
     case 'iconList':
       return (
-        <ul style={{ listStyle: 'none' }}>
-          {text('items')
-            .split('\n')
-            .map((item, index) => (
-              <li key={index}>
-                {icon} {item}
-              </li>
-            ))}
+        <ul
+          style={{
+            listStyle: 'none',
+            columnCount: Number(props.columns ?? 1),
+            paddingInlineStart:
+              props.indent !== undefined ? `${Number(props.indent)}px` : undefined,
+          }}
+        >
+          {blockItems(props.items).map((item, index) => (
+            <li
+              key={index}
+              style={{
+                breakInside: 'avoid',
+                marginBottom:
+                  props.itemGap !== undefined ? `${Number(props.itemGap)}px` : undefined,
+              }}
+            >
+              <BlockIcon name={item.icon ?? text('icon', 'check')} />{' '}
+              {item.url ? <a href={safeURL(item.url)}>{item.label}</a> : item.label}
+            </li>
+          ))}
         </ul>
       )
     case 'text':
@@ -89,11 +111,30 @@ export function CatalogRenderer({
     case 'horizontalScroller':
       return (
         <div
+          className="block-horizontal-scroller"
           tabIndex={0}
           aria-label="Scrollable content"
-          style={{ display: 'flex', overflowX: 'auto', gap: '1rem' }}
+          style={{
+            display: 'flex',
+            overflowX: 'auto',
+            gap: props.gap !== undefined ? `${Number(props.gap)}px` : '1rem',
+            scrollSnapType: props.snap ? 'x mandatory' : undefined,
+            scrollbarWidth: props.scrollbar === false ? 'none' : undefined,
+          }}
         >
-          {children}
+          {props.columns
+            ? React.Children.map(children, (child) => (
+                <div
+                  style={{
+                    flex: `0 0 calc((100% - ${Math.max(0, Number(props.columns) - 1) * Number(props.gap ?? 24)}px) / ${Math.max(1, Number(props.columns))})`,
+                    scrollSnapAlign: 'start',
+                    minWidth: 0,
+                  }}
+                >
+                  {child}
+                </div>
+              ))
+            : children}
         </div>
       )
     case 'progressBar':
@@ -102,13 +143,31 @@ export function CatalogRenderer({
         value = Math.min(max, Math.max(0, Number(props.value ?? 60)))
       return (
         <div>
-          <span>{text('label', 'Progress')}</span>
-          {node.kind === 'progressBar' ? (
+          <span className="progress-label">{text('label', 'Progress')}</span>
+          {node.kind === 'progressBar' && props.thickness === undefined ? (
             <progress max={max} value={value} aria-label={text('label', 'Progress')} />
+          ) : node.kind === 'progressBar' ? (
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={max}
+              aria-valuenow={value}
+              aria-label={text('label', 'Progress')}
+              style={{ borderRadius: props.rounded ? '999px' : 0, overflow: 'hidden' }}
+            >
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${(value / max) * 100}%`,
+                  height: `${Number(props.thickness ?? 16)}px`,
+                }}
+              />
+            </div>
           ) : (
             <svg
               viewBox="0 0 100 100"
-              width="120"
+              width={Number(props.size ?? 120)}
               role="progressbar"
               aria-valuenow={value}
               aria-valuemin={0}
@@ -116,26 +175,29 @@ export function CatalogRenderer({
               aria-label={text('label', 'Progress')}
             >
               <circle
+                className="progress-track"
                 cx="50"
                 cy="50"
                 r="42"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth={Number(props.thickness ?? 8)}
                 opacity=".15"
               />
               <circle
+                className="progress-fill"
                 cx="50"
                 cy="50"
                 r="42"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="8"
+                strokeWidth={Number(props.thickness ?? 8)}
+                strokeLinecap={props.rounded ? 'round' : 'butt'}
                 pathLength="100"
                 strokeDasharray={`${(value / max) * 100} 100`}
                 transform="rotate(-90 50 50)"
               />
-              <text x="50" y="55" textAnchor="middle">
+              <text className="progress-label" x="50" y="55" textAnchor="middle">
                 {Math.round((value / max) * 100)}%
               </text>
             </svg>
@@ -146,61 +208,72 @@ export function CatalogRenderer({
     case 'numberBox':
       return (
         <div>
-          <strong>{text('value', '1')}</strong>
-          <p>{text('label')}</p>
+          <strong
+            className="number-badge"
+            data-shape={props.shape}
+            style={
+              props.shape && props.shape !== 'none'
+                ? {
+                    display: 'inline-grid',
+                    placeItems: 'center',
+                    width: `${Number(props.size ?? 64)}px`,
+                    height: `${Number(props.size ?? 64)}px`,
+                    border: '2px solid currentColor',
+                    borderRadius:
+                      props.shape === 'circle'
+                        ? '50%'
+                        : props.shape === 'rounded'
+                          ? '16px'
+                          : undefined,
+                    transform: props.shape === 'diamond' ? 'rotate(45deg)' : undefined,
+                  }
+                : undefined
+            }
+          >
+            <span style={{ transform: props.shape === 'diamond' ? 'rotate(-45deg)' : undefined }}>
+              {text('value', '1')}
+            </span>
+          </strong>
+          <p className="number-label">{text('label')}</p>
         </div>
       )
     case 'price':
       return (
         <p>
-          <span>{text('currency', '$')}</span>
-          <strong>{text('value', '29')}</strong>
-          <small>{text('period')}</small>
+          <span className="price-currency">{text('currency', '$')}</span>
+          <strong className="price-amount">{text('value', '29')}</strong>
+          <small className="price-period">{text('period')}</small>
         </p>
       )
     case 'separator':
       return (
-        <svg
-          viewBox="0 0 100 12"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          style={{
-            width: '100%',
-            height: '48px',
-            transform: props.flip ? 'rotate(180deg)' : undefined,
+        <Separator
+          settings={{
+            shape: text('shape', 'wave'),
+            height: Number(props.height ?? 48),
+            width: Number(props.width ?? 100),
+            layers: Number(props.layers ?? 1),
+            flip: !!props.flip,
+            shadow: !!props.shadow,
           }}
-        >
-          <path
-            fill="currentColor"
-            d={
-              props.shape === 'angle'
-                ? 'M0 12 L100 0 L100 12 Z'
-                : props.shape === 'curve'
-                  ? 'M0 0 Q50 24 100 0 V12 H0Z'
-                  : 'M0 6 Q25 0 50 6 T100 6 V12 H0Z'
-            }
-          />
-        </svg>
+        />
       )
     case 'socialButtons':
       return (
         <nav aria-label="Social links">
-          {text('links')
-            .split('\n')
-            .filter(Boolean)
-            .map((line, index) => {
-              const [label, href] = line.split('|').map((value) => value.trim())
-              return (
-                <a
-                  key={index}
-                  href={safeURL(href)}
-                  rel="noopener noreferrer"
-                  style={{ marginInlineEnd: '1rem' }}
-                >
-                  {label}
-                </a>
-              )
-            })}
+          {blockItems(props.links, true).map((item, index) => {
+            return (
+              <a
+                key={index}
+                className="social-button"
+                href={safeURL(item.url)}
+                rel="noopener noreferrer"
+                style={{ marginInlineEnd: '1rem' }}
+              >
+                {item.icon && <BlockIcon name={item.icon} />} {item.label}
+              </a>
+            )
+          })}
         </nav>
       )
     case 'map': {
@@ -228,15 +301,28 @@ export function CatalogRenderer({
     }
     case 'tableOfContents':
       return (
-        <nav aria-label="Table of contents">
+        <nav aria-label="Table of contents" style={{ columnCount: Number(props.columns ?? 1) }}>
+          {(!Array.isArray(props.headings) || !props.headings.length) && (
+            <p>
+              Add Heading blocks to this document to build a table of contents. Check the selected
+              heading levels if headings are missing.
+            </p>
+          )}
           {(Array.isArray(props.headings) ? props.headings : []).map((raw, index) => {
             const heading = raw as { id: string; text: string; level: number }
             return (
               <div
                 key={index}
-                style={{ paddingInlineStart: `${Math.max(0, heading.level - 2)}rem` }}
+                style={{
+                  paddingInlineStart: `${Math.max(0, heading.level - Number(props.minLevel ?? 2))}rem`,
+                  marginBottom: `${Number(props.itemGap ?? 0)}px`,
+                  breakInside: 'avoid',
+                }}
               >
-                <a href={`#${heading.id}`}>{heading.text}</a>
+                <a href={`#${heading.id}`}>
+                  {props.numbered ? `${index + 1}. ` : ''}
+                  {heading.text}
+                </a>
               </div>
             )
           })}

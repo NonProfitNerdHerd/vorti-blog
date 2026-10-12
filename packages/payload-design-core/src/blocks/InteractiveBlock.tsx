@@ -1,27 +1,94 @@
 'use client'
-import { Children, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ContentNode } from '../content/model'
-import { safeURL } from '../content/model'
+import { safeURL, walkContent } from '../content/model'
+import { EditingSelection } from './EditingSelection'
+import { BlockIcon } from './Icons'
+import { countdownDeadline } from './countdown'
 
 export default function InteractiveBlock({
   node,
   children,
   editing = false,
+  viewport,
 }: {
   node: ContentNode
   children?: ReactNode
   editing?: boolean
+  viewport?: 'desktop' | 'tablet' | 'mobile'
 }) {
   const props = node.props ?? {}
-  const [active, setActive] = useState(0)
-  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(Number(props.initialPanel ?? 0))
+  const [open, setOpen] = useState(Boolean(props.initialOpen))
   const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    if (editing || node.kind !== 'notification') return
+    let frame = 0
+    try {
+      if (sessionStorage.getItem('block-notice:' + location.pathname + ':' + node.id))
+        frame = requestAnimationFrame(() => setDismissed(true))
+    } catch {
+      /* Storage can be unavailable in private contexts. */
+    }
+    return () => cancelAnimationFrame(frame)
+  }, [editing, node.kind, node.id])
   const [paused, setPaused] = useState(false)
+  const [manuallyPaused, setManuallyPaused] = useState(false)
   const [count, setCount] = useState(Number(props.start ?? 0))
   const [now, setNow] = useState<number | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const items = Children.toArray(children)
+  const [screen, setScreen] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  useEffect(() => {
+    if (viewport || node.kind !== 'carousel' || typeof matchMedia !== 'function') return
+    const mobile = matchMedia('(max-width:640px)'),
+      tablet = matchMedia('(max-width:1024px)')
+    const update = () =>
+      setScreen(mobile.matches ? 'mobile' : tablet.matches ? 'tablet' : 'desktop')
+    const frame = requestAnimationFrame(update)
+    mobile.addEventListener?.('change', update)
+    tablet.addEventListener?.('change', update)
+    return () => {
+      cancelAnimationFrame(frame)
+      mobile.removeEventListener?.('change', update)
+      tablet.removeEventListener?.('change', update)
+    }
+  }, [viewport, node.kind])
+  const device = viewport ?? screen
+  const visible = Math.min(
+    items.length,
+    Math.max(
+      1,
+      Number(
+        props[
+          device === 'mobile'
+            ? 'mobileSlides'
+            : device === 'tablet'
+              ? 'tabletSlides'
+              : 'slidesPerView'
+        ] ?? 1,
+      ),
+    ),
+  )
+  const selectedSlide = Math.min(Math.max(0, active), Math.max(0, items.length - 1))
+  const selected = useContext(EditingSelection)
+  const accordion = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!editing || !selected) return
+    const index =
+      node.children?.findIndex((child) =>
+        walkContent([child]).some((item) => item.id === selected),
+      ) ?? -1
+    if (index < 0) return
+    const frame = requestAnimationFrame(() => {
+      setActive(index)
+      setOpen(true)
+      const panel = accordion.current?.children[index]
+      if (panel instanceof HTMLDetailsElement) panel.open = true
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [selected, editing, node.children])
   useEffect(() => {
     if (editing) return
     if (node.kind === 'countdown') {
@@ -31,7 +98,10 @@ export default function InteractiveBlock({
     if (node.kind === 'countUp') {
       const end = Number(props.value ?? 100),
         start = Number(props.start ?? 0)
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (
+        typeof matchMedia === 'function' &&
+        matchMedia('(prefers-reduced-motion: reduce)').matches
+      ) {
         const frame = requestAnimationFrame(() => setCount(end))
         return () => cancelAnimationFrame(frame)
       }
@@ -50,11 +120,17 @@ export default function InteractiveBlock({
       node.kind === 'carousel' &&
       props.autoplay &&
       !paused &&
+      !manuallyPaused &&
       items.length > 1 &&
-      !matchMedia('(prefers-reduced-motion: reduce)').matches
+      !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
     ) {
       const timer = setInterval(
-        () => setActive((value) => (value + 1) % items.length),
+        () =>
+          setActive((value) =>
+            props.loop === false
+              ? Math.min(items.length - 1, value + 1)
+              : (value + 1) % items.length,
+          ),
         Math.max(2, Number(props.interval ?? 5)) * 1000,
       )
       return () => clearInterval(timer)
@@ -67,19 +143,26 @@ export default function InteractiveBlock({
     props.duration,
     props.autoplay,
     props.interval,
+    props.loop,
     paused,
+    manuallyPaused,
     items.length,
   ])
-  if (editing && ['accordion', 'tabs', 'carousel', 'expand', 'notification'].includes(node.kind))
-    return <div>{children}</div>
   if (node.kind === 'notification')
     return dismissed ? null : (
       <aside role="status">
         {children}
-        {props.dismissible !== false && (
+        {!editing && props.dismissible !== false && (
           <button
             type="button"
-            onClick={() => setDismissed(true)}
+            onClick={() => {
+              setDismissed(true)
+              try {
+                sessionStorage.setItem('block-notice:' + location.pathname + ':' + node.id, '1')
+              } catch {
+                /* Dismissal still works without persistence. */
+              }
+            }}
             aria-label="Dismiss notification"
           >
             ×
@@ -105,9 +188,13 @@ export default function InteractiveBlock({
     )
   if (node.kind === 'accordion')
     return (
-      <div>
+      <div ref={accordion}>
         {items.map((item, index) => (
-          <details key={index} name={props.multiple ? undefined : node.id}>
+          <details
+            key={node.children?.[index]?.id ?? index}
+            open={index === Number(props.initialPanel ?? -1)}
+            name={props.multiple ? undefined : node.id}
+          >
             <summary>{node.children?.[index]?.label || `Item ${index + 1}`}</summary>
             {item}
           </details>
@@ -117,23 +204,27 @@ export default function InteractiveBlock({
   if (node.kind === 'tabs')
     return (
       <div>
-        <div role="tablist" aria-label={node.label || 'Tabs'}>
+        <div
+          role="tablist"
+          aria-label={node.label || 'Tabs'}
+          aria-orientation={node.variation?.id === 'vertical' ? 'vertical' : 'horizontal'}
+        >
           {items.map((_, index) => (
             <button
               type="button"
               role="tab"
               id={`${node.id}-tab-${index}`}
               key={index}
-              aria-selected={index === active}
+              aria-selected={index === selectedSlide}
               aria-controls={`${node.id}-panel-${index}`}
-              tabIndex={index === active ? 0 : -1}
+              tabIndex={index === selectedSlide ? 0 : -1}
               onClick={() => setActive(index)}
               onKeyDown={(event) => {
                 const next =
-                  event.key === 'ArrowRight'
-                    ? (active + 1) % items.length
-                    : event.key === 'ArrowLeft'
-                      ? (active - 1 + items.length) % items.length
+                  event.key === (node.variation?.id === 'vertical' ? 'ArrowDown' : 'ArrowRight')
+                    ? (selectedSlide + 1) % items.length
+                    : event.key === (node.variation?.id === 'vertical' ? 'ArrowUp' : 'ArrowLeft')
+                      ? (selectedSlide - 1 + items.length) % items.length
                       : event.key === 'Home'
                         ? 0
                         : event.key === 'End'
@@ -146,6 +237,9 @@ export default function InteractiveBlock({
                 }
               }}
             >
+              {node.children?.[index]?.props?.tabIcon ? (
+                <BlockIcon name={String(node.children[index].props?.tabIcon)} />
+              ) : null}
               {node.children?.[index]?.label || `Tab ${index + 1}`}
             </button>
           ))}
@@ -156,7 +250,7 @@ export default function InteractiveBlock({
             tabIndex={0}
             id={`${node.id}-panel-${index}`}
             aria-labelledby={`${node.id}-tab-${index}`}
-            hidden={active !== index}
+            hidden={selectedSlide !== index}
             key={index}
           >
             {item}
@@ -167,17 +261,37 @@ export default function InteractiveBlock({
   if (node.kind === 'carousel')
     return (
       <section
+        data-carousel-transition={props.transition ?? 'none'}
+        data-editing={editing}
         aria-roledescription="carousel"
         aria-label={node.label || 'Carousel'}
         onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
+        onMouseLeave={(event) => {
+          if (!event.currentTarget.contains(document.activeElement)) setPaused(false)
+        }}
         onFocus={() => setPaused(true)}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false)
+        }}
       >
-        <div aria-live={paused || !props.autoplay ? 'polite' : 'off'}>
+        <div
+          aria-live={paused || manuallyPaused || !props.autoplay || editing ? 'polite' : 'off'}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${visible || 1},minmax(0,1fr))`,
+            gap: '16px',
+          }}
+        >
           {items.map((item, index) => (
             <div
+              className="carousel-slide"
+              style={{ order: (index - selectedSlide + items.length) % items.length }}
               key={index}
-              hidden={index !== active}
+              hidden={
+                props.loop === false
+                  ? index < selectedSlide || index >= selectedSlide + visible
+                  : (index - selectedSlide + items.length) % items.length >= visible
+              }
               role="group"
               aria-label={`${index + 1} of ${items.length}`}
             >
@@ -187,21 +301,36 @@ export default function InteractiveBlock({
         </div>
         <button
           type="button"
-          onClick={() => setActive((active - 1 + items.length) % items.length)}
-          disabled={items.length < 2}
+          onClick={() => setActive((selectedSlide - 1 + items.length) % items.length)}
+          disabled={items.length < 2 || (props.loop === false && selectedSlide === 0)}
         >
           Previous slide
         </button>
         <button
           type="button"
-          onClick={() => setActive((active + 1) % items.length)}
-          disabled={items.length < 2}
+          onClick={() => setActive((selectedSlide + 1) % items.length)}
+          disabled={items.length < 2 || (props.loop === false && selectedSlide >= items.length - 1)}
         >
           Next slide
         </button>
-        {!!props.autoplay && (
-          <button type="button" onClick={() => setPaused(!paused)}>
-            {paused ? 'Play slides' : 'Pause slides'}
+        {!!props.dots && (
+          <div aria-label="Choose slide">
+            {items.map((_, index) => (
+              <button
+                type="button"
+                key={index}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-pressed={selectedSlide === index}
+                onClick={() => setActive(index)}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+        )}
+        {!!props.autoplay && !editing && (
+          <button type="button" onClick={() => setManuallyPaused(!manuallyPaused)}>
+            {manuallyPaused ? 'Play slides' : 'Pause slides'}
           </button>
         )}
       </section>
@@ -215,7 +344,12 @@ export default function InteractiveBlock({
       </span>
     )
   if (node.kind === 'countdown') {
-    const deadline = Date.parse(String(props.deadline ?? ''))
+    const deadline = countdownDeadline(
+      String(props.deadline ?? ''),
+      String(props.timezone ?? 'UTC'),
+      String(props.recurrence ?? 'none'),
+      now ?? Date.parse(String(props.deadline ?? '')) - 1,
+    )
     if (!Number.isFinite(deadline)) return <span>Set a countdown deadline.</span>
     if (now === null) return <time dateTime={String(props.deadline)}>{String(props.deadline)}</time>
     const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))

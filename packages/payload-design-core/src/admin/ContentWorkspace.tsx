@@ -27,6 +27,12 @@ import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/
 import { builderCapabilities } from '../builder/contracts'
 import { getBlockDefinition } from '../blocks/registry'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
+import { VariationPicker } from '../builder/VariationPicker'
+import { BackgroundMediaPicker } from '../builder/BackgroundMediaPicker'
+import { DocumentPicker } from '../builder/DocumentPicker'
+import { EditingSelection } from '../blocks/EditingSelection'
+import { resolveDocumentHeadings } from '../blocks/resolve'
+import { styleOnlyKinds, variationsFor } from '../blocks/variations'
 import { ContentBlock } from '../content/ContentRenderer'
 import {
   containerKinds,
@@ -124,6 +130,7 @@ export const ContentWorkspace = (
   const [designs, setDesigns] = useState<BlockDesign[]>([])
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
+  const [variationChooser, setVariationChooser] = useState('')
   const [panel, setPanel] = useState<'block' | 'document'>('document')
   const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`)
   const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar
@@ -273,6 +280,10 @@ export const ContentWorkspace = (
       alive = false
     }
   }, [mediaIDs])
+  const headingNodes = useMemo(
+    () => new Map(walkContent(resolveDocumentHeadings(nodes)).map((node) => [node.id, node])),
+    [nodes],
+  )
   const resolvedNode = (node: ContentNode): ContentNode => {
     const media = (value: unknown): unknown =>
       Array.isArray(value)
@@ -284,6 +295,8 @@ export const ContentWorkspace = (
     const design = designs.find((design) => String(design.id) === String(node.blockDesign))
     return {
       ...node,
+      ...(node.kind === 'tableOfContents' ? { props: headingNodes.get(node.id)?.props } : {}),
+      anchor: headingNodes.get(node.id)?.anchor,
       media: media(node.media),
       rendererKey: node.rendererKey ?? type?.rendererKey,
       design: node.design ?? design?.design,
@@ -361,6 +374,7 @@ export const ContentWorkspace = (
     }
     setNodes(insertContent(nodes, node, parent, before))
     select(node.id)
+    if (variationsFor(kind).length > 1 && !styleOnlyKinds.has(kind)) setVariationChooser(node.id)
     sidebar.inserted()
   }
   function changeTemplate(next: string) {
@@ -531,7 +545,7 @@ export const ContentWorkspace = (
       )
     return undefined
   }
-  const tree = (items: ContentNode[], parent = 'root'): React.ReactNode => (
+  const tree = (items: ContentNode[], parent = 'root', trailing = true): React.ReactNode => (
     <>
       {items.map((node) => (
         <React.Fragment key={node.id}>
@@ -552,18 +566,35 @@ export const ContentWorkspace = (
             selected={selected === node.id}
             onSelect={() => select(node.id)}
           >
-            <ContentBlock
-              node={resolvedNode(node)}
-              viewport={viewport}
-              document={document}
-              body={editorBody(node)}
-            >
-              {containerKinds.has(node.kind) && tree(node.children ?? [], node.id)}
-            </ContentBlock>
+            {!locked && !lockedForm && variationChooser === node.id && (
+              <VariationPicker
+                node={node}
+                initial
+                onChange={(next) => changeNode(node.id, next)}
+                onDone={() => setVariationChooser('')}
+              />
+            )}
+            <EditingSelection.Provider value={selected}>
+              <ContentBlock
+                node={resolvedNode(node)}
+                viewport={viewport}
+                document={document}
+                body={editorBody(node)}
+              >
+                {containerKinds.has(node.kind) &&
+                  (node.children?.length
+                    ? node.children.map((child, index) => (
+                        <React.Fragment key={child.id}>
+                          {tree([child], node.id, index === node.children!.length - 1)}
+                        </React.Fragment>
+                      ))
+                    : tree([], node.id))}
+              </ContentBlock>
+            </EditingSelection.Provider>
           </EditableNode>
         </React.Fragment>
       ))}
-      {!locked && (
+      {!locked && trailing && (
         <Insertion
           parent={parent}
           empty={items.length === 0}
@@ -803,6 +834,9 @@ export const ContentWorkspace = (
                   ) : (
                     <>
                       <BlockInspector
+                        listings={walkContent(nodes)
+                          .filter((node) => node.kind === 'postListing')
+                          .map((node) => ({ id: node.id, label: node.label ?? 'Listing' }))}
                         node={active}
                         disabled={lockedForm}
                         viewport={viewport}
@@ -840,6 +874,10 @@ function InlineText({
       element.style.height = `${element.scrollHeight}px`
     }
     fit()
+    let active = true
+    void document.fonts?.ready.then(() => {
+      if (active) fit()
+    })
     let width = element.clientWidth
     const observer = new ResizeObserver(() => {
       if (width !== element.clientWidth) {
@@ -848,7 +886,10 @@ function InlineText({
       }
     })
     observer.observe(element)
-    return () => observer.disconnect()
+    return () => {
+      active = false
+      observer.disconnect()
+    }
   }, [node.text, node.styles, node.presentation])
   return (
     <textarea
@@ -1074,6 +1115,7 @@ function BoundValue({
   )
 }
 function BlockInspector({
+  listings,
   node,
   disabled,
   viewport,
@@ -1081,6 +1123,7 @@ function BlockInspector({
   types,
   onChange,
 }: {
+  listings: Array<{ id: string; label: string }>
   node: ContentNode
   disabled: boolean
   viewport: Viewport
@@ -1089,7 +1132,19 @@ function BlockInspector({
   onChange: (patch: Partial<ContentNode>) => void
 }) {
   return (
-    <UnifiedBlockInspector node={node} disabled={disabled} viewport={viewport} onChange={onChange}>
+    <UnifiedBlockInspector
+      listings={listings}
+      renderDocumentPicker={(collection, label, value, change) => (
+        <DocumentPicker collection={collection} label={label} value={value} change={change} />
+      )}
+      node={node}
+      disabled={disabled}
+      viewport={viewport}
+      onChange={onChange}
+      renderBackgroundMedia={(value, change) => (
+        <BackgroundMediaPicker value={value} change={change} />
+      )}
+    >
       <details open>
         <summary>Settings</summary>
         <label>

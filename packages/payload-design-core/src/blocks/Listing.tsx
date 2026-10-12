@@ -13,9 +13,40 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const query = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(props)
+        .filter(([key]) => ['collection', 'limit', 'sort', 'ids', 'categories'].includes(key))
+        .map(([key, value]) => [key, String(value)]),
+    ),
+  ).toString()
+  useEffect(() => {
+    if (!editing) return
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const response = await fetch(`/api/block-listing?${query}&draft=true`, {
+          signal: controller.signal,
+          credentials: 'same-origin',
+        })
+        if (!response.ok) throw new Error('Unable to load the listing preview.')
+        setResult((await response.json()) as ListingResult)
+      } catch (error) {
+        if (!controller.signal.aborted) setError((error as Error).message)
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }, 200)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [editing, query])
   useEffect(() => {
     const element = document.getElementById(`listing-${node.id}`)
-    if (!element || editing) return
+    if (!element) return
     let controller: AbortController | undefined
     const load = async (event: Event) => {
       const detail = (event as CustomEvent<{ direction: number; append: boolean }>).detail
@@ -36,6 +67,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
           ),
         )
         params.set('page', String(next))
+        if (editing) params.set('draft', 'true')
         const response = await fetch(`/api/block-listing?${params}`, { signal: controller.signal })
         if (!response.ok) throw new Error('Unable to load content. Please try again.')
         const data = (await response.json()) as ListingResult
@@ -67,22 +99,39 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
         style={{
           display: 'grid',
           gridTemplateColumns:
-            props.presentation === 'list' ? '1fr' : 'repeat(auto-fit,minmax(220px,1fr))',
+            props.presentation === 'list' || node.variation?.id === 'list'
+              ? '1fr'
+              : 'repeat(auto-fit,minmax(220px,1fr))',
           gap: '1rem',
         }}
       >
         {result.results.map((item, index) => (
-          <article key={`${item.url}-${index}`}>
+          <article className="listing-item" key={`${item.url}-${index}`}>
             {props.showImage !== false && item.image && (
-              <img src={safeURL(item.image)} alt="" style={{ maxWidth: '100%' }} />
+              <img
+                className="listing-image"
+                src={safeURL(item.image)}
+                alt=""
+                style={{ maxWidth: '100%' }}
+              />
             )}
-            {props.showTitle !== false && <h3>{item.title}</h3>}
-            {props.showExcerpt !== false && <p>{item.excerpt}</p>}
+            {props.showTitle !== false && <h3 className="listing-title">{item.title}</h3>}
+            {props.showExcerpt !== false && <p className="listing-excerpt">{item.excerpt}</p>}
             {props.showDate !== false && item.publishedAt && (
-              <time dateTime={item.publishedAt}>{item.publishedAt.slice(0, 10)}</time>
+              <time className="listing-meta" dateTime={item.publishedAt}>
+                {item.publishedAt.slice(0, 10)}
+              </time>
             )}
-            {props.showTaxonomy !== false && <p>{item.taxonomy}</p>}
-            {props.showLink !== false && <a href={safeURL(item.url)}>Read more</a>}
+            {props.showTaxonomy !== false && <p className="listing-meta">{item.taxonomy}</p>}
+            {props.showLink !== false && (
+              <a
+                className="listing-link"
+                href={safeURL(item.url)}
+                onClick={editing ? (event) => event.preventDefault() : undefined}
+              >
+                Read more
+              </a>
+            )}
           </article>
         ))}
       </div>
@@ -91,7 +140,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
           ? 'Loading content…'
           : !result.results.length
             ? editing
-              ? 'Listing content is shown in preview.'
+              ? 'No matching content. Choose documents or adjust the listing filters.'
               : 'No matching content.'
             : `Page ${result.page} of ${result.totalPages}`}
       </p>
@@ -99,7 +148,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
     </section>
   )
 }
-export function ListingNavigation({ node, editing }: { node: ContentNode; editing?: boolean }) {
+export function ListingNavigation({ node }: { node: ContentNode; editing?: boolean }) {
   const [status, setStatus] = useState('')
   const move = (direction: number) => {
     const listing = document.getElementById(`listing-${node.props?.listingID}`)
@@ -121,11 +170,11 @@ export function ListingNavigation({ node, editing }: { node: ContentNode; editin
   return (
     <nav aria-label="Listing pagination">
       {node.kind === 'pagination' && (
-        <button disabled={editing} type="button" onClick={() => move(-1)}>
+        <button type="button" onClick={() => move(-1)}>
           Previous
         </button>
       )}
-      <button disabled={editing} type="button" onClick={() => move(1)}>
+      <button type="button" onClick={() => move(1)}>
         {node.kind === 'loadMore' ? String(node.props?.label ?? 'Load more') : 'Next'}
       </button>
       <span role="status">{status}</span>

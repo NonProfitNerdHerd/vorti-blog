@@ -20,5 +20,5 @@ export declare function VisualStyleControl({ name, value, inherited, update, val
     updateMany: (patch: Record<string, string>) => void;
     responsive?: boolean;
     state: string;
-    setState: (v: 'normal' | 'hover' | 'focus') => void;
+    setState?: (v: 'normal' | 'hover' | 'focus') => void;
 }): import("react/jsx-runtime").JSX.Element;

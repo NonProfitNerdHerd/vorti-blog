@@ -1,15 +1,34 @@
+import { separatorPaths, type SeparatorSettings } from './Separator'
 export type Rule = {
   field: string
   operator: 'equals' | 'notEquals' | 'empty' | 'notEmpty' | 'contains'
   value?: string
 }
+export type BackgroundSettings = {
+  mode?: 'solid' | 'gradient' | 'image'
+  mediaID?: string | number
+  imageURL?: string
+  fit?: 'cover' | 'contain' | 'auto'
+  position?: string
+  repeat?: 'no-repeat' | 'repeat' | 'repeat-x' | 'repeat-y'
+  overlay?: string
+  gradient?: string
+  blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten'
+  opacity?: number
+}
 export type BlockPresentation = {
-  background?: {
-    imageURL?: string
-    overlay?: string
-    gradient?: string
-    blendMode?: 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten'
-    opacity?: number
+  media?: {
+    zoom?: number
+    brightness?: number
+    contrast?: number
+    saturation?: number
+    grayscale?: number
+    blur?: number
+    shape?: 'none' | 'circle' | 'ellipse' | 'rounded' | 'blob' | 'diagonal'
+  }
+  separators?: { top?: SeparatorSettings; bottom?: SeparatorSettings }
+  background?: BackgroundSettings & {
+    responsive?: Partial<Record<'tablet' | 'mobile', BackgroundSettings>>
   }
   tag?: 'div' | 'section' | 'article' | 'aside' | 'figure'
   className?: string
@@ -32,6 +51,17 @@ export type BlockPresentation = {
     duration?: number
     delay?: number
     easing?: 'ease' | 'linear' | 'ease-in' | 'ease-out'
+  }
+}
+export function resolveBackground(
+  background: BlockPresentation['background'],
+  device: 'desktop' | 'tablet' | 'mobile' = 'desktop',
+): BackgroundSettings {
+  const { responsive, ...base } = background ?? {}
+  return {
+    ...base,
+    ...(device !== 'desktop' ? responsive?.tablet : {}),
+    ...(device === 'mobile' ? responsive?.mobile : {}),
   }
 }
 export const publicDocumentFields: string[] = [
@@ -153,6 +183,46 @@ export function compileBlockCSS(input: string | undefined, selector: string): st
 export function validatePresentation(value: BlockPresentation | undefined): string | undefined {
   if (!value) return
   if (typeof value !== 'object' || Array.isArray(value)) return 'Invalid block presentation.'
+  if (value.media) {
+    if (typeof value.media !== 'object' || Array.isArray(value.media))
+      return 'Invalid media settings.'
+    for (const [key, setting] of Object.entries(value.media)) {
+      if (key === 'shape') {
+        if (!['none', 'circle', 'ellipse', 'rounded', 'blob', 'diagonal'].includes(String(setting)))
+          return 'Invalid image shape.'
+      } else if (
+        !['zoom', 'brightness', 'contrast', 'saturation', 'grayscale', 'blur'].includes(key) ||
+        typeof setting !== 'number' ||
+        !Number.isFinite(setting) ||
+        setting < 0 ||
+        setting > (key === 'blur' ? 40 : key === 'grayscale' ? 1 : 5)
+      )
+        return 'Invalid image treatment.'
+    }
+  }
+  if (value.separators) {
+    if (typeof value.separators !== 'object' || Array.isArray(value.separators))
+      return 'Invalid separators.'
+    for (const [side, settings] of Object.entries(value.separators)) {
+      if (
+        !['top', 'bottom'].includes(side) ||
+        !settings ||
+        typeof settings !== 'object' ||
+        !Object.hasOwn(separatorPaths, settings.shape)
+      )
+        return 'Invalid separator shape.'
+      for (const key of ['height', 'width', 'layers'] as const)
+        if (
+          settings[key] !== undefined &&
+          (!Number.isFinite(settings[key]) ||
+            settings[key]! < 1 ||
+            settings[key]! > (key === 'layers' ? 3 : 1000))
+        )
+          return 'Invalid separator size.'
+      if (settings.color && !/^#[\da-f]{6}([\da-f]{2})?$/i.test(settings.color))
+        return 'Invalid separator color.'
+    }
+  }
   for (const key of [
     'background',
     'attributes',
@@ -181,6 +251,43 @@ export function validatePresentation(value: BlockPresentation | undefined): stri
     return 'Unsupported block HTML tag.'
   if (value.className && !/^[\w\s-]+$/.test(value.className)) return 'Invalid CSS class.'
   if (value.background) {
+    if (value.background.mode && !['solid', 'gradient', 'image'].includes(value.background.mode))
+      return 'Invalid background mode.'
+    if (value.background.responsive) {
+      if (
+        typeof value.background.responsive !== 'object' ||
+        Array.isArray(value.background.responsive)
+      )
+        return 'Invalid responsive background.'
+      for (const [device, settings] of Object.entries(value.background.responsive)) {
+        if (
+          !['tablet', 'mobile'].includes(device) ||
+          !settings ||
+          typeof settings !== 'object' ||
+          'responsive' in settings
+        )
+          return 'Invalid background override.'
+        const error = validatePresentation({ background: settings })
+        if (error) return error
+      }
+    }
+    if (
+      value.background.mediaID !== undefined &&
+      !['string', 'number'].includes(typeof value.background.mediaID)
+    )
+      return 'Invalid background media.'
+    if (value.background.fit && !['cover', 'contain', 'auto'].includes(value.background.fit))
+      return 'Invalid background fit.'
+    if (
+      value.background.repeat &&
+      !['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(value.background.repeat)
+    )
+      return 'Invalid background repeat.'
+    if (
+      value.background.position &&
+      !/^\d{1,3}(\.\d+)?% \d{1,3}(\.\d+)?%$/.test(value.background.position)
+    )
+      return 'Invalid background position.'
     if (
       value.background.imageURL &&
       (!/^(https?:\/\/|\/(?!\/))/.test(value.background.imageURL) ||

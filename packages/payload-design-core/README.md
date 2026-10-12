@@ -40,3 +40,5 @@ Use a native Linux checkout with Node 22.16 and pnpm 10.28. Build the package be
 In Admin, open Design → Templates → Standard Article. Its Hero section references Hero Board and Hero Board - Feature. Open a Post, choose Standard Article, enter Hero content, save/publish, and visit `/posts/<slug>`. Change the Template's default Hero Design and publish to observe inherited Posts update. Set an explicit Post Hero override to observe the override remain selected when the Template default changes. Use Live Preview to inspect unsaved Post values.
 
 The custom Template editor is mounted on its `templateValues` JSON field and uses Payload `useField` for both content and Design overrides. Its controls respect Payload's form-processing state so an in-flight save cannot overwrite a subsequent edit. The browser regression covers repeated saves on one mounted Post form and checks persisted Payload data.
+
+Block registration, variations, and named styling targets: [developer guide](../../docs/block-registration.md). See the [coverage matrix](../../docs/block-coverage-audit.md) for implemented behavior and known limitations.

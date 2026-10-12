@@ -6,6 +6,7 @@ import { Fragment } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { BuilderDragItem } from './BuilderCore'
 import { DropArea } from './DropArea'
+import { EditingSelection } from '../blocks/EditingSelection'
 
 export type BuilderChildContainer<TNode> = {
   children: TNode[]
@@ -18,6 +19,8 @@ export type BuilderChildContainer<TNode> = {
 export type BuilderNodeDescriptor<TNode> = {
   style?: CSSProperties
   wrap?: (children: ReactNode) => ReactNode
+  directChildren?: boolean
+  before?: ReactNode
   body: ReactNode
   bodyAriaLabel?: string
   children?: BuilderChildContainer<TNode>[]
@@ -36,7 +39,14 @@ export type BuilderTreeActions<TNode> = {
   remove: (id: string) => void
 }
 
-export function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selectedID, parentID = 'root' }: {
+export function BuilderCanvasTree<TNode>({
+  actions,
+  describe,
+  id,
+  nodes,
+  selectedID,
+  parentID = 'root',
+}: {
   parentID?: string
   actions: BuilderTreeActions<TNode>
   describe: (node: TNode) => BuilderNodeDescriptor<TNode>
@@ -44,15 +54,58 @@ export function BuilderCanvasTree<TNode>({ actions, describe, id, nodes, selecte
   nodes: TNode[]
   selectedID?: string
 }) {
-  return <div className="template-editor__tree">{nodes.map((node) => <Fragment key={id(node)}><TreeInsertion parentID={parentID} beforeID={id(node)} add={()=>actions.add(parentID,id(node))}/><CanvasNode node={node} siblings={nodes} actions={actions} describe={describe} id={id} selectedID={selectedID} /></Fragment>)}</div>
+  return (
+    <div className="template-editor__tree">
+      {nodes.map((node) => (
+        <Fragment key={id(node)}>
+          <TreeInsertion
+            parentID={parentID}
+            beforeID={id(node)}
+            add={() => actions.add(parentID, id(node))}
+          />
+          <CanvasNode
+            node={node}
+            siblings={nodes}
+            actions={actions}
+            describe={describe}
+            id={id}
+            selectedID={selectedID}
+          />
+        </Fragment>
+      ))}
+    </div>
+  )
 }
 
-function TreeInsertion({parentID,beforeID,add}:{parentID:string;beforeID:string;add:()=>void}) {
-  const drop=useDroppable({id:`tree-insert:${parentID}:${beforeID}`,data:{containerID:parentID,beforeID}})
-  return <div ref={drop.setNodeRef} className="template-editor__between" data-over={drop.isOver}><button type="button" aria-label="Insert before element" onClick={add}>+</button></div>
+function TreeInsertion({
+  parentID,
+  beforeID,
+  add,
+}: {
+  parentID: string
+  beforeID: string
+  add: () => void
+}) {
+  const drop = useDroppable({
+    id: `tree-insert:${parentID}:${beforeID}`,
+    data: { containerID: parentID, beforeID },
+  })
+  return (
+    <div ref={drop.setNodeRef} className="template-editor__between" data-over={drop.isOver}>
+      <button type="button" aria-label="Insert before element" onClick={add}>
+        +
+      </button>
+    </div>
+  )
 }
 
-function CanvasNode<TNode>({ actions, describe, id, node, selectedID }: {
+function CanvasNode<TNode>({
+  actions,
+  describe,
+  id,
+  node,
+  selectedID,
+}: {
   actions: BuilderTreeActions<TNode>
   describe: (node: TNode) => BuilderNodeDescriptor<TNode>
   id: (node: TNode) => string
@@ -62,26 +115,141 @@ function CanvasNode<TNode>({ actions, describe, id, node, selectedID }: {
 }) {
   const nodeID = id(node)
   const descriptor = describe(node)
-  return (
-    <article data-builder-node={nodeID} className="template-editor__node" data-selected={selectedID === nodeID} style={descriptor.style}>
-      {(descriptor.wrap ?? ((content: ReactNode) => content))(<><div className="template-editor__node-body" role="button" tabIndex={0} aria-label={descriptor.bodyAriaLabel} onClick={() => actions.edit(node)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') actions.edit(node) }}>
-        {descriptor.body}
-      </div>
-      {descriptor.children?.length ? (
-        descriptor.childrenClassName || descriptor.childrenStyle ? <div className={descriptor.childrenClassName} style={descriptor.childrenStyle}>
-          {descriptor.children.map((container) => <div className={container.className} key={container.id} data-builder-node={container.id} data-selected={selectedID === container.id}>
-              <DropArea id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}>
-                <BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} />
+  if (descriptor.directChildren && descriptor.wrap) {
+    const container = descriptor.children?.[0]
+    return (
+      <article
+        data-builder-node={nodeID}
+        className="template-editor__node"
+        data-selected={selectedID === nodeID}
+        onClick={(event) => {
+          event.stopPropagation()
+          actions.edit(node)
+        }}
+      >
+        {descriptor.before}
+        <EditingSelection.Provider value={selectedID}>
+          {descriptor.wrap(
+            container?.children.length ? (
+              container.children.map((child) => (
+                <CanvasNode
+                  key={id(child)}
+                  node={child}
+                  siblings={container.children}
+                  actions={actions}
+                  describe={describe}
+                  id={id}
+                  selectedID={selectedID}
+                />
+              ))
+            ) : (
+              <DropArea
+                id={nodeID}
+                label="Block contents"
+                add={() => actions.add(nodeID)}
+                addItem={(item) => actions.addItem(item, nodeID)}
+              >
+                {null}
               </DropArea>
-            </div>)}
-        </div> : <>{descriptor.children.map((container) => <DropArea key={container.id} id={container.id} label={container.label} add={() => actions.add(container.id)} addItem={(item) => actions.addItem(item, container.id)}><BuilderCanvasTree parentID={container.id} nodes={container.children} actions={actions} describe={describe} id={id} selectedID={selectedID} /></DropArea>)}</>
-      ) : null}
-      </>)}
+            ),
+          )}
+        </EditingSelection.Provider>
+      </article>
+    )
+  }
+  return (
+    <article
+      data-builder-node={nodeID}
+      className="template-editor__node"
+      data-selected={selectedID === nodeID}
+      style={descriptor.style}
+    >
+      {descriptor.before}
+      {(descriptor.wrap ?? ((content: ReactNode) => content))(
+        <>
+          <div
+            className="template-editor__node-body"
+            role="button"
+            tabIndex={0}
+            aria-label={descriptor.bodyAriaLabel}
+            onClick={(event) => {
+              event.stopPropagation()
+              actions.edit(node)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.stopPropagation()
+                actions.edit(node)
+              }
+            }}
+          >
+            {descriptor.body}
+          </div>
+          {descriptor.children?.length ? (
+            descriptor.childrenClassName || descriptor.childrenStyle ? (
+              <div className={descriptor.childrenClassName} style={descriptor.childrenStyle}>
+                {descriptor.children.map((container) => (
+                  <div
+                    className={container.className}
+                    key={container.id}
+                    data-builder-node={container.id}
+                    data-selected={selectedID === container.id}
+                  >
+                    <DropArea
+                      id={container.id}
+                      label={container.label}
+                      add={() => actions.add(container.id)}
+                      addItem={(item) => actions.addItem(item, container.id)}
+                    >
+                      <BuilderCanvasTree
+                        parentID={container.id}
+                        nodes={container.children}
+                        actions={actions}
+                        describe={describe}
+                        id={id}
+                        selectedID={selectedID}
+                      />
+                    </DropArea>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {descriptor.children.map((container) => (
+                  <DropArea
+                    key={container.id}
+                    id={container.id}
+                    label={container.label}
+                    add={() => actions.add(container.id)}
+                    addItem={(item) => actions.addItem(item, container.id)}
+                  >
+                    <BuilderCanvasTree
+                      parentID={container.id}
+                      nodes={container.children}
+                      actions={actions}
+                      describe={describe}
+                      id={id}
+                      selectedID={selectedID}
+                    />
+                  </DropArea>
+                ))}
+              </>
+            )
+          ) : null}
+        </>,
+      )}
     </article>
   )
 }
 
-export function BuilderListView<TNode>({ describe, id, nodes, onSelect, selectedID, depth = 0 }: {
+export function BuilderListView<TNode>({
+  describe,
+  id,
+  nodes,
+  onSelect,
+  selectedID,
+  depth = 0,
+}: {
   depth?: number
   describe: (node: TNode) => BuilderNodeDescriptor<TNode>
   id: (node: TNode) => string
@@ -89,9 +257,58 @@ export function BuilderListView<TNode>({ describe, id, nodes, onSelect, selected
   onSelect: (node: TNode) => void
   selectedID?: string
 }) {
-  return <div role={depth ? 'group' : 'tree'} aria-label={depth ? undefined : 'Template block list'}>{nodes.map((node) => {
-    const descriptor = describe(node)
-    const nodeID = id(node)
-    return <div key={nodeID} role="treeitem" aria-level={depth + 1} aria-selected={selectedID === nodeID} style={{ marginLeft: depth * 12 }}><button type="button" className="template-editor__list-row" data-selected={selectedID === nodeID} onClick={() => onSelect(node)}><span className="template-editor__list-icon" aria-hidden="true">{descriptor.icon ?? '¶'}</span><span>{descriptor.listTitle ?? descriptor.title}</span></button>{descriptor.children?.map((container) => container.listLabel ? <div key={container.id} style={{ marginLeft: (depth + 1) * 12 }}><div className="template-editor__column-label">{container.listLabel}</div><BuilderListView nodes={container.children} describe={describe} id={id} onSelect={onSelect} selectedID={selectedID} depth={depth + 2} /></div> : <BuilderListView key={container.id} nodes={container.children} describe={describe} id={id} onSelect={onSelect} selectedID={selectedID} depth={depth + 1} />)}</div>
-  })}</div>
+  return (
+    <div role={depth ? 'group' : 'tree'} aria-label={depth ? undefined : 'Template block list'}>
+      {nodes.map((node) => {
+        const descriptor = describe(node)
+        const nodeID = id(node)
+        return (
+          <div
+            key={nodeID}
+            role="treeitem"
+            aria-level={depth + 1}
+            aria-selected={selectedID === nodeID}
+            style={{ marginLeft: depth * 12 }}
+          >
+            <button
+              type="button"
+              className="template-editor__list-row"
+              data-selected={selectedID === nodeID}
+              onClick={() => onSelect(node)}
+            >
+              <span className="template-editor__list-icon" aria-hidden="true">
+                {descriptor.icon ?? '¶'}
+              </span>
+              <span>{descriptor.listTitle ?? descriptor.title}</span>
+            </button>
+            {descriptor.children?.map((container) =>
+              container.listLabel ? (
+                <div key={container.id} style={{ marginLeft: (depth + 1) * 12 }}>
+                  <div className="template-editor__column-label">{container.listLabel}</div>
+                  <BuilderListView
+                    nodes={container.children}
+                    describe={describe}
+                    id={id}
+                    onSelect={onSelect}
+                    selectedID={selectedID}
+                    depth={depth + 2}
+                  />
+                </div>
+              ) : (
+                <BuilderListView
+                  key={container.id}
+                  nodes={container.children}
+                  describe={describe}
+                  id={id}
+                  onSelect={onSelect}
+                  selectedID={selectedID}
+                  depth={depth + 1}
+                />
+              ),
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }

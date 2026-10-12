@@ -34,8 +34,10 @@ import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b
 import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
+import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
 import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
 import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateActionPlaceholder as TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
@@ -96,8 +98,10 @@ export const importMap = {
   "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
+  "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
   "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
+  "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
   "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateBuilder": TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateActionPlaceholder": TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37,

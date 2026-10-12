@@ -28,6 +28,11 @@ export async function resolveBlocks(source, context) {
         return result;
     };
     const result = await resolve(source);
+    return resolveDocumentHeadings(result);
+}
+/** Derived preview data; never write the result back into the document form. */
+export function resolveDocumentHeadings(source) {
+    const result = structuredClone(source);
     const headings = [];
     for (const node of walkContent(result)) {
         if (node.kind === 'heading' && node.text) {

@@ -1,5 +1,9 @@
 import type { ContentNode, Viewport } from '../content/model';
-export declare function RegisteredBlockEditor({ node, change, viewport, bindingFields, }: {
+export declare function RegisteredBlockEditor({ node, change, viewport, bindingFields, listings, }: {
+    listings?: Array<{
+        id: string;
+        label: string;
+    }>;
     node: ContentNode;
     bindingFields?: Array<{
         path: string;

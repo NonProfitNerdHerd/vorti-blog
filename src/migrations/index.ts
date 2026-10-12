@@ -1,3 +1,4 @@
+import * as migration_20261011_233000_document_review from './20261011_233000_document_review';
 import * as migration_20250929_111647 from './20250929_111647';
 import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
@@ -66,4 +67,5 @@ export const migrations = [
     down: migration_20261002_200000_content_workspace.down,
     name: '20261002_200000_content_workspace',
   },
+  { up: migration_20261011_233000_document_review.up, down: migration_20261011_233000_document_review.down, name: '20261011_233000_document_review' },
 ];

@@ -5,9 +5,10 @@ type Slot = 'title' | 'history' | 'navigation' | 'preview' | 'actions';
 export declare function EditorTitleSlot(): import("react/jsx-runtime").JSX.Element;
 export declare function EditorHistorySlot(): import("react/jsx-runtime").JSX.Element;
 export declare function EditorPreviewSlot(): import("react/jsx-runtime").JSX.Element;
-export declare function EditorHeaderPortal({ slot, children }: {
+export declare function EditorHeaderPortal({ slot, children, waitForTarget, }: {
     slot: Slot;
     children: ReactNode;
+    waitForTarget?: boolean;
 }): import("react/jsx-runtime").JSX.Element;
 export declare function EditorHistory({ undo, redo, canUndo, canRedo, }: {
     undo: () => void;

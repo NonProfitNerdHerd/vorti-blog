@@ -2,13 +2,19 @@
 import { useState } from 'react'
 import { useConfig, UploadInput } from '@payloadcms/ui'
 import { UnifiedBlockInspector } from './UnifiedBlockInspector'
+import { VariationPicker } from './VariationPicker'
+import { BackgroundMediaPicker } from './BackgroundMediaPicker'
+import { DocumentPicker } from './DocumentPicker'
+import { styleOnlyKinds, variationsFor } from '../blocks/variations'
 import type { ContentNode, Viewport } from '../content/model'
 export function RegisteredBlockEditor({
   node,
   change,
   viewport,
   bindingFields,
+  listings,
 }: {
+  listings?: Array<{ id: string; label: string }>
   node: ContentNode
   bindingFields?: Array<{ path: string; label: string }>
   viewport?: Viewport
@@ -18,6 +24,13 @@ export function RegisteredBlockEditor({
   const patch = (patch: Partial<ContentNode>) => change({ ...node, ...patch })
   return (
     <UnifiedBlockInspector
+      listings={listings}
+      renderDocumentPicker={(collection, label, value, change) => (
+        <DocumentPicker collection={collection} label={label} value={value} change={change} />
+      )}
+      renderBackgroundMedia={(value, change) => (
+        <BackgroundMediaPicker value={value} change={change} />
+      )}
       bindingFields={bindingFields}
       viewport={viewport}
       node={node}
@@ -95,9 +108,21 @@ export function NewRegisteredBlock({
   cancel: () => void
 }) {
   const [draft, setDraft] = useState(node)
+  const [choosing, setChoosing] = useState(
+    variationsFor(node.kind).length > 1 && !styleOnlyKinds.has(node.kind),
+  )
   return (
     <>
-      <RegisteredBlockEditor node={draft} change={setDraft} />
+      {choosing ? (
+        <VariationPicker
+          node={draft}
+          initial
+          onChange={setDraft}
+          onDone={() => setChoosing(false)}
+        />
+      ) : (
+        <RegisteredBlockEditor node={draft} change={setDraft} />
+      )}
       <button type="button" onClick={() => create(draft)}>
         Save Element
       </button>

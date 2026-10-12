@@ -13,6 +13,12 @@ import { contentSidebarNodes, insertionTarget, locateSidebar } from '../builder/
 import { builderCapabilities } from '../builder/contracts.js';
 import { getBlockDefinition } from '../blocks/registry.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
+import { VariationPicker } from '../builder/VariationPicker.js';
+import { BackgroundMediaPicker } from '../builder/BackgroundMediaPicker.js';
+import { DocumentPicker } from '../builder/DocumentPicker.js';
+import { EditingSelection } from '../blocks/EditingSelection.js';
+import { resolveDocumentHeadings } from '../blocks/resolve.js';
+import { styleOnlyKinds, variationsFor } from '../blocks/variations.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
 import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, textDocument, } from '../content/model.js';
 import { readPath, templateContentNodes } from '../content/template-adapter.js';
@@ -84,6 +90,7 @@ export const ContentWorkspace = (props) => {
     const [designs, setDesigns] = useState([]);
     const [error, setError] = useState('');
     const [selected, setSelected] = useState('');
+    const [variationChooser, setVariationChooser] = useState('');
     const [panel, setPanel] = useState('document');
     const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`);
     const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar;
@@ -221,6 +228,7 @@ export const ContentWorkspace = (props) => {
             alive = false;
         };
     }, [mediaIDs]);
+    const headingNodes = useMemo(() => new Map(walkContent(resolveDocumentHeadings(nodes)).map((node) => [node.id, node])), [nodes]);
     const resolvedNode = (node) => {
         const media = (value) => Array.isArray(value)
             ? value.map(media)
@@ -231,6 +239,8 @@ export const ContentWorkspace = (props) => {
         const design = designs.find((design) => String(design.id) === String(node.blockDesign));
         return {
             ...node,
+            ...(node.kind === 'tableOfContents' ? { props: headingNodes.get(node.id)?.props } : {}),
+            anchor: headingNodes.get(node.id)?.anchor,
             media: media(node.media),
             rendererKey: node.rendererKey ?? type?.rendererKey,
             design: node.design ?? design?.design,
@@ -294,6 +304,8 @@ export const ContentWorkspace = (props) => {
         }
         setNodes(insertContent(nodes, node, parent, before));
         select(node.id);
+        if (variationsFor(kind).length > 1 && !styleOnlyKinds.has(kind))
+            setVariationChooser(node.id);
         sidebar.inserted();
     }
     function changeTemplate(next) {
@@ -354,11 +366,14 @@ export const ContentWorkspace = (props) => {
             return (_jsxs("button", { type: "button", onClick: () => select(node.id), children: ["Choose ", node.kind] }));
         return undefined;
     };
-    const tree = (items, parent = 'root') => (_jsxs(_Fragment, { children: [items.map((node) => (_jsxs(React.Fragment, { children: [!locked && (_jsx(Insertion, { parent: parent, before: node.id, disabled: lockedForm, onChoose: () => {
+    const tree = (items, parent = 'root', trailing = true) => (_jsxs(_Fragment, { children: [items.map((node) => (_jsxs(React.Fragment, { children: [!locked && (_jsx(Insertion, { parent: parent, before: node.id, disabled: lockedForm, onChoose: () => {
                             setDestination({ parent, before: node.id });
                             setLeft(true);
                             setLibraryMode('blocks');
-                        } })), _jsx(EditableNode, { node: node, selected: selected === node.id, onSelect: () => select(node.id), children: _jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport, document: document, body: editorBody(node), children: containerKinds.has(node.kind) && tree(node.children ?? [], node.id) }) })] }, node.id))), !locked && (_jsx(Insertion, { parent: parent, empty: items.length === 0, disabled: lockedForm, onChoose: () => {
+                        } })), _jsxs(EditableNode, { node: node, selected: selected === node.id, onSelect: () => select(node.id), children: [!locked && !lockedForm && variationChooser === node.id && (_jsx(VariationPicker, { node: node, initial: true, onChange: (next) => changeNode(node.id, next), onDone: () => setVariationChooser('') })), _jsx(EditingSelection.Provider, { value: selected, children: _jsx(ContentBlock, { node: resolvedNode(node), viewport: viewport, document: document, body: editorBody(node), children: containerKinds.has(node.kind) &&
+                                        (node.children?.length
+                                            ? node.children.map((child, index) => (_jsx(React.Fragment, { children: tree([child], node.id, index === node.children.length - 1) }, child.id)))
+                                            : tree([], node.id)) }) })] })] }, node.id))), !locked && trailing && (_jsx(Insertion, { parent: parent, empty: items.length === 0, disabled: lockedForm, onChoose: () => {
                     setDestination({ parent });
                     if (items.length === 0 &&
                         parent !== 'root' &&
@@ -438,7 +453,9 @@ export const ContentWorkspace = (props) => {
                                         maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
                                     }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [getBlockDefinition(active.kind)?.icon, ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
                                                 ? bindField(active)
-                                                : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }))] })] }) }));
+                                                : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
+                                                .filter((node) => node.kind === 'postListing')
+                                                .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }))] })] }) }));
 };
 function InlineText({ node, disabled, onChange, }) {
     const input = React.useRef(null);
@@ -451,6 +468,11 @@ function InlineText({ node, disabled, onChange, }) {
             element.style.height = `${element.scrollHeight}px`;
         };
         fit();
+        let active = true;
+        void document.fonts?.ready.then(() => {
+            if (active)
+                fit();
+        });
         let width = element.clientWidth;
         const observer = new ResizeObserver(() => {
             if (width !== element.clientWidth) {
@@ -459,7 +481,10 @@ function InlineText({ node, disabled, onChange, }) {
             }
         });
         observer.observe(element);
-        return () => observer.disconnect();
+        return () => {
+            active = false;
+            observer.disconnect();
+        };
     }, [node.text, node.styles, node.presentation]);
     return (_jsx("textarea", { ref: input, className: `content-workspace__inline content-workspace__inline--${node.kind}`, "aria-label": node.label ?? node.kind, placeholder: `Type ${node.kind}…`, value: node.text ?? '', readOnly: disabled, rows: 1, onChange: (event) => onChange(event.target.value) }));
 }
@@ -514,8 +539,8 @@ function BoundValue({ node, document, lexicalSchemaPath, disabled, onValues, }) 
                     ? Number(event.target.value)
                     : event.target.value) }))] }));
 }
-function BlockInspector({ node, disabled, viewport, designs, types, onChange, }) {
-    return (_jsx(UnifiedBlockInspector, { node: node, disabled: disabled, viewport: viewport, onChange: onChange, children: _jsxs("details", { open: true, children: [_jsx("summary", { children: "Settings" }), _jsxs("label", { children: ["Block label", _jsx("input", { value: node.label ?? '', onChange: (event) => onChange({ label: event.target.value }) })] }), node.kind === 'heading' && (_jsxs("label", { children: ["Heading level", _jsx("select", { value: node.level ?? 2, onChange: (event) => onChange({ level: Number(event.target.value) }), children: [1, 2, 3, 4, 5, 6].map((level) => (_jsxs("option", { value: level, children: ["H", level] }, level))) })] })), node.kind === 'list' && (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!node.ordered, onChange: (event) => onChange({ ordered: event.target.checked }) }), "Numbered list"] })), ['button', 'video'].includes(node.kind) && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["URL", _jsx("input", { value: node.url ?? '', onChange: (event) => onChange({ url: event.target.value }) })] }), _jsxs("label", { children: ["Text", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), ['image', 'gallery'].includes(node.kind) && (_jsx(MediaPicker, { value: node.media, onChange: (media) => onChange({ media }), many: node.kind === 'gallery', disabled: disabled })), node.kind === 'image' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Alternative text", _jsx("input", { value: node.alt ?? '', onChange: (event) => onChange({ alt: event.target.value }) })] }), _jsxs("label", { children: ["Caption", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), node.kind === 'columns' && (_jsx("button", { type: "button", onClick: () => onChange({ children: [...(node.children ?? []), createContentNode('column')] }), children: "Add column" })), node.kind === 'designed' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Design", _jsxs("select", { value: node.blockDesign ?? '', onChange: (event) => onChange({
+function BlockInspector({ listings, node, disabled, viewport, designs, types, onChange, }) {
+    return (_jsx(UnifiedBlockInspector, { listings: listings, renderDocumentPicker: (collection, label, value, change) => (_jsx(DocumentPicker, { collection: collection, label: label, value: value, change: change })), node: node, disabled: disabled, viewport: viewport, onChange: onChange, renderBackgroundMedia: (value, change) => (_jsx(BackgroundMediaPicker, { value: value, change: change })), children: _jsxs("details", { open: true, children: [_jsx("summary", { children: "Settings" }), _jsxs("label", { children: ["Block label", _jsx("input", { value: node.label ?? '', onChange: (event) => onChange({ label: event.target.value }) })] }), node.kind === 'heading' && (_jsxs("label", { children: ["Heading level", _jsx("select", { value: node.level ?? 2, onChange: (event) => onChange({ level: Number(event.target.value) }), children: [1, 2, 3, 4, 5, 6].map((level) => (_jsxs("option", { value: level, children: ["H", level] }, level))) })] })), node.kind === 'list' && (_jsxs("label", { children: [_jsx("input", { type: "checkbox", checked: !!node.ordered, onChange: (event) => onChange({ ordered: event.target.checked }) }), "Numbered list"] })), ['button', 'video'].includes(node.kind) && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["URL", _jsx("input", { value: node.url ?? '', onChange: (event) => onChange({ url: event.target.value }) })] }), _jsxs("label", { children: ["Text", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), ['image', 'gallery'].includes(node.kind) && (_jsx(MediaPicker, { value: node.media, onChange: (media) => onChange({ media }), many: node.kind === 'gallery', disabled: disabled })), node.kind === 'image' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Alternative text", _jsx("input", { value: node.alt ?? '', onChange: (event) => onChange({ alt: event.target.value }) })] }), _jsxs("label", { children: ["Caption", _jsx("input", { value: node.text ?? '', onChange: (event) => onChange({ text: event.target.value }) })] })] })), node.kind === 'columns' && (_jsx("button", { type: "button", onClick: () => onChange({ children: [...(node.children ?? []), createContentNode('column')] }), children: "Add column" })), node.kind === 'designed' && (_jsxs(_Fragment, { children: [_jsxs("label", { children: ["Design", _jsxs("select", { value: node.blockDesign ?? '', onChange: (event) => onChange({
                                         blockDesign: designs.find((design) => String(design.id) === event.target.value)
                                             ?.id,
                                     }), children: [_jsx("option", { value: "", children: "Choose\u2026" }), designs

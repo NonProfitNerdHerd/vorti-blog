@@ -7,9 +7,17 @@ import { type BuilderPickerElement } from '../builder/BuilderElementPicker'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor'
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry'
-import { toShellBlock } from '../blocks/adapters'
+import {
+  toShellBlock,
+  shellBlockValue,
+  adapterListings,
+  adapterPreviewNodes,
+  mergeShellBlock,
+} from '../blocks/adapters'
 import { ContentBlock } from '../content/ContentRenderer'
-import { createContentNode } from '../content/model'
+import { createContentNode, walkContent, type ContentNode } from '../content/model'
+import { variationsFor, styleOnlyKinds } from '../blocks/variations'
+import { VariationPicker } from '../builder/VariationPicker'
 import { type BuilderInspectorTab } from '../builder/BuilderInspectorTabs'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
 import { shellSidebarNodes, duplicateBuilderNode, locateSidebar } from '../builder/sidebar-model'
@@ -135,6 +143,11 @@ export function SiteTemplateBuilder() {
     'overview',
   )
   const [isDefault, setIsDefault] = useState(false)
+  useEffect(() => {
+    const region = new URLSearchParams(window.location.search).get('reviewRegion')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the region requested by a task deep link.
+    if (region === 'header' || region === 'footer') setTab(region)
+  }, [])
   useEffect(() => {
     if (!id) return
     fetch('/api/globals/site-settings?depth=0', { credentials: 'same-origin' })
@@ -438,8 +451,10 @@ export function SiteShellBuilder({
   const layoutField = useField<SiteShellNode[]>({ path: `${region}.layout` })
   const settingsField = useField<SiteShellRegionSettings>({ path: `${region}.settings` })
   const nodes = Array.isArray(layoutField.value) ? layoutField.value : []
+  const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]))
   const [selected, setSelected] = useState<SiteShellNode | null>(null)
   const [adding, setAdding] = useState<BuilderDragItem | null>(null)
+  const [variationChooser, setVariationChooser] = useState('')
   const [target, setTarget] = useState('root')
   const [viewport, setViewport] = useState<BuilderViewport>('desktop')
   const [history, setHistory] = useState<SiteShellNode[][]>([])
@@ -511,6 +526,20 @@ export function SiteShellBuilder({
   }
   const startAdd = (item: BuilderDragItem, parent = 'root', before?: string) => {
     if (disabled) return
+    if (
+      item.kind === 'registered' &&
+      variationsFor(item.value).length > 1 &&
+      !styleOnlyKinds.has(item.value)
+    ) {
+      const node = toShellBlock(createContentNode(item.value))
+      change(insertSiteShellNode(nodes, parent, node, before))
+      setSelected(node)
+      setSidebarSelected(node.id)
+      setVariationChooser(node.id)
+      setAdding(null)
+      sidebar.inserted()
+      return
+    }
     setBeforeTarget(before)
     setAdding(item)
     setTarget(parent)
@@ -531,7 +560,16 @@ export function SiteShellBuilder({
     },
   }
   const describe = (node: SiteShellNode): BuilderNodeDescriptor<SiteShellNode> => ({
-    ...describeShellNode(node, viewport),
+    ...describeShellNode(node, viewport, previews),
+    before:
+      !disabled && variationChooser === node.id && node.type === 'layout' && node.block ? (
+        <VariationPicker
+          node={shellBlockValue(node)!}
+          initial
+          onChange={(next) => change(updateSiteShellNode(nodes, node.id, toShellBlock(next)))}
+          onDone={() => setVariationChooser('')}
+        />
+      ) : undefined,
     style:
       node.type === 'layout' && node.block
         ? undefined
@@ -645,10 +683,14 @@ export function SiteShellBuilder({
           inspector={
             selected?.type === 'layout' && selected.block ? (
               <RegisteredBlockEditor
+                listings={adapterListings(nodes)}
                 viewport={viewport}
-                node={selected.block}
+                node={shellBlockValue(selected)!}
                 change={(block) =>
-                  change(updateSiteShellNode(nodes, selected.id, { ...selected, block }), true)
+                  change(
+                    updateSiteShellNode(nodes, selected.id, mergeShellBlock(selected, block)),
+                    true,
+                  )
                 }
               />
             ) : adding?.kind === 'registered' ? (
@@ -707,16 +749,20 @@ export function SiteShellBuilder({
 function describeShellNode(
   node: SiteShellNode,
   viewport: BuilderViewport = 'desktop',
+  previews = new Map<string, ContentNode>(),
 ): BuilderNodeDescriptor<SiteShellNode> {
   if (node.type === 'layout' && node.block) {
     const definition = getBlockDefinition(node.block.kind)
     return {
       title: node.block.label ?? definition?.label ?? node.block.kind,
       icon: definition?.icon,
-      body: definition?.container ? null : <ContentBlock node={node.block} viewport={viewport} />,
+      directChildren: true,
+      body: definition?.container ? null : (
+        <ContentBlock node={previews.get(node.id) ?? node.block} viewport={viewport} />
+      ),
       wrap: definition?.container
         ? (children) => (
-            <ContentBlock node={node.block!} viewport={viewport}>
+            <ContentBlock node={shellBlockValue(node)!} viewport={viewport}>
               {children}
             </ContentBlock>
           )

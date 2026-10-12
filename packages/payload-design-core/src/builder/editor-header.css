@@ -73,8 +73,13 @@
   margin-right: 8px;
   flex: 0 0 auto;
 }
-.editor-header__history-host .editor-header__buttons { flex-wrap:nowrap; }
-.editor-header__slot--actions button { width:auto; padding:6px 12px; }
+.editor-header__history-host .editor-header__buttons {
+  flex-wrap: nowrap;
+}
+.editor-header__slot--actions button {
+  width: auto;
+  padding: 6px 12px;
+}
 .editor-header__title {
   min-width: 0;
   width: 100%;
@@ -144,11 +149,23 @@
   margin-bottom: 8px;
 }
 @media (max-width: 700px) {
-  .doc-controls:has(.editor-header__slot--navigation button) { top:0; padding-inline:16px; }
-  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__content { flex:1 1 200px; min-width:0; width:auto; }
-  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta { flex-wrap:wrap; gap:4px 10px; }
+  .doc-controls:has(.editor-header__slot--navigation button) {
+    top: 0;
+    padding-inline: 16px;
+  }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__content {
+    flex: 1 1 200px;
+    min-width: 0;
+    width: auto;
+  }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
   .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__controls::after,
-  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta::after { display:none; }
+  .doc-controls:has(.editor-header__slot--navigation button) .doc-controls__meta::after {
+    display: none;
+  }
   .doc-header:has(.editor-header__title) {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -161,5 +178,30 @@
   }
   .editor-header__status {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 700px) {
+  body:has(.builder-frame) .nav__header,
+  body:has(.builder-frame) .nav__header-content {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .doc-header:has(.editor-header__title) .doc-tabs {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  .doc-header:has(.editor-header__title) .doc-tabs__tabs-container {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+  .doc-header:has(.editor-header__title) .doc-tabs__tabs {
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }
