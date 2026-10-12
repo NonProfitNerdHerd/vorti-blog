@@ -12,6 +12,15 @@ export type TypeField = {
     options?: string[];
     relationTo?: string;
     defaultValue?: unknown;
+    rules?: FieldRule[];
+};
+export type FieldRule = {
+    kind: 'requiredWhen' | 'minLength' | 'maxLength' | 'email' | 'containsEmail' | 'contains' | 'excludes' | 'min' | 'max' | 'integer' | 'compare' | 'earliest' | 'latest' | 'protocols' | 'domains' | 'checked' | 'mimeTypes' | 'maxBytes';
+    value?: string | number | boolean;
+    field?: string;
+    operator?: 'equals' | 'set' | 'empty' | 'before' | 'after';
+    allowEqual?: boolean;
+    message?: string;
 };
 export type PostTypeDefinition = {
     id: string | number;

@@ -1,4 +1,5 @@
 import type { Plugin, CollectionSlug } from 'payload'
+import { ValidationError } from 'payload'
 import { publishedType, refID } from './collections'
 import { validateValues } from './validation'
 import {
@@ -7,6 +8,8 @@ import {
   validateTemplatedContent,
   type TypeField,
   type EventSchedule,
+  evaluateFieldRules,
+  type MediaFacts,
 } from '@design-system/payload-design-core'
 export const contentTypes: Plugin = (config) => {
   for (const collection of config.collections || []) {
@@ -140,6 +143,14 @@ export const contentTypes: Plugin = (config) => {
   )
   posts.hooks = {
     ...posts.hooks,
+    beforeOperation: [
+      ...(posts.hooks?.beforeOperation || []),
+      ({ args, operation }) => {
+        if (operation === 'create' || operation === 'update')
+          args.req.context.postTypeSavingDraft = 'draft' in args && args.draft === true
+        return args
+      },
+    ],
     beforeChange: [
       ...(posts.hooks?.beforeChange || []),
       async ({ data, originalDoc, req }) => {
@@ -185,15 +196,31 @@ export const contentTypes: Plugin = (config) => {
         for (const f of fields)
           if (values[f.id] === undefined && f.defaultValue !== undefined)
             values[f.id] = f.defaultValue
-        validateValues(fields, values, (data._status ?? originalDoc?._status) === 'published')
+        const publishing =
+          req.context.postTypeSavingDraft !== true &&
+          (data._status ?? originalDoc?._status) === 'published'
+        validateValues(fields, values, false)
+        const media: MediaFacts = {}
         for (const f of fields)
-          if (['media', 'relationship'].includes(f.kind) && values[f.id])
-            await req.payload.findByID({
+          if (['media', 'relationship'].includes(f.kind) && values[f.id]) {
+            const related = await req.payload.findByID({
               collection: (f.kind === 'media' ? 'media' : f.relationTo) as CollectionSlug,
               id: values[f.id] as number,
               overrideAccess: false,
               req,
             })
+            if (f.kind === 'media') media[f.id] = related as MediaFacts[string]
+          }
+        if (publishing) {
+          const issues = evaluateFieldRules(fields, values, media)
+          if (issues.length)
+            throw new ValidationError({
+              errors: issues.map((issue) => ({
+                path: `postTypeValues.${issue.field}`,
+                message: issue.message,
+              })),
+            })
+        }
         const selected = refID(
           'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate,
         )

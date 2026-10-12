@@ -4,6 +4,7 @@ import { useField, useFormFields } from '@payloadcms/ui'
 import type { JSONFieldClientComponent } from 'payload'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import type { TypeField, EventSchedule } from '@design-system/payload-design-core/content'
+import { evaluateFieldRules, type MediaFacts } from '@design-system/payload-design-core/content'
 import { RelationPicker } from './ViewBuilder'
 import './framework.css'
 export function ScheduleEditor({
@@ -270,11 +271,68 @@ export const TypeValues = ({
     }
   }, [type])
   if (!definition) return <p>Select a published Post Type to edit its fields.</p>
-  const change = (id: string, v: unknown) => setValue({ ...value, [id]: v })
+  return (
+    <TypeValueForm
+      fields={definition.fieldDefinitions}
+      label={definition.singular + ' fields'}
+      value={value}
+      onChange={setValue}
+      readOnly={readOnly}
+      lexicalSchemaPath={lexicalSchemaPath}
+    />
+  )
+}
+export function TypeValueForm({
+  fields,
+  label,
+  value,
+  onChange,
+  readOnly,
+  lexicalSchemaPath,
+}: {
+  fields: TypeField[]
+  label: string
+  value: Record<string, unknown>
+  onChange: (value: Record<string, unknown>) => void
+  readOnly?: boolean
+  lexicalSchemaPath?: string
+}) {
+  const [mediaResult, setMedia] = useState<{ key: string; facts: MediaFacts }>({
+    key: '',
+    facts: {},
+  })
+  const mediaKey = JSON.stringify(
+    fields.filter((f) => f.kind === 'media').map((f) => [f.id, value[f.id]]),
+  )
+  useEffect(() => {
+    const controller = new AbortController()
+    const references = JSON.parse(mediaKey) as [string, unknown][]
+    for (const [field, id] of references)
+      if (id)
+        void fetch('/api/media/' + encodeURIComponent(String(id)), { signal: controller.signal })
+          .then(async (response) => {
+            if (!response.ok) throw new Error()
+            return response.json()
+          })
+          .then((facts) =>
+            setMedia((old) => ({
+              key: mediaKey,
+              facts: { ...(old.key === mediaKey ? old.facts : {}), [field]: facts },
+            })),
+          )
+          .catch(() => {})
+    return () => controller.abort()
+  }, [mediaKey])
+  const issues = evaluateFieldRules(
+    fields,
+    value,
+    mediaResult.key === mediaKey ? mediaResult.facts : {},
+  )
+  const change = (id: string, v: unknown) => onChange({ ...value, [id]: v })
   return (
     <section className="cf-editor">
-      <h3>{definition.singular} fields</h3>
-      {definition.fieldDefinitions.map((f) => (
+      <h3>{label}</h3>
+      {fields.map((f) => (
         <div key={f.id} className="cf-field">
           {f.kind === 'eventSchedule' ? (
             <ScheduleEditor
@@ -359,6 +417,15 @@ export const TypeValues = ({
             </label>
           )}
           {f.helpText && <p>{f.helpText}</p>}
+          <div aria-live="polite">
+            {issues
+              .filter((issue) => issue.field === f.id)
+              .map((issue, i) => (
+                <p className="pt-error" key={i}>
+                  {issue.message}
+                </p>
+              ))}
+          </div>
         </div>
       ))}
     </section>

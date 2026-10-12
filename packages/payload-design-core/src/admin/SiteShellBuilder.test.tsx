@@ -151,7 +151,7 @@ it('keeps Header settings in the shared Site Template tab without changing block
   expect(screen.getByRole('heading', { name: 'Header settings' })).toBeTruthy()
   fireEvent.change(screen.getByLabelText('Width Mode'), { target: { value: 'full' } })
   expect(payloadForm.fields.get('header.settings')!.setValue).toHaveBeenCalledWith({ widthMode: 'full' })
-  fireEvent.click(screen.getByRole('tab', { name: 'Block', exact: true }))
+  fireEvent.click(screen.getByRole('tab', { name: /^Block$/ }))
   expect(screen.queryByRole('heading', { name: 'Header settings' })).toBeNull()
   expect(payloadForm.fields.get('header.layout')!.setValue).not.toHaveBeenCalled()
 })

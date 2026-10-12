@@ -18,3 +18,6 @@ export { DocumentReviewPanel } from '../builder/DocumentReviewPanel.js';
 export { ViewDesignEditor } from '../views/ViewDesignEditor.js';
 export { BackgroundMediaPicker } from '../builder/BackgroundMediaPicker.js';
 export { BlockGlyph, registerBlockIcon } from '../blocks/BlockGlyph.js';
+export { SetupWizard } from '../builder/SetupWizard.js';
+export { TypeFieldBuilder } from '../builder/TypeFieldBuilder.js';
+export { PostTypeIcon, PostTypeIconPicker } from '../builder/PostTypeIcons.js';

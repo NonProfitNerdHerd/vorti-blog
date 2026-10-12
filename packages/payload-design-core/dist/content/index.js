@@ -5,6 +5,7 @@ export * from '../blocks/registry.js';
 export * from '../blocks/presentation.js';
 export * from '../blocks/resolve.js';
 export * from '../views/model.js';
+export * from '../views/field-rules.js';
 export { DynamicView, ViewThumbnail } from '../views/DynamicView.js';
 export { savedViewConverters } from '../views/RichView.js';
 export * from '../views/schedule.js';

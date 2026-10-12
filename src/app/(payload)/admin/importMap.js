@@ -42,6 +42,7 @@ import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
 import { TypeIcon as TypeIcon_3221402a39773c4eae838b562cc3f8e5 } from '../../../content-framework/TypeIcon'
 import { FieldsEditor as FieldsEditor_fd102340ae664c8fafb380461e34656b } from '../../../content-framework/FieldsEditor'
+import { PostTypeWizard as PostTypeWizard_5f182813a1b0d490382596ce96aacd6a } from '../../../content-framework/PostTypeWizard'
 import { ViewBuilder as ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677 } from '../../../content-framework/ViewBuilder'
 import { ViewUsage as ViewUsage_42abdaa6faa79619caba725f5a4909ba } from '../../../content-framework/ViewUsage'
 import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
@@ -111,6 +112,7 @@ export const importMap = {
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
   "./content-framework/TypeIcon#TypeIcon": TypeIcon_3221402a39773c4eae838b562cc3f8e5,
   "./content-framework/FieldsEditor#FieldsEditor": FieldsEditor_fd102340ae664c8fafb380461e34656b,
+  "./content-framework/PostTypeWizard#PostTypeWizard": PostTypeWizard_5f182813a1b0d490382596ce96aacd6a,
   "./content-framework/ViewBuilder#ViewBuilder": ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677,
   "./content-framework/ViewUsage#ViewUsage": ViewUsage_42abdaa6faa79619caba725f5a4909ba,
   "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,

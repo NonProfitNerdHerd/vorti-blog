@@ -1,116 +1,64 @@
 'use client'
-import { useField } from '@payloadcms/ui'
+import { usePostTypeAccess } from './usePostTypeAccess'
+import { useState } from 'react'
+import { useDocumentInfo, useField } from '@payloadcms/ui'
 import type { JSONFieldClientComponent } from 'payload'
 import type { TypeField } from '@design-system/payload-design-core/content'
-import './framework.css'
-const kinds = [
-  'text',
-  'textarea',
-  'richText',
-  'number',
-  'date',
-  'boolean',
-  'select',
-  'media',
-  'url',
-  'relationship',
-  'eventSchedule',
-] as const
-export const FieldsEditor: JSONFieldClientComponent = ({ path, readOnly }) => {
+import { TypeFieldBuilder } from '@design-system/payload-design-core/admin'
+import { TypeValueForm } from './TypeValues'
+import { RelationPicker } from './ViewBuilder'
+import './post-type.css'
+export const FieldsEditor: JSONFieldClientComponent = ({ path, readOnly: inheritedReadOnly }) => {
+  const access = usePostTypeAccess(inheritedReadOnly)
+  const readOnly = !access.canWrite(path)
   const { value = [], setValue } = useField<TypeField[]>({ path })
-  const update = (index: number, patch: Partial<TypeField>) =>
-    setValue(value.map((f, i) => (i === index ? { ...f, ...patch } : f)))
+  const { data, id } = useDocumentInfo()
+  const [sample, setSample] = useState<Record<string, unknown>>({})
   return (
-    <section className="cf-editor">
-      <h3>Content fields</h3>
-      <p>
-        Field IDs remain stable. Only fields marked public can appear in public views and Templates.
-      </p>
-      {value.map((field, i) => (
-        <fieldset key={i} disabled={readOnly}>
-          <legend>{field.label || 'New field'}</legend>
-          <div className="cf-row">
-            <label>
-              Field ID
-              <input value={field.id} onChange={(e) => update(i, { id: e.target.value })} />
-            </label>
-            <label>
-              Label
-              <input value={field.label} onChange={(e) => update(i, { label: e.target.value })} />
-            </label>
-            <label>
-              Kind
-              <select
-                value={field.kind}
-                onChange={(e) => update(i, { kind: e.target.value as TypeField['kind'] })}
-              >
-                {kinds.map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label>
-            Help text
-            <input
-              value={field.helpText || ''}
-              onChange={(e) => update(i, { helpText: e.target.value })}
+    <TypeFieldBuilder
+      fields={value}
+      onChange={setValue}
+      savedFields={id ? ((data?.fieldDefinitions || []) as TypeField[]) : []}
+      disabled={readOnly}
+      preview={
+        <TypeValueForm
+          fields={value}
+          label="Sample content"
+          value={{
+            ...Object.fromEntries(
+              value.filter((f) => f.defaultValue !== undefined).map((f) => [f.id, f.defaultValue]),
+            ),
+            ...sample,
+          }}
+          onChange={setSample}
+          readOnly={readOnly}
+        />
+      }
+      renderDefault={(field, change) =>
+        ['richText', 'eventSchedule'].includes(field.kind) ? (
+          <div>
+            <TypeValueForm
+              fields={[{ ...field, required: false, rules: [] }]}
+              label="Default value (optional)"
+              value={{ [field.id]: field.defaultValue }}
+              onChange={(values) => change(values[field.id])}
+              readOnly={readOnly}
             />
-          </label>
-          <div className="cf-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={!!field.required}
-                onChange={(e) => update(i, { required: e.target.checked })}
-              />{' '}
-              Required
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={!!field.public}
-                onChange={(e) => update(i, { public: e.target.checked })}
-              />{' '}
-              Public field
-            </label>
+            <button type="button" disabled={readOnly} onClick={() => change(undefined)}>
+              Clear default
+            </button>
           </div>
-          {field.kind === 'select' && (
-            <label>
-              Options (one per line)
-              <textarea
-                value={(field.options || []).join('\n')}
-                onChange={(e) => update(i, { options: e.target.value.split('\n') })}
-              />
-            </label>
-          )}
-          {field.kind === 'relationship' && (
-            <label>
-              Collection
-              <select
-                value={field.relationTo || 'posts'}
-                onChange={(e) => update(i, { relationTo: e.target.value })}
-              >
-                {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-          )}
-        </fieldset>
-      ))}
-      <button
-        type="button"
-        disabled={readOnly}
-        onClick={() =>
-          setValue([
-            ...value,
-            { id: `field${value.length + 1}`, label: 'New field', kind: 'text', public: false },
-          ])
-        }
-      >
-        Add field
-      </button>
-    </section>
+        ) : (
+          <RelationPicker
+            label="Default item (optional)"
+            collection={field.kind === 'media' ? 'media' : field.relationTo || 'posts'}
+            value={field.defaultValue ? [String(field.defaultValue)] : []}
+            single
+            disabled={readOnly}
+            onChange={(ids) => change(ids[0] ? Number(ids[0]) : undefined)}
+          />
+        )
+      }
+    />
   )
 }

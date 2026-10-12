@@ -1,10 +1,13 @@
 import type { CollectionConfig, CollectionSlug, Payload, PayloadRequest } from 'payload'
+import { ValidationError } from 'payload'
 import { canManageDesign } from '../access/design'
 import {
   defaultView,
   listContentCapabilities,
   type TypeField,
   type ViewConfig,
+  evaluateFieldRules,
+  type MediaFacts,
 } from '@design-system/payload-design-core'
 import { validateFields, validateView, reservedPrefixes } from './validation'
 const administrator: NonNullable<CollectionConfig['access']>['create'] = ({ req }) =>
@@ -133,33 +136,54 @@ export const PostTypes: CollectionConfig = {
   },
   versions: { drafts: true },
   fields: [
-    { name: 'key', type: 'text', required: true, unique: true, index: true },
-    { name: 'singular', type: 'text', required: true },
-    { name: 'plural', type: 'text', required: true },
-    { name: 'prefix', type: 'text', required: true, unique: true, index: true },
     {
-      name: 'icon',
-      type: 'text',
-      defaultValue: 'document',
-      admin: { components: { Field: './content-framework/TypeIcon#TypeIcon' } },
+      type: 'row',
+      admin: { components: { Field: './content-framework/PostTypeWizard#PostTypeWizard' } },
+      fields: [
+        { name: 'key', type: 'text', required: true, unique: true, index: true },
+        { name: 'singular', type: 'text', required: true },
+        { name: 'plural', type: 'text', required: true },
+        { name: 'prefix', type: 'text', required: true, unique: true, index: true },
+        {
+          name: 'icon',
+          type: 'text',
+          defaultValue: 'document',
+          admin: { components: { Field: './content-framework/TypeIcon#TypeIcon' } },
+        },
+        {
+          name: 'capability',
+          type: 'select',
+          required: true,
+          defaultValue: 'content',
+          options: listContentCapabilities().map((item) => ({
+            label: item.label,
+            value: item.key,
+          })),
+        },
+        { name: 'schemaVersion', type: 'number', defaultValue: 1, admin: { readOnly: true } },
+        {
+          name: 'fieldDefinitions',
+          type: 'json',
+          defaultValue: [],
+          admin: { components: { Field: './content-framework/FieldsEditor#FieldsEditor' } },
+        },
+        {
+          name: 'templates',
+          label: 'Allowed Page/Post Templates',
+          type: 'relationship',
+          relationTo: 'design-templates',
+          hasMany: true,
+          filterOptions: {
+            and: [
+              { _status: { equals: 'published' } },
+              { allowedCollections: { contains: 'posts' } },
+            ],
+          },
+        },
+        { name: 'defaultTemplate', type: 'relationship', relationTo: 'design-templates' },
+        { name: 'archived', type: 'checkbox', defaultValue: false },
+      ],
     },
-    {
-      name: 'capability',
-      type: 'select',
-      required: true,
-      defaultValue: 'content',
-      options: listContentCapabilities().map((item) => ({ label: item.label, value: item.key })),
-    },
-    { name: 'schemaVersion', type: 'number', defaultValue: 1, admin: { readOnly: true } },
-    {
-      name: 'fieldDefinitions',
-      type: 'json',
-      defaultValue: [],
-      admin: { components: { Field: './content-framework/FieldsEditor#FieldsEditor' } },
-    },
-    { name: 'templates', type: 'relationship', relationTo: 'design-templates', hasMany: true },
-    { name: 'defaultTemplate', type: 'relationship', relationTo: 'design-templates' },
-    { name: 'archived', type: 'checkbox', defaultValue: false },
   ],
   hooks: {
     beforeValidate: [
@@ -181,6 +205,42 @@ export const PostTypes: CollectionConfig = {
           throw new Error('Type key and prefix are stable after creation')
         const fields = (combined.fieldDefinitions || []) as TypeField[]
         validateFields(fields)
+        const defaults = Object.fromEntries(fields.map((field) => [field.id, field.defaultValue]))
+        const media: MediaFacts = {}
+        for (const field of fields) {
+          if (field.defaultValue && ['media', 'relationship'].includes(field.kind)) {
+            const doc = await req.payload.findByID({
+              collection: (field.kind === 'media' ? 'media' : field.relationTo) as CollectionSlug,
+              id: Number(field.defaultValue),
+              overrideAccess: false,
+              req,
+            })
+            if (field.kind === 'media') media[field.id] = doc as MediaFacts[string]
+          }
+        }
+        const defaultIssues = evaluateFieldRules(
+          fields.map((field) => ({
+            ...field,
+            required: false,
+            rules:
+              field.defaultValue === undefined
+                ? []
+                : field.rules?.filter(
+                    (rule) =>
+                      rule.kind !== 'requiredWhen' &&
+                      (rule.kind !== 'compare' || defaults[rule.field!] !== undefined),
+                  ),
+          })),
+          defaults,
+          media,
+        )
+        if (defaultIssues.length)
+          throw new ValidationError({
+            errors: defaultIssues.map((issue) => ({
+              path: 'fieldDefinitions',
+              message: `Invalid default: ${issue.message}`,
+            })),
+          })
         const capability = listContentCapabilities().find(
           (item) => item.key === combined.capability,
         )

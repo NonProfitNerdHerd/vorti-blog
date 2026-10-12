@@ -8,6 +8,7 @@ if (!['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname))
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: [
+    'post-type-wizard.e2e.spec.ts',
     'content-workspace.e2e.spec.ts',
     'review-tasks.e2e.spec.ts',
     'editor-registration.e2e.spec.ts',

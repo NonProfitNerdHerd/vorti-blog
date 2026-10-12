@@ -1,3 +1,4 @@
+import { ValidationError } from 'payload'
 import {
   validateSchedule,
   getView,
@@ -6,6 +7,8 @@ import {
   type TypeField,
   type ViewConfig,
   type EventSchedule,
+  validateRuleDefinitions,
+  fieldDate,
 } from '@design-system/payload-design-core'
 export const fieldKinds = [
   'text',
@@ -31,10 +34,27 @@ export const reservedPrefixes = [
   'sitemap.xml',
 ]
 export function validateFields(fields: TypeField[]) {
+  try {
+    assertFields(fields)
+  } catch (error) {
+    if (error instanceof ValidationError) throw error
+    throw new ValidationError({
+      errors: [
+        {
+          path: 'fieldDefinitions',
+          message: error instanceof Error ? error.message : 'Invalid field definitions',
+        },
+      ],
+    })
+  }
+}
+function assertFields(fields: TypeField[]) {
   if (!Array.isArray(fields) || fields.length > 100)
     throw new Error('A Post Type supports up to 100 fields')
   const ids = new Set<string>()
   for (const f of fields) {
+    if (!f || typeof f !== 'object' || typeof f.id !== 'string' || typeof f.label !== 'string')
+      throw new Error('Each field needs a text identifier and label')
     if (
       !/^[a-z][a-zA-Z0-9_]{0,63}$/.test(f.id) ||
       ['__proto__', 'constructor', 'prototype'].includes(f.id) ||
@@ -52,6 +72,15 @@ export function validateFields(fields: TypeField[]) {
     if (f.kind === 'select' && (!f.options?.length || f.options.some((o) => typeof o !== 'string')))
       throw new Error('Selection fields need options')
   }
+  const issues = validateRuleDefinitions(fields)
+  if (issues.length)
+    throw new ValidationError({
+      errors: issues.map((issue) => ({ path: 'fieldDefinitions', message: issue.message })),
+    })
+  const defaults = Object.fromEntries(
+    fields.filter((f) => f.defaultValue !== undefined).map((f) => [f.id, f.defaultValue]),
+  )
+  validateValues(fields, defaults, false)
 }
 export function validateValues(
   fields: TypeField[],
@@ -82,7 +111,7 @@ export function validateValues(
       throw new Error(`${f.label} must be true or false`)
     if (['text', 'textarea', 'date', 'url', 'select'].includes(f.kind) && typeof value !== 'string')
       throw new Error(`${f.label} must be text`)
-    if (f.kind === 'date' && !Number.isFinite(Date.parse(String(value))))
+    if (f.kind === 'date' && !Number.isFinite(fieldDate(value)))
       throw new Error(`${f.label} must be a date`)
     if (f.kind === 'select' && !f.options?.includes(String(value)))
       throw new Error(`${f.label} is not an allowed option`)
