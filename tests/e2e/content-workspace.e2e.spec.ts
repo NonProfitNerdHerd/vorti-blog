@@ -202,10 +202,16 @@ test('document header owns the inline title and controls across editor contexts'
     await expect(title).toHaveValue(`${name} updated`)
     if (collection === 'pages') {
       await page.setViewportSize({ width: 390, height: 844 })
+      // Payload persists navigation state per user. Its mobile navigation pushes
+      // the document offscreen; dismiss it before measuring the editor itself.
+      await page.waitForTimeout(500) // Allow Payload's responsive navigation transition to finish.
+      const navigation = page.getByRole('button', { name: 'Close', exact: true })
+      const navBounds = await navigation.boundingBox()
+      if (navBounds && navBounds.x >= 0 && navBounds.x < 390) await navigation.click()
       await page.screenshot({ path: '.wrangler/header-mobile.png' })
-      expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-      ).toBe(true)
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+        .toBe(true)
       expect((await controls.boundingBox())!.height).toBeLessThan(230)
       await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
       await page.screenshot({ path: '.wrangler/header-mobile-dark.png' })
@@ -305,6 +311,9 @@ test('shared sidebar navigates outlines, inserts precisely, duplicates and resto
     'true',
   )
   await page.mouse.up()
+  // dnd-kit retains its document click suppressor for 50ms after a drop.
+  // Allow that intentional cleanup before beginning the next user gesture.
+  await page.waitForTimeout(100)
   await expect(
     workspace.locator('.content-workspace__viewport [data-block-kind]').first(),
   ).toHaveAttribute('data-block-kind', 'paragraph')

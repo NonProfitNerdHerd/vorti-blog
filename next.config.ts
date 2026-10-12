@@ -1,5 +1,8 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 import type { NextConfig } from 'next'
+import { assertEditorRegistration } from './scripts/check-editor-registration.mjs'
+
+assertEditorRegistration()
 
 const nextConfig: NextConfig = {
   experimental: { cpus: 1 },

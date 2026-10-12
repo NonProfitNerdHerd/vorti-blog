@@ -161,7 +161,9 @@ export default buildConfig({
       collections: { media: true, exports: true, imports: true },
     }),
     contentTypes,
-    contentWorkspace({ enabled: process.env.CONTENT_WORKSPACE_ENABLED === 'true' }),
+    // The block workspace is part of the application, not a runtime feature toggle.
+    // Generation, production builds and Workers must register the same admin components.
+    contentWorkspace({ enabled: true }),
     documentReview,
   ],
 })

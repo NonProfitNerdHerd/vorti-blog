@@ -6,9 +6,21 @@ import { VisualStyleControl } from './VisualStyleControl'
 import { resolveStyle, validStyleValue } from '../content/model'
 import { validatePresentation } from '../blocks/presentation'
 import { ContentBlock } from '../content/ContentRenderer'
+import { UnifiedBlockInspector } from './UnifiedBlockInspector'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+})
+it('allows selecting a Saved View even though its internal styling is centrally managed', () => {
+  const change = vi.fn()
+  render(<UnifiedBlockInspector node={{ id: 'view', kind: 'savedView', props: {} }} onChange={change}
+    renderDocumentPicker={(collection, label, value, update) => <input aria-label={label} data-collection={collection} value={value} onChange={event => update(event.target.value)} />} />)
+  const picker = screen.getByRole('textbox', { name: 'Saved View' })
+  expect(picker.getAttribute('data-collection')).toBe('saved-views')
+  fireEvent.change(picker, { target: { value: '12' } })
+  expect(change).toHaveBeenCalledWith({ props: { viewID: '12' } })
+  fireEvent.click(screen.getByRole('tab', { name: 'Layout' }))
+  expect(screen.getAllByRole('textbox', { name: 'Saved View' })).toHaveLength(1)
 })
 it('dismisses only the inspector and leaves external dialogs in control of Escape', () => {
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)

@@ -30,14 +30,15 @@ import { MetaTitleComponent as MetaTitleComponent_a8a977ebc872c5d5ea7ee689724c08
 import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
+import { ContentWorkspace as ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
-import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
-import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
-import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
+import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
 import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
 import { TypeIcon as TypeIcon_3221402a39773c4eae838b562cc3f8e5 } from '../../../content-framework/TypeIcon'
 import { FieldsEditor as FieldsEditor_fd102340ae664c8fafb380461e34656b } from '../../../content-framework/FieldsEditor'
@@ -99,14 +100,15 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#MetaDescriptionComponent": MetaDescriptionComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#MetaImageComponent": MetaImageComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
+  "@design-system/payload-design-core/admin#ContentWorkspace": ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
-  "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
-  "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
-  "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
+  "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
+  "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
   "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
+  "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
   "./content-framework/TypeIcon#TypeIcon": TypeIcon_3221402a39773c4eae838b562cc3f8e5,
   "./content-framework/FieldsEditor#FieldsEditor": FieldsEditor_fd102340ae664c8fafb380461e34656b,

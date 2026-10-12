@@ -323,8 +323,6 @@ export function UnifiedBlockInspector({
                           </option>
                         ))}
                       </select>
-                    ) : node.kind === 'savedView' && field.key === 'viewID' && renderDocumentPicker ? (
-                      renderDocumentPicker('saved-views','Saved View',String(node.props?.viewID??''),value=>onChange({props:{viewID:value.split(',').filter(Boolean).pop()||''}}))
                     ) : node.kind === 'postListing' &&
                       ['ids', 'categories'].includes(field.key) &&
                       renderDocumentPicker ? (
@@ -448,6 +446,10 @@ export function UnifiedBlockInspector({
         </details>
       )}
       {node.kind === 'postListing' && tab === 'layout' && <SaveReusableView node={node} onChange={onChange} disabled={disabled} />}
+      {node.kind === 'savedView' && showFields && renderDocumentPicker?.(
+        'saved-views', 'Saved View', String(node.props?.viewID ?? ''),
+        value => onChange({ props: { ...node.props, viewID: value.split(',').filter(Boolean).pop() || '' } }),
+      )}
       {node.kind === 'savedView' && <p>Query and internal styling are managed in <a href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`} target="_blank" rel="noreferrer">Saved Views</a>.</p>}
       {Object.entries(sections[tab]).map(([label, keys]) => {
         const capability =

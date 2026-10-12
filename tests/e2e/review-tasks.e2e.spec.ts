@@ -70,7 +70,9 @@ test('review tasks stay separate from unsaved content and navigate globally', as
   await expect(page.getByRole('complementary', { name: 'Document tasks' })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true)
   await page.screenshot({ path: '.wrangler/review-mobile.png' })
   await page.getByRole('button', { name: 'Toggle inspector', exact: true }).click()
   await expect(page.getByRole('complementary', { name: 'Document tasks' })).toBeHidden()
