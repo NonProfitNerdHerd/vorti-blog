@@ -2,7 +2,7 @@ import { getPayload } from 'payload'
 import config from '../src/payload.config'
 import { setupContentFramework } from '../src/content-framework/setup'
 
-// Run with: node --import tsx scripts/setup-content-framework.ts [--demonstrations]
+// Run with: payload run scripts/setup-content-framework.ts [demonstrations]
 if (!process.env.DESIGN_CORE_TEST_PERSIST_PATH && process.env.DESIGN_PRODUCTION_MIGRATE !== 'YES')
   throw new Error('Explicit production migration intent or isolated local persistence is required')
 if (!process.env.DESIGN_ADMIN_EMAIL)
@@ -25,7 +25,7 @@ try {
       await setupContentFramework(
         payload,
         users.docs[0].id,
-        process.argv.includes('--demonstrations'),
+        process.argv.includes('--demonstrations') || process.argv.includes('demonstrations'),
       ),
     ),
   )
