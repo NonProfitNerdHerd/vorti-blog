@@ -21,24 +21,21 @@ import {
   adapterPreviewNodes,
   mergeTemplateBlock,
 } from '../blocks/adapters'
+import { RegisteredCanvasText } from '../builder/RegisteredCanvasText'
 import { ContentBlock } from '../content/ContentRenderer'
 import { createContentNode, walkContent, type ContentNode } from '../content/model'
 import { variationsFor, styleOnlyKinds } from '../blocks/variations'
 import { VariationPicker } from '../builder/VariationPicker'
+import { DesignPicker, orderedDesigns, type PublishedDesign } from '../builder/DesignPicker'
 import { resolveStyle, templateStyle } from '../content/model'
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector'
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls'
-import { EditorHeaderPortal, EditorHistory, EditorName } from '../builder/EditorHeader'
+import { EditorHistory, EditorName } from '../builder/EditorHeader'
 import { BuilderWorkspace } from '../builder/BuilderWorkspace'
 import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar'
 import type { BuilderViewport } from '../builder/contracts'
 import { DropArea } from '../builder/DropArea'
-import {
-  coreEditorElements,
-  editorCategoryLabels,
-  toLibraryItem,
-  type EditorLibraryItem,
-} from '../editor-registry'
+import { coreEditorElements, toLibraryItem, type EditorLibraryItem } from '../editor-registry'
 import {
   findTemplateNode,
   insertTemplateNode,
@@ -69,7 +66,7 @@ type BlockTypeOption = {
   rendererKey?: string
   fields?: FieldDefinition[]
 }
-type DesignOption = { id: ID; name: string; blockType: ID }
+type DesignOption = PublishedDesign
 type Impact = { collection: string; id: ID; status?: string }
 type LegacySection = { key: string; name: string; blockType: ID; blockDesign: ID }
 type LibraryItem = EditorLibraryItem
@@ -111,6 +108,8 @@ async function fetchDocs<T>(url: string): Promise<T[]> {
 
 type TreeActions = BuilderTreeActions<TemplateNode> & {
   updateStatic: (node: TemplateField, value: string) => void
+  updateBlockText: (node: TemplateLayoutNode, patch: Partial<ContentNode>) => void
+  disabled: boolean
 }
 function describeTemplateNode(
   node: TemplateNode,
@@ -125,7 +124,21 @@ function describeTemplateNode(
       icon: definition?.icon,
       directChildren: true,
       body: definition?.container ? null : (
-        <ContentBlock node={previews.get(node.id) ?? node.block} viewport={viewport} />
+        <ContentBlock
+          node={previews.get(node.id) ?? node.block}
+          viewport={viewport}
+          body={
+            ['heading', 'paragraph', 'quote', 'list', 'button', 'richText'].includes(
+              node.block.kind,
+            ) ? (
+              <RegisteredCanvasText
+                node={node.block}
+                disabled={actions.disabled}
+                change={(patch) => actions.updateBlockText(node, patch)}
+              />
+            ) : undefined
+          }
+        />
       ),
       wrap: definition?.container
         ? (children) => (
@@ -258,15 +271,12 @@ export function ContentTemplateBuilder({
   registeredRendererKeys?: string[]
 }) {
   const { id, hasPublishedDoc } = useDocumentInfo()
-  const { submit, disabled } = useForm()
-  const nameField = useField<string>({ path: 'name' })
+  const { disabled } = useForm()
   const descriptionField = useField<string>({ path: 'description' })
-  const slugField = useField<string>({ path: 'slug' })
   const collectionsField = useField<string[]>({ path: 'allowedCollections' })
   const layoutField = useField<TemplateNode[]>({ path: 'layout' })
   const customFieldsField = useField<TemplateCustomField[]>({ path: 'customFields' })
   const sectionsField = useField<LegacySection[]>({ path: 'sections' })
-  const name = nameField.value ?? ''
   const collections = Array.isArray(collectionsField.value) ? collectionsField.value : []
   const nodes = Array.isArray(layoutField.value) ? layoutField.value : []
   const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]))
@@ -320,6 +330,9 @@ export function ContentTemplateBuilder({
     customFieldsField.setValue(next.fields)
     setEditing(null)
   }
+  const setLayoutValue = layoutField.setValue
+  const setCustomFieldsValue = customFieldsField.setValue
+  const setSectionsValue = sectionsField.setValue
   const modified = useRef(false)
   useEffect(() => {
     Promise.all([
@@ -355,9 +368,9 @@ export function ContentTemplateBuilder({
             })
           : null
         if (!modified.current) {
-          if (Array.isArray(doc?.layout)) layoutField.setValue(doc.layout)
-          if (Array.isArray(doc?.customFields)) customFieldsField.setValue(doc.customFields)
-          if (Array.isArray(doc?.sections)) sectionsField.setValue(doc.sections)
+          if (Array.isArray(doc?.layout)) setLayoutValue(doc.layout, true)
+          if (Array.isArray(doc?.customFields)) setCustomFieldsValue(doc.customFields, true)
+          if (Array.isArray(doc?.sections)) setSectionsValue(doc.sections, true)
         }
       } catch {
         /* keep current form data */
@@ -373,7 +386,7 @@ export function ContentTemplateBuilder({
       }
     }
     void load()
-  }, [customFieldsField, id, layoutField, sectionsField])
+  }, [id, setCustomFieldsValue, setLayoutValue, setSectionsValue])
   const setNodes = (next: TemplateNode[], typing = false) => {
     if (disabled) return
     record(typing)
@@ -383,19 +396,39 @@ export function ContentTemplateBuilder({
   }
   const startAdd = (item: LibraryItem, container = 'root', before?: string) => {
     if (disabled) return
-    if (
-      item.kind === 'registered' &&
-      variationsFor(item.value).length > 1 &&
-      !styleOnlyKinds.has(item.value)
-    ) {
+    if (item.kind === 'registered') {
       const node = toTemplateBlock(createContentNode(item.value))
       setNodes(insertTemplateNode(nodes, container, node, before))
       setEditing(node)
       setSidebarSelected(node.id)
-      setVariationChooser(node.id)
+      setVariationChooser(
+        variationsFor(item.value).length > 1 && !styleOnlyKinds.has(item.value) ? node.id : '',
+      )
       setAdding(null)
       sidebar.inserted()
       return
+    }
+    if (item.kind === 'block') {
+      const type = types.find((type) => String(type.id) === item.value)
+      const available = type ? orderedDesigns(designs, type.id) : []
+      if (type && available.length) {
+        const node: TemplateBlockNode = {
+          id: uid('block'),
+          type: 'block',
+          name: type.name,
+          blockType: type.id,
+          blockDesign: available[0].id,
+          fields: [],
+          slotMappings: {},
+        }
+        setNodes(insertTemplateNode(nodes, container, node, before))
+        setEditing(node)
+        setSidebarSelected(node.id)
+        setVariationChooser(node.id)
+        setAdding(null)
+        sidebar.inserted()
+        return
+      }
     }
     setBeforeTarget(before)
     setAdding(item)
@@ -405,6 +438,15 @@ export function ContentTemplateBuilder({
   const openPickerFor = (containerID: string, before?: string) =>
     sidebar.insert({ parent: containerID, before })
   const actions: TreeActions = {
+    disabled,
+    updateBlockText: (node, patch) =>
+      setNodes(
+        updateTemplateNode(nodes, node.id, () => ({
+          ...node,
+          block: { ...node.block!, ...patch },
+        })),
+        true,
+      ),
     edit: (node) => {
       setSidebarSelected(node.id)
       setEditing(node)
@@ -432,24 +474,6 @@ export function ContentTemplateBuilder({
       }
     },
   }
-  async function save(publish: boolean) {
-    if (!name.trim() || !collections.length) {
-      setError('Name and Use With are required.')
-      return
-    }
-    await submit({
-      overrides: {
-        slug:
-          slugField.value ||
-          name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, ''),
-        status: publish ? 'published' : 'draft',
-        _status: publish ? 'published' : 'draft',
-      },
-    })
-  }
   return (
     <BuilderCore
       id="template-builder-dnd"
@@ -472,7 +496,7 @@ export function ContentTemplateBuilder({
             <BuilderWorkspace
               viewport={viewport}
               onViewportChange={setViewport}
-              documentLabel="Template"
+              documentLabel="Page/Post Template"
               readOnly={disabled}
               documentSettings={
                 <>
@@ -544,24 +568,21 @@ export function ContentTemplateBuilder({
                     canEdit: !disabled,
                     items: [
                       ...listBlockDefinitions('template')
-                        .filter(
-                          (def) =>
-                            def.type !== 'column' &&
-                            !coreEditorElements.some(
-                              (item) => item.label === def.label || item.value === def.type,
-                            ),
-                        )
+                        .filter((def) => def.type !== 'column')
                         .map((def) => ({
                           kind: 'registered',
                           value: def.type,
                           label: def.label,
                           category: def.category,
+                          keywords: def.keywords,
                         })),
-                      ...coreEditorElements.map((item) => ({
-                        ...toLibraryItem(item),
-                        category: editorCategoryLabels[item.category],
-                        keywords: item.keywords,
-                      })),
+                      {
+                        kind: 'field',
+                        value: 'shortText',
+                        label: 'Template field',
+                        category: 'Template fields',
+                        keywords: ['binding', 'document', 'slot', 'image', 'text'],
+                      },
                       ...types.map((type) => ({
                         kind: 'block',
                         value: String(type.id),
@@ -634,6 +655,21 @@ export function ContentTemplateBuilder({
                               onChange={(next) =>
                                 setNodes(
                                   updateTemplateNode(nodes, node.id, () => toTemplateBlock(next)),
+                                )
+                              }
+                              onDone={() => setVariationChooser('')}
+                            />
+                          ) : !disabled && variationChooser === node.id && node.type === 'block' ? (
+                            <DesignPicker
+                              designs={orderedDesigns(designs, relationID(node.blockType)!)}
+                              value={relationID(node.blockDesign)}
+                              onChange={(id) =>
+                                setNodes(
+                                  updateTemplateNode(
+                                    nodes,
+                                    node.id,
+                                    (current) => ({ ...current, blockDesign: id }) as TemplateNode,
+                                  ),
                                 )
                               }
                               onDone={() => setVariationChooser('')}
@@ -732,16 +768,6 @@ export function ContentTemplateBuilder({
           </>
         }
 
-        <EditorHeaderPortal slot="actions">
-          <div className="editor-header__buttons">
-            <button type="button" disabled={disabled} onClick={() => void save(false)}>
-              Save Draft
-            </button>
-            <button type="button" disabled={disabled} onClick={() => void save(true)}>
-              {hasPublishedDoc ? 'Publish Changes' : 'Publish Template'}
-            </button>
-          </div>
-        </EditorHeaderPortal>
       </div>
     </BuilderCore>
   )
@@ -932,7 +958,16 @@ function CustomFieldsPanel({
                     aria-label={`Related Collection ${index + 1}`}
                     value={field.relationTo ?? ''}
                     onChange={(event) => update(field.id, { relationTo: event.target.value })}
-                  ><option value="">Choose collection</option>{['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map(slug => <option key={slug} value={slug}>{slug === 'saved-views' ? 'Saved Views' : slug}</option>)}</select>
+                  >
+                    <option value="">Choose collection</option>
+                    {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map(
+                      (slug) => (
+                        <option key={slug} value={slug}>
+                          {slug === 'saved-views' ? 'Saved Views' : slug}
+                        </option>
+                      ),
+                    )}
+                  </select>
                 </label>
               )}
             </div>
@@ -969,15 +1004,16 @@ function NodeEditor({
   update: (node: TemplateNode) => void
 }) {
   const kind = item?.kind ?? node?.type
-  const value =
+  const [value, setValue] = useState(
     item?.value ??
-    (node?.type === 'field'
-      ? node.fieldType
-      : node?.type === 'layout'
-        ? node.layout
-        : node?.type === 'block'
-          ? String(relationID(node.blockType))
-          : '')
+      (node?.type === 'field'
+        ? node.fieldType
+        : node?.type === 'layout'
+          ? node.layout
+          : node?.type === 'block'
+            ? String(relationID(node.blockType))
+            : ''),
+  )
   const [label, setLabel] = useState(node?.type === 'field' ? node.label : (item?.label ?? ''))
   const [required, setRequired] = useState(node?.type === 'field' && !!node.required)
   const [help, setHelp] = useState(node?.type === 'field' ? (node.helpText ?? '') : '')
@@ -989,7 +1025,9 @@ function NodeEditor({
     'custom' | 'customField' | 'static' | 'document' | 'postType'
   >(existingContent?.source ?? 'custom')
   const [customFieldID, setCustomFieldID] = useState(
-    existingContent?.source === 'customField' || existingContent?.source === 'postType' ? existingContent.fieldId : '',
+    existingContent?.source === 'customField' || existingContent?.source === 'postType'
+      ? existingContent.fieldId
+      : '',
   )
   const [documentField, setDocumentField] = useState<TemplateDocumentField>(
     existingContent?.source === 'document'
@@ -998,8 +1036,35 @@ function NodeEditor({
         ? 'featuredImage'
         : 'title',
   )
-  const [typeBindingFields,setTypeBindingFields]=useState<Array<{id:string;label:string}>>([])
-  useEffect(()=>{const controller=new AbortController();fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published',{signal:controller.signal}).then(r=>r.json() as Promise<{docs?:Array<{singular:string;fieldDefinitions?:Array<{id:string;label:string;public?:boolean}>}>}>).then(data=>setTypeBindingFields((data.docs||[]).flatMap(type=>(type.fieldDefinitions||[]).filter(f=>f.public).map(f=>({id:f.id,label:`${type.singular}: ${f.label}`}))))).catch(()=>{});return()=>controller.abort()},[])
+  const [typeBindingFields, setTypeBindingFields] = useState<Array<{ id: string; label: string }>>(
+    [],
+  )
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published', {
+      signal: controller.signal,
+    })
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            docs?: Array<{
+              singular: string
+              fieldDefinitions?: Array<{ id: string; label: string; public?: boolean }>
+            }>
+          }>,
+      )
+      .then((data) =>
+        setTypeBindingFields(
+          (data.docs || []).flatMap((type) =>
+            (type.fieldDefinitions || [])
+              .filter((f) => f.public)
+              .map((f) => ({ id: f.id, label: `${type.singular}: ${f.label}` })),
+          ),
+        ),
+      )
+      .catch(() => {})
+    return () => controller.abort()
+  }, [])
   const [staticValue, setStaticValue] = useState(
     existingContent?.source === 'static'
       ? existingContent.value
@@ -1015,7 +1080,7 @@ function NodeEditor({
   const type = types.find((option) => String(option.id) === value)
   const block = node?.type === 'block' ? node : null
   const [design, setDesign] = useState<ID | ''>(relationID(block?.blockDesign) ?? '')
-  const allowOverride = false
+  const allowOverride = block?.allowDesignOverride ?? false
   const [fields, setFields] = useState<TemplateField[]>(block?.fields ?? [])
   const [mappings, setMappings] = useState<Record<string, string>>(block?.slotMappings ?? {})
   const tab = 'settings' as BuilderInspectorTab
@@ -1058,7 +1123,8 @@ function NodeEditor({
               }),
       } as TemplateLayoutNode
     } else if (kind === 'field') {
-      if ((contentSource === 'customField'||contentSource==='postType') && !customFieldID) return
+      if ((contentSource === 'customField' || contentSource === 'postType') && !customFieldID)
+        return
       const content =
         contentSource === 'static'
           ? { source: 'static' as const, value: staticValue }
@@ -1068,13 +1134,15 @@ function NodeEditor({
                 field: documentField,
                 preview: staticValue || undefined,
               }
-            : contentSource === 'postType' ? {source:'postType' as const,fieldId:customFieldID} : contentSource === 'customField'
-              ? {
-                  source: 'customField' as const,
-                  fieldId: customFieldID,
-                  preview: placeholder || undefined,
-                }
-              : { source: 'custom' as const }
+            : contentSource === 'postType'
+              ? { source: 'postType' as const, fieldId: customFieldID }
+              : contentSource === 'customField'
+                ? {
+                    source: 'customField' as const,
+                    fieldId: customFieldID,
+                    preview: placeholder || undefined,
+                  }
+                : { source: 'custom' as const }
       next = {
         id: node?.id ?? uid('field'),
         type: 'field',
@@ -1100,7 +1168,7 @@ function NodeEditor({
         style,
       } as TemplateBlockNode
     }
-    if (node) update(next)
+    if (node) update({ ...node, ...next })
     else create(next)
   }
   const contentRevision = JSON.stringify([
@@ -1152,7 +1220,20 @@ function NodeEditor({
   const control = { display: 'grid', gap: 6 } as const
   return (
     <section aria-label="Configure element">
+      {kind === 'block' && type && !orderedDesigns(designs, type.id).length && (
+        <DesignPicker designs={[]} onChange={setDesign} />
+      )}
       <UnifiedBlockInspector
+        contentLabel="Template controls"
+        layoutControls={
+          kind === 'block' && type ? (
+            <DesignPicker
+              designs={orderedDesigns(designs, type.id)}
+              value={design || undefined}
+              onChange={setDesign}
+            />
+          ) : undefined
+        }
         node={{
           id: node?.id ?? 'new',
           label:
@@ -1188,6 +1269,25 @@ function NodeEditor({
           if (node) update({ ...node, style: next })
         }}
       >
+        {item?.kind === 'field' && (
+          <label>
+            Field type
+            <select
+              aria-label="Template field type"
+              value={value}
+              onChange={(event) => {
+                setValue(event.target.value)
+                setDocumentField(event.target.value === 'image' ? 'featuredImage' : 'title')
+              }}
+            >
+              {fieldItems.map((field) => (
+                <option key={field.value} value={field.value}>
+                  {field.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {tab === 'settings' && kind === 'field' && (
           <div style={{ display: 'grid', gap: 14 }}>
             <label style={control}>
@@ -1218,7 +1318,7 @@ function NodeEditor({
                 <option value="custom">Legacy canvas field</option>
               </select>
             </label>
-            {(contentSource === 'customField'||contentSource==='postType') && (
+            {(contentSource === 'customField' || contentSource === 'postType') && (
               <label style={control}>
                 <span>Custom field</span>
                 <select
@@ -1227,11 +1327,13 @@ function NodeEditor({
                   onChange={(event) => setCustomFieldID(event.target.value)}
                 >
                   <option value="">Choose a custom field</option>
-                  {(contentSource==='postType'?typeBindingFields:customFields).map((field) => (
-                    <option key={field.id} value={field.id}>
-                      {field.label}
-                    </option>
-                  ))}
+                  {(contentSource === 'postType' ? typeBindingFields : customFields).map(
+                    (field) => (
+                      <option key={field.id} value={field.id}>
+                        {field.label}
+                      </option>
+                    ),
+                  )}
                 </select>
                 {!customFields.length && (
                   <small>Create fields in the Custom Fields tab first.</small>
@@ -1374,28 +1476,6 @@ function NodeEditor({
             <p>
               Component: <strong>{type.name}</strong>
             </p>
-            <label style={control}>
-              <span>Design</span>
-              <select
-                aria-label="Design"
-                value={String(design)}
-                onChange={(e) =>
-                  setDesign(
-                    designs.find((option) => String(option.id) === e.target.value)?.id ?? '',
-                  )
-                }
-                style={{ width: '100%' }}
-              >
-                <option value="">Choose Design</option>
-                {designs
-                  .filter((option) => String(relationID(option.blockType)) === String(type.id))
-                  .map((option) => (
-                    <option key={option.id} value={String(option.id)}>
-                      {option.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
             <h3>Content mapping</h3>
             {(type.fields ?? []).map((slot) => {
               const mapped = fields.find((field) => field.id === mappings[slot.key])

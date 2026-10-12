@@ -9,10 +9,14 @@ import { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder'
 
 const payloadForm = vi.hoisted(() => ({ fields: new Map<string, { value: unknown; setValue: ReturnType<typeof vi.fn> }>() }))
 vi.mock('@payloadcms/ui', () => ({
+  useConfig: () => ({config:{routes:{api:'/api'},serverURL:''}}),
+  UploadInput: (): null => null,
   useDocumentInfo: () => ({ id: 42 }),
   useForm: () => ({ disabled:false }),
   useField: ({ path }: { path: string }) => payloadForm.fields.get(path) ?? { value: undefined, setValue: vi.fn() },
 }))
+vi.mock('@payloadcms/richtext-lexical/client', () => ({ RenderLexical: () => <div data-testid="lexical-editor" /> }))
+
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: ReactNode }) => children,
   KeyboardSensor: function KeyboardSensor() {}, MouseSensor: function MouseSensor() {}, TouchSensor: function TouchSensor() {}, pointerWithin: vi.fn(),
@@ -53,7 +57,7 @@ describe('SiteShellBuilder', () => {
     render(<SiteShellBuilder region="header" />)
     fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Container' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
+    expect(screen.queryByRole('button', { name: 'Save Element' })).toBeNull()
     expect(payloadForm.fields.get('header.layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'layout', layout: 'container' })]))
     cleanup()
     payloadForm.fields.set('header.layout', field([]))
@@ -74,8 +78,8 @@ describe('SiteShellBuilder', () => {
   })
 
   it('stores responsive overrides and changes preview viewport without changing content schema', () => {
+    payloadForm.fields.set('header.layout', field([{id:'legacy-text',type:'element',element:'text',props:{text:'Legacy text'}}]))
     render(<SiteShellBuilder region="header" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
     fireEvent.click(screen.getByRole('button', { name: 'Text' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Layout' }))
     fireEvent.change(screen.getByLabelText('Padding'), { target: { value: '24px' } })
@@ -140,4 +144,14 @@ describe('SiteShellBuilder', () => {
     fireEvent.change(screen.getByLabelText('Additional CSS'), { target: { value: '.site { color: red; }' } })
     expect(payloadForm.fields.get('additionalCSS')!.setValue).toHaveBeenCalledWith('.site { color: red; }')
   })
+})
+it('keeps Header settings in the shared Site Template tab without changing block content', () => {
+  render(<SiteShellBuilder region="header" />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Document settings' }))
+  expect(screen.getByRole('heading', { name: 'Header settings' })).toBeTruthy()
+  fireEvent.change(screen.getByLabelText('Width Mode'), { target: { value: 'full' } })
+  expect(payloadForm.fields.get('header.settings')!.setValue).toHaveBeenCalledWith({ widthMode: 'full' })
+  fireEvent.click(screen.getByRole('tab', { name: 'Block', exact: true }))
+  expect(screen.queryByRole('heading', { name: 'Header settings' })).toBeNull()
+  expect(payloadForm.fields.get('header.layout')!.setValue).not.toHaveBeenCalled()
 })

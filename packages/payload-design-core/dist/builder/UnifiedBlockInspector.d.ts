@@ -6,7 +6,7 @@ type InspectorTab = 'layout' | 'style' | 'advanced';
 export declare function BlockInspectorStateProvider({ children }: {
     children: ReactNode;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewport, disabled, children, bindingFields, showFields, renderBackgroundMedia, renderDocumentPicker, listings, activeTab, hideHeader, }: {
+export declare function UnifiedBlockInspector({ node, onChange, viewport: suppliedViewport, disabled, children, layoutControls, contentLabel, bindingFields, showFields, renderBackgroundMedia, renderDocumentPicker, listings, activeTab, hideHeader, }: {
     node: ContentNode;
     listings?: Array<{
         id: string;
@@ -23,6 +23,8 @@ export declare function UnifiedBlockInspector({ node, onChange, viewport: suppli
     viewport?: Viewport;
     disabled?: boolean;
     children?: ReactNode;
+    layoutControls?: ReactNode;
+    contentLabel?: string;
     activeTab?: InspectorTab;
     hideHeader?: boolean;
 }): import("react/jsx-runtime").JSX.Element;

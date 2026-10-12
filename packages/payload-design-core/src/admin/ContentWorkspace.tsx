@@ -1,4 +1,6 @@
 'use client'
+import { InspectorTabs } from '../builder/InspectorTabs'
+import { InlineText } from '../builder/InlineText'
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
 import { BlockGlyph } from '../blocks/BlockGlyph'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -807,26 +809,7 @@ export const ContentWorkspace = (
           </div>
           {right && (
             <aside className="content-workspace__right" aria-label="Inspector">
-              <div role="tablist" aria-label="Inspector tabs">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={panel === 'block'}
-                  onClick={() => setPanel('block')}
-                >
-                  Block
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-label="Document settings"
-                  title="Document settings"
-                  aria-selected={panel === 'document'}
-                  onClick={() => setPanel('document')}
-                >
-                  {documentLabel}
-                </button>
-              </div>
+              <InspectorTabs value={panel} onChange={setPanel} documentLabel={documentLabel} />
               {panel === 'document' ? (
                 <div className="builder-document-settings">{gear}</div>
               ) : !active ? (
@@ -873,54 +856,6 @@ export const ContentWorkspace = (
   )
 }
 
-function InlineText({
-  node,
-  disabled,
-  onChange,
-}: {
-  node: ContentNode
-  disabled: boolean
-  onChange: (value: string) => void
-}) {
-  const input = React.useRef<HTMLTextAreaElement>(null)
-  React.useLayoutEffect(() => {
-    const element = input.current
-    if (!element) return
-    const fit = () => {
-      element.style.height = '0px'
-      element.style.height = `${element.scrollHeight}px`
-    }
-    fit()
-    let active = true
-    void document.fonts?.ready.then(() => {
-      if (active) fit()
-    })
-    let width = element.clientWidth
-    const observer = new ResizeObserver(() => {
-      if (width !== element.clientWidth) {
-        width = element.clientWidth
-        fit()
-      }
-    })
-    observer.observe(element)
-    return () => {
-      active = false
-      observer.disconnect()
-    }
-  }, [node.text, node.styles, node.presentation])
-  return (
-    <textarea
-      ref={input}
-      className={`content-workspace__inline content-workspace__inline--${node.kind}`}
-      aria-label={node.label ?? node.kind}
-      placeholder={`Type ${node.kind}…`}
-      value={node.text ?? ''}
-      readOnly={disabled}
-      rows={1}
-      onChange={(event) => onChange(event.target.value)}
-    />
-  )
-}
 function Insertion({
   empty = false,
   parent,

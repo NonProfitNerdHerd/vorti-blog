@@ -241,8 +241,8 @@
   border: 0;
 }
 @media (max-width: 1100px) {
-  .content-workspace__right,
-  .template-editor__sidebar--right {
+  .content-workspace:not(.builder-frame) > .content-workspace__right,
+  .template-editor__workspace:not(.builder-frame) > .template-editor__sidebar--right {
     position: fixed !important;
     right: 8px;
     top: 100px;

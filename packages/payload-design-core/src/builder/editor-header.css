@@ -1,5 +1,6 @@
 .editor-header__buttons,
 .editor-header__status,
+.editor-header__slot--actions,
 .editor-header__slot--preview {
   display: flex;
   align-items: center;
@@ -77,6 +78,9 @@
   flex-wrap: nowrap;
 }
 .editor-header__slot--actions button {
+  min-height: 34px;
+  font: inherit;
+  margin: 0;
   width: auto;
   padding: 6px 12px;
 }
@@ -182,10 +186,23 @@
 }
 
 @media (max-width: 700px) {
-  body:has(.builder-frame) .nav__header,
+  body:has(.builder-frame) .nav__header {
+    width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+  }
   body:has(.builder-frame) .nav__header-content {
     width: 100%;
     max-width: 100%;
+  }
+  body:has(.builder-frame) .app-header__step-nav-wrapper {
+    min-width: 0;
+    flex: 1;
+    width: 0;
+  }
+  body:has(.builder-frame) .app-header__step-nav {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
   }
 }
 

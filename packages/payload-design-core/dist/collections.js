@@ -2,6 +2,7 @@ import { canInsertAdapterNode } from './blocks/adapters.js';
 import { getBlockDefinition } from './blocks/registry.js';
 import { validateContentLayout } from './content/model.js';
 import { validatePresentation } from './blocks/presentation.js';
+import { ValidationError } from 'payload';
 import { assertDesignCanDelete, assertTemplateCanDelete, getBlockDesignDependencies, getTemplateDependencies } from './dependencies.js';
 import { createPayloadDependencySource } from './payload-store.js';
 import { slugs } from './types.js';
@@ -14,7 +15,7 @@ export function createDesignCollections(options) {
     const hiddenFromEditor = ({ user }) => options.isDesignManager ? !options.isDesignManager(user) : !user;
     const designRead = async (args) => (await manage(args)) === true ? true : { _status: { equals: 'published' }, status: { equals: 'published' } };
     const common = {
-        admin: { group: 'Design' },
+        admin: { group: 'Site Design' },
         access: { read: designRead, create: manage, update: manage, delete: manage },
         versions: { drafts: true },
     };
@@ -22,7 +23,7 @@ export function createDesignCollections(options) {
         ...common,
         slug: slugs.blockTypes,
         labels: { singular: 'Block Type', plural: 'Block Creator' },
-        admin: { group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'designCount', 'status'] },
+        admin: { group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'designCount', 'status'] },
         hooks: {
             beforeChange: [async ({ data }) => {
                     const issues = validateFieldDefinitions((data.fields ?? []));
@@ -118,17 +119,29 @@ export function createDesignCollections(options) {
     const templates = {
         ...common,
         slug: slugs.templates,
-        labels: { singular: 'Template', plural: 'Templates' },
+        labels: { singular: 'Page/Post Template', plural: 'Page/Post Templates' },
         admin: {
-            group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
-            components: { edit: {
-                    SaveButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-                    SaveDraftButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-                    PublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-                    UnpublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-                } },
+            group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
         },
         hooks: {
+            beforeValidate: [({ data, originalDoc }) => {
+                    if (!data)
+                        return data;
+                    const name = data.name ?? originalDoc?.name;
+                    const allowed = data.allowedCollections ?? originalDoc?.allowedCollections;
+                    const errors = [];
+                    if (typeof name !== 'string' || !name.trim())
+                        errors.push({ path: 'name', message: 'Name is required.' });
+                    if (!Array.isArray(allowed) || !allowed.length)
+                        errors.push({ path: 'allowedCollections', message: 'Select at least one collection in Use With.' });
+                    if (errors.length)
+                        throw new ValidationError({ errors });
+                    if (!data.slug && !originalDoc?.slug && name)
+                        data.slug = String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                    if (data.status !== 'archived' && originalDoc?.status !== 'archived' && (data._status === 'published' || data._status === 'draft'))
+                        data.status = data._status;
+                    return data;
+                }],
             beforeChange: [async ({ data, originalDoc, req }) => {
                     if (!data.slug && data.name)
                         data.slug = String(data.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

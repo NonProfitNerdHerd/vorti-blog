@@ -99,6 +99,8 @@ export function UnifiedBlockInspector({
   viewport: suppliedViewport,
   disabled,
   children,
+  layoutControls,
+  contentLabel = 'Content',
   bindingFields = [],
   showFields = true,
   renderBackgroundMedia,
@@ -125,6 +127,8 @@ export function UnifiedBlockInspector({
   viewport?: Viewport
   disabled?: boolean
   children?: ReactNode
+  layoutControls?: ReactNode
+  contentLabel?: string
   activeTab?: InspectorTab
   hideHeader?: boolean
 }) {
@@ -201,33 +205,35 @@ export function UnifiedBlockInspector({
       onFocus={beginInspectorGesture}
       onBlur={endInspectorGesture}
     >
-      {!hideHeader && <div className="inspector-sticky">
-        <header>
-          <strong
-            role="heading"
-            aria-level={3}
-            aria-label={definition?.label ?? node.label ?? node.kind}
-          >
-            {<BlockGlyph kind={node.kind}/>} {definition?.label ?? node.label ?? node.kind}
-          </strong>
-          <p>{definition?.description ?? 'Block presentation settings.'}</p>
-        </header>
-        <div role="tablist" aria-label="Block controls">
-          {(['layout', 'style', 'advanced'] as const).map((name) => (
-            <button
-              type="button"
-              key={name}
-              role="tab"
-              aria-selected={tab === name}
-              onClick={() => setTab(name)}
+      {!hideHeader && (
+        <div className="inspector-sticky">
+          <header>
+            <strong
+              role="heading"
+              aria-level={3}
+              aria-label={definition?.label ?? node.label ?? node.kind}
             >
-              <InspectorIcon name={name} />
-              {title(name)}
-            </button>
-          ))}
+              {<BlockGlyph kind={node.kind} />} {definition?.label ?? node.label ?? node.kind}
+            </strong>
+            <p>{definition?.description ?? 'Block presentation settings.'}</p>
+          </header>
+          <div role="tablist" aria-label="Block controls">
+            {(['layout', 'style', 'advanced'] as const).map((name) => (
+              <button
+                type="button"
+                key={name}
+                role="tab"
+                aria-selected={tab === name}
+                onClick={() => setTab(name)}
+              >
+                <InspectorIcon name={name} />
+                {title(name)}
+              </button>
+            ))}
+          </div>
+          {error && <p role="alert">{error}</p>}
         </div>
-        {error && <p role="alert">{error}</p>}
-      </div>}
+      )}
       {!!definition?.targets?.length && (
         <label className="inspector-target-picker">
           Style target
@@ -248,6 +254,7 @@ export function UnifiedBlockInspector({
           </select>
         </label>
       )}
+      {tab === 'layout' && layoutControls}
       {tab === 'layout' && <VariationPicker node={node} onChange={onChange} disabled={disabled} />}
       {tab === 'layout' && node.variation && (
         <button type="button" onClick={() => onChange({ styles: resetLayoutStyles(node) })}>
@@ -256,7 +263,7 @@ export function UnifiedBlockInspector({
       )}
       {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && (
         <details open>
-          <summary>Content</summary>
+          <summary>{contentLabel}</summary>
           {children}
           <RepeatedItemsControl node={node} change={onChange} />
           {node.role === 'item' && (
@@ -447,13 +454,41 @@ export function UnifiedBlockInspector({
             })}
         </details>
       )}
-      {node.kind === 'postListing' && tab === 'layout' && <SaveReusableView node={node} onChange={onChange} disabled={disabled} />}
-      {isViewPlacement(node.kind) && showFields && <ViewPlacementSetup key={node.id} node={node} onChange={onChange} renderPicker={renderDocumentPicker} />}
-      {isViewPlacement(node.kind) && showFields && renderDocumentPicker?.(
-        'saved-views', 'Saved View', String(node.props?.viewID ?? ''),
-        value => onChange({ props: { ...node.props, viewID: value.split(',').filter(Boolean).pop() || '' } }),
+      {node.kind === 'postListing' && tab === 'layout' && (
+        <SaveReusableView node={node} onChange={onChange} disabled={disabled} />
       )}
-      {isViewPlacement(node.kind) && <p>Query and internal styling are managed in <a href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`} target="_blank" rel="noreferrer">Saved Views</a>.</p>}
+      {isViewPlacement(node.kind) && showFields && (
+        <ViewPlacementSetup
+          key={node.id}
+          node={node}
+          onChange={onChange}
+          renderPicker={renderDocumentPicker}
+        />
+      )}
+      {isViewPlacement(node.kind) &&
+        showFields &&
+        renderDocumentPicker?.(
+          'saved-views',
+          'Saved View',
+          String(node.props?.viewID ?? ''),
+          (value) =>
+            onChange({
+              props: { ...node.props, viewID: value.split(',').filter(Boolean).pop() || '' },
+            }),
+        )}
+      {isViewPlacement(node.kind) && (
+        <p>
+          Query and internal styling are managed in{' '}
+          <a
+            href={`/admin/collections/saved-views/${encodeURIComponent(String(node.props?.viewID || ''))}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Saved Views
+          </a>
+          .
+        </p>
+      )}
       {Object.entries(sections[tab]).map(([label, keys]) => {
         const capability =
           label === 'Typography'
@@ -485,30 +520,36 @@ export function UnifiedBlockInspector({
                 update={(v) => update('objectPosition', v)}
               />
             )}
-            {keys.filter(key => !isViewPlacement(node.kind) || ['width', 'minWidth', 'maxWidth', 'padding', 'margin'].includes(key)).map((key) => (
-              <VisualStyleControl
-                key={`${node.id}-${key}`}
-                name={key}
-                values={values}
-                inheritedValues={inherited}
-                responsive={state === 'normal'}
-                state={state}
-                setState={target === 'block' ? setState : undefined}
-                updateMany={(patch) => {
-                  const next = { ...values }
-                  for (const [k, v] of Object.entries(patch)) {
-                    if (v && !validStyleValue(k, v)) return
-                    if (v) next[k] = v
-                    else delete next[k]
-                  }
-                  if (state === 'normal') writeStyles({ ...authoredStyles, [viewport]: next })
-                  else updatePresentation({ [state]: next })
-                }}
-                value={values[key] ?? ''}
-                inherited={inherited[key]}
-                update={(value) => update(key, value)}
-              />
-            ))}
+            {keys
+              .filter(
+                (key) =>
+                  !isViewPlacement(node.kind) ||
+                  ['width', 'minWidth', 'maxWidth', 'padding', 'margin'].includes(key),
+              )
+              .map((key) => (
+                <VisualStyleControl
+                  key={`${node.id}-${key}`}
+                  name={key}
+                  values={values}
+                  inheritedValues={inherited}
+                  responsive={state === 'normal'}
+                  state={state}
+                  setState={target === 'block' ? setState : undefined}
+                  updateMany={(patch) => {
+                    const next = { ...values }
+                    for (const [k, v] of Object.entries(patch)) {
+                      if (v && !validStyleValue(k, v)) return
+                      if (v) next[k] = v
+                      else delete next[k]
+                    }
+                    if (state === 'normal') writeStyles({ ...authoredStyles, [viewport]: next })
+                    else updatePresentation({ [state]: next })
+                  }}
+                  value={values[key] ?? ''}
+                  inherited={inherited[key]}
+                  update={(value) => update(key, value)}
+                />
+              ))}
           </details>
         )
       })}

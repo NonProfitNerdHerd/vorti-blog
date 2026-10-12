@@ -14,6 +14,7 @@ import {
   adapterPreviewNodes,
   mergeShellBlock,
 } from '../blocks/adapters'
+import { RegisteredCanvasText } from '../builder/RegisteredCanvasText'
 import { ContentBlock } from '../content/ContentRenderer'
 import { createContentNode, walkContent, type ContentNode } from '../content/model'
 import { variationsFor, styleOnlyKinds } from '../blocks/variations'
@@ -51,22 +52,6 @@ import {
 import './template-builder.css'
 
 export type SiteShellRegion = 'header' | 'footer'
-
-const layoutDefinitions: BuilderPickerElement[] = [
-  ['container', 'Container', 'Constrain and group shell elements.'],
-  ['row', 'Row', 'Arrange children horizontally.'],
-  ['columns', 'Columns', 'Create responsive columns.'],
-  ['stack', 'Stack', 'Arrange children vertically.'],
-  ['spacer', 'Spacer', 'Add controlled empty space.'],
-  ['divider', 'Divider', 'Separate shell areas.'],
-].map(([value, label, description]) => ({
-  kind: 'layout',
-  value,
-  label,
-  description,
-  category: 'layout',
-  keywords: [value, label.toLowerCase()],
-}))
 
 const elementDescriptions: Record<SiteShellElementKind, [string, string]> = {
   logo: ['Site Logo', 'Uses a logo asset from Site Settings.'],
@@ -470,16 +455,11 @@ export function SiteShellBuilder({
     keywords: [value, ...elementDescriptions[value][0].toLowerCase().split(' ')],
   }))
   const items = [
-    ...layoutDefinitions,
-    ...elementItems,
+    ...elementItems.filter(
+      (item) => !['button', 'text', 'richText', 'icon', 'image'].includes(item.value),
+    ),
     ...listBlockDefinitions(region)
-      .filter(
-        (def) =>
-          def.type !== 'column' &&
-          ![...layoutDefinitions, ...elementItems].some(
-            (item) => item.label === def.label || item.value === def.type,
-          ),
-      )
+      .filter((def) => def.type !== 'column')
       .map((def) => ({
         kind: 'registered',
         value: def.type,
@@ -526,16 +506,14 @@ export function SiteShellBuilder({
   }
   const startAdd = (item: BuilderDragItem, parent = 'root', before?: string) => {
     if (disabled) return
-    if (
-      item.kind === 'registered' &&
-      variationsFor(item.value).length > 1 &&
-      !styleOnlyKinds.has(item.value)
-    ) {
+    if (item.kind === 'registered') {
       const node = toShellBlock(createContentNode(item.value))
       change(insertSiteShellNode(nodes, parent, node, before))
       setSelected(node)
       setSidebarSelected(node.id)
-      setVariationChooser(node.id)
+      setVariationChooser(
+        variationsFor(item.value).length > 1 && !styleOnlyKinds.has(item.value) ? node.id : '',
+      )
       setAdding(null)
       sidebar.inserted()
       return
@@ -561,6 +539,33 @@ export function SiteShellBuilder({
   }
   const describe = (node: SiteShellNode): BuilderNodeDescriptor<SiteShellNode> => ({
     ...describeShellNode(node, viewport, previews),
+    ...(node.type === 'layout' &&
+    node.block &&
+    ['heading', 'paragraph', 'quote', 'list', 'button', 'richText'].includes(node.block.kind)
+      ? {
+          body: (
+            <ContentBlock
+              node={node.block}
+              viewport={viewport}
+              body={
+                <RegisteredCanvasText
+                  node={node.block}
+                  disabled={disabled}
+                  change={(patch) =>
+                    change(
+                      updateSiteShellNode(nodes, node.id, {
+                        ...node,
+                        block: { ...node.block!, ...patch },
+                      }),
+                      true,
+                    )
+                  }
+                />
+              }
+            />
+          ),
+        }
+      : {}),
     before:
       !disabled && variationChooser === node.id && node.type === 'layout' && node.block ? (
         <VariationPicker
@@ -592,6 +597,15 @@ export function SiteShellBuilder({
           viewport={viewport}
           onViewportChange={setViewport}
           documentLabel="Site Template"
+          documentSettings={
+            <div className="builder-document-settings">
+              <RegionSettings
+                region={region}
+                value={settingsField.value ?? {}}
+                change={settingsField.setValue}
+              />
+            </div>
+          }
           readOnly={disabled}
           libraryOpen={sidebar.open}
           onLibraryOpenChange={sidebar.setOpen}
@@ -608,7 +622,7 @@ export function SiteShellBuilder({
                 canEdit: !disabled,
                 items: items.map((item) => ({
                   ...item,
-                  category: item.category === 'layout' ? 'Layout' : 'Site Elements',
+                  category: item.kind === 'registered' ? item.category : 'Site Elements',
                 })),
                 onSelect: (id) => {
                   setSidebarSelected(id)
@@ -733,11 +747,7 @@ export function SiteShellBuilder({
                 }}
               />
             ) : (
-              <RegionSettings
-                region={region}
-                value={settingsField.value ?? {}}
-                change={settingsField.setValue}
-              />
+              <p>Select a block on the canvas or in List View to edit its settings and styles.</p>
             )
           }
         />

@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import {
+  EditorName,
   EditorDevices,
   EditorHeaderPortal,
   EditorHistory,
@@ -9,13 +10,16 @@ import {
   EditorTitleSlot,
 } from './EditorHeader'
 
-const doc = vi.hoisted(() => ({ id: 42 as number | undefined }))
+const doc = vi.hoisted(() => ({ id: 42 as number | undefined, processing: false }))
 vi.mock('@payloadcms/ui', () => ({
+  useField: () => ({ value: 'Template', setValue: vi.fn(), disabled: doc.processing }),
+  useForm: () => ({ disabled: false }),
   useDocumentInfo: () => ({ collectionSlug: 'posts', id: doc.id }),
 }))
 afterEach(() => {
   cleanup()
   doc.id = 42
+  doc.processing = false
 })
 
 it('keeps history in the title row before a new document has an Edit tab', async () => {
@@ -86,4 +90,13 @@ it('uses accessible device icons and only changes preview state', () => {
   expect(screen.getByRole('button', { name: 'Tablet' }).getAttribute('aria-pressed')).toBe('true')
   fireEvent.click(screen.getByRole('button', { name: 'Phone' }))
   expect(change).toHaveBeenCalledExactlyOnceWith('mobile')
+})
+
+it('prevents title edits while Payload is applying a saved response', () => {
+  doc.processing = true
+  const view = render(<EditorName />)
+  expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).readOnly).toBe(true)
+  doc.processing = false
+  view.rerender(<EditorName />)
+  expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).readOnly).toBe(false)
 })

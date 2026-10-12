@@ -16,6 +16,7 @@ export const requiredEditorComponents = [
   './content-framework/TypeValues#TypeValues',
   './content-framework/ViewBuilder#ViewBuilder',
   './review/TaskDocument#TaskDocument',
+  './components/SiteDesignNav#SiteDesignNav',
 ]
 
 /** Read syntax only: do not import React/Payload client modules into the build guard. */

@@ -10,7 +10,6 @@ export { BuilderWorkspace } from '../builder/BuilderWorkspace';
 export { TemplateImpactPanel } from './TemplateImpactPanel';
 export { TemplateContentEditor } from './TemplateContentEditor';
 export { TemplateBuilder } from './TemplateBuilder';
-export { TemplateActionPlaceholder } from './TemplateActionPlaceholder';
 export { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder';
 export { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector';
 export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor';

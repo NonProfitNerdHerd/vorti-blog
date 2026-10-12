@@ -85,7 +85,7 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     components: {
-      beforeNavLinks: ['./components/AdminNavDefaults#AdminNavDefaults'],
+      Nav: './components/SiteDesignNav#SiteDesignNav',
     },
     livePreview: {
       collections: ['posts', 'pages'],
@@ -145,8 +145,8 @@ export default buildConfig({
     }),
     formBuilderPlugin({
       redirectRelationships: ['pages'],
-      formOverrides: { admin: { group: 'Site' } },
-      formSubmissionOverrides: { admin: { group: 'Site' } },
+      formOverrides: { admin: { group: 'Forms' } },
+      formSubmissionOverrides: { admin: { group: 'Forms' } },
     }),
     importExportPlugin({
       collections: [

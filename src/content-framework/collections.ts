@@ -121,7 +121,7 @@ export const PostTypes: CollectionConfig = {
   slug: 'post-types',
   labels: { singular: 'Post Type', plural: 'Post Types' },
   admin: {
-    group: 'Configuration',
+    group: 'Site Design',
     useAsTitle: 'singular',
     defaultColumns: ['singular', 'key', 'capability', '_status'],
   },

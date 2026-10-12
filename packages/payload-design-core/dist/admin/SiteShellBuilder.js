@@ -7,6 +7,7 @@ import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor.js';
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry.js';
 import { toShellBlock, shellBlockValue, adapterListings, adapterPreviewNodes, mergeShellBlock, } from '../blocks/adapters.js';
+import { RegisteredCanvasText } from '../builder/RegisteredCanvasText.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
 import { createContentNode, walkContent } from '../content/model.js';
 import { variationsFor, styleOnlyKinds } from '../blocks/variations.js';
@@ -23,21 +24,6 @@ import { shellInspectorStyles } from '../site-shell.js';
 import { resolveStyle } from '../content/model.js';
 import { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShellNodeTo, removeSiteShellNode, updateSiteShellNode, } from '../site-shell-tree.js';
 import './template-builder.css';
-const layoutDefinitions = [
-    ['container', 'Container', 'Constrain and group shell elements.'],
-    ['row', 'Row', 'Arrange children horizontally.'],
-    ['columns', 'Columns', 'Create responsive columns.'],
-    ['stack', 'Stack', 'Arrange children vertically.'],
-    ['spacer', 'Spacer', 'Add controlled empty space.'],
-    ['divider', 'Divider', 'Separate shell areas.'],
-].map(([value, label, description]) => ({
-    kind: 'layout',
-    value,
-    label,
-    description,
-    category: 'layout',
-    keywords: [value, label.toLowerCase()],
-}));
 const elementDescriptions = {
     logo: ['Site Logo', 'Uses a logo asset from Site Settings.'],
     siteName: ['Site Name', 'Uses Site Settings.siteName.'],
@@ -247,11 +233,9 @@ export function SiteShellBuilder({ region, navigation, }) {
         keywords: [value, ...elementDescriptions[value][0].toLowerCase().split(' ')],
     }));
     const items = [
-        ...layoutDefinitions,
-        ...elementItems,
+        ...elementItems.filter((item) => !['button', 'text', 'richText', 'icon', 'image'].includes(item.value)),
         ...listBlockDefinitions(region)
-            .filter((def) => def.type !== 'column' &&
-            ![...layoutDefinitions, ...elementItems].some((item) => item.label === def.label || item.value === def.type))
+            .filter((def) => def.type !== 'column')
             .map((def) => ({
             kind: 'registered',
             value: def.type,
@@ -301,14 +285,12 @@ export function SiteShellBuilder({ region, navigation, }) {
     const startAdd = (item, parent = 'root', before) => {
         if (disabled)
             return;
-        if (item.kind === 'registered' &&
-            variationsFor(item.value).length > 1 &&
-            !styleOnlyKinds.has(item.value)) {
+        if (item.kind === 'registered') {
             const node = toShellBlock(createContentNode(item.value));
             change(insertSiteShellNode(nodes, parent, node, before));
             setSelected(node);
             setSidebarSelected(node.id);
-            setVariationChooser(node.id);
+            setVariationChooser(variationsFor(item.value).length > 1 && !styleOnlyKinds.has(item.value) ? node.id : '');
             setAdding(null);
             sidebar.inserted();
             return;
@@ -335,18 +317,28 @@ export function SiteShellBuilder({ region, navigation, }) {
     };
     const describe = (node) => ({
         ...describeShellNode(node, viewport, previews),
+        ...(node.type === 'layout' &&
+            node.block &&
+            ['heading', 'paragraph', 'quote', 'list', 'button', 'richText'].includes(node.block.kind)
+            ? {
+                body: (_jsx(ContentBlock, { node: node.block, viewport: viewport, body: _jsx(RegisteredCanvasText, { node: node.block, disabled: disabled, change: (patch) => change(updateSiteShellNode(nodes, node.id, {
+                            ...node,
+                            block: { ...node.block, ...patch },
+                        }), true) }) })),
+            }
+            : {}),
         before: !disabled && variationChooser === node.id && node.type === 'layout' && node.block ? (_jsx(VariationPicker, { node: shellBlockValue(node), initial: true, onChange: (next) => change(updateSiteShellNode(nodes, node.id, toShellBlock(next))), onDone: () => setVariationChooser('') })) : undefined,
         style: node.type === 'layout' && node.block
             ? undefined
             : resolveStyle(shellInspectorStyles(node), viewport),
     });
-    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsx(EditorHistory, { undo: undo, redo: redo, canUndo: !disabled && Boolean(history.length), canRedo: !disabled && Boolean(future.length) }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Site Template", readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+    return (_jsx(BuilderCore, { id: `site-shell-${region}-dnd`, onInsert: startAdd, onMove: (id, parent, before) => change(moveSiteShellNodeTo(nodes, id, parent, before)), children: _jsxs("section", { "data-testid": `site-shell-${region}`, className: "site-shell__region", children: [_jsx(EditorHistory, { undo: undo, redo: redo, canUndo: !disabled && Boolean(history.length), canRedo: !disabled && Boolean(future.length) }), _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Site Template", documentSettings: _jsx("div", { className: "builder-document-settings", children: _jsx(RegionSettings, { region: region, value: settingsField.value ?? {}, change: settingsField.setValue }) }), readOnly: disabled, libraryOpen: sidebar.open, onLibraryOpenChange: sidebar.setOpen, libraryTitle: "", libraryNavigation: null, library: null, sidebarControls: _jsx(SidebarControls, { state: sidebar, canInsert: !disabled }), sidebar: _jsx(BuilderSidebar, { state: sidebar, adapter: {
                             nodes: shellSidebarNodes(nodes),
                             selected: sidebarSelected ?? selected?.id,
                             canEdit: !disabled,
                             items: items.map((item) => ({
                                 ...item,
-                                category: item.category === 'layout' ? 'Layout' : 'Site Elements',
+                                category: item.kind === 'registered' ? item.category : 'Site Elements',
                             })),
                             onSelect: (id) => {
                                 setSidebarSelected(id);
@@ -390,7 +382,7 @@ export function SiteShellBuilder({ region, navigation, }) {
                             setSelected(node);
                             setSidebarSelected(node.id);
                             sidebar.inserted();
-                        } }, selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx(RegionSettings, { region: region, value: settingsField.value ?? {}, change: settingsField.setValue })) })] }) }));
+                        } }, selected?.id ?? `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx("p", { children: "Select a block on the canvas or in List View to edit its settings and styles." })) })] }) }));
 }
 function describeShellNode(node, viewport = 'desktop', previews = new Map()) {
     if (node.type === 'layout' && node.block) {

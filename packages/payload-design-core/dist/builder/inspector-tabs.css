@@ -1,0 +1,28 @@
+.builder-frame .editor-inspector-tabs {
+  display: flex;
+  gap: 6px;
+  margin-block: 10px;
+  flex-wrap: wrap;
+}
+.builder-frame .editor-inspector-tabs button[role='tab'] {
+  appearance: none;
+  font: inherit;
+  color: var(--theme-text);
+  background: var(--editor-panel-bg, var(--theme-bg));
+  border: 1px solid var(--theme-elevation-150);
+  border-bottom: 3px solid transparent;
+  border-radius: 4px;
+  min-height: 34px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.builder-frame .editor-inspector-tabs button[aria-selected='true'] {
+  border-bottom-color: var(--theme-success-500);
+}
+.builder-frame .editor-inspector-tabs button:hover {
+  background: var(--theme-elevation-50);
+}
+.builder-frame .editor-inspector-tabs button:focus-visible {
+  outline: 2px solid var(--theme-success-500);
+  outline-offset: 2px;
+}

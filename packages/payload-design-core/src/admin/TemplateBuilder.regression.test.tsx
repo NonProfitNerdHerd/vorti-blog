@@ -8,14 +8,19 @@ import { TemplateBuilder } from './TemplateBuilder'
 const payloadForm = vi.hoisted(() => ({
   fields: new Map<string, { setValue: ReturnType<typeof vi.fn>; value: unknown }>(),
   submit: vi.fn(),
+  id: undefined as number | undefined,
 }))
 
 vi.mock('@payloadcms/ui', () => ({
+  useConfig: () => ({config:{routes:{api:'/api'},serverURL:''}}),
+  UploadInput: (): null => null,
   useNav: () => ({navOpen:false,hydrated:true,setNavOpen:vi.fn()}),
-  useDocumentInfo: () => ({ hasPublishedDoc: true, id: undefined as string | number | undefined }),
+  useDocumentInfo: () => ({ hasPublishedDoc: true, id: payloadForm.id }),
   useField: ({ path }: { path: string }) => payloadForm.fields.get(path) ?? { value: undefined, setValue: vi.fn() },
   useForm: () => ({ disabled: false, submit: payloadForm.submit }),
 }))
+
+vi.mock('@payloadcms/richtext-lexical/client', () => ({ RenderLexical: () => <div data-testid="lexical-editor" /> }))
 
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: ReactNode }) => children,
@@ -69,6 +74,7 @@ beforeEach(() => {
     ['sections', field([])],
     ['_status', field('draft')],
   ])
+  payloadForm.id = undefined
   payloadForm.submit.mockReset()
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ docs: [] }), { status: 200 })))
 })
@@ -90,8 +96,8 @@ describe('TemplateBuilder regression boundary', () => {
     expect(canvas).toBeTruthy()
     expect(within(canvas).getByText(/Columns/).textContent).toContain('60 / 40')
     expect(within(canvas).getByText('Sample headline')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Save Draft' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Publish Changes' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Save Draft' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Publish/ })).toBeNull()
     expect(screen.getByRole('toolbar', { name: 'Responsive preview' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Phone' }))
     expect(document.querySelector('[data-viewport="mobile"]')).toBeTruthy()
@@ -123,13 +129,13 @@ describe('TemplateBuilder regression boundary', () => {
     expect(within(dialog).getByRole('heading', { name: 'Text' })).toBeTruthy()
     expect(within(dialog).getByRole('heading', { name: 'Media' })).toBeTruthy()
     expect(within(dialog).getByRole('heading', { name: 'Layout' })).toBeTruthy()
-    expect(within(dialog).getByRole('heading', { name: 'Data' })).toBeTruthy()
+    expect(within(dialog).getByRole('heading', { name: 'Template fields' })).toBeTruthy()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Image' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Template field' }))
+    fireEvent.change(screen.getByLabelText('Template field type'), {target:{value:'image'}})
     expect(screen.getByRole('heading', { name: 'Image' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Content Source'), { target: { value: 'document' } })
     expect((screen.getByLabelText('Document Field') as unknown as HTMLSelectElement).value).toBe('featuredImage')
-    expect(screen.getByRole('option', { name: 'Featured Image' })).toBeTruthy()
   })
 
   it('adds, moves, deletes, and edits nodes through the extracted canvas controls', () => {
@@ -139,8 +145,8 @@ describe('TemplateBuilder regression boundary', () => {
     fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(screen.getByRole('button', { name: 'Paragraph' }))
     expect(screen.getByRole('heading', { name: 'Paragraph' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
-    expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'field', fieldType: 'longText' })]))
+    expect(screen.queryByRole('button', { name: 'Save Element' })).toBeNull()
+    expect(setLayout).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ block: expect.objectContaining({kind:'paragraph'}) })]))
 
     setLayout.mockClear()
     fireEvent.click(screen.getByRole('button', { name: 'Actions for Closing message' }))
@@ -159,16 +165,13 @@ describe('TemplateBuilder regression boundary', () => {
     expect(JSON.stringify(setLayout.mock.calls.at(-1)?.[0])).toContain('Updated story heading')
   })
 
-  it('keeps Custom Field updates and draft/publish submission behavior', async () => {
+  it('keeps Custom Field updates while leaving submission to Payload', async () => {
     render(<TemplateBuilder configuredCollections={['posts']} />)
     fireEvent.click(screen.getByRole('tab', { name: 'Document settings' }))
     fireEvent.click(screen.getByRole('button', { name: '+ Add field' }))
     expect(payloadForm.fields.get('customFields')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ label: 'New field', fieldType: 'longText' })]))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
-    await waitFor(() => expect(payloadForm.submit).toHaveBeenCalledWith({ overrides: { slug: 'newsletter', status: 'draft', _status: 'draft' } }))
-    fireEvent.click(screen.getByRole('button', { name: 'Publish Changes' }))
-    await waitFor(() => expect(payloadForm.submit).toHaveBeenCalledWith({ overrides: { slug: 'newsletter', status: 'published', _status: 'published' } }))
+    expect(payloadForm.submit).not.toHaveBeenCalled()
   })
 
   it('keeps registered Designed Blocks available for insertion', async () => {
@@ -183,8 +186,19 @@ describe('TemplateBuilder regression boundary', () => {
     fireEvent.click(screen.getByRole('button', {name:'Add block'}))
     fireEvent.click(await screen.findByRole('button', { name: 'Hero Board' }))
     expect(screen.getByRole('heading', { name: 'Hero Board' })).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Design'), { target: { value: '9' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Feature Hero' }))
     expect(payloadForm.fields.get('layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'block', blockType: 7, blockDesign: 9 })]))
   })
+})
+
+it('hydrates once without marking the native form dirty on ordinary field updates', async () => {
+  payloadForm.id = 42
+  const fetcher = vi.fn(async (input: string) => new Response(JSON.stringify(input.includes('/42?') ? { layout: [], customFields: [], sections: [] } : input.endsWith('/dependencies') ? [] : { docs: [] }), { status: 200 }))
+  vi.stubGlobal('fetch', fetcher)
+  const view = render(<TemplateBuilder configuredCollections={['posts']} />)
+  await waitFor(() => expect(payloadForm.fields.get('layout')!.setValue).toHaveBeenCalledWith([], true))
+  payloadForm.fields.set('layout', { ...payloadForm.fields.get('layout')!, value: [] })
+  view.rerender(<TemplateBuilder configuredCollections={['posts']} />)
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.includes('/42?'))).toHaveLength(1))
 })

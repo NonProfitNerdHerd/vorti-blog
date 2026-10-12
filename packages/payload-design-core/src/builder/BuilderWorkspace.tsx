@@ -1,4 +1,5 @@
 'use client'
+import { InspectorTabs } from './InspectorTabs'
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { EditorHeaderPortal, EditorDevices } from './EditorHeader'
@@ -165,26 +166,7 @@ export function BuilderWorkspace({
           >
             <div className="template-editor__sidebar-inner">
               {documentSettings && (
-                <div role="tablist" aria-label="Inspector">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === 'block'}
-                    onClick={() => setTab('block')}
-                  >
-                    Block
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-label="Document settings"
-                    title="Document settings"
-                    aria-selected={tab === 'document'}
-                    onClick={() => setTab('document')}
-                  >
-                    {documentLabel}
-                  </button>
-                </div>
+                <InspectorTabs value={tab} onChange={setTab} documentLabel={documentLabel} />
               )}
               <fieldset
                 disabled={readOnly}

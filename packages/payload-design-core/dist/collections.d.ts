@@ -1,4 +1,4 @@
-import type { Access, CollectionConfig } from 'payload';
+import { type Access, type CollectionConfig } from 'payload';
 import type { DesignEventHandler } from './types';
 export type DesignCollectionsOptions = {
     contentCollections: string[];

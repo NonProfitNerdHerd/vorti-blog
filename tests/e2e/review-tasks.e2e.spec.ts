@@ -96,7 +96,7 @@ test('task entry works in every editor and Site Template region links', async ({
         slug,
         _status: 'draft',
         ...(collection === 'posts' ? { author: user.id } : {}),
-        ...(collection === 'design-templates' ? { layout: [] } : {}),
+        ...(collection === 'design-templates' ? { layout: [], allowedCollections: ['posts'] } : {}),
       },
     })
     expect(response.ok(), `${collection}: ${await response.text()}`).toBeTruthy()

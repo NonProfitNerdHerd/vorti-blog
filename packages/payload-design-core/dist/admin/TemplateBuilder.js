@@ -10,18 +10,20 @@ import { BuilderCanvasTree, } from '../builder/BuilderTree.js';
 import { RegisteredBlockEditor, NewRegisteredBlock } from '../builder/RegisteredBlockEditor.js';
 import { listBlockDefinitions, getBlockDefinition } from '../blocks/registry.js';
 import { toTemplateBlock, templateBlockValue, adapterListings, adapterPreviewNodes, mergeTemplateBlock, } from '../blocks/adapters.js';
+import { RegisteredCanvasText } from '../builder/RegisteredCanvasText.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
 import { createContentNode, walkContent } from '../content/model.js';
 import { variationsFor, styleOnlyKinds } from '../blocks/variations.js';
 import { VariationPicker } from '../builder/VariationPicker.js';
+import { DesignPicker, orderedDesigns } from '../builder/DesignPicker.js';
 import { resolveStyle, templateStyle } from '../content/model.js';
 import { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 import { InspectorGesture, markInspectorGesture } from '../builder/InspectorControls.js';
-import { EditorHeaderPortal, EditorHistory, EditorName } from '../builder/EditorHeader.js';
+import { EditorHistory, EditorName } from '../builder/EditorHeader.js';
 import { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 import { BuilderPreviewFrame } from '../builder/BuilderPreviewToolbar.js';
 import { DropArea } from '../builder/DropArea.js';
-import { coreEditorElements, editorCategoryLabels, toLibraryItem, } from '../editor-registry.js';
+import { coreEditorElements, toLibraryItem } from '../editor-registry.js';
 import { findTemplateNode, insertTemplateNode, moveTemplateNode, moveTemplateNodeTo, removeTemplateNode, updateTemplateNode, } from '../template-tree.js';
 import './template-builder.css';
 const fieldItems = coreEditorElements.filter((item) => item.kind === 'field').map(toLibraryItem);
@@ -65,7 +67,7 @@ function describeTemplateNode(node, actions, viewport = 'desktop', previews = ne
             title: node.block.label ?? definition?.label ?? node.block.kind,
             icon: definition?.icon,
             directChildren: true,
-            body: definition?.container ? null : (_jsx(ContentBlock, { node: previews.get(node.id) ?? node.block, viewport: viewport })),
+            body: definition?.container ? null : (_jsx(ContentBlock, { node: previews.get(node.id) ?? node.block, viewport: viewport, body: ['heading', 'paragraph', 'quote', 'list', 'button', 'richText'].includes(node.block.kind) ? (_jsx(RegisteredCanvasText, { node: node.block, disabled: actions.disabled, change: (patch) => actions.updateBlockText(node, patch) })) : undefined })),
             wrap: definition?.container
                 ? (children) => (_jsx(ContentBlock, { node: templateBlockValue(node), viewport: viewport, children: children }))
                 : undefined,
@@ -134,15 +136,12 @@ function describeTemplateNode(node, actions, viewport = 'desktop', previews = ne
 }
 export function ContentTemplateBuilder({ configuredCollections = defaultConfiguredCollections, registeredRendererKeys = defaultRegisteredRendererKeys, }) {
     const { id, hasPublishedDoc } = useDocumentInfo();
-    const { submit, disabled } = useForm();
-    const nameField = useField({ path: 'name' });
+    const { disabled } = useForm();
     const descriptionField = useField({ path: 'description' });
-    const slugField = useField({ path: 'slug' });
     const collectionsField = useField({ path: 'allowedCollections' });
     const layoutField = useField({ path: 'layout' });
     const customFieldsField = useField({ path: 'customFields' });
     const sectionsField = useField({ path: 'sections' });
-    const name = nameField.value ?? '';
     const collections = Array.isArray(collectionsField.value) ? collectionsField.value : [];
     const nodes = Array.isArray(layoutField.value) ? layoutField.value : [];
     const previews = new Map(walkContent(adapterPreviewNodes(nodes)).map((node) => [node.id, node]));
@@ -192,6 +191,9 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
         customFieldsField.setValue(next.fields);
         setEditing(null);
     };
+    const setLayoutValue = layoutField.setValue;
+    const setCustomFieldsValue = customFieldsField.setValue;
+    const setSectionsValue = sectionsField.setValue;
     const modified = useRef(false);
     useEffect(() => {
         Promise.all([
@@ -217,11 +219,11 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
                     : null;
                 if (!modified.current) {
                     if (Array.isArray(doc?.layout))
-                        layoutField.setValue(doc.layout);
+                        setLayoutValue(doc.layout, true);
                     if (Array.isArray(doc?.customFields))
-                        customFieldsField.setValue(doc.customFields);
+                        setCustomFieldsValue(doc.customFields, true);
                     if (Array.isArray(doc?.sections))
-                        sectionsField.setValue(doc.sections);
+                        setSectionsValue(doc.sections, true);
                 }
             }
             catch {
@@ -239,7 +241,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
             }
         }
         void load();
-    }, [customFieldsField, id, layoutField, sectionsField]);
+    }, [id, setCustomFieldsValue, setLayoutValue, setSectionsValue]);
     const setNodes = (next, typing = false) => {
         if (disabled)
             return;
@@ -251,17 +253,37 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const startAdd = (item, container = 'root', before) => {
         if (disabled)
             return;
-        if (item.kind === 'registered' &&
-            variationsFor(item.value).length > 1 &&
-            !styleOnlyKinds.has(item.value)) {
+        if (item.kind === 'registered') {
             const node = toTemplateBlock(createContentNode(item.value));
             setNodes(insertTemplateNode(nodes, container, node, before));
             setEditing(node);
             setSidebarSelected(node.id);
-            setVariationChooser(node.id);
+            setVariationChooser(variationsFor(item.value).length > 1 && !styleOnlyKinds.has(item.value) ? node.id : '');
             setAdding(null);
             sidebar.inserted();
             return;
+        }
+        if (item.kind === 'block') {
+            const type = types.find((type) => String(type.id) === item.value);
+            const available = type ? orderedDesigns(designs, type.id) : [];
+            if (type && available.length) {
+                const node = {
+                    id: uid('block'),
+                    type: 'block',
+                    name: type.name,
+                    blockType: type.id,
+                    blockDesign: available[0].id,
+                    fields: [],
+                    slotMappings: {},
+                };
+                setNodes(insertTemplateNode(nodes, container, node, before));
+                setEditing(node);
+                setSidebarSelected(node.id);
+                setVariationChooser(node.id);
+                setAdding(null);
+                sidebar.inserted();
+                return;
+            }
         }
         setBeforeTarget(before);
         setAdding(item);
@@ -270,6 +292,11 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     };
     const openPickerFor = (containerID, before) => sidebar.insert({ parent: containerID, before });
     const actions = {
+        disabled,
+        updateBlockText: (node, patch) => setNodes(updateTemplateNode(nodes, node.id, () => ({
+            ...node,
+            block: { ...node.block, ...patch },
+        })), true),
         edit: (node) => {
             setSidebarSelected(node.id);
             setEditing(node);
@@ -293,24 +320,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
             }
         },
     };
-    async function save(publish) {
-        if (!name.trim() || !collections.length) {
-            setError('Name and Use With are required.');
-            return;
-        }
-        await submit({
-            overrides: {
-                slug: slugField.value ||
-                    name
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, '-')
-                        .replace(/^-|-$/g, ''),
-                status: publish ? 'published' : 'draft',
-                _status: publish ? 'published' : 'draft',
-            },
-        });
-    }
-    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsx(EditorName, {}), _jsx(EditorHistory, { undo: () => restore(), redo: () => restore(true), canUndo: !disabled && Boolean(history.current.past.length), canRedo: !disabled && Boolean(history.current.future.length) }), _jsx(_Fragment, { children: _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Template", readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] })), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
+    return (_jsx(BuilderCore, { id: "template-builder-dnd", onInsert: (item, containerID, before) => startAdd(item, containerID, before), onMove: (nodeID, containerID, before) => setNodes(moveTemplateNodeTo(nodes, nodeID, containerID, before)), children: _jsxs("div", { "data-testid": "template-builder", className: "template-editor", children: [_jsx(EditorName, {}), _jsx(EditorHistory, { undo: () => restore(), redo: () => restore(true), canUndo: !disabled && Boolean(history.current.past.length), canRedo: !disabled && Boolean(history.current.future.length) }), _jsx(_Fragment, { children: _jsx(BuilderWorkspace, { viewport: viewport, onViewportChange: setViewport, documentLabel: "Page/Post Template", readOnly: disabled, documentSettings: _jsxs(_Fragment, { children: [_jsx("h3", { children: "Template Properties" }), id && (_jsxs("p", { children: ["Used by ", impact.length, " content item", impact.length === 1 ? '' : 's'] })), _jsxs("section", { className: "template-editor__document", children: [_jsxs("label", { style: { display: 'grid', gap: 6, marginTop: 12 }, children: ["Description", _jsx("textarea", { "aria-label": "Description", value: descriptionField.value ?? '', onChange: (e) => descriptionField.setValue(e.target.value), style: {
                                                         display: 'block',
                                                         width: '100%',
                                                         minHeight: 88,
@@ -327,19 +337,21 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
                                 canEdit: !disabled,
                                 items: [
                                     ...listBlockDefinitions('template')
-                                        .filter((def) => def.type !== 'column' &&
-                                        !coreEditorElements.some((item) => item.label === def.label || item.value === def.type))
+                                        .filter((def) => def.type !== 'column')
                                         .map((def) => ({
                                         kind: 'registered',
                                         value: def.type,
                                         label: def.label,
                                         category: def.category,
+                                        keywords: def.keywords,
                                     })),
-                                    ...coreEditorElements.map((item) => ({
-                                        ...toLibraryItem(item),
-                                        category: editorCategoryLabels[item.category],
-                                        keywords: item.keywords,
-                                    })),
+                                    {
+                                        kind: 'field',
+                                        value: 'shortText',
+                                        label: 'Template field',
+                                        category: 'Template fields',
+                                        keywords: ['binding', 'document', 'slot', 'image', 'text'],
+                                    },
                                     ...types.map((type) => ({
                                         kind: 'block',
                                         value: String(type.id),
@@ -374,7 +386,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
                                             before: !disabled &&
                                                 variationChooser === node.id &&
                                                 node.type === 'layout' &&
-                                                node.block ? (_jsx(VariationPicker, { node: templateBlockValue(node), initial: true, onChange: (next) => setNodes(updateTemplateNode(nodes, node.id, () => toTemplateBlock(next))), onDone: () => setVariationChooser('') })) : undefined,
+                                                node.block ? (_jsx(VariationPicker, { node: templateBlockValue(node), initial: true, onChange: (next) => setNodes(updateTemplateNode(nodes, node.id, () => toTemplateBlock(next))), onDone: () => setVariationChooser('') })) : !disabled && variationChooser === node.id && node.type === 'block' ? (_jsx(DesignPicker, { designs: orderedDesigns(designs, relationID(node.blockType)), value: relationID(node.blockDesign), onChange: (id) => setNodes(updateTemplateNode(nodes, node.id, (current) => ({ ...current, blockDesign: id }))), onDone: () => setVariationChooser('') })) : undefined,
                                             style: resolveStyle(templateStyle(node.style), viewport),
                                         }), id: (node) => node.id, selectedID: sidebarSelected ?? editing?.id }), legacy.length > 0 && (_jsxs("section", { children: [_jsx("h3", { children: "Existing Designed Blocks" }), legacy.map((section) => (_jsxs("article", { style: panel, children: [_jsx("strong", { children: section.name }), _jsx("p", { children: "Legacy live reference retained. Rebuild on the canvas when ready." })] }, section.key)))] }))] }) }), inspectorTitle: "Settings", inspector: editing?.type === 'layout' && editing.block ? (_jsx(RegisteredBlockEditor, { listings: adapterListings(nodes), bindingFields: customFields.map((field) => ({
                                 path: `templateValues.${field.id}`,
@@ -398,7 +410,7 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
                                 setNodes(updateTemplateNode(nodes, node.id, () => node), true);
                                 setEditing(node);
                             } }, editing?.id ??
-                            `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx("p", { className: "template-editor__inspector-empty", children: "Select a block on the canvas or in List View to edit its settings and styles." })) }) }), _jsx(EditorHeaderPortal, { slot: "actions", children: _jsxs("div", { className: "editor-header__buttons", children: [_jsx("button", { type: "button", disabled: disabled, onClick: () => void save(false), children: "Save Draft" }), _jsx("button", { type: "button", disabled: disabled, onClick: () => void save(true), children: hasPublishedDoc ? 'Publish Changes' : 'Publish Template' })] }) })] }) }));
+                            `${adding?.kind}:${adding?.value}:${target}:${beforeTarget ?? ''}`)) : (_jsx("p", { className: "template-editor__inspector-empty", children: "Select a block on the canvas or in List View to edit its settings and styles." })) }) })] }) }));
 }
 // Backward-compatible Payload component export. Existing import-map paths and
 // collection configuration continue to resolve `TemplateBuilder` unchanged.
@@ -436,32 +448,45 @@ function CustomFieldsPanel({ fields, setFields, }) {
                                                     .split('\n')
                                                     .map((option) => option.trim())
                                                     .filter(Boolean),
-                                            }) })] })), field.fieldType === 'relationship' && (_jsxs("label", { children: ["Related collection", _jsxs("select", { "aria-label": `Related Collection ${index + 1}`, value: field.relationTo ?? '', onChange: (event) => update(field.id, { relationTo: event.target.value }), children: [_jsx("option", { value: "", children: "Choose collection" }), ['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map(slug => _jsx("option", { value: slug, children: slug === 'saved-views' ? 'Saved Views' : slug }, slug))] })] }))] }), _jsxs("p", { className: "template-editor__field-id", children: ["Stable ID: ", field.id] })] }, field.id))) }), _jsx("p", { className: "template-editor__retention-note", children: "Removing a definition does not delete values already stored on content." })] }));
+                                            }) })] })), field.fieldType === 'relationship' && (_jsxs("label", { children: ["Related collection", _jsxs("select", { "aria-label": `Related Collection ${index + 1}`, value: field.relationTo ?? '', onChange: (event) => update(field.id, { relationTo: event.target.value }), children: [_jsx("option", { value: "", children: "Choose collection" }), ['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map((slug) => (_jsx("option", { value: slug, children: slug === 'saved-views' ? 'Saved Views' : slug }, slug)))] })] }))] }), _jsxs("p", { className: "template-editor__field-id", children: ["Stable ID: ", field.id] })] }, field.id))) }), _jsx("p", { className: "template-editor__retention-note", children: "Removing a definition does not delete values already stored on content." })] }));
 }
 function NodeEditor({ item, node, types, designs, allowedCollections, customFields, cancel, create, update, }) {
     const kind = item?.kind ?? node?.type;
-    const value = item?.value ??
+    const [value, setValue] = useState(item?.value ??
         (node?.type === 'field'
             ? node.fieldType
             : node?.type === 'layout'
                 ? node.layout
                 : node?.type === 'block'
                     ? String(relationID(node.blockType))
-                    : '');
+                    : ''));
     const [label, setLabel] = useState(node?.type === 'field' ? node.label : (item?.label ?? ''));
     const [required, setRequired] = useState(node?.type === 'field' && !!node.required);
     const [help, setHelp] = useState(node?.type === 'field' ? (node.helpText ?? '') : '');
     const [placeholder, setPlaceholder] = useState(node?.type === 'field' ? (node.placeholder ?? '') : '');
     const existingContent = node?.type === 'field' ? node.content : undefined;
     const [contentSource, setContentSource] = useState(existingContent?.source ?? 'custom');
-    const [customFieldID, setCustomFieldID] = useState(existingContent?.source === 'customField' || existingContent?.source === 'postType' ? existingContent.fieldId : '');
+    const [customFieldID, setCustomFieldID] = useState(existingContent?.source === 'customField' || existingContent?.source === 'postType'
+        ? existingContent.fieldId
+        : '');
     const [documentField, setDocumentField] = useState(existingContent?.source === 'document'
         ? existingContent.field
         : value === 'image'
             ? 'featuredImage'
             : 'title');
     const [typeBindingFields, setTypeBindingFields] = useState([]);
-    useEffect(() => { const controller = new AbortController(); fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published', { signal: controller.signal }).then(r => r.json()).then(data => setTypeBindingFields((data.docs || []).flatMap(type => (type.fieldDefinitions || []).filter(f => f.public).map(f => ({ id: f.id, label: `${type.singular}: ${f.label}` }))))).catch(() => { }); return () => controller.abort(); }, []);
+    useEffect(() => {
+        const controller = new AbortController();
+        fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published', {
+            signal: controller.signal,
+        })
+            .then((r) => r.json())
+            .then((data) => setTypeBindingFields((data.docs || []).flatMap((type) => (type.fieldDefinitions || [])
+            .filter((f) => f.public)
+            .map((f) => ({ id: f.id, label: `${type.singular}: ${f.label}` })))))
+            .catch(() => { });
+        return () => controller.abort();
+    }, []);
     const [staticValue, setStaticValue] = useState(existingContent?.source === 'static'
         ? existingContent.value
         : node?.type === 'field'
@@ -473,7 +498,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
     const type = types.find((option) => String(option.id) === value);
     const block = node?.type === 'block' ? node : null;
     const [design, setDesign] = useState(relationID(block?.blockDesign) ?? '');
-    const allowOverride = false;
+    const allowOverride = block?.allowDesignOverride ?? false;
     const [fields, setFields] = useState(block?.fields ?? []);
     const [mappings, setMappings] = useState(block?.slotMappings ?? {});
     const tab = 'settings';
@@ -525,13 +550,15 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
                         field: documentField,
                         preview: staticValue || undefined,
                     }
-                    : contentSource === 'postType' ? { source: 'postType', fieldId: customFieldID } : contentSource === 'customField'
-                        ? {
-                            source: 'customField',
-                            fieldId: customFieldID,
-                            preview: placeholder || undefined,
-                        }
-                        : { source: 'custom' };
+                    : contentSource === 'postType'
+                        ? { source: 'postType', fieldId: customFieldID }
+                        : contentSource === 'customField'
+                            ? {
+                                source: 'customField',
+                                fieldId: customFieldID,
+                                preview: placeholder || undefined,
+                            }
+                            : { source: 'custom' };
             next = {
                 id: node?.id ?? uid('field'),
                 type: 'field',
@@ -560,7 +587,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
             };
         }
         if (node)
-            update(next);
+            update({ ...node, ...next });
         else
             create(next);
     }
@@ -612,7 +639,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
         setMappings({ ...mappings, [slot.key]: field.id });
     }
     const control = { display: 'grid', gap: 6 };
-    return (_jsxs("section", { "aria-label": "Configure element", children: [_jsxs(UnifiedBlockInspector, { node: {
+    return (_jsxs("section", { "aria-label": "Configure element", children: [kind === 'block' && type && !orderedDesigns(designs, type.id).length && (_jsx(DesignPicker, { designs: [], onChange: setDesign })), _jsxs(UnifiedBlockInspector, { contentLabel: "Template controls", layoutControls: kind === 'block' && type ? (_jsx(DesignPicker, { designs: orderedDesigns(designs, type.id), value: design || undefined, onChange: setDesign })) : undefined, node: {
                     id: node?.id ?? 'new',
                     label: item?.label ??
                         (node?.type === 'field'
@@ -638,7 +665,10 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
                     setStyle(next);
                     if (node)
                         update({ ...node, style: next });
-                }, children: [tab === 'settings' && kind === 'field' && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("label", { style: control, children: [_jsx("span", { children: "Block label" }), _jsx("input", { "aria-label": "Block Label", value: label, onChange: (e) => setLabel(e.target.value), style: { width: '100%' } })] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Content source" }), _jsxs("select", { "aria-label": "Content Source", value: contentSource, onChange: (event) => setContentSource(event.target.value), children: [_jsx("option", { value: "customField", children: "Template custom field" }), _jsx("option", { value: "postType", children: "Post Type field" }), _jsxs("option", { value: "document", children: [allowedCollections.includes('pages') && !allowedCollections.includes('posts')
+                }, children: [item?.kind === 'field' && (_jsxs("label", { children: ["Field type", _jsx("select", { "aria-label": "Template field type", value: value, onChange: (event) => {
+                                    setValue(event.target.value);
+                                    setDocumentField(event.target.value === 'image' ? 'featuredImage' : 'title');
+                                }, children: fieldItems.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), tab === 'settings' && kind === 'field' && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("label", { style: control, children: [_jsx("span", { children: "Block label" }), _jsx("input", { "aria-label": "Block Label", value: label, onChange: (e) => setLabel(e.target.value), style: { width: '100%' } })] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Content source" }), _jsxs("select", { "aria-label": "Content Source", value: contentSource, onChange: (event) => setContentSource(event.target.value), children: [_jsx("option", { value: "customField", children: "Template custom field" }), _jsx("option", { value: "postType", children: "Post Type field" }), _jsxs("option", { value: "document", children: [allowedCollections.includes('pages') && !allowedCollections.includes('posts')
                                                         ? 'Page'
                                                         : 'Post', ' ', "field"] }), _jsx("option", { value: "static", children: "Static template text" }), _jsx("option", { value: "custom", children: "Legacy canvas field" })] })] }), (contentSource === 'customField' || contentSource === 'postType') && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Custom field" }), _jsxs("select", { "aria-label": "Custom Field", value: customFieldID, onChange: (event) => setCustomFieldID(event.target.value), children: [_jsx("option", { value: "", children: "Choose a custom field" }), (contentSource === 'postType' ? typeBindingFields : customFields).map((field) => (_jsx("option", { value: field.id, children: field.label }, field.id)))] }), !customFields.length && (_jsx("small", { children: "Create fields in the Custom Fields tab first." }))] })), contentSource === 'document' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Document field" }), _jsx("select", { "aria-label": "Document Field", value: documentField, onChange: (event) => setDocumentField(event.target.value), children: documentFields.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), contentSource === 'static' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Text" }), _jsx("input", { "aria-label": "Static Text", value: staticValue, onChange: (event) => setStaticValue(event.target.value) })] })), contentSource === 'document' && value !== 'image' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Preview Text", value: staticValue, placeholder: `Sample ${documentField}`, onChange: (event) => setStaticValue(event.target.value) })] })), (contentSource === 'custom' || contentSource === 'customField') && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Placeholder", value: placeholder, onChange: (e) => setPlaceholder(e.target.value), style: { width: '100%' } })] })), _jsxs("label", { style: { display: 'flex', gap: 8, alignItems: 'center' }, children: [_jsx("input", { type: "checkbox", checked: required, onChange: (e) => setRequired(e.target.checked) }), ' ', "Required"] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Help text" }), _jsx("textarea", { "aria-label": "Help Text", value: help, onChange: (e) => setHelp(e.target.value), rows: 3, style: { width: '100%', resize: 'vertical' } })] }), _jsx("p", { style: { margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }, children: "The Block Label identifies this element in List View. It is not rendered on the page." })] })), tab === 'settings' && kind === 'layout' && value === 'columns' && (_jsxs("div", { children: [_jsx("h3", { style: { marginTop: 0 }, children: "Choose a variation" }), _jsx("div", { role: "radiogroup", "aria-label": "Column Layout", style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }, children: columnRatios.map((option) => (_jsxs("button", { type: "button", role: "radio", "aria-checked": ratio === option, onClick: () => setRatio(option), style: {
                                         padding: 10,
@@ -660,9 +690,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
                                                     display: 'block',
                                                     border: '1px solid currentColor',
                                                     borderRadius: 2,
-                                                } }, index))) }), option] }, option))) })] })), tab === 'settings' && kind === 'layout' && value !== 'columns' && (_jsx("p", { children: "Use the Style tab to control this layout\u2019s presentation." })), tab === 'settings' && kind === 'block' && type && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("p", { children: ["Component: ", _jsx("strong", { children: type.name })] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Design" }), _jsxs("select", { "aria-label": "Design", value: String(design), onChange: (e) => setDesign(designs.find((option) => String(option.id) === e.target.value)?.id ?? ''), style: { width: '100%' }, children: [_jsx("option", { value: "", children: "Choose Design" }), designs
-                                                .filter((option) => String(relationID(option.blockType)) === String(type.id))
-                                                .map((option) => (_jsx("option", { value: String(option.id), children: option.name }, option.id)))] })] }), _jsx("h3", { children: "Content mapping" }), (type.fields ?? []).map((slot) => {
+                                                } }, index))) }), option] }, option))) })] })), tab === 'settings' && kind === 'layout' && value !== 'columns' && (_jsx("p", { children: "Use the Style tab to control this layout\u2019s presentation." })), tab === 'settings' && kind === 'block' && type && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("p", { children: ["Component: ", _jsx("strong", { children: type.name })] }), _jsx("h3", { children: "Content mapping" }), (type.fields ?? []).map((slot) => {
                                 const mapped = fields.find((field) => field.id === mappings[slot.key]);
                                 return (_jsxs("section", { style: { ...panel, padding: 10 }, children: [_jsx("strong", { children: slot.label }), ' ', _jsx("button", { type: "button", onClick: () => mapSlot(slot), children: mapped ? 'Remove mapped field' : 'Add / Map Field' }), mapped && (_jsxs("div", { style: { display: 'grid', gap: 10, marginTop: 10 }, children: [_jsxs("label", { style: control, children: [_jsx("span", { children: "Field label" }), _jsx("input", { "aria-label": `${slot.label} Field Label`, value: mapped.label, onChange: (event) => setFields(fields.map((field) => field.id === mapped.id
                                                                 ? { ...field, label: event.target.value }

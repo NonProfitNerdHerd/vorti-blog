@@ -2,7 +2,7 @@ import { canInsertAdapterNode } from './blocks/adapters'
 import { getBlockDefinition } from './blocks/registry'
 import { validateContentLayout } from './content/model'
 import { validatePresentation } from './blocks/presentation'
-import type { Access, CollectionConfig, CollectionSlug } from 'payload'
+import { ValidationError, type Access, type CollectionConfig, type CollectionSlug } from 'payload'
 import { assertDesignCanDelete, assertTemplateCanDelete, getBlockDesignDependencies, getTemplateDependencies } from './dependencies'
 import { createPayloadDependencySource } from './payload-store'
 import type { DesignEventHandler, ID, TemplateCustomField, TemplateNode } from './types'
@@ -27,7 +27,7 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
   const hiddenFromEditor = ({ user }: { user?: unknown }) => options.isDesignManager ? !options.isDesignManager(user) : !user
   const designRead: Access = async (args) => (await manage(args)) === true ? true : { _status: { equals: 'published' }, status: { equals: 'published' } }
   const common = {
-    admin: { group: 'Design' },
+    admin: { group: 'Site Design' },
     access: { read: designRead, create: manage, update: manage, delete: manage },
     versions: { drafts: true },
   } satisfies Partial<CollectionConfig>
@@ -36,7 +36,7 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
     ...common,
     slug: slugs.blockTypes,
     labels: { singular: 'Block Type', plural: 'Block Creator' },
-    admin: { group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'designCount', 'status'] },
+    admin: { group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'designCount', 'status'] },
     hooks: {
       beforeChange: [async ({ data }) => {
         const issues = validateFieldDefinitions((data.fields ?? []) as FieldDefinition[])
@@ -128,17 +128,23 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
   const templates: CollectionConfig = {
     ...common,
     slug: slugs.templates,
-    labels: { singular: 'Template', plural: 'Templates' },
+    labels: { singular: 'Page/Post Template', plural: 'Page/Post Templates' },
     admin: {
-      group: 'Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
-      components: { edit: {
-        SaveButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-        SaveDraftButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-        PublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-        UnpublishButton: '@design-system/payload-design-core/admin#TemplateActionPlaceholder',
-      } },
+      group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
     },
     hooks: {
+      beforeValidate: [({ data, originalDoc }) => {
+        if (!data) return data
+        const name = data.name ?? originalDoc?.name
+        const allowed = data.allowedCollections ?? originalDoc?.allowedCollections
+        const errors = []
+        if (typeof name !== 'string' || !name.trim()) errors.push({ path: 'name', message: 'Name is required.' })
+        if (!Array.isArray(allowed) || !allowed.length) errors.push({ path: 'allowedCollections', message: 'Select at least one collection in Use With.' })
+        if (errors.length) throw new ValidationError({ errors })
+        if (!data.slug && !originalDoc?.slug && name) data.slug = String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        if (data.status !== 'archived' && originalDoc?.status !== 'archived' && (data._status === 'published' || data._status === 'draft')) data.status = data._status
+        return data
+      }],
       beforeChange: [async ({ data, originalDoc, req }) => {
         if (!data.slug && data.name) data.slug = String(data.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
         if (!data.status) data.status = 'draft'

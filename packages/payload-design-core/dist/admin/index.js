@@ -8,7 +8,6 @@ export { BuilderWorkspace } from '../builder/BuilderWorkspace.js';
 export { TemplateImpactPanel } from './TemplateImpactPanel.js';
 export { TemplateContentEditor } from './TemplateContentEditor.js';
 export { TemplateBuilder } from './TemplateBuilder.js';
-export { TemplateActionPlaceholder } from './TemplateActionPlaceholder.js';
 export { SiteShellBuilder, SiteTemplateBuilder } from './SiteShellBuilder.js';
 export { UnifiedBlockInspector } from '../builder/UnifiedBlockInspector.js';
 export { RegisteredBlockEditor } from '../builder/RegisteredBlockEditor.js';

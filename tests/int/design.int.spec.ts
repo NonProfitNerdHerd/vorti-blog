@@ -17,6 +17,23 @@ describe('Design Core integration', () => {
   let templateID: number
   const values = { hero: { headline: 'Original Headline', subheadline: 'Unchanged summary', primaryCTA: { label: 'Learn More', url: '/example' } } }
 
+  it('uses native draft and publish status without replacing the published template', async () => {
+    const doc = await payload.create({ collection: 'design-templates', data: { name: 'Native lifecycle', allowedCollections: ['pages'], _status: 'published' } as never })
+    try {
+      expect(doc.slug).toBe('native-lifecycle')
+      expect(doc.status).toBe('published')
+      const draft = await payload.update({ collection: 'design-templates', id: doc.id, draft: true, data: { name: 'Native draft', _status: 'draft' } })
+      expect(draft.status).toBe('draft')
+      const live = await payload.findByID({ collection: 'design-templates', id: doc.id, draft: false })
+      expect(live.name).toBe('Native lifecycle')
+      expect(live.status).toBe('published')
+      const published = await payload.update({ collection: 'design-templates', id: doc.id, data: { name: 'Native draft', _status: 'published' } })
+      expect(published.status).toBe('published')
+      await expect(payload.update({ collection: 'design-templates', id: doc.id, data: { allowedCollections: [] } })).rejects.toThrow()
+      await expect(payload.update({ collection: 'design-templates', id: doc.id, data: { name: ' ' } })).rejects.toThrow()
+    } finally { await payload.delete({ collection: 'design-templates', id: doc.id }) }
+  })
+
   it('renders structured Template Lexical content without exposing JSON', () => {
     const lexical = { root: { type: 'root', version: 1, direction: 'ltr', format: '', indent: 0, children: [
       { type: 'heading', tag: 'h2', version: 1, direction: 'ltr', format: '', indent: 0, children: [{ type: 'text', text: 'Newsletter Heading', format: 0, detail: 0, mode: 'normal', style: '', version: 1 }] },

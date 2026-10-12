@@ -58,12 +58,13 @@ export function EditorDevices({ value, onChange, }) {
 }
 /** Template names use the same existing form path as their hidden schema field. */
 export function EditorName() {
-    const { value, setValue, showError, errorMessage } = useField({ path: 'name' });
+    const { value, setValue, showError, errorMessage, disabled: fieldDisabled } = useField({ path: 'name' });
     const { disabled } = useForm();
     const { id, docPermissions, hasSavePermission } = useDocumentInfo();
     const fields = docPermissions?.fields;
     const permission = fields && typeof fields === 'object' ? fields.name : undefined;
-    const readOnly = disabled ||
+    const readOnly = fieldDisabled ||
+        disabled ||
         hasSavePermission === false ||
         (fields !== undefined &&
             fields !== true &&

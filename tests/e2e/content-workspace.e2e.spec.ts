@@ -364,10 +364,10 @@ test('Site Template Header and Footer use only tabs and save their hidden groups
     await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await shell
       .locator('.builder-sidebar')
-      .getByRole('button', { name: 'Text', exact: true })
+      .getByRole('button', { name: 'Paragraph', exact: true })
       .click()
     await shell.getByRole('textbox', { name: 'Text', exact: true }).fill(`${region} actual text`)
-    await shell.getByRole('button', { name: 'Save Element', exact: true }).click()
+    await expect(shell.getByRole('button', { name: 'Save Element', exact: true })).toHaveCount(0)
     await shell.getByRole('tab', { name: 'Outline' }).click()
     await expect(shell.locator('.builder-sidebar')).toContainText('3 words')
   }
@@ -380,8 +380,8 @@ test('Site Template Header and Footer use only tabs and save their hidden groups
     .toBe(1)
   await page.reload()
   const saved = await (await page.request.get(`/api/site-templates/${doc.id}?draft=true`)).json()
-  expect(saved.header.layout[0].props.text).toBe('Header actual text')
-  expect(saved.footer.layout[0].props.text).toBe('Footer actual text')
+  expect(saved.header.layout[0].block.text).toBe('Header actual text')
+  expect(saved.footer.layout[0].block.text).toBe('Footer actual text')
   expect(saved.header.settings.widthMode).toBe('contained')
 })
 

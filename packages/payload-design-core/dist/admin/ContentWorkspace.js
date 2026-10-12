@@ -1,5 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { InspectorTabs } from '../builder/InspectorTabs.js';
+import { InlineText } from '../builder/InlineText.js';
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
 import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -473,43 +475,12 @@ export const ContentWorkspace = (props) => {
                                             }
                                         }, children: String(value.errorMessage) }, path))) })), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
                                         maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
-                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsxs("div", { role: "tablist", "aria-label": "Inspector tabs", children: [_jsx("button", { type: "button", role: "tab", "aria-selected": panel === 'block', onClick: () => setPanel('block'), children: "Block" }), _jsx("button", { type: "button", role: "tab", "aria-label": "Document settings", title: "Document settings", "aria-selected": panel === 'document', onClick: () => setPanel('document'), children: documentLabel })] }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
+                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsx(InspectorTabs, { value: panel, onChange: setPanel, documentLabel: documentLabel }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
                                                 ? bindField(active)
                                                 : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
                                                 .filter((node) => node.kind === 'postListing')
                                                 .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }))] })] }) }));
 };
-function InlineText({ node, disabled, onChange, }) {
-    const input = React.useRef(null);
-    React.useLayoutEffect(() => {
-        const element = input.current;
-        if (!element)
-            return;
-        const fit = () => {
-            element.style.height = '0px';
-            element.style.height = `${element.scrollHeight}px`;
-        };
-        fit();
-        let active = true;
-        void document.fonts?.ready.then(() => {
-            if (active)
-                fit();
-        });
-        let width = element.clientWidth;
-        const observer = new ResizeObserver(() => {
-            if (width !== element.clientWidth) {
-                width = element.clientWidth;
-                fit();
-            }
-        });
-        observer.observe(element);
-        return () => {
-            active = false;
-            observer.disconnect();
-        };
-    }, [node.text, node.styles, node.presentation]);
-    return (_jsx("textarea", { ref: input, className: `content-workspace__inline content-workspace__inline--${node.kind}`, "aria-label": node.label ?? node.kind, placeholder: `Type ${node.kind}…`, value: node.text ?? '', readOnly: disabled, rows: 1, onChange: (event) => onChange(event.target.value) }));
-}
 function Insertion({ empty = false, parent, before, disabled, onChoose, }) {
     const drop = useDroppable({
         id: `insert:${parent}:${before ?? 'end'}`,

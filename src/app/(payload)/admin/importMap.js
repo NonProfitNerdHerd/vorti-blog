@@ -46,7 +46,6 @@ import { ViewBuilder as ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677 } from '../
 import { ViewUsage as ViewUsage_42abdaa6faa79619caba725f5a4909ba } from '../../../content-framework/ViewUsage'
 import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
-import { TemplateActionPlaceholder as TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -61,7 +60,7 @@ import { ExportPreview as ExportPreview_cdf7e044479f899a31f804427d568b36 } from 
 import { ExportSaveButton as ExportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportPreview as ImportPreview_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportSaveButton as ImportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
-import { AdminNavDefaults as AdminNavDefaults_c8677669c038c24484ebd1501eaddd23 } from '../../../components/AdminNavDefaults'
+import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from '../../../components/SiteDesignNav'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
@@ -116,7 +115,6 @@ export const importMap = {
   "./content-framework/ViewUsage#ViewUsage": ViewUsage_42abdaa6faa79619caba725f5a4909ba,
   "@design-system/payload-design-core/admin#BlockDesignPanel": BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#TemplateBuilder": TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
-  "@design-system/payload-design-core/admin#TemplateActionPlaceholder": TemplateActionPlaceholder_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
@@ -131,7 +129,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportSaveButton": ExportSaveButton_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportPreview": ImportPreview_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportSaveButton": ImportSaveButton_cdf7e044479f899a31f804427d568b36,
-  "./components/AdminNavDefaults#AdminNavDefaults": AdminNavDefaults_c8677669c038c24484ebd1501eaddd23,
+  "./components/SiteDesignNav#SiteDesignNav": SiteDesignNav_146389be3746eb1a45b524567d6e0718,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
