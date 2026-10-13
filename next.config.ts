@@ -6,6 +6,9 @@ assertEditorRegistration()
 
 const nextConfig: NextConfig = {
   experimental: { cpus: 1 },
+  async headers() {
+    return [{ source: '/forms/:path*', headers: [{ key: 'Content-Security-Policy', value: "frame-ancestors 'self'" }, { key: 'Referrer-Policy', value: 'no-referrer' }] }]
+  },
   images: {
     localPatterns: [
       {

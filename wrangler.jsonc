@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
+  "main": "forms-worker.ts",
+  "triggers": { "crons": ["*/5 * * * *"] },
   "name": "vorti-blog",
   "vars": {
     "CONTENT_WORKSPACE_ENABLED": "true",

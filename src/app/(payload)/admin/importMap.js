@@ -49,6 +49,11 @@ import { BlockDesignPanel as BlockDesignPanel_df906c3c971d30a9067b2148b7fc0a37 }
 import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
+import { LocalDeliveryMessage as LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa } from '../../../forms/LocalDeliveryMessage'
+import { ResourceEditor as ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e } from '../../../forms/ResourceEditor'
+import { FormExportStatus as FormExportStatus_7c63ba332985da94d002f16d0ed2d99d } from '../../../forms/FormExportStatus'
+import { FormWorkspace as FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36 } from '../../../forms/FormWorkspace'
+import { EntryDetails as EntryDetails_1645ff14c6d344483e1220fc8158486c } from '../../../forms/EntryDetails'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { LimitField as LimitField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { Page as Page_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -119,6 +124,11 @@ export const importMap = {
   "@design-system/payload-design-core/admin#TemplateBuilder": TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
+  "./forms/LocalDeliveryMessage#LocalDeliveryMessage": LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa,
+  "./forms/ResourceEditor#ResourceEditor": ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e,
+  "./forms/FormExportStatus#FormExportStatus": FormExportStatus_7c63ba332985da94d002f16d0ed2d99d,
+  "./forms/FormWorkspace#FormWorkspace": FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36,
+  "./forms/EntryDetails#EntryDetails": EntryDetails_1645ff14c6d344483e1220fc8158486c,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#LimitField": LimitField_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#Page": Page_cdf7e044479f899a31f804427d568b36,

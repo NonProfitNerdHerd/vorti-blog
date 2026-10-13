@@ -20,6 +20,11 @@ export const requiredEditorComponents = [
   './content-framework/ViewBuilder#ViewBuilder',
   './review/TaskDocument#TaskDocument',
   './components/SiteDesignNav#SiteDesignNav',
+  './forms/FormWorkspace#FormWorkspace',
+  './forms/ResourceEditor#ResourceEditor',
+  './forms/EntryDetails#EntryDetails',
+  './forms/FormExportStatus#FormExportStatus',
+  './forms/LocalDeliveryMessage#LocalDeliveryMessage',
 ]
 
 /** Read syntax only: do not import React/Payload client modules into the build guard. */

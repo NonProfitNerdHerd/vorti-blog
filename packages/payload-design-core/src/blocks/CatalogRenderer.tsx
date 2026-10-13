@@ -9,6 +9,7 @@ import { blockItems } from './items'
 import { DynamicView } from '../views/DynamicView'
 import type { ViewResult } from '../views/model'
 const Listing = lazy(() => import('./Listing'))
+const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })))
 const ListingNavigation = lazy(() =>
   import('./Listing').then((module) => ({ default: module.ListingNavigation })),
 )
@@ -39,6 +40,7 @@ export function CatalogRenderer({
   const props = node.props ?? {},
     text = (key: string, fallback = '') => String(props[key] ?? fallback)
   const definition = getBlockDefinition(node.kind)
+  if (node.kind === 'form') return <Suspense fallback={<p>Loading form…</p>}><FormPlacement formID={text('formID')} editing={editing} /></Suspense>
   if(isViewPlacement(node.kind)) return !props.viewID && editing
     ? <div role="status"><strong>{definition?.label}</strong><p>Select this block to set up its content filters in the inspector, or choose an existing Saved View.</p></div>
     : <DynamicView viewID={text('viewID')} initial={props.resolvedView as ViewResult|undefined} editing={editing}/>

@@ -22,6 +22,16 @@ it('allows selecting a Saved View even though its internal styling is centrally 
   fireEvent.click(screen.getByRole('tab', { name: 'Layout' }))
   expect(screen.getAllByRole('textbox', { name: 'Saved View' })).toHaveLength(1)
 })
+it('selects a central form without exposing raw IDs or duplicating field settings', () => {
+  const change = vi.fn()
+  render(<UnifiedBlockInspector node={{ id: 'form-block', kind: 'form', props: {} }} onChange={change}
+    renderDocumentPicker={(collection, label, value, update) => <input aria-label={label} data-collection={collection} value={value} onChange={event => update(event.target.value)} />} />)
+  const picker = screen.getByRole('textbox', { name: 'Published Form' })
+  expect(picker.getAttribute('data-collection')).toBe('forms')
+  fireEvent.change(picker, { target: { value: '12,13' } })
+  expect(change).toHaveBeenCalledWith({ props: { formID: '13' } })
+  expect(screen.queryByRole('textbox', { name: /^Form$/ })).toBeNull()
+})
 it('dismisses only the inspector and leaves external dialogs in control of Escape', () => {
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
   const change = vi.fn()

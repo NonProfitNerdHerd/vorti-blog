@@ -51,6 +51,7 @@ export const blockGlyphs = {
     tableOfContents: 'M3 3h18v18H3ZM6 7h2M11 7h7M6 12h2M11 12h7M6 17h2M11 17h7',
     postListing: 'M2 3h20v18H2ZM5 6h6v6H5ZM14 6h5M14 10h5M5 16h14',
     savedView: 'M3 3h15v15H3ZM7 7h7v7H7M8 22h14V8M14 11h.01',
+    form: 'M4 2h16v20H4ZM7 6h10M7 10h10M7 14h3v3H7ZM13 16h4',
     pagination: 'm5 7-4 5 4 5M19 7l4 5-4 5M8 9h3v6H8ZM14 9h3v6h-3Z',
     loadMore: 'M3 3h18v8H3ZM3 15h6M15 15h6M12 12v10M7 17h10',
     hero: 'M2 3h20v18H2ZM6 8h12M8 12h8M9 16h6',

@@ -1,6 +1,4 @@
-import * as migration_20261011_233000_document_review from './20261011_233000_document_review';
 import * as migration_20250929_111647 from './20250929_111647';
-import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
 import * as migration_20260916_210118_cms_content_management from './20260916_210118_cms_content_management';
 import * as migration_20260917_163401_design_system_stage1 from './20260917_163401_design_system_stage1';
@@ -10,6 +8,12 @@ import * as migration_20260919_214810_template_layout_tree from './20260919_2148
 import * as migration_20260920_203815_template_custom_fields from './20260920_203815_template_custom_fields';
 import * as migration_20260923_213430_site_template_foundation from './20260923_213430_site_template_foundation';
 import * as migration_20260929_163022_responsive_page_templates from './20260929_163022_responsive_page_templates';
+import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace';
+import * as migration_20261011_233000_document_review from './20261011_233000_document_review';
+import * as migration_20261012_040000_post_types_views from './20261012_040000_post_types_views';
+import * as migration_20261012_200651_forms_module from './20261012_200651_forms_module';
+import * as migration_20261012_220000_forms_payments from './20261012_220000_forms_payments';
+import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_forms_cms_actions';
 
 export const migrations = [
   {
@@ -60,14 +64,36 @@ export const migrations = [
   {
     up: migration_20260929_163022_responsive_page_templates.up,
     down: migration_20260929_163022_responsive_page_templates.down,
-    name: '20260929_163022_responsive_page_templates'
+    name: '20260929_163022_responsive_page_templates',
   },
   {
     up: migration_20261002_200000_content_workspace.up,
     down: migration_20261002_200000_content_workspace.down,
     name: '20261002_200000_content_workspace',
   },
-  { up: migration_20261011_233000_document_review.up, down: migration_20261011_233000_document_review.down, name: '20261011_233000_document_review' },
-  {up:migration_20261012_040000_post_types_views.up,down:migration_20261012_040000_post_types_views.down,name:'20261012_040000_post_types_views'},
+  {
+    up: migration_20261011_233000_document_review.up,
+    down: migration_20261011_233000_document_review.down,
+    name: '20261011_233000_document_review',
+  },
+  {
+    up: migration_20261012_040000_post_types_views.up,
+    down: migration_20261012_040000_post_types_views.down,
+    name: '20261012_040000_post_types_views',
+  },
+  {
+    up: migration_20261012_200651_forms_module.up,
+    down: migration_20261012_200651_forms_module.down,
+    name: '20261012_200651_forms_module',
+  },
+  {
+    up: migration_20261012_220000_forms_payments.up,
+    down: migration_20261012_220000_forms_payments.down,
+    name: '20261012_220000_forms_payments',
+  },
+  {
+    up: migration_20261013_000807_forms_cms_actions.up,
+    down: migration_20261013_000807_forms_cms_actions.down,
+    name: '20261013_000807_forms_cms_actions'
+  },
 ];
-import * as migration_20261012_040000_post_types_views from './20261012_040000_post_types_views';

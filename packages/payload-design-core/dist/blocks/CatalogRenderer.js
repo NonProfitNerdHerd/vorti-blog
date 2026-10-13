@@ -8,6 +8,7 @@ import { Separator } from './Separator.js';
 import { blockItems } from './items.js';
 import { DynamicView } from '../views/DynamicView.js';
 const Listing = lazy(() => import('./Listing'));
+const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })));
 const ListingNavigation = lazy(() => import('./Listing').then((module) => ({ default: module.ListingNavigation })));
 const InteractiveBlock = lazy(() => import('./InteractiveBlock'));
 export const blockIcons = {
@@ -25,6 +26,8 @@ export const blockIcons = {
 export function CatalogRenderer({ node, children, editing, viewport, }) {
     const props = node.props ?? {}, text = (key, fallback = '') => String(props[key] ?? fallback);
     const definition = getBlockDefinition(node.kind);
+    if (node.kind === 'form')
+        return _jsx(Suspense, { fallback: _jsx("p", { children: "Loading form\u2026" }), children: _jsx(FormPlacement, { formID: text('formID'), editing: editing }) });
     if (isViewPlacement(node.kind))
         return !props.viewID && editing
             ? _jsxs("div", { role: "status", children: [_jsx("strong", { children: definition?.label }), _jsx("p", { children: "Select this block to set up its content filters in the inspector, or choose an existing Saved View." })] })

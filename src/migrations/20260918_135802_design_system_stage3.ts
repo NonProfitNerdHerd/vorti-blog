@@ -18,10 +18,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   const heroType = await payload.find({ collection: 'design-block-types', where: { slug: { equals: 'hero-board' } }, limit: 1, depth: 0, overrideAccess: true, req })
   const feature = await payload.find({ collection: 'design-block-designs', where: { slug: { equals: 'hero-board-feature' } }, limit: 1, depth: 0, overrideAccess: true, req })
   if (!heroType.docs[0] || !feature.docs[0]) throw new Error('Stage 3 requires the Stage 2 Hero Board seed')
-  await payload.create({ collection: 'design-templates', overrideAccess: true, req, data: {
-    name: 'Standard Article', slug: 'standard-article', status: 'published', _status: 'published', allowedCollections: ['posts'],
-    sections: [{ key: 'hero', name: 'Hero', blockType: heroType.docs[0].id, blockDesign: feature.docs[0].id, required: true, allowDesignOverride: true }],
-  } })
+  // Seed against this migration's schema, not the current Payload model. Later
+  // migrations add layout/custom_fields; using today's Local API breaks clean installs.
+  await db.run(sql`INSERT INTO design_templates (name,slug,status,_status) VALUES ('Standard Article','standard-article','published','published');`)
+  const template = await db.all<{ id: number }>(sql`SELECT id FROM design_templates WHERE slug='standard-article';`)
+  await db.run(sql`INSERT INTO design_templates_allowed_collections ("order",parent_id,value) VALUES (1,${template[0].id},'posts');`)
+  await db.run(sql`INSERT INTO design_templates_sections (_order,_parent_id,id,"key",name,block_type_id,block_design_id,required,allow_design_override) VALUES (1,${template[0].id},${crypto.randomUUID()},'hero','Hero',${heroType.docs[0].id},${feature.docs[0].id},1,1);`)
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {

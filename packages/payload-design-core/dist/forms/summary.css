@@ -1,0 +1,11 @@
+.forms-summary { color: inherit; overflow-wrap: anywhere; }
+.forms-summary-answer { padding: 12px 0; border-bottom: 1px solid var(--theme-elevation-150, #ddd); break-inside: avoid; }
+.forms-summary h3, .forms-summary h4 { margin: 0 0 8px; font-size: 1em; }
+.forms-summary dl { margin: 0; }
+.forms-summary dl > div { display: grid; grid-template-columns: minmax(100px, 25%) 1fr; gap: 12px; padding: 3px 0; }
+.forms-summary dt { font-weight: 600; }
+.forms-summary dd { margin: 0; white-space: pre-wrap; }
+.forms-summary-answer > div { white-space: pre-wrap; }
+.forms-summary-signature { width: min(100%, 500px); height: auto; }
+.forms-summary-empty { opacity: .7; }
+@media (max-width: 500px) { .forms-summary dl > div { grid-template-columns: 1fr; gap: 3px; } }

@@ -1,0 +1,751 @@
+import { test, expect } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import { createServer } from 'node:http'
+import jsQR from 'jsqr'
+import { unzipSync, strFromU8 } from 'fflate'
+import { emptyDefinition } from '@design-system/payload-design-core/forms'
+
+test.beforeEach(async ({ page, baseURL }) => {
+  const credentials = JSON.parse(await readFile('.wrangler/forms-local-admin.json', 'utf8'))
+  const login = await page.request.post(`${baseURL}/api/users/login`, { data: credentials })
+  expect(login.ok()).toBe(true)
+})
+
+test('a new form can be built, published and submitted without configuring raw fields or a slug', async ({ page }) => {
+  const title = `Visual creation ${Date.now()}`
+  await page.goto('/admin/collections/forms/create')
+  await page.locator('input[name="title"]').fill(title)
+  await page.getByRole('button', { name: 'Single-line text', exact: true }).click()
+  await page.getByLabel('Label', { exact: true }).fill('Your question')
+  const publishing = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes('/api/forms/') && !response.url().includes('autosave=true'))
+  await page.getByRole('button', { name: 'Publish changes', exact: true }).click()
+  expect((await publishing).ok()).toBe(true)
+  await expect(page).toHaveURL(/\/admin\/collections\/forms\/\d+/)
+  const id = page.url().split('/').pop()!
+  const saved = await (await page.request.get(`/api/forms/${id}`, { timeout: 15000 })).json()
+  expect(saved._status).toBe('published')
+  expect(saved.slug).toBe(title.toLowerCase().replaceAll(' ', '-'))
+  await page.goto(`/forms/${saved.slug}`)
+  await page.getByLabel('Your question').fill('Created entirely in the visual builder')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.getByText('Thank you. Your response has been received.', { exact: true })).toBeVisible()
+  const entries = await (await page.request.get(`/api/form-submissions?where[form][equals]=${id}`)).json()
+  expect(entries.totalDocs).toBe(1)
+  await page.goto(`/admin/collections/form-submissions/${entries.docs[0].id}`)
+  await expect(page.getByText('Created entirely in the visual builder', { exact: true })).toBeVisible()
+})
+
+test('visual definition import validates, confirms, supports undo and preserves the published revision', async ({ page }) => {
+  const definition = emptyDefinition(), slug = `transfer-${Date.now()}`
+  definition.fields = [{ id: 'original', kind: 'text', label: 'Original field' }]
+  const created = await page.request.post('/api/forms', { data: { title: 'Transfer test', slug, site: 'default', definition, _status: 'published' } })
+  expect(created.ok(), await created.text()).toBe(true)
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await page.getByText('Import / export form definition', { exact: true }).click()
+  const upload = page.getByLabel('Import JSON file')
+  await upload.setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{bad') })
+  await expect(page.getByText('This file is not valid JSON. Choose a Vorti form export.')).toBeVisible()
+  const imported = emptyDefinition()
+  imported.fields = [{ id: 'incoming', kind: 'email', label: 'Imported email' }]
+  const file = { name: 'sample.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'vorti-form', version: 1, title: 'Sample form', definition: imported })) }
+  await upload.setInputFiles(file)
+  await page.getByRole('button', { name: 'Cancel import' }).click()
+  await expect(page.getByRole('button', { name: /^Original field/ })).toBeVisible()
+  await upload.setInputFiles(file)
+  await page.getByRole('button', { name: 'Replace working definition' }).click()
+  await expect(page.getByRole('button', { name: /^Imported email/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Undo form change' }).click()
+  await expect(page.getByRole('button', { name: /^Original field/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Redo form change' }).click()
+  const downloading = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export definition' }).click()
+  const download = await downloading
+  const exported = JSON.parse(await readFile((await download.path())!, 'utf8'))
+  expect(exported.definition.fields[0].label).toBe('Imported email')
+  expect(exported.definition.fields[0].id).not.toBe('incoming')
+  expect(exported.definition.actions).toEqual([])
+  await page.getByRole('tab', { name: 'Publish', exact: true }).click()
+  const saving = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/api/forms/${doc.id}?`) && !response.url().includes('autosave=true'))
+  await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+  expect((await saving).ok()).toBe(true)
+  await page.reload()
+  await expect(page.getByRole('button', { name: /^Imported email/ })).toBeVisible()
+  expect((await (await page.request.get(`/api/forms-runtime/${slug}`)).json()).revision).toBe(doc.publishedRevision)
+})
+
+test('CMS actions create private contacts, support requests and one draft Post with approved mappings', async ({ page, baseURL, playwright }) => {
+  test.setTimeout(120000)
+  const options = await (await page.request.get('/api/forms-cms/options')).json()
+  expect(options.postTypes.length).toBeGreaterThan(0)
+  const postType = options.postTypes.find((type: { label: string }) => type.label === 'Post') || options.postTypes[0]
+  const definition = emptyDefinition(), slug = `cms-${Date.now()}`, title = `Submitted story ${Date.now()}`
+  definition.fields = [{ id: 'email', kind: 'email', label: 'Contact email', required: true }, { id: 'name', kind: 'text', label: 'Contact name' }, { id: 'title', kind: 'text', label: 'Story title', required: true }, { id: 'body', kind: 'textarea', label: 'Story details', required: true }]
+  definition.actions = [
+    { id: 'contact', kind: 'contact', name: 'Create contact', config: { emailField: 'email', nameField: 'name', approvedBy: '999999' } },
+    { id: 'support', kind: 'support', name: 'Staff request', config: { titleField: 'title', bodyField: 'body', emailField: 'email' } },
+    { id: 'post', kind: 'content', name: 'Editorial draft', config: { titleField: 'title', bodyField: 'body', postType: postType.id, author: '999999', _status: 'published' } },
+  ]
+  const invalid = structuredClone(definition); invalid.fields[0].sensitive = true
+  const rejected = await page.request.post('/api/forms', { data: { title: 'Invalid sensitive mapping', slug: `${slug}-invalid`, definition: invalid, _status: 'published' } })
+  expect(rejected.status()).toBe(400)
+  expect(await rejected.text()).toContain('sensitive answers')
+  const created = await page.request.post('/api/forms', { data: { title: 'CMS mapping example', slug, definition, _status: 'draft' } })
+  expect(created.ok(), await created.text()).toBe(true)
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await page.getByRole('tab', { name: 'Actions', exact: true }).click()
+  await expect(page.getByLabel('Post Type for draft content')).toHaveValue(postType.id)
+  await page.getByLabel('Post Type for draft content').selectOption(postType.id)
+  const publishing = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/api/forms/${doc.id}?`) && !response.url().includes('autosave=true'))
+  await page.getByRole('button', { name: 'Publish changes', exact: true }).click()
+  expect((await publishing).ok()).toBe(true)
+  const saved = await (await page.request.get(`/api/forms/${doc.id}`)).json()
+  const approver = String(saved.definition.actions[0].config.approvedBy)
+  expect(approver).not.toBe('999999')
+  const invalidPatch = await page.request.patch(`/api/forms/${doc.id}`, { data: { definition: invalid } })
+  expect(invalidPatch.status()).toBe(400)
+  const designerCredentials = { email: `cms-designer-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url') }
+  expect((await page.request.post('/api/users', { data: { ...designerCredentials, role: 'designer' } })).ok()).toBe(true)
+  const designer = await playwright.request.newContext({ baseURL })
+  expect((await designer.post('/api/users/login', { data: designerCredentials })).ok()).toBe(true)
+  expect((await designer.get('/api/forms-cms/options')).status()).toBe(403)
+  expect((await designer.patch(`/api/forms/${doc.id}`, { data: { definition } })).status()).toBe(403)
+  expect((await designer.patch(`/api/forms/${doc.id}?draft=true`, { data: { definition, _status: 'published' } })).status()).toBe(403)
+  const draftSave = await designer.patch(`/api/forms/${doc.id}?draft=true`, { data: { definition, _status: 'draft' } })
+  expect(draftSave.ok(), await draftSave.text()).toBe(true)
+  await designer.dispose()
+  expect((await (await page.request.get(`/api/forms-runtime/${slug}`)).json()).revision).toBe(saved.publishedRevision)
+  await page.goto(`/forms/${slug}`)
+  await page.getByLabel('Contact email').fill('cms-contact@example.test')
+  await page.getByLabel('Contact name', { exact: true }).fill('CMS Visitor')
+  await page.getByLabel('Story title').fill(title)
+  await page.getByLabel('Story details').fill('A submitted article. <script>notExecutable()</script>')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.getByText('Thank you. Your response has been received.', { exact: true })).toBeVisible()
+  const entries = await (await page.request.get(`/api/form-submissions?where[form][equals]=${doc.id}&depth=0`)).json()
+  expect(entries.totalDocs).toBe(1)
+  const entryID = entries.docs[0].id
+  await page.request.post('/api/forms-actions/run', { headers: { Origin: baseURL! }, data: {} })
+  await expect.poll(async () => {
+    const result = await (await page.request.get(`/api/form-outbox?where[submissionID][equals]=${entryID}&depth=0`)).json()
+    return result.docs.map((job: { kind: string; status: string; attemptLog: unknown }) => ({ kind: job.kind, status: job.status, ...(job.status === 'failed' ? { error: job.attemptLog } : {}) })).sort((a: { kind: string }, b: { kind: string }) => a.kind.localeCompare(b.kind))
+  }, { timeout: 30000 }).toEqual([{ kind: 'contact', status: 'complete' }, { kind: 'content', status: 'complete' }, { kind: 'support', status: 'complete' }])
+  const contactsURL = `/api/form-contacts?where[sourceEntry][equals]=${entryID}&depth=0`, supportURL = `/api/form-support-requests?where[sourceEntry][equals]=${entryID}&depth=0`
+  const contacts = await (await page.request.get(contactsURL)).json(), support = await (await page.request.get(supportURL)).json()
+  expect(contacts.totalDocs).toBe(1); expect(support.totalDocs).toBe(1)
+  expect(contacts.docs[0]).toMatchObject({ email: 'cms-contact@example.test', name: 'CMS Visitor', site: 'default' })
+  expect(support.docs[0]).toMatchObject({ title, status: 'received', site: 'default' })
+  const postsURL = `/api/posts?where[title][equals]=${encodeURIComponent(title)}&draft=true&depth=0`
+  const posts = await (await page.request.get(postsURL)).json()
+  expect(posts.totalDocs).toBe(1)
+  expect(posts.docs[0]._status).toBe('draft'); expect(String(posts.docs[0].author)).toBe(approver)
+  expect(posts.docs[0].formActionKey).toMatch(/^[a-f0-9]{64}$/)
+  expect(JSON.stringify(posts.docs[0].content)).toContain('<script>notExecutable()</script>')
+  await page.request.post('/api/forms-actions/run', { headers: { Origin: baseURL! }, data: {} })
+  expect((await (await page.request.get(postsURL)).json()).totalDocs).toBe(1)
+  const stranger = await playwright.request.newContext({ baseURL })
+  expect((await stranger.get(contactsURL)).status()).toBe(403)
+  expect((await stranger.get(supportURL)).status()).toBe(403)
+  expect([403, 404]).toContain((await stranger.get(`/api/posts/${posts.docs[0].id}`)).status())
+  expect((await stranger.post('/api/form-contacts', { data: { email: 'forged@example.test', site: 'default' } })).status()).toBe(403)
+  await stranger.dispose()
+})
+
+test('payment settings, authoritative totals, private returns and payment-gated local delivery work end to end', async ({ page, baseURL, playwright }) => {
+  test.setTimeout(120000)
+  const definition = emptyDefinition(), slug = `payment-${Date.now()}`
+  definition.fields = [{ id: 'qty', kind: 'number', label: 'Quantity', required: true, defaultValue: 2 }, { id: 'total', kind: 'calculated', label: 'Total', expression: '[qty] * 12.5' }]
+  definition.actions = [{ id: 'paid-mail', kind: 'email', name: 'After payment', requiresPayment: true, config: { to: 'payment@example.test', subject: 'Paid order', body: '{{summary}}' } }]
+  definition.payment = { provider: 'simulator', amountField: 'total', currency: 'USD' }
+  definition.redirect = '/thank-you'
+  const created = await page.request.post('/api/forms', { data: { title: 'Payment browser example', slug, definition, _status: 'published' } })
+  expect(created.ok(), await created.text()).toBe(true)
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await page.getByRole('tab', { name: 'Actions', exact: true }).click()
+  await expect(page.getByLabel('Collect payment')).toBeChecked()
+  await expect(page.getByLabel('Payment provider')).toHaveValue('simulator')
+  await expect(page.getByLabel('Calculated total')).toHaveValue('total')
+  await expect(page.getByText('Development simulator available. No money is charged.')).toBeVisible()
+  // Tamper with the browser total; acceptance must use the server calculation.
+  await page.route(`**/api/forms-runtime/${slug}/submit`, async route => {
+    const body = route.request().postDataJSON(); body.answers.total = 1
+    await route.continue({ postData: JSON.stringify(body) })
+  })
+  await page.goto(`/forms/${slug}`)
+  await page.getByLabel('Quantity').fill('2')
+  const acceptance = page.waitForResponse(response => response.url().endsWith(`/forms-runtime/${slug}/submit`))
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  const acceptedResponse = await acceptance
+  expect(acceptedResponse.ok(), await acceptedResponse.text()).toBe(true)
+  const accepted = await acceptedResponse.json()
+  await expect(page.getByText('Payment status: pending', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Continue', exact: true })).toHaveCount(0)
+  await expect(page.getByText('Payment browser example: $25.00', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Prepare printable receipt', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Open receipt / save as PDF', exact: true })).toBeVisible()
+  const entries = await (await page.request.get(`/api/form-submissions?where[form][equals]=${doc.id}`)).json()
+  expect(entries.totalDocs).toBe(1)
+  const entry = entries.docs[0], deliveriesURL = `/api/form-deliveries?where[eventID][equals]=${entry.idempotencyKey}:paid-mail`
+  expect(entry.answers.total).toBe(25)
+  const stranger = await playwright.request.newContext({ baseURL })
+  expect((await stranger.get(`/api/forms-payments/entry/${entry.id}`)).status()).toBe(403)
+  expect((await stranger.post(`/api/forms-payments/${entry.idempotencyKey}`, { headers: { Origin: baseURL! }, data: { operation: 'status' } })).status()).toBe(403)
+  await stranger.dispose()
+  await page.request.post('/api/forms-actions/run', { headers: { Origin: baseURL! }, data: {} })
+  expect((await (await page.request.get(deliveriesURL)).json()).totalDocs).toBe(0)
+  await page.getByRole('button', { name: 'Simulate success', exact: true }).click()
+  await expect(page.getByText('Payment status: paid (simulated)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Continue', exact: true })).toHaveAttribute('href', '/thank-you')
+  await expect.poll(async () => (await (await page.request.get(deliveriesURL)).json()).totalDocs).toBe(1)
+  // The fragment grants only payment access and is removed from the address immediately.
+  await page.goto(`/forms/${slug}#payment=${accepted.payment.token}`)
+  await expect(page.getByText('Payment status: paid (simulated)', { exact: true })).toBeVisible()
+  await expect.poll(() => new URL(page.url()).hash).toBe('')
+  await expect(page.getByLabel('Quantity')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Simulate refund', exact: true }).click()
+  await expect(page.getByText('Payment status: refunded', { exact: true })).toBeVisible()
+  await expect(page.getByText('Refunded: $25.00', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Continue', exact: true })).toHaveCount(0)
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await page.request.post('/api/forms-actions/run', { headers: { Origin: baseURL! }, data: {} })
+  expect((await (await page.request.get(deliveriesURL)).json()).totalDocs).toBe(1)
+  expect((await (await page.request.get(`/api/form-submissions/${entry.id}`)).json()).paymentStatus).toBe('refunded')
+  const staffPayment = await (await page.request.get(`/api/forms-payments/entry/${entry.id}`)).json()
+  expect(staffPayment.payment).toMatchObject({ amount: 2500, refundedAmount: 2500, status: 'refunded', simulated: true })
+})
+
+test('builder duplicates nested logic and accepts palette drag insertion with undo and reload', async ({ page }) => {
+  test.setTimeout(120000)
+  const definition = emptyDefinition(), slug = `builder-copy-${Date.now()}`
+  definition.fields = [{ id: 'tax', kind: 'number', label: 'Tax', defaultValue: 2 }, { id: 'outer', kind: 'section', label: 'Outer', children: [{ id: 'group', kind: 'section', label: 'Group', children: [
+    { id: 'qty', kind: 'number', label: 'Quantity', defaultValue: 1 }, { id: 'total', kind: 'calculated', label: 'Total', expression: '[qty] * [tax]' },
+  ] }] }]
+  const created = await page.request.post('/api/forms', { data: { title: 'Nested builder interactions', slug, definition, _status: 'draft' } })
+  expect(created.ok(), await created.text()).toBe(true)
+  const doc = (await created.json()).doc
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await page.getByRole('button', { name: 'Group Section', exact: true }).click()
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  const copy = page.getByRole('button', { name: 'Group copy Section', exact: true })
+  await expect(copy).toBeVisible()
+  await page.getByRole('button', { name: 'Undo form change', exact: true }).click()
+  await expect(copy).toHaveCount(0)
+  await page.getByRole('button', { name: 'Redo form change', exact: true }).click()
+  await expect(copy).toBeVisible()
+  const email = page.locator('.forms-palette').getByRole('button', { name: 'Email', exact: true })
+  await email.scrollIntoViewIfNeeded()
+  const source = (await email.boundingBox())!, target = (await copy.boundingBox())!
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(source.x + source.width / 2 + 10, source.y + source.height / 2, { steps: 3 })
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 15 })
+  await page.mouse.up()
+  await expect(page.locator('.forms-settings legend')).toHaveText('Email')
+  await expect(page.locator('.forms-builder-canvas').getByRole('button', { name: 'Email Email', exact: true })).toHaveCount(1)
+  const paragraph = page.locator('.forms-palette').getByRole('button', { name: 'Paragraph', exact: true })
+  await paragraph.focus(); await page.keyboard.press('Space')
+  await expect(page.locator('.forms-drag-overlay')).toHaveText('Paragraph')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.forms-drag-overlay')).toHaveCount(0)
+  await expect(page.locator('.forms-builder-canvas').getByRole('button', { name: 'Paragraph Paragraph', exact: true })).toHaveCount(0)
+  await paragraph.focus(); await page.keyboard.press('Enter')
+  await expect(page.locator('.forms-settings legend')).toHaveText('Paragraph')
+  await page.getByRole('tab', { name: 'Publish', exact: true }).click()
+  const published = page.waitForResponse(response => response.url().includes(`/api/forms/${doc.id}?`) && !response.url().includes('autosave=') && response.request().method() === 'PATCH')
+  await page.getByRole('button', { name: 'Publish form', exact: true }).click()
+  const publishedResponse = await published
+  expect(publishedResponse.ok(), await publishedResponse.text()).toBe(true)
+  expect((await publishedResponse.json()).doc._status).toBe('published')
+  await expect.poll(async () => (await (await page.request.get(`/api/forms/${doc.id}`)).json())._status).toBe('published')
+  const saved = (await (await page.request.get(`/api/forms/${doc.id}`)).json()).definition
+  expect(saved.fields[1].children).toHaveLength(2)
+  const duplicated = saved.fields[1].children[1]
+  expect(duplicated.children).toHaveLength(3)
+  expect(duplicated.children[1].expression).toBe(`[${duplicated.children[0].id}] * [tax]`)
+  expect(duplicated.children[2].kind).toBe('email')
+  expect(saved.fields[2].kind).toBe('textarea')
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Group copy Section', exact: true })).toBeVisible()
+})
+
+test('survey summaries report real submissions and public access follows published settings', async ({ page, playwright, browser, baseURL }) => {
+  test.setTimeout(120000)
+  const slug = `survey-${Date.now()}`, definition = emptyDefinition()
+  definition.fields = [{ id: 'score', kind: 'nps', label: 'Recommend us' }, { id: 'secret', kind: 'rating', label: 'Private score', sensitive: true }]
+  definition.access.ratePerMinute = 60
+  const created = await page.request.post('/api/forms', { data: { title: 'Survey reporting test', slug, definition, _status: 'published' } })
+  expect(created.ok(), await created.text()).toBe(true)
+  const form = (await created.json()).doc
+  const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL! } })
+  try {
+    expect((await visitor.get(`/api/forms-surveys/${form.id}`)).status()).toBe(403)
+    for (const score of [0, 7, 8, 9, 10]) {
+      const runtime = await (await visitor.get(`/api/forms-runtime/${slug}`)).json()
+      const accepted = await visitor.post(`/api/forms-runtime/${slug}/submit`, { headers: { 'X-Form-Session': runtime.session }, data: { revision: runtime.revision, answers: { score, secret: 5 }, idempotencyKey: randomBytes(16).toString('hex') } })
+      expect(accepted.status(), await accepted.text()).toBe(201)
+    }
+    const report = await (await page.request.get(`/api/forms-surveys/${form.id}`)).json()
+    expect(report.entries).toBe(5)
+    expect(report.fields).toHaveLength(1)
+    expect(report.fields[0]).toMatchObject({ nps: 20, responses: 5 })
+    await page.goto(`/admin/collections/forms/${form.id}`)
+    await page.locator('summary').filter({ hasText: /^Survey results$/ }).click()
+    await expect(page.getByRole('region', { name: 'Survey results', exact: true }).getByText(/NPS 20.0/)).toBeVisible({ timeout: 20000 })
+    definition.access.publicResults = true
+    expect((await page.request.patch(`/api/forms/${form.id}?draft=true`, { data: { definition, _status: 'draft' } })).ok()).toBe(true)
+    expect((await visitor.get(`/api/forms-surveys/${form.id}`)).status()).toBe(403)
+    expect((await page.request.patch(`/api/forms/${form.id}`, { data: { definition, _status: 'published' } })).ok()).toBe(true)
+    const publicReport = await (await visitor.get(`/api/forms-surveys/${slug}?lookup=slug`)).json()
+    expect(publicReport).toMatchObject({ pending: true, fields: [] }) // New immutable revision has no answers yet.
+    expect((await visitor.get(`/api/forms-surveys/${form.id}?revision=${report.revision}`)).status()).toBe(400)
+    const historical = await (await page.request.get(`/api/forms-surveys/${form.id}?revision=${report.revision}`)).json()
+    expect(historical.entries).toBe(5)
+    for (const score of [8, 9, 9, 10, 10]) {
+      const runtime = await (await visitor.get(`/api/forms-runtime/${slug}`)).json()
+      const accepted = await visitor.post(`/api/forms-runtime/${slug}/submit`, { headers: { 'X-Form-Session': runtime.session }, data: { revision: runtime.revision, answers: { score }, idempotencyKey: randomBytes(16).toString('hex') } })
+      expect(accepted.status(), await accepted.text()).toBe(201)
+    }
+    const anonymous = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } })
+    try {
+      const publicPage = await anonymous.newPage()
+      await publicPage.goto(`/forms/${slug}`)
+      await publicPage.getByText('View survey results', { exact: true }).click()
+      const results = publicPage.getByRole('region', { name: 'Survey results', exact: true })
+      await expect(results.getByText(/NPS 80.0/)).toBeVisible({ timeout: 20000 })
+      await expect(results.getByText('Private score')).toHaveCount(0)
+      expect(await publicPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      await publicPage.screenshot({ path: '.wrangler/forms-survey-phone.png', fullPage: true })
+    } finally { await anonymous.close() }
+  } finally { await visitor.dispose() }
+})
+
+test('published sharing produces a QR and an origin-restricted iframe with safe resizing', async ({ page, baseURL }) => {
+  test.setTimeout(120000)
+  const slug = `iframe-form-${Date.now()}`
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { 'Content-Type': 'text/html' })
+    response.end(`<!doctype html><html><body><h1>External form host</h1><iframe data-vorti-form title="Shared form" src="${baseURL}/api/forms-embed/${slug}" width="100%" height="600" style="border:0"></iframe><script src="${baseURL}/forms-assets/loader.js" defer></script></body></html>`)
+  })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const host = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  try {
+    const definition = emptyDefinition()
+    definition.fields = [{ id: 'message', kind: 'textarea', label: 'Embedded message', required: true }]
+    definition.access.embedOrigins = [host]
+    const created = await page.request.post('/api/forms', { data: { title: 'Iframe sharing test', slug, definition, _status: 'published' } })
+    expect(created.ok(), await created.text()).toBe(true)
+    const form = (await created.json()).doc
+    const forbidden = await page.request.get(`/api/forms-embed/${slug}?parentOrigin=https://unapproved.example`)
+    expect(forbidden.status()).toBe(403)
+    const allowed = await page.request.get(`/api/forms-embed/${slug}?parentOrigin=${encodeURIComponent(host)}&instance=test-instance`)
+    expect(allowed.status()).toBe(200)
+    expect(allowed.headers()['content-security-policy']).toContain(`frame-ancestors 'self' ${host}`)
+    expect((await page.request.get(`/forms/${slug}`)).headers()['content-security-policy']).toContain("frame-ancestors 'self'")
+    await page.goto(`/admin/collections/forms/${form.id}`)
+    await page.getByRole('tab', { name: 'Publish', exact: true }).click()
+    const share = page.getByRole('region', { name: 'Share form' })
+    await expect(share.getByLabel('Share link', { exact: true })).toHaveValue(`${baseURL}/forms/${slug}`)
+    await expect(share.getByRole('img', { name: 'QR code for Iframe sharing test' })).toHaveAttribute('src', /^data:image\/png;base64,/)
+    const pixels = await share.getByRole('img', { name: 'QR code for Iframe sharing test' }).evaluate(async image => {
+      const source = image as HTMLImageElement
+      await source.decode()
+      const canvas = document.createElement('canvas'); canvas.width = source.naturalWidth; canvas.height = source.naturalHeight
+      const context = canvas.getContext('2d')!; context.drawImage(source, 0, 0)
+      return { width: canvas.width, height: canvas.height, data: Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data) }
+    })
+    expect(jsQR(new Uint8ClampedArray(pixels.data), pixels.width, pixels.height)?.data).toBe(`${baseURL}/forms/${slug}`)
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.screenshot({ path: '.wrangler/forms-sharing-desktop.png', fullPage: true })
+    expect(await share.getByLabel('Iframe embed code').inputValue()).toContain('/forms-assets/loader.js')
+    await page.goto(host)
+    const frame = page.frameLocator('iframe[title="Shared form"]')
+    await frame.getByLabel('Embedded message').fill('Submitted from a permitted external origin')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(frame.getByLabel('Embedded message')).toBeVisible()
+    await expect.poll(() => frame.locator('#form-root').evaluate(root => root.getBoundingClientRect().height + 32 <= window.innerHeight + 1)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: '.wrangler/forms-embed-phone.png', fullPage: true })
+    await expect.poll(() => page.locator('iframe').evaluate(node => node.style.height)).not.toBe('')
+    const height = await page.locator('iframe').evaluate(node => node.style.height)
+    await page.evaluate(() => {
+      const iframe = document.querySelector('iframe')!
+      const id = new URL(iframe.src).searchParams.get('instance')
+      window.postMessage({ type: 'vorti-form-resize', id, height: 19999 }, '*')
+    })
+    await expect(page.locator('iframe')).toHaveCSS('height', height)
+    await frame.getByRole('button', { name: definition.theme.buttonLabel, exact: true }).click()
+    await expect(frame.getByText(definition.confirmation, { exact: true })).toBeVisible()
+    expect((await (await page.request.get(`${baseURL}/api/form-submissions?where[form][equals]=${form.id}`)).json()).totalDocs).toBe(1)
+    const blocked: string[] = []
+    const log = await page.context().newCDPSession(page)
+    await log.send('Log.enable')
+    log.on('Log.entryAdded', ({ entry }) => { if (entry.text.includes('frame-ancestors')) blocked.push(entry.text) })
+    const forbiddenHost = createServer((_request, response) => { response.writeHead(200, { 'Content-Type': 'text/html' }); response.end(`<iframe title="Forbidden host" src="${baseURL}/api/forms-embed/${slug}"></iframe>`) })
+    await new Promise<void>(resolve => forbiddenHost.listen(0, '127.0.0.1', resolve))
+    try {
+      await page.goto(`http://127.0.0.1:${(forbiddenHost.address() as { port: number }).port}`)
+      await expect.poll(() => blocked.length).toBeGreaterThan(0)
+      await expect(page.frameLocator('iframe').getByLabel('Embedded message')).toHaveCount(0)
+    } finally { await log.detach(); await new Promise<void>((resolve, reject) => forbiddenHost.close(error => error ? reject(error) : resolve())) }
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())) }
+})
+
+test('Form blocks preview safely and keep two public placements independent', async ({ page }) => {
+  test.setTimeout(120000)
+  const slug = `embedded-form-${Date.now()}`, pageSlug = `form-page-${Date.now()}`, definition = emptyDefinition()
+  definition.fields = [{ id: 'answer', kind: 'text', label: 'Placement answer', required: true }]
+  definition.actions = [{ id: 'private-action', kind: 'email', name: 'Private notification', config: { to: 'private-owner@example.test', subject: 'Embedded response', body: '{{summary}}' } }]
+  const formResponse = await page.request.post('/api/forms', { data: { title: slug, slug, definition, _status: 'published' } })
+  expect(formResponse.ok(), await formResponse.text()).toBe(true)
+  const form = (await formResponse.json()).doc
+  const projection = await (await page.request.get(`/api/forms-placement/${form.id}`)).text()
+  expect(projection).not.toContain('private-owner@example.test')
+  const createdPage = await page.request.post('/api/pages', { data: { title: 'Form placement test', slug: pageSlug, contentLayout: { version: 1, nodes: [] }, _status: 'draft' } })
+  expect(createdPage.ok()).toBe(true)
+  const doc = (await createdPage.json()).doc
+  await page.goto(`/admin/collections/pages/${doc.id}`)
+  await page.getByRole('button', { name: 'Add block', exact: true }).click()
+  await page.locator('.content-workspace__left').getByRole('button', { name: 'Form', exact: true }).click()
+  const inspector = page.locator('.content-workspace__right')
+  await inspector.getByRole('textbox', { name: 'Search Published Form' }).fill(slug)
+  await inspector.getByLabel(slug, { exact: true }).check()
+  const preview = page.getByRole('region', { name: 'Form block preview' })
+  await expect(preview.getByLabel('Placement answer')).toBeVisible()
+  await preview.getByLabel('Placement answer').fill('Preview only')
+  await preview.getByRole('button', { name: definition.theme.buttonLabel, exact: true }).click()
+  await expect(preview.getByText('Preview validated. Nothing was submitted.')).toBeVisible()
+  await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+  await expect.poll(async () => (await (await page.request.get(`/api/pages/${doc.id}?draft=true`)).json()).contentLayout.nodes[0]?.props?.formID).toBe(String(form.id))
+  expect((await (await page.request.get(`/api/form-submissions?where[form][equals]=${form.id}`)).json()).totalDocs).toBe(0)
+  const update = await page.request.patch(`/api/pages/${doc.id}`, { data: { _status: 'published', contentLayout: { version: 1, nodes: [
+    { id: 'placement-one', kind: 'form', props: { formID: String(form.id) } },
+    { id: 'placement-two', kind: 'form', props: { formID: String(form.id) } },
+  ] } } })
+  expect(update.ok()).toBe(true)
+  await page.goto(`/${pageSlug}`)
+  const answers = page.getByLabel('Placement answer')
+  await expect(answers).toHaveCount(2)
+  await answers.first().fill('First placement')
+  await expect(answers.last()).toHaveValue('')
+  await answers.last().fill('Second placement')
+  await page.getByRole('button', { name: definition.theme.buttonLabel, exact: true }).first().click()
+  await expect(page.getByText(definition.confirmation, { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Placement answer')).toHaveValue('Second placement')
+  await page.getByRole('button', { name: definition.theme.buttonLabel, exact: true }).click()
+  await expect.poll(async () => (await (await page.request.get(`/api/form-submissions?where[form][equals]=${form.id}`)).json()).totalDocs).toBe(2)
+})
+
+test('account drafts list only owned progress and revoke private links', async ({ page, playwright, baseURL }) => {
+  const definition = emptyDefinition(), slug = `account-progress-${Date.now()}`
+  definition.access.saveProgress = true
+  definition.fields = [{ id: 'answer', kind: 'text', label: 'Your answer' }]
+  expect((await page.request.post('/api/forms', { data: { title: 'Account saved progress', slug, definition, _status: 'published' } })).ok()).toBe(true)
+  const headers = { Origin: baseURL! }
+  const start = await (await page.request.get(`/api/forms-runtime/${slug}`)).json()
+  const save = await page.request.post(`/api/forms-runtime/${slug}/progress`, { headers: { ...headers, 'X-Form-Session': start.session }, data: { revision: start.revision, answers: { answer: 'Account-only draft answer' } } })
+  expect(save.ok()).toBe(true)
+  const saved = await save.json()
+  const email = `${slug}@example.test`
+  const queued = await page.request.post(`/api/forms-runtime/${slug}/progress-email`, { headers: { ...headers, 'X-Form-Session': start.session }, data: { revision: start.revision, token: saved.resumeToken, email } })
+  expect(queued.status()).toBe(202)
+  expect((await queued.json()).message).toContain('no external email was sent')
+  let deliveryID = 0
+  await expect.poll(async () => {
+    const captures = await (await page.request.get(`/api/form-deliveries?where[recipient][equals]=${encodeURIComponent(email)}`)).json()
+    if (captures.docs[0]) {
+      deliveryID = captures.docs[0].id
+      expect(JSON.stringify(captures)).not.toContain(saved.resumeToken)
+    }
+    return captures.totalDocs
+  }).toBe(1)
+  expect(await (await page.request.get(`/api/forms-deliveries/${deliveryID}/message`)).text()).toContain(`#resume=${saved.resumeToken}`)
+  const list = await (await page.request.get(`/api/forms-runtime/${slug}/drafts`)).json()
+  expect(list.drafts).toHaveLength(1)
+  expect(JSON.stringify(list)).not.toContain('Account-only draft answer')
+  expect(JSON.stringify(list)).not.toContain(saved.resumeToken)
+  const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: headers })
+  try {
+    expect((await visitor.get(`/api/forms-deliveries/${deliveryID}/message`)).status()).toBe(404)
+    expect((await visitor.get(`/api/forms-runtime/${slug}/drafts`)).status()).toBe(401)
+    expect((await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { id: list.drafts[0].id } })).status()).toBe(401)
+    expect((await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { token: saved.resumeToken } })).status()).toBe(403)
+    expect((await visitor.post(`/api/forms-runtime/${slug}/revoke`, { data: { token: saved.resumeToken } })).status()).toBe(404)
+    const otherAccount = { email: `other-${slug}@example.test`, password: randomBytes(24).toString('hex') }
+    expect((await page.request.post('/api/users', { data: { ...otherAccount, role: 'editor' } })).ok()).toBe(true)
+    expect((await visitor.post('/api/users/login', { data: otherAccount })).ok()).toBe(true)
+    expect((await (await visitor.get(`/api/forms-runtime/${slug}/drafts`)).json()).drafts).toEqual([])
+    expect((await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { id: list.drafts[0].id } })).status()).toBe(410)
+    expect((await visitor.post(`/api/forms-runtime/${slug}/revoke`, { data: { id: list.drafts[0].id } })).status()).toBe(404)
+    await page.goto(`/forms/${slug}#resume=${saved.resumeToken}`)
+    await expect(page.getByLabel('Your answer', { exact: true })).toHaveValue('Account-only draft answer')
+    await expect(page.getByLabel(/Private resume link/)).toHaveValue(new RegExp(saved.resumeToken))
+    expect(new URL(page.url()).hash).toBe('')
+    await expect(page.getByRole('button', { name: 'Resume saved draft', exact: true })).toBeVisible()
+    await page.getByLabel('Your answer', { exact: true }).fill('Keep this unsaved answer')
+    page.once('dialog', dialog => dialog.dismiss())
+    await page.getByRole('button', { name: 'Resume saved draft', exact: true }).click()
+    await expect(page.getByText('Resume canceled. Your current answers are unchanged.', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Your answer', { exact: true })).toHaveValue('Keep this unsaved answer')
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: 'Resume saved draft', exact: true }).click()
+    await expect(page.getByLabel('Your answer', { exact: true })).toHaveValue('Account-only draft answer')
+    expect((await page.request.post(`/api/forms-runtime/${slug}/resume`, { headers, data: { token: saved.resumeToken } })).status()).toBe(410)
+    expect((await page.request.get(`/api/forms-deliveries/${deliveryID}/message`)).status()).toBe(410)
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: 'Revoke saved draft', exact: true }).click()
+    await expect(page.getByText('Saved progress revoked. Its private link no longer works.', { exact: true })).toBeVisible()
+    expect((await (await page.request.get(`/api/forms-runtime/${slug}/drafts`)).json()).drafts).toHaveLength(0)
+    expect((await page.request.post(`/api/forms-runtime/${slug}/resume`, { headers, data: { id: list.drafts[0].id } })).status()).toBe(410)
+    await expect(page.getByLabel(/Private resume link/)).toHaveCount(0)
+    await expect(page.getByLabel('Your answer', { exact: true })).toHaveValue('Account-only draft answer')
+    await page.getByRole('button', { name: 'Save progress', exact: true }).click()
+    await expect(page.getByLabel(/Private resume link/)).toBeVisible()
+    const replacement = await (await page.request.get(`/api/forms-runtime/${slug}/drafts`)).json()
+    expect(replacement.drafts).toHaveLength(1)
+    expect(replacement.drafts[0].id).not.toBe(list.drafts[0].id)
+    await page.getByLabel('Your answer', { exact: true }).fill('Saved again after revoking')
+    const updated = page.waitForResponse(response => response.url().endsWith(`/api/forms-runtime/${slug}/progress`) && response.request().method() === 'POST')
+    await page.getByRole('button', { name: 'Save progress', exact: true }).click()
+    expect((await updated).ok()).toBe(true)
+    await page.getByLabel('Your answer', { exact: true }).fill('Unsaved replacement before resume')
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: 'Resume saved draft', exact: true }).click()
+    await expect(page.getByLabel('Your answer', { exact: true })).toHaveValue('Saved again after revoking')
+  } finally { await visitor.dispose() }
+})
+
+test('malformed draft definitions return an actionable validation response', async ({ page }) => {
+  const definition = { ...emptyDefinition(), fields: [{ id: 'broken', kind: 'select', label: 'Choice', options: 'not-an-option-list' }] }
+  const result = await page.request.post('/api/forms', { data: { title: 'Malformed definition test', definition, _status: 'draft' } })
+  expect(result.status()).toBe(400)
+  expect(await result.text()).toContain('valid field objects')
+})
+
+test('resource editor and public picker reserve the last place and confirm it with the entry', async ({ page, playwright, baseURL }) => {
+  const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
+  const resourceResponse = await page.request.post('/api/form-resources', { data: { label: 'Browser booking room', timezone: 'UTC', capacity: 1, holdMinutes: 10, availability: [] } })
+  expect(resourceResponse.ok()).toBe(true)
+  const resource = (await resourceResponse.json()).doc
+  await page.goto(`/admin/collections/form-resources/${resource.id}`, { waitUntil: 'domcontentloaded' })
+  await page.getByLabel('From', { exact: true }).fill(`${day}T12:00`)
+  await page.getByLabel('Until', { exact: true }).fill(`${day}T13:00`)
+  await page.getByLabel('Slot length (minutes)').fill('60')
+  await page.getByRole('button', { name: 'Generate slots', exact: true }).click()
+  await expect(page.getByText('1 slots added. Save this resource to make them available.', { exact: true })).toBeVisible()
+  const saving = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/api/form-resources/${resource.id}`))
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  expect((await saving).ok()).toBe(true)
+  const saved = await (await page.request.get(`/api/form-resources/${resource.id}`)).json()
+  expect(saved.availability).toHaveLength(1)
+  const slot = saved.availability[0], definition = emptyDefinition(), slug = `browser-booking-${Date.now()}`
+  definition.fields = [{ id: 'reservation', kind: 'datetime', label: 'Reservation', required: true, date: { timezone: 'UTC', resource: String(resource.id) } }]
+  expect((await page.request.post('/api/forms', { data: { title: 'Browser booking', slug, definition, _status: 'published' } })).ok()).toBe(true)
+  await page.goto(`/forms/${slug}`, { waitUntil: 'domcontentloaded' })
+  await page.getByLabel('Reservation', { exact: false }).first().fill(day)
+  await page.getByRole('button', { name: /1 available/ }).click()
+  await expect(page.getByText(/Held until/)).toBeVisible()
+  const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL! } })
+  try {
+    const competing = await (await visitor.get(`/api/forms-runtime/${slug}`)).json()
+    const hold = await visitor.post(`/api/forms-runtime/${slug}/booking`, { headers: { 'X-Form-Session': competing.session }, data: { operation: 'hold', field: 'reservation', revision: competing.revision, slot: slot.id } })
+    expect(hold.status()).toBe(409)
+    await page.getByRole('button', { name: 'Submit', exact: true }).click()
+    await expect(page.getByText('Thank you. Your response has been received.', { exact: true })).toBeVisible()
+    const repeated = await visitor.post(`/api/forms-runtime/${slug}/booking`, { headers: { 'X-Form-Session': competing.session }, data: { operation: 'hold', field: 'reservation', revision: competing.revision, slot: slot.id } })
+    expect(repeated.status()).toBe(409)
+    const reduction = await page.request.patch(`/api/form-resources/${resource.id}`, { data: { availability: [{ ...slot, capacity: 0 }] } })
+    expect(reduction.status()).toBe(400)
+    const entries = await (await page.request.get('/api/form-submissions?sort=-createdAt&limit=1&depth=0')).json()
+    const entry = entries.docs[0]
+    await page.goto('/admin/collections/form-submissions/' + entry.id, { waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('region', { name: 'Submitted answers' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Reservation', exact: true })).toBeVisible()
+    const rejected = await page.request.patch('/api/form-submissions/' + entry.id, { data: { workflowStatus: 'rejected', notes: 'Canceled by browser review test' } })
+    expect(rejected.status()).toBe(200)
+    const audit = await (await page.request.get('/api/form-audit?where[submissionID][equals]=' + entry.id)).json()
+    expect(audit.docs.some((item: { changes: { workflowStatus?: { after: string } } }) => item.changes.workflowStatus?.after === 'rejected')).toBe(true)
+    const released = await visitor.post('/api/forms-runtime/' + slug + '/booking', { headers: { 'X-Form-Session': competing.session }, data: { operation: 'hold', field: 'reservation', revision: competing.revision, slot: slot.id } })
+    expect(released.status()).toBe(201)
+    const heldAgain = await released.json()
+    await visitor.post('/api/forms-runtime/' + slug + '/booking', { headers: { 'X-Form-Session': competing.session }, data: { operation: 'release', field: 'reservation', revision: competing.revision, token: heldAgain.token } })
+  } finally { await visitor.dispose() }
+})
+
+test('visual editing preserves the live revision until publish, then submits and captures a local email', async ({ page, baseURL }) => {
+  const definition = emptyDefinition(), slug = `browser-contact-${Date.now()}`
+  definition.fields = [{ id: 'email', kind: 'email', label: 'Your email', required: true }]
+  definition.actions = [{ id: 'notify', kind: 'email', name: 'Local confirmation', config: { to: '{{email}}', subject: 'Received', body: '{{summary}}' } }]
+  const created = await page.request.post('/api/forms', { data: { title: 'Browser contact test', slug, definition, _status: 'published' } })
+  expect(created.ok()).toBe(true)
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`, { waitUntil: 'domcontentloaded' })
+  const addText = page.getByRole('button', { name: 'Single-line text', exact: true })
+  await expect(addText).toBeEnabled()
+  await addText.click()
+  await page.getByLabel('Label', { exact: true }).fill('A question added visually')
+  await expect(page.getByRole('button', { name: 'A question added visually Single-line text' })).toBeVisible()
+  // Wait for the real native autosave, then verify the public revision still lacks this field.
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/forms/${doc.id}?draft=true`)
+    const draft = await response.json()
+    return draft.definition?.fields?.some((field: { label: string }) => field.label === 'A question added visually')
+  }, { timeout: 20000 }).toBe(true)
+  const before = await (await page.request.get(`/api/forms-runtime/${slug}`)).json()
+  expect(before.revision).toBe(doc.publishedRevision)
+  expect(before.definition.fields).toHaveLength(1)
+  const publishing = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/api/forms/${doc.id}?`) && !response.url().includes('autosave=true'))
+  await page.getByRole('button', { name: 'Publish changes', exact: true }).click()
+  expect((await publishing).ok()).toBe(true)
+  await expect.poll(async () => (await (await page.request.get(`/api/forms-runtime/${slug}`)).json()).definition.fields.length, { timeout: 20000 }).toBe(2)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('button', { name: 'A question added visually Single-line text' })).toBeVisible()
+  await page.goto(`/forms/${slug}`, { waitUntil: 'domcontentloaded' })
+  await page.getByLabel('Your email').fill('browser-recipient@example.test')
+  await page.getByLabel('A question added visually').fill('Persist this answer')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.getByText('Thank you. Your response has been received.', { exact: true })).toBeVisible()
+  const run = await page.request.post('/api/forms-actions/run', { headers: { Origin: baseURL! }, data: {} })
+  expect(run.ok()).toBe(true)
+  const entries = await (await page.request.get(`/api/form-submissions?where[form][equals]=${doc.id}`)).json()
+  expect(entries.totalDocs).toBe(1)
+  const deliveries = await (await page.request.get(`/api/form-deliveries?where[eventID][equals]=${entries.docs[0].idempotencyKey}:notify`)).json()
+  expect(deliveries.totalDocs).toBe(1)
+  expect(deliveries.docs[0].body).toContain('Persist this answer')
+})
+
+test('anonymous progress, uploads and retries remain scoped to their session and revision', async ({ page, playwright, baseURL }) => {
+  const definition = emptyDefinition(), slug = `browser-progress-${Date.now()}`
+  definition.fields = [
+    { id: 'email', kind: 'email', label: 'Email', required: true },
+    { id: 'file', kind: 'upload', label: 'Attachment', sensitive: true, files: { maxCount: 1, maxBytes: 10000, mimeTypes: ['application/pdf'] } },
+  ]
+  const created = await page.request.post('/api/forms', { data: { title: 'Browser progress test', slug, definition, _status: 'published' } })
+  expect(created.ok()).toBe(true)
+  const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL! } })
+  try {
+    const first = await (await visitor.get(`/api/forms-runtime/${slug}`)).json()
+    const other = await (await visitor.get(`/api/forms-runtime/${slug}`)).json()
+    expect(first.session).not.toBe(other.session)
+    const upload = await visitor.post(`/api/forms-runtime/${slug}/upload`, {
+      headers: { 'Content-Type': 'application/pdf', 'X-Form-Session': first.session, 'X-Form-Revision': first.revision, 'X-Form-Field': 'file', 'X-File-Name': 'local.pdf' },
+      data: Buffer.from('%PDF-1.7\nLocal ownership test\n%%EOF'),
+    })
+    expect(upload.status()).toBe(201)
+    const file = await upload.json()
+    expect(typeof file.id).toBe('string')
+    const answers = { email: 'visitor@example.test', file: [file.id] }
+    const stolen = await visitor.post(`/api/forms-runtime/${slug}/progress`, { headers: { 'X-Form-Session': other.session }, data: { revision: first.revision, answers } })
+    expect(stolen.status()).toBe(403)
+    const progress = await visitor.post(`/api/forms-runtime/${slug}/progress`, { headers: { 'X-Form-Session': first.session }, data: { revision: first.revision, answers } })
+    expect(progress.ok()).toBe(true)
+    const { resumeToken } = await progress.json()
+    const resume = await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { token: resumeToken } })
+    expect(resume.ok()).toBe(true)
+    const resumed = await resume.json()
+    expect(resumed.answers).toEqual(answers)
+    expect(resumed.session).not.toBe(first.session)
+    const submit = (session: string, key: string, email = answers.email) => visitor.post(`/api/forms-runtime/${slug}/submit`, { headers: { 'X-Form-Session': session }, data: { revision: first.revision, answers: { ...answers, email }, idempotencyKey: key } })
+    expect((await submit(first.session, 'old-session-retry-key')).status()).toBe(409)
+    expect((await submit(resumed.session, 'resumed-retry-key')).status()).toBe(201)
+    expect((await submit(resumed.session, 'resumed-retry-key')).status()).toBe(200)
+    expect((await submit(resumed.session, 'resumed-retry-key', 'changed@example.test')).status()).toBe(409)
+    expect((await visitor.get('/api/form-submissions')).status()).toBe(403)
+    expect((await visitor.get('/api/form-drafts')).status()).toBe(403)
+    expect((await visitor.get('/api/form-attachments')).status()).toBe(403)
+    expect((await visitor.get(`/api/forms-files/${file.id}`)).status()).toBe(403)
+    const downloaded = await page.request.get(`/api/forms-files/${file.id}`)
+    expect(downloaded.status()).toBe(200)
+    expect(downloaded.headers()['x-form-scan-status']).toBe('unscanned')
+    expect((await downloaded.body()).toString()).toContain('Local ownership test')
+    const editor = { email: `forms-reader-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url'), role: 'editor' }
+    expect((await page.request.post('/api/users', { data: editor })).ok()).toBe(true)
+    expect((await visitor.post('/api/users/login', { data: editor })).ok()).toBe(true)
+    const { doc } = await created.json()
+    const entries = await (await visitor.get(`/api/form-submissions?where[form][equals]=${doc.id}`)).json()
+    expect(entries.totalDocs).toBe(1)
+    expect(entries.docs[0].answers.email).toBe(answers.email)
+    expect(entries.docs[0].answers.file).toBeUndefined()
+    expect((await visitor.get(`/api/forms-files/${file.id}`)).status()).toBe(403)
+  } finally { await visitor.dispose() }
+})
+
+
+test('analytics measures consented activity and server acceptance without recording answers', async ({ page, playwright, baseURL }) => {
+  const definition = emptyDefinition(), slug = 'browser-analytics-' + Date.now()
+  definition.access.analytics = true; definition.access.analyticsConsent = true
+  definition.fields = [{ id: 'contact', kind: 'email', label: 'Contact email', required: true }]
+  const created = await page.request.post('/api/forms', { data: { title: 'Measured form', slug, definition, _status: 'published' } })
+  expect(created.status()).toBe(201)
+  const form = (await created.json()).doc
+  const metrics = async () => (await page.request.get('/api/forms-analytics/' + form.id)).json()
+  await page.goto('/forms/' + slug, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Please check your answers' })).toBeVisible()
+  expect((await metrics()).views).toBe(0)
+  await page.getByRole('checkbox', { name: /Allow anonymous form usage/ }).check()
+  await expect.poll(async () => (await metrics()).views).toBe(1)
+  await page.getByLabel('Contact email', { exact: false }).fill('invalid')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect.poll(async () => (await metrics()).failures.length).toBe(1)
+  await page.getByLabel('Contact email', { exact: false }).fill('analytics-private@example.test')
+  await page.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(page.getByText('Thank you. Your response has been received.', { exact: true })).toBeVisible()
+  await expect.poll(async () => (await metrics()).completed).toBe(1)
+  expect((await metrics()).completionRate).toBe(1)
+  const events = await (await page.request.get('/api/form-analytics?where[formID][equals]=' + form.id)).json()
+  expect(JSON.stringify(events)).not.toContain('analytics-private')
+  expect(events.docs.some((event: { kind: string }) => event.kind === 'accepted')).toBe(true)
+  const visitor = await playwright.request.newContext({ baseURL })
+  try { expect((await visitor.get('/api/forms-analytics/' + form.id)).status()).toBe(403) } finally { await visitor.dispose() }
+  await page.goto('/admin/collections/forms/' + form.id, { waitUntil: 'domcontentloaded' })
+  await page.getByText('Analytics and completion report', { exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Form analytics' })).toBeVisible()
+  await expect(page.getByText('100.0%', { exact: true })).toBeVisible()
+})
+
+
+test('private XLSX exports and printable receipts preserve originals and deny other sessions', async ({ page, playwright, baseURL }) => {
+  test.setTimeout(120000)
+  const definition = emptyDefinition(), slug = 'browser-export-' + Date.now()
+  definition.fields = [{ id: 'text', kind: 'text', label: 'Original answer' }, { id: 'secret', kind: 'text', label: 'Sensitive answer', sensitive: true }]
+  const form = (await (await page.request.post('/api/forms', { data: { title: 'Export and receipt example', slug, definition, _status: 'published' } })).json()).doc
+  const runtime = await (await page.request.get('/api/forms-runtime/' + slug)).json()
+  const headers = { Origin: baseURL!, 'X-Form-Session': runtime.session }
+  const result = await page.request.post('/api/forms-runtime/' + slug + '/submit', { headers, data: { revision: runtime.revision, idempotencyKey: randomBytes(16).toString('hex'), answers: { text: '=1+1', secret: 'sensitive-export-value' } } })
+  expect(result.status()).toBe(201)
+  const accepted = await result.json()
+  const ownReceipt = await page.request.post('/api/forms-runtime/' + slug + '/receipt', { headers, data: { revision: runtime.revision, receipt: accepted.receipt } })
+  expect(ownReceipt.status()).toBe(200)
+  expect(await ownReceipt.text()).toContain('=1+1')
+  const visitor = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL! } })
+  const other = await (await visitor.get('/api/forms-runtime/' + slug)).json()
+  expect((await visitor.post('/api/forms-runtime/' + slug + '/receipt', { headers: { 'X-Form-Session': other.session }, data: { revision: other.revision, receipt: accepted.receipt } })).status()).toBe(404)
+  await page.goto('/admin/collections/forms/' + form.id, { waitUntil: 'domcontentloaded' })
+  await page.locator('summary').filter({ hasText: /^Export entries$/ }).click()
+  await expect(page.getByRole('checkbox', { name: /Original answer/ })).toBeChecked()
+  await page.getByLabel('File format', { exact: true }).selectOption('xlsx')
+  await page.getByRole('button', { name: 'Generate export', exact: true }).click()
+  const download = page.getByRole('link', { name: 'Download XLSX export', exact: true })
+  await expect(download).toBeVisible({ timeout: 30000 })
+  const href = (await download.getAttribute('href'))!
+  const file = await page.request.get(href)
+  expect(file.status()).toBe(200)
+  expect(file.headers()['content-type']).toContain('spreadsheetml')
+  const packageFiles = unzipSync(await file.body()), sheet = strFromU8(packageFiles['xl/worksheets/sheet1.xml'])
+  expect(sheet).toContain('=1+1'); expect(sheet).not.toContain('<f>'); expect(sheet).not.toContain('sensitive-export-value')
+  expect((await visitor.get(href)).status()).toBe(404)
+  await visitor.dispose()
+  const jobID = href.match(/job\/(\d+)/)![1]
+  await page.goto('/admin/collections/form-exports/' + jobID, { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('link', { name: 'Download XLSX export', exact: true })).toBeVisible()
+  const entry = (await (await page.request.get('/api/form-submissions?where[form][equals]=' + form.id)).json()).docs[0]
+  await page.goto('/api/forms-receipts/' + entry.id)
+  await expect(page.getByRole('heading', { name: 'Export and receipt example', exact: true })).toBeVisible()
+  await page.screenshot({ path: '.wrangler/forms-receipt-test.png', fullPage: true })
+  const pdf = await page.pdf({ path: '.wrangler/forms-receipt-test.pdf', format: 'A4' })
+  expect(pdf.subarray(0, 4).toString()).toBe('%PDF')
+})

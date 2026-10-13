@@ -261,7 +261,7 @@ export function UnifiedBlockInspector({
           Reset layout styling
         </button>
       )}
-      {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && (
+      {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && node.kind !== 'form' && (
         <details open>
           <summary>{contentLabel}</summary>
           {children}
@@ -457,6 +457,10 @@ export function UnifiedBlockInspector({
       {node.kind === 'postListing' && tab === 'layout' && (
         <SaveReusableView node={node} onChange={onChange} disabled={disabled} />
       )}
+      {node.kind === 'form' && showFields && <>
+        {renderDocumentPicker?.('forms', 'Published Form', String(node.props?.formID ?? ''), value => onChange({ props: { ...node.props, formID: value.split(',').filter(Boolean).pop() || '' } }))}
+        <p>Fields, validation, notifications, and internal styling are managed in <a href={node.props?.formID ? `/admin/collections/forms/${encodeURIComponent(String(node.props.formID))}` : '/admin/collections/forms'} target="_blank" rel="noreferrer">Forms</a>. Publishing changes there updates every placement.</p>
+      </>}
       {isViewPlacement(node.kind) && showFields && (
         <ViewPlacementSetup
           key={node.id}

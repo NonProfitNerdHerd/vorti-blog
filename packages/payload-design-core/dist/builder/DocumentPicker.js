@@ -21,7 +21,11 @@ export function DocumentPicker({ collection, label, value, change, }) {
                 });
                 if (search)
                     params.set(`where[${titleField}][like]`, search);
-                const response = await fetch(`${config.serverURL ?? ''}${config.routes.api}/${collection}?${params}`, { signal: controller.signal, credentials: 'same-origin' });
+                if (collection === 'forms') {
+                    params.set('where[_status][equals]', 'published');
+                    params.set('where[archived][not_equals]', 'true');
+                }
+                const response = await fetch(`${config.serverURL ?? ''}${config.routes.api}/${collection === 'forms' ? 'forms-options' : collection}?${params}`, { signal: controller.signal, credentials: 'same-origin' });
                 if (!response.ok)
                     throw new Error('Unable to load choices.');
                 setDocs((await response.json()).docs ?? []);

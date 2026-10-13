@@ -85,6 +85,19 @@ export interface Config {
     'design-templates': DesignTemplate;
     search: Search;
     redirects: Redirect;
+    'form-contacts': FormContact;
+    'form-support-requests': FormSupportRequest;
+    'form-revisions': FormRevision;
+    'form-drafts': FormDraft;
+    'form-attachments': FormAttachment;
+    'form-outbox': FormOutbox;
+    'form-audit': FormAudit;
+    'form-analytics': FormAnalytic;
+    'form-deliveries': FormDelivery;
+    'form-resources': FormResource;
+    'form-templates': FormTemplate;
+    'form-integrations': FormIntegration;
+    'form-exports': FormExport;
     forms: Form;
     'form-submissions': FormSubmission;
     exports: Export;
@@ -119,6 +132,19 @@ export interface Config {
     'design-templates': DesignTemplatesSelect<false> | DesignTemplatesSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
+    'form-contacts': FormContactsSelect<false> | FormContactsSelect<true>;
+    'form-support-requests': FormSupportRequestsSelect<false> | FormSupportRequestsSelect<true>;
+    'form-revisions': FormRevisionsSelect<false> | FormRevisionsSelect<true>;
+    'form-drafts': FormDraftsSelect<false> | FormDraftsSelect<true>;
+    'form-attachments': FormAttachmentsSelect<false> | FormAttachmentsSelect<true>;
+    'form-outbox': FormOutboxSelect<false> | FormOutboxSelect<true>;
+    'form-audit': FormAuditSelect<false> | FormAuditSelect<true>;
+    'form-analytics': FormAnalyticsSelect<false> | FormAnalyticsSelect<true>;
+    'form-deliveries': FormDeliveriesSelect<false> | FormDeliveriesSelect<true>;
+    'form-resources': FormResourcesSelect<false> | FormResourcesSelect<true>;
+    'form-templates': FormTemplatesSelect<false> | FormTemplatesSelect<true>;
+    'form-integrations': FormIntegrationsSelect<false> | FormIntegrationsSelect<true>;
+    'form-exports': FormExportsSelect<false> | FormExportsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
@@ -259,6 +285,7 @@ export interface Post {
     | number
     | boolean
     | null;
+  formActionKey?: string | null;
   contentLayout?:
     | {
         [k: string]: unknown;
@@ -882,11 +909,84 @@ export interface Redirect {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-contacts".
+ */
+export interface FormContact {
+  id: number;
+  site: string;
+  actionKey: string;
+  sourceEntry?: (number | null) | FormSubmission;
+  name?: string | null;
+  email: string;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: number;
+  form: number | Form;
+  submissionData?:
+    | {
+        field: string;
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  site: string;
+  revision?: string | null;
+  idempotencyKey?: string | null;
+  answers?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  schemaSnapshot?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  workflowStatus?: ('received' | 'in-review' | 'approved' | 'rejected' | 'completed') | null;
+  read?: boolean | null;
+  starred?: boolean | null;
+  spam?: boolean | null;
+  archived?: boolean | null;
+  reviewer?: (number | null) | User;
+  notes?: string | null;
+  tags?: string[] | null;
+  paymentStatus?: ('none' | 'pending' | 'paid' | 'failed' | 'canceled' | 'refunded' | 'simulated') | null;
+  paymentReference?: string | null;
+  sessionHash?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms".
  */
 export interface Form {
   id: number;
   title: string;
+  definition?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   fields?:
     | (
         | {
@@ -1047,23 +1147,335 @@ export interface Form {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Public address: /forms/your-slug
+   */
+  slug?: string | null;
+  description?: string | null;
+  internalNotes?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
+  owner?: (number | null) | User;
+  site: string;
+  locale?: string | null;
+  archived?: boolean | null;
+  publishedRevision?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-support-requests".
+ */
+export interface FormSupportRequest {
+  id: number;
+  site: string;
+  actionKey: string;
+  sourceEntry?: (number | null) | FormSubmission;
+  title: string;
+  details: string;
+  email?: string | null;
+  status?: ('received' | 'in-review' | 'completed' | 'archived') | null;
+  reviewer?: (number | null) | User;
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
+ * via the `definition` "form-revisions".
  */
-export interface FormSubmission {
+export interface FormRevision {
   id: number;
+  label?: string | null;
+  site: string;
   form: number | Form;
-  submissionData?:
+  revision: string;
+  definition?:
     | {
-        field: string;
-        value: string;
-        id?: string | null;
-      }[]
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
     | null;
+  title?: string | null;
+  slug?: string | null;
+  digest?: string | null;
+  retiredAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-drafts".
+ */
+export interface FormDraft {
+  id: number;
+  label?: string | null;
+  site: string;
+  revision: string;
+  tokenHash?: string | null;
+  ownerID?: string | null;
+  answers?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  sessionHash?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-attachments".
+ */
+export interface FormAttachment {
+  id: number;
+  label?: string | null;
+  site: string;
+  revision: string;
+  sessionHash: string;
+  objectKey: string;
+  filename?: string | null;
+  mime?: string | null;
+  bytes?: number | null;
+  fieldID?: string | null;
+  submissionID?: string | null;
+  expiresAt?: string | null;
+  scanStatus?: ('unscanned' | 'pending' | 'clean' | 'rejected' | 'error' | 'deleting') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-outbox".
+ */
+export interface FormOutbox {
+  id: number;
+  label?: string | null;
+  site: string;
+  eventID: string;
+  submissionID?: string | null;
+  revision?: string | null;
+  kind?: string | null;
+  status?: ('pending' | 'running' | 'waiting-payment' | 'complete' | 'failed' | 'unconfigured') | null;
+  payload?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  attempts?: number | null;
+  nextAttemptAt?: string | null;
+  leaseUntil?: string | null;
+  attemptLog?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-audit".
+ */
+export interface FormAudit {
+  id: number;
+  label?: string | null;
+  site: string;
+  submissionID?: string | null;
+  actorID?: string | null;
+  action?: string | null;
+  changes?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-analytics".
+ */
+export interface FormAnalytic {
+  id: number;
+  label?: string | null;
+  site: string;
+  formID?: string | null;
+  revision?: string | null;
+  eventID?: string | null;
+  sessionHash?: string | null;
+  kind?: string | null;
+  step?: string | null;
+  durationMs?: number | null;
+  fieldIDs?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-deliveries".
+ */
+export interface FormDelivery {
+  id: number;
+  label?: string | null;
+  site: string;
+  kind?: string | null;
+  eventID?: string | null;
+  recipient?: string | null;
+  subject?: string | null;
+  body?: string | null;
+  headers?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-resources".
+ */
+export interface FormResource {
+  id: number;
+  label?: string | null;
+  site: string;
+  timezone?: string | null;
+  availability?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  capacity?: number | null;
+  holdMinutes?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-templates".
+ */
+export interface FormTemplate {
+  id: number;
+  label?: string | null;
+  site: string;
+  definition?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  kind?: ('template' | 'field-group' | 'theme') | null;
+  theme?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  revision?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-integrations".
+ */
+export interface FormIntegration {
+  id: number;
+  label?: string | null;
+  site: string;
+  provider?: string | null;
+  credentialName?: string | null;
+  settings?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  enabled?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-exports".
+ */
+export interface FormExport {
+  id: number;
+  label?: string | null;
+  site: string;
+  status?: string | null;
+  requestedBy?: string | null;
+  filters?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  columns?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  format?: string | null;
+  objectKey?: string | null;
+  expiresAt?: string | null;
+  error?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1330,6 +1742,58 @@ export interface PayloadLockedDocument {
         value: number | Redirect;
       } | null)
     | ({
+        relationTo: 'form-contacts';
+        value: number | FormContact;
+      } | null)
+    | ({
+        relationTo: 'form-support-requests';
+        value: number | FormSupportRequest;
+      } | null)
+    | ({
+        relationTo: 'form-revisions';
+        value: number | FormRevision;
+      } | null)
+    | ({
+        relationTo: 'form-drafts';
+        value: number | FormDraft;
+      } | null)
+    | ({
+        relationTo: 'form-attachments';
+        value: number | FormAttachment;
+      } | null)
+    | ({
+        relationTo: 'form-outbox';
+        value: number | FormOutbox;
+      } | null)
+    | ({
+        relationTo: 'form-audit';
+        value: number | FormAudit;
+      } | null)
+    | ({
+        relationTo: 'form-analytics';
+        value: number | FormAnalytic;
+      } | null)
+    | ({
+        relationTo: 'form-deliveries';
+        value: number | FormDelivery;
+      } | null)
+    | ({
+        relationTo: 'form-resources';
+        value: number | FormResource;
+      } | null)
+    | ({
+        relationTo: 'form-templates';
+        value: number | FormTemplate;
+      } | null)
+    | ({
+        relationTo: 'form-integrations';
+        value: number | FormIntegration;
+      } | null)
+    | ({
+        relationTo: 'form-exports';
+        value: number | FormExport;
+      } | null)
+    | ({
         relationTo: 'forms';
         value: number | Form;
       } | null)
@@ -1408,6 +1872,7 @@ export interface PostsSelect<T extends boolean = true> {
         image?: T;
       };
   designOverrides?: T;
+  formActionKey?: T;
   contentLayout?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -1768,10 +2233,224 @@ export interface RedirectsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-contacts_select".
+ */
+export interface FormContactsSelect<T extends boolean = true> {
+  site?: T;
+  actionKey?: T;
+  sourceEntry?: T;
+  name?: T;
+  email?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-support-requests_select".
+ */
+export interface FormSupportRequestsSelect<T extends boolean = true> {
+  site?: T;
+  actionKey?: T;
+  sourceEntry?: T;
+  title?: T;
+  details?: T;
+  email?: T;
+  status?: T;
+  reviewer?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-revisions_select".
+ */
+export interface FormRevisionsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  form?: T;
+  revision?: T;
+  definition?: T;
+  title?: T;
+  slug?: T;
+  digest?: T;
+  retiredAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-drafts_select".
+ */
+export interface FormDraftsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  revision?: T;
+  tokenHash?: T;
+  ownerID?: T;
+  answers?: T;
+  expiresAt?: T;
+  revokedAt?: T;
+  sessionHash?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-attachments_select".
+ */
+export interface FormAttachmentsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  revision?: T;
+  sessionHash?: T;
+  objectKey?: T;
+  filename?: T;
+  mime?: T;
+  bytes?: T;
+  fieldID?: T;
+  submissionID?: T;
+  expiresAt?: T;
+  scanStatus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-outbox_select".
+ */
+export interface FormOutboxSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  eventID?: T;
+  submissionID?: T;
+  revision?: T;
+  kind?: T;
+  status?: T;
+  payload?: T;
+  attempts?: T;
+  nextAttemptAt?: T;
+  leaseUntil?: T;
+  attemptLog?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-audit_select".
+ */
+export interface FormAuditSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  submissionID?: T;
+  actorID?: T;
+  action?: T;
+  changes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-analytics_select".
+ */
+export interface FormAnalyticsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  formID?: T;
+  revision?: T;
+  eventID?: T;
+  sessionHash?: T;
+  kind?: T;
+  step?: T;
+  durationMs?: T;
+  fieldIDs?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-deliveries_select".
+ */
+export interface FormDeliveriesSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  kind?: T;
+  eventID?: T;
+  recipient?: T;
+  subject?: T;
+  body?: T;
+  headers?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-resources_select".
+ */
+export interface FormResourcesSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  timezone?: T;
+  availability?: T;
+  capacity?: T;
+  holdMinutes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-templates_select".
+ */
+export interface FormTemplatesSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  definition?: T;
+  kind?: T;
+  theme?: T;
+  revision?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-integrations_select".
+ */
+export interface FormIntegrationsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  provider?: T;
+  credentialName?: T;
+  settings?: T;
+  enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-exports_select".
+ */
+export interface FormExportsSelect<T extends boolean = true> {
+  label?: T;
+  site?: T;
+  status?: T;
+  requestedBy?: T;
+  filters?: T;
+  columns?: T;
+  format?: T;
+  objectKey?: T;
+  expiresAt?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms_select".
  */
 export interface FormsSelect<T extends boolean = true> {
   title?: T;
+  definition?: T;
   fields?:
     | T
     | {
@@ -1898,8 +2577,19 @@ export interface FormsSelect<T extends boolean = true> {
         message?: T;
         id?: T;
       };
+  slug?: T;
+  description?: T;
+  internalNotes?: T;
+  category?: T;
+  tags?: T;
+  owner?: T;
+  site?: T;
+  locale?: T;
+  archived?: T;
+  publishedRevision?: T;
   updatedAt?: T;
   createdAt?: T;
+  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1914,6 +2604,22 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
         value?: T;
         id?: T;
       };
+  site?: T;
+  revision?: T;
+  idempotencyKey?: T;
+  answers?: T;
+  schemaSnapshot?: T;
+  workflowStatus?: T;
+  read?: T;
+  starred?: T;
+  spam?: T;
+  archived?: T;
+  reviewer?: T;
+  notes?: T;
+  tags?: T;
+  paymentStatus?: T;
+  paymentReference?: T;
+  sessionHash?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2270,6 +2976,19 @@ export interface TaskCreateCollectionExport {
       | 'design-templates'
       | 'search'
       | 'redirects'
+      | 'form-contacts'
+      | 'form-support-requests'
+      | 'form-revisions'
+      | 'form-drafts'
+      | 'form-attachments'
+      | 'form-outbox'
+      | 'form-audit'
+      | 'form-analytics'
+      | 'form-deliveries'
+      | 'form-resources'
+      | 'form-templates'
+      | 'form-integrations'
+      | 'form-exports'
       | 'forms'
       | 'form-submissions'
       | 'exports'

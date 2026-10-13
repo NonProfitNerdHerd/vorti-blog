@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { after } from 'next/server'
 import path from 'path'
 import { sqliteD1Adapter } from '@payloadcms/db-d1-sqlite'
 import { lexicalEditor, BlocksFeature } from '@payloadcms/richtext-lexical'
@@ -10,7 +11,7 @@ import { r2Storage } from '@payloadcms/storage-r2'
 import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
-import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { formsModule } from './forms/plugin'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
@@ -143,11 +144,7 @@ export default buildConfig({
       collections: ['posts', 'pages'],
       overrides: { admin: { group: 'Site' } },
     }),
-    formBuilderPlugin({
-      redirectRelationships: ['pages'],
-      formOverrides: { admin: { group: 'Forms' } },
-      formSubmissionOverrides: { admin: { group: 'Forms' } },
-    }),
+    formsModule({ db: cloudflare.env.D1, storage: cloudflare.env.R2, local: Boolean(localPersistPath), defer: after }),
     importExportPlugin({
       collections: [
         { slug: 'posts', export: { disableJobsQueue: true }, import: { disableJobsQueue: true } },

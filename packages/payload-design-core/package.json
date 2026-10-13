@@ -7,6 +7,14 @@
     "dist"
   ],
   "exports": {
+    "./forms": {
+      "types": "./dist/forms/index.d.ts",
+      "default": "./dist/forms/index.js"
+    },
+    "./forms/client": {
+      "types": "./dist/forms/client.d.ts",
+      "default": "./dist/forms/client.js"
+    },
     "./content": {
       "types": "./dist/content/index.d.ts",
       "default": "./dist/content/index.js"
