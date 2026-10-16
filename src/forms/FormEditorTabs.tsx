@@ -2,7 +2,7 @@
 
 import { RenderFields, useFormFields, useFormSubmitted, type GroupField } from '@payloadcms/ui'
 import { getFieldPaths } from 'payload/shared'
-import { useId, useState, type ComponentProps } from 'react'
+import { useEffect, useId, useRef, useState, type ComponentProps } from 'react'
 import './form-editor.css'
 import { FormEmailHost, FormTransferHost, FormWorkspaceNavigation } from './FormTransferHost'
 
@@ -14,6 +14,33 @@ export function FormEditorTabs({ field, indexPath = '', path = '', schemaPath = 
   const [view, setView] = useState('Build')
   const [visited, setVisited] = useState(['Build', 'Details'])
   const id = useId()
+  const editor = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (view !== 'Build' || !editor.current) return
+    const element = editor.current
+    let frame = 0
+    const measure = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const workspace = element.querySelector<HTMLElement>('.forms-builder-workspace')
+        if (!workspace) return
+        // Document position stays stable while scrolling, so the page cannot grow on scroll.
+        let top = workspace.getBoundingClientRect().top + window.scrollY
+        for (let parent = workspace.parentElement; parent && parent !== document.body && parent !== document.documentElement; parent = parent.parentElement) top += parent.scrollTop
+        const offset = `${Math.max(0, Math.round(top))}px`
+        if (element.style.getPropertyValue('--forms-workspace-top') !== offset) element.style.setProperty('--forms-workspace-top', offset)
+      })
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    const tabs = element.querySelector('.form-editor-tabs')
+    if (tabs) observer.observe(tabs)
+    const header = element.closest('.collection-edit')?.querySelector('.doc-controls')
+    if (header) observer.observe(header)
+    window.addEventListener('resize', measure)
+    measure()
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', measure) }
+  }, [view])
   const [transferHost, setTransferHost] = useState<HTMLDivElement | null>(null)
   const [emailHost, setEmailHost] = useState<HTMLDivElement | null>(null)
   const submitted = useFormSubmitted()
@@ -26,7 +53,7 @@ export function FormEditorTabs({ field, indexPath = '', path = '', schemaPath = 
     select(fieldPath === 'title' || fieldPath.startsWith('definition') ? 'Build' : 'Details')
     requestAnimationFrame(() => document.getElementById(id)?.closest('.collection-edit')?.querySelector<HTMLElement>(`[name="${CSS.escape(fieldPath)}"]`)?.focus())
   }
-  return <FormWorkspaceNavigation.Provider value={{ view, onChange: select }}><FormEmailHost.Provider value={{ target: emailHost, open: () => select('Email') }}><FormTransferHost.Provider value={transferHost}><div id={id} className="form-editor">
+  return <FormWorkspaceNavigation.Provider value={{ view, onChange: select }}><FormEmailHost.Provider value={{ target: emailHost, open: () => select('Email') }}><FormTransferHost.Provider value={transferHost}><div ref={editor} id={id} className="form-editor" data-form-view={view}>
     <div role="tablist" aria-label="Form workspace" className="form-editor-tabs">
       {tabs.map((tab, index) => <button key={index} className={tab.label === 'Import / Export' ? 'form-transfer-tab' : undefined} type="button" role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel-${builderViews.includes(String(tab.label)) ? 0 : index}`} aria-selected={active === index} tabIndex={active === index || (active === -1 && index === 0) ? 0 : -1}
         onClick={() => select(String(tab.label))} onKeyDown={event => {

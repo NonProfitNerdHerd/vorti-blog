@@ -11,6 +11,47 @@ async function addPart(page: Page, name: string) {
   await page.getByRole('dialog', { name: 'Add Parts', exact: true }).getByRole('button', { name, exact: true }).click()
 }
 
+test('Build sidebars align with tabs and grow with one page scrollbar', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  const response = await page.request.post('/api/forms?draft=true', { data: { title: `Sidebar layout ${Date.now()}`, definition: emptyDefinition(), _status: 'draft' } })
+  expect(response.ok()).toBe(true)
+  const { doc } = await response.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await expect(page.getByRole('button', { name: 'Add parts', exact: true })).toBeVisible()
+  const geometry = () => page.evaluate(() => {
+    const tabs = document.querySelector('.form-editor-tabs')!.getBoundingClientRect()
+    const left = document.querySelector('.forms-builder-workspace > .forms-sidebar')!
+    const right = document.querySelector('.forms-builder-workspace > .forms-settings')!
+    const sidebar = left.getBoundingClientRect(), settings = right.getBoundingClientRect()
+    return { left: Math.abs(sidebar.left - tabs.left), top: Math.abs(sidebar.top - tabs.bottom), right: Math.abs(settings.right - tabs.right), settingsTop: Math.abs(settings.top - tabs.bottom), width: sidebar.width, bottom: sidebar.bottom + window.scrollY, settingsBottom: settings.bottom + window.scrollY, overflow: [getComputedStyle(left).overflowY, getComputedStyle(right).overflowY], minHeight: document.querySelector('.form-editor')!.getAttribute('style') }
+  })
+  await expect.poll(async () => (await geometry()).top).toBeLessThan(2)
+  let layout = await geometry()
+  expect(layout.left).toBeLessThan(2); expect(layout.right).toBeLessThan(2); expect(layout.settingsTop).toBeLessThan(2)
+  expect(layout.width).toBe(244); expect(layout.bottom).toBeGreaterThanOrEqual(999)
+  expect(layout.overflow).toEqual(['visible', 'visible'])
+  await addPart(page, 'Dropdown')
+  await page.getByLabel('Label', { exact: true }).fill('Long field settings')
+  layout = await geometry()
+  expect(layout.bottom).toBeGreaterThanOrEqual(layout.settingsBottom - 1)
+  await page.getByRole('button', { name: 'Delete', exact: true }).scrollIntoViewIfNeeded()
+  expect((await geometry()).minHeight).toBe(layout.minHeight)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({ path: '.wrangler/forms-sidebars-desktop.png', fullPage: true })
+  await page.getByRole('tab', { name: 'Add Parts', exact: true }).click()
+  await expect(page.locator('.forms-sidebar').getByRole('button', { name: 'Canvas', exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 1000, height: 900 })
+  await expect.poll(async () => (await geometry()).top).toBeLessThan(2)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Toggle form List View' }).click()
+  await expect(page.getByRole('dialog', { name: 'Form parts', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Toggle form List View' })).toBeFocused()
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await page.screenshot({ path: '.wrangler/forms-sidebars-mobile.png', fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
 test.beforeEach(async ({ page, baseURL }) => {
   const credentials = JSON.parse(await readFile('.wrangler/forms-local-admin.json', 'utf8'))
   const login = await page.request.post(`${baseURL}/api/users/login`, { data: credentials })

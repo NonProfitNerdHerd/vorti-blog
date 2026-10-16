@@ -1,5 +1,13 @@
 # Forms release
 
+## Forms Build sidebar layout
+
+The Build workspace aligns directly with the main tab divider. The desktop List View / Add Parts sidebar is 244px wide, and the inspector remains 320px. Both panels use the page's scrolling flow instead of sticky, independently scrolling regions. The left background stretches through the workspace height; long part lists or settings extend the page naturally.
+
+The workspace minimum height is measured from its document position to the viewport bottom and refreshed when headers, tabs, or viewport dimensions change. Scrolling does not increase that minimum. Other Forms tabs retain their existing spacing, and mobile drawers retain their bounded scrolling and focus behavior. No stored form data or database schema changes are involved.
+
+Sidebar verification (2026-10-16): 193 framework tests, focused lint, production TypeScript compilation, 22 editor registrations, and the Worker build passed. Five authenticated browser scenarios passed against the local production bundle, covering geometry and page scrolling, mobile focus/overflow, tab state, named canvas editing/publication, and drag/cancel/undo. Desktop and mobile dark-mode layouts were reviewed. Authenticated live editing remains unavailable; live checks cover responses and deployed assets.
+
 ## Named canvases and part navigation
 
 Build now opens a **List View** showing named canvases and their nested parts. **Add Parts** contains only the existing Forms palette, plus Canvas (the existing Step structure with an author-facing name). The header **+** opens a searchable part picker; the adjacent list button toggles the sidebar. Mobile uses a dismissible drawer.
