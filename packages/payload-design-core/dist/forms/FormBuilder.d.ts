@@ -3,6 +3,11 @@ import { type FormDefinition } from './model';
 import type { PaymentAvailability } from './PaymentSettings';
 import './builder.css';
 export interface FormBuilderProps {
+    navigation?: {
+        view: string;
+        onChange: (view: string) => void;
+    };
+    toolbarTarget?: HTMLElement | null;
     emailTarget?: HTMLElement | null;
     onEmailIssue?: () => void;
     transferTarget?: HTMLElement | null;
@@ -30,4 +35,4 @@ export interface FormBuilderProps {
     onPublish?: () => void;
     children?: React.ReactNode;
 }
-export declare function FormBuilder({ emailTarget, onEmailIssue, transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;
+export declare function FormBuilder({ navigation, toolbarTarget, emailTarget, onEmailIssue, transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;

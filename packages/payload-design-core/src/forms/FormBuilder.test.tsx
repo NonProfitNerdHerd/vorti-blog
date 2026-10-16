@@ -56,3 +56,26 @@ it('keeps email changes in the shared history without changing other actions', (
     expect(screen.getByDisplayValue('Existing webhook')).toBeTruthy()
   } finally { host.remove() }
 })
+it('shares controlled navigation and a header toolbar without mounting duplicate tabs', () => {
+  const host = document.createElement('div')
+  document.body.appendChild(host)
+  function Editor() {
+    const [value, setValue] = React.useState(emptyDefinition())
+    const [view, onChange] = React.useState('Build')
+    return <><button onClick={() => onChange('Design')}>Open Design</button><output>{view}</output><FormBuilder value={value} onChange={setValue} navigation={{ view, onChange }} toolbarTarget={host} /></>
+  }
+  try {
+    render(<Editor />)
+    expect(screen.queryByRole('tablist')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Add first group' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Design' }))
+    fireEvent.click(within(host).getByRole('button', { name: 'Try form' }))
+    expect(screen.getByText('Preview')).toBeTruthy()
+    fireEvent.click(within(host).getByRole('button', { name: 'Return to builder' }))
+    expect(screen.getByLabelText('Submit button label')).toBeTruthy()
+    fireEvent.click(within(host).getByRole('button', { name: 'Undo form change' }))
+    fireEvent.click(within(host).getByRole('button', { name: 'Redo form change' }))
+    fireEvent.click(within(host).getByRole('button', { name: 'Publish' }))
+    expect(screen.getByRole('heading', { name: 'Publish readiness' })).toBeTruthy()
+  } finally { host.remove() }
+})

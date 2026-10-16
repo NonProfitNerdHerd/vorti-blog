@@ -28,7 +28,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
     // Original hooks remain installed. Delivery is owned by the durable action queue.
     beforeEmail: () => [],
     formOverrides: {
-      admin: { components: { Description: '@design-system/payload-design-core/admin#EditorTitleSlot' }, group: 'Forms', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
+      admin: { components: { Description: '@design-system/payload-design-core/admin#EditorTitleSlot', edit: { beforeDocumentControls: ['@design-system/payload-design-core/admin#EditorPreviewSlot'] } }, group: 'Forms', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
       versions: { drafts: { autosave: { interval: 5000 } }, maxPerDoc: 50 },
       lockDocuments: { duration: 300 },
       access: { read: siteAccess('edit'), create: siteAccess('create'), update: siteAccess('edit'), delete: () => false },
@@ -54,11 +54,9 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
       ]
         const named = (name: string) => fields.find(field => 'name' in field && field.name === name)!
         return [{ type: 'group', admin: { components: { Field: './forms/FormEditorTabs#FormEditorTabs' } }, fields: [
-          { type: 'group', label: 'Primary', fields: [named('title'), named('definition'), {
-          type: 'collapsible', label: 'Form details and publishing settings', admin: { initCollapsed: true },
-          fields: fields.filter(field => !('name' in field) || !['title', 'definition'].includes(field.name)),
-          }] },
-          { type: 'group', label: 'Email', fields: [] },
+          { type: 'group', label: 'Build', fields: [named('title'), named('definition')] },
+          ...['Logic', 'Design', 'Actions', 'Access', 'Email'].map((label): Field => ({ type: 'group', label, fields: [] })),
+          { type: 'group', label: 'Details', fields: fields.filter(field => !('name' in field) || !['title', 'definition'].includes(field.name)) },
           { type: 'group', label: 'Analytics', fields: [{ name: 'formAnalytics', type: 'ui', admin: { components: { Field: './forms/FormReports#AnalyticsPanel' } } }] },
           { type: 'group', label: 'Results', fields: [{ name: 'formResults', type: 'ui', admin: { components: { Field: './forms/FormReports#ResultsPanel' } } }] },
           { type: 'group', label: 'Import / Export', fields: [] },
@@ -91,7 +89,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
             // Review is derived from the saved source, not a client-supplied marker.
             const source = prepareStoredForm({ ...legacy, definition: originalDoc?.definition })
             const submitted = data.definition || source.definition
-            if (source.issues.some(issue => !Array.isArray(submitted.legacyReview) || !submitted.legacyReview.includes(issue.message))) throw new ValidationError({ errors: [{ path: 'definition', message: 'Review and acknowledge the listed legacy settings in Primary and Email before saving the converted form.' }] })
+            if (source.issues.some(issue => !Array.isArray(submitted.legacyReview) || !submitted.legacyReview.includes(issue.message))) throw new ValidationError({ errors: [{ path: 'definition', message: 'Review and acknowledge the listed legacy settings in Build and Email before saving the converted form.' }] })
             data.definition = { ...submitted, ...(legacy.emails?.length ? { legacyEmailsImported: true } : {}) }
           }
           if (data.definition && typeof data.definition === 'object' && originalDoc?.definition?.legacyEmailsImported === true) data.definition = { ...data.definition, legacyEmailsImported: true }

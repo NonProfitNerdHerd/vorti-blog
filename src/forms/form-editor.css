@@ -36,3 +36,20 @@
 @media (max-width: 600px) { .form-editor .forms-analytics { padding: 16px; } .form-editor .forms-analytics .forms-builder-actions label { width: 100%; } }
 
 .forms-legacy-review{padding:16px;margin-block:12px;border:1px solid var(--theme-elevation-300);background:var(--theme-elevation-50);border-radius:4px}.forms-legacy-review pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}
+
+/* Keep the shared toolbar before Payload's native actions; wrap within the available width. */
+.forms-header-toolbar.forms-builder { margin: 0; max-width: 100%; min-width: 0; }
+.forms-header-toolbar .forms-builder-header { display: grid; grid-template-columns: minmax(0, 1fr); position: static; padding: 0; border: 0; background: transparent; gap: 4px; }
+.forms-header-toolbar .forms-builder-actions { margin: 0; gap: 6px; }
+.forms-header-toolbar button { min-height: 34px; padding: 6px 10px; }
+.forms-header-toolbar .forms-builder-save-status { font-size: 11px; }
+.doc-controls:has(.forms-header-toolbar) .doc-controls__wrapper,
+.doc-controls:has(.forms-header-toolbar) .doc-controls__controls-wrapper { height: auto; min-height: var(--doc-controls-height); }
+.doc-controls:has(.forms-header-toolbar) .doc-controls__controls-wrapper { align-items: flex-start; padding-block: 8px; flex-wrap: nowrap; flex-shrink: 0; width: max-content; max-width: 100%; }
+.doc-controls:has(.forms-header-toolbar) .doc-controls__controls { align-items: flex-start; padding-block: 0; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.doc-controls:has(.forms-header-toolbar) .editor-header__slot--preview { min-width: 0; max-width: 100%; }
+@media(max-width:700px) {
+  .forms-header-toolbar .forms-builder-actions { width: auto; justify-content: flex-start; }
+  .doc-controls:has(.forms-header-toolbar) { top: 0; }
+  .doc-controls:has(.forms-header-toolbar) .doc-controls__controls-wrapper { width: 100%; flex-shrink: 1; }
+}
