@@ -112,7 +112,7 @@ register('repeater', 'Repeatable group', 'Advanced', 'A bounded list of structur
             return ['Enter a list of grouped answers.'];
         return v.length > (f.max ?? 50) || v.length < (f.min ?? 0) ? ['Number of repeated entries is outside the allowed range.'] : [];
     } });
-for (const [kind, label] of [['heading', 'Heading'], ['content', 'Explanatory text'], ['divider', 'Divider'], ['section', 'Section'], ['row', 'Columns'], ['step', 'Step'], ['review', 'Submission review']])
+for (const [kind, label] of [['heading', 'Heading'], ['content', 'Explanatory text'], ['divider', 'Divider'], ['section', 'Section'], ['row', 'Columns'], ['step', 'Canvas'], ['review', 'Submission review']])
     register(kind, label, 'Layout', 'Organize or explain the form without collecting an answer.', { structural: true, validate: () => [] });
 export function validDate(value) {
     if (!/^\d{4}-\d\d-\d\d$/.test(value))

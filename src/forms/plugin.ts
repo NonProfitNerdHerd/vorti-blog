@@ -81,7 +81,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
           // The pre-existing Forms table requires a title even for that scaffold.
           if (operation === 'create' && !data.title && req.context.formsSavingDraft === true) data.title = 'Untitled form'
           if (operation === 'create' && data.definition === undefined && !data.fields?.length && !data.emails?.length) {
-            data.definition = { ...emptyDefinition(), fields: [{ id: makeID(), kind: 'section', label: 'Group 1', width: 12, children: [] }] }
+            data.definition = { ...emptyDefinition(), fields: [{ id: makeID(), kind: 'step', label: 'Canvas 1', width: 12, children: [] }] }
           }
           const legacy = { ...originalDoc, ...data }
           const pendingLegacy = !originalDoc?.definition || (legacy.emails?.length && !originalDoc.definition.legacyEmailsImported)

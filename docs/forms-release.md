@@ -1,5 +1,21 @@
 # Forms release
 
+## Named canvases and part navigation
+
+Build now opens a **List View** showing named canvases and their nested parts. **Add Parts** contains only the existing Forms palette, plus Canvas (the existing Step structure with an author-facing name). The header **+** opens a searchable part picker; the adjacent list button toggles the sidebar. Mobile uses a dismissible drawer.
+
+New forms start with **Canvas 1**. Select a canvas to rename it and edit its contents. Palette clicks insert inside a selected container or after a selected ordinary part. List View selection reveals the owning canvas; only that canvas is shown in the editing area. Canvas switching does not change stored data or create an undo entry.
+
+Use row actions to rename, duplicate, reorder, move a part to another canvas, or delete. Dragging also supports cross-canvas movement and cancellation. Canvases stay at the top level. Duplicates receive fresh IDs using the existing reference-aware duplication helper. Deletion requires confirmation and is blocked when retained rules, actions, calculations, or other settings still reference the removed parts. Undo/redo includes these structural changes.
+
+Older flat forms appear under a virtual Canvas 1 without changing their stored structure. **Add Canvas** offers an explicit, undoable organization step: wrap existing parts in Canvas 1 and create Canvas 2. Existing field IDs and settings remain intact. Empty existing forms offer **Add first Canvas**. Mixed or nested legacy Steps show a repair explanation instead of automatic conversion. Imported structures are preserved.
+
+Canvas is stored as `kind: 'step'` in the existing definition JSON. Public display mode remains unchanged: standard forms retain their normal rendering, and existing multi-step behavior remains available. This release builds the authoring structure; it does not introduce conditional A-to-B/C pathway execution. No database migration or content deletion is needed.
+
+Framework consumers may supply `navigationTarget` for the header insertion/list controls. Standalone consumers retain inline controls. Email, transfer, device settings, selected parts, and history remain owned by the same mounted builder.
+
+Canvas verification (2026-10-16): 193 framework tests, 61 Forms integration tests, lint (zero errors; existing warnings), TypeScript compilation, the 22-component registration guard, and the production Worker build passed. Eleven authenticated scenarios passed against the local production bundle with isolated storage: tabs/results, creation/publication/submission, empty-form opt-in, transfer/history, nested duplication/dragging, title/Email, legacy safeguards, Details/preview, named canvases, reference-safe deletion, and cross-canvas drag/cancel/undo. Desktop and mobile dark-mode screenshots were reviewed. Authenticated live editing was unavailable; deployment checks cover live responses and anonymous access denial.
+
 This release follows [the narrowed Forms scope](forms-release-scope.md). It does not add public account registration, user roles, a site-wide permission system, or reusable theme/template libraries.
 
 ## Using the builder

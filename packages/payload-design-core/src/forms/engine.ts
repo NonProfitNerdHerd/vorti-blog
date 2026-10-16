@@ -109,7 +109,7 @@ export function validateDefinition(definition: FormDefinition): FormIssue[] {
     for (const effect of rule.effects) {
       if ('target' in effect && effect.kind !== 'action' && !ids.has(effect.target)) add('Rule target no longer exists.', effect.target, rule.id)
       if (effect.kind === 'action' && !definition.actions.some(a => a.id === effect.target)) add('Action target no longer exists.', undefined, rule.id)
-      if (effect.kind === 'route' && fields.find(f => f.id === effect.target)?.kind !== 'step') add('Routing must target a step.', effect.target, rule.id)
+      if (effect.kind === 'route' && fields.find(f => f.id === effect.target)?.kind !== 'step') add('Routing must target a canvas.', effect.target, rule.id)
     }
   }
   const actionIDs = new Set<string>()

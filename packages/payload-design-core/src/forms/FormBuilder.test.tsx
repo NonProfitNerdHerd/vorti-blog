@@ -13,7 +13,8 @@ it('keeps read-only construction and import disabled while allowing tab navigati
   document.body.appendChild(host)
   try {
     render(<FormBuilder value={emptyDefinition()} onChange={() => { throw new Error('Unexpected edit') }} readOnly transferTarget={host} emailTarget={host} />)
-    expect((screen.getByRole('button', { name: 'Add first group' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: 'Add first Canvas' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('tab', { name: 'Add Parts' }))
     expect((screen.getByRole('button', { name: 'Single-line text' }) as HTMLButtonElement).disabled).toBe(true)
     expect(within(host).getByLabelText('Add email notification').closest('fieldset')?.disabled).toBe(true)
     expect((within(host).getByLabelText('Import JSON file') as HTMLInputElement).disabled).toBe(true)
@@ -66,8 +67,8 @@ it('shares controlled navigation and a header toolbar without mounting duplicate
   }
   try {
     render(<Editor />)
-    expect(screen.queryByRole('tablist')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Add first group' }))
+    expect(screen.queryByRole('tablist', { name: 'Form settings' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Add first Canvas' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open Design' }))
     fireEvent.click(within(host).getByRole('button', { name: 'Try form' }))
     expect(screen.getByText('Preview')).toBeTruthy()

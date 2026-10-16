@@ -15,6 +15,7 @@ import { useCollectionEditorAccess } from '../content-framework/usePostTypeAcces
 
 export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   const navigation = useContext(FormWorkspaceNavigation)
+  const [navigationTarget, setNavigationTarget] = useState<HTMLDivElement | null>(null)
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null)
   const emailHost = useContext(FormEmailHost)
   const transferTarget = useContext(FormTransferHost)
@@ -49,12 +50,13 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   }, [])
   const review = (area: 'fields' | 'email') => needsReview && legacy.issues.some(issue => issue.area === area) ? <section className="forms-legacy-review" aria-label={area === 'email' ? 'Legacy email review' : 'Legacy field review'}><h3>Review older {area === 'email' ? 'email settings' : 'form settings'}</h3><p>The original settings remain stored. These differences need review before conversion can be saved.</p><ul>{legacy.issues.filter(issue => issue.area === area).map(issue => <li key={issue.message}>{issue.message}</li>)}</ul>{area === 'fields' && emailHost && legacy.issues.some(issue => issue.area === 'email') && <button type="button" onClick={emailHost.open}>Review Email settings</button>}</section> : null
   return <>
+    <EditorHeaderPortal slot="navigation"><div ref={setNavigationTarget} /></EditorHeaderPortal>
     <EditorHeaderPortal slot="preview"><div ref={setToolbarTarget} className="forms-builder forms-header-toolbar" /></EditorHeaderPortal>
     {showError && <p role="alert">{String(errorMessage)}</p>}
     {review('fields')}
     {needsReview && <div className="forms-legacy-review"><label><input type="checkbox" disabled={!permitted} checked={reviewed} onChange={event => setValue({ ...working, legacyReview: event.target.checked ? legacy.issues.map(issue => issue.message) : [] } as ReviewedDefinition)} />I have reviewed the conversion differences in Build and Email. Keep the original settings for reference.</label><details><summary>Original settings (read only)</summary><pre>{JSON.stringify({ fields: data?.fields, emails: data?.emails, confirmationMessage: data?.confirmationMessage, redirect: data?.redirect }, null, 2)}</pre></details></div>}
     {emailHost?.target && createPortal(<>{showError && <p role="alert">{String(errorMessage)}</p>}{review('email')}{needsReview && <p>Return to Build to acknowledge the conversion differences before saving.</p>}</>, emailHost.target)}
-    <FormBuilder navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
+    <FormBuilder navigationTarget={navigationTarget} navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
       saveStatus={hasPublishedDoc ? 'Draft changes do not alter your published form.' : 'Not yet published'}
       onSave={() => void submit({ action: draftAction, method: id ? 'PATCH' : 'POST', overrides: { _status: 'draft' }, skipValidation: true })}
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>
