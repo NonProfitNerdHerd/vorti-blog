@@ -1,6 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { ContactInput } from './ContactInput.js';
+import { GraphRenderer } from './GraphRenderer.js';
 import { RankingInput } from './RankingInput.js';
 import { widthFraction, widthStyle } from './contact.js';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -137,7 +138,10 @@ registerFieldRenderer('likert', MatrixInput);
 registerFieldRenderer('ranking', RankingInput);
 registerFieldRenderer('upload', UploadInput);
 registerFieldRenderer('signature', SignatureInput);
-export function FormRenderer({ definition, initialAnswers = {}, preview, disabled, onChange, onSubmit, onSave, onUpload, onEvent, onAnalyticsConsent, showLogic, booking }) {
+export function FormRenderer(props) {
+    return props.definition.graph?.enabled ? _jsx(GraphRenderer, { ...props }) : _jsx(StandardFormRenderer, { ...props });
+}
+function StandardFormRenderer({ definition, initialAnswers = {}, preview, disabled, onChange, onSubmit, onSave, onUpload, onEvent, onAnalyticsConsent, showLogic, booking, hideActions, renderFieldIDs }) {
     const [raw, setRaw] = useState(initialAnswers), [step, setStep] = useState(0);
     const [errors, setErrors] = useState([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false);
     const [consent, setConsent] = useState(false), [review, setReview] = useState(false);
@@ -165,7 +169,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
         if (!started)
             setStarted(true);
     };
-    const active = definition.fields.filter(f => evaluation.states[f.id]?.visible && f.kind !== 'hidden');
+    const active = definition.fields.filter(f => evaluation.states[f.id]?.visible && f.kind !== 'hidden' && (!renderFieldIDs || renderFieldIDs.includes(f.id)));
     const groups = definition.mode === 'conversational' ? active.map(f => ({ id: f.id, label: f.label, fields: [f] })) :
         active.some(f => f.kind === 'step') ? active.map(f => ({ id: f.id, label: f.label, fields: f.kind === 'step' ? f.children || [] : [f] })) : [{ id: 'form', label: 'Your answers', fields: active }];
     const current = Math.min(step, Math.max(0, groups.length - 1)), group = groups[current];
@@ -269,7 +273,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
     };
     const theme = definition.theme;
     return _jsxs("div", { ref: root, className: `forms-runtime forms-size-${theme.size}`, lang: definition.locale, dir: definition.direction, style: { '--forms-primary': theme.primary, '--forms-background': theme.background, '--forms-text': theme.text, '--forms-border': theme.border, '--forms-error': theme.error, '--forms-radius': `${theme.radius}px`, '--forms-spacing': `${theme.spacing}px`, fontFamily: theme.font }, children: [errors.length > 0 && _jsxs("div", { ref: summary, tabIndex: -1, role: "alert", className: "forms-error-summary", children: [_jsx("h3", { children: "Please check your answers" }), errors.map((error, i) => _jsx("p", { children: _jsx("button", { type: "button", onClick: () => { const index = groups.findIndex(g => flattenFields(g.fields).some(f => f.id === error.field)); if (index >= 0)
-                                navigate(index); requestAnimationFrame(() => document.getElementById(`${uid}-${error.path}`)?.focus()); }, children: error.message }) }, i))] }), definition.access.analytics && definition.access.analyticsConsent && !preview && _jsxs("label", { className: "forms-check", children: [_jsx("input", { type: "checkbox", checked: consent, onChange: e => setConsent(e.target.checked) }), "Allow anonymous form usage measurements. Answers are not included."] }), definition.mode !== 'standard' && _jsxs(_Fragment, { children: [_jsx("p", { "aria-live": "polite", children: review ? 'Review your answers' : `Step ${current + 1} of ${groups.length}` }), _jsx("progress", { max: groups.length, value: review ? groups.length : current + 1, "aria-label": "Form progress" }), _jsx("h2", { className: "forms-step-heading", tabIndex: -1, children: review ? 'Review' : group?.label })] }), review ? reviewAnswers : _jsx("div", { className: "forms-grid", children: (definition.mode === 'standard' ? active : group?.fields || []).map(f => render(f)) }), _jsxs("div", { className: "forms-actions", children: [definition.mode !== 'standard' && (current > 0 || review) && _jsx("button", { type: "button", disabled: busy, onClick: () => review ? setReview(false) : navigate(current - 1), children: "Back" }), definition.access.saveProgress && onSave && _jsx("button", { type: "button", disabled: busy || disabled, onClick: async () => { setBusy(true); try {
+                                navigate(index); requestAnimationFrame(() => document.getElementById(`${uid}-${error.path}`)?.focus()); }, children: error.message }) }, i))] }), definition.access.analytics && definition.access.analyticsConsent && !preview && _jsxs("label", { className: "forms-check", children: [_jsx("input", { type: "checkbox", checked: consent, onChange: e => setConsent(e.target.checked) }), "Allow anonymous form usage measurements. Answers are not included."] }), definition.mode !== 'standard' && _jsxs(_Fragment, { children: [_jsx("p", { "aria-live": "polite", children: review ? 'Review your answers' : `Step ${current + 1} of ${groups.length}` }), _jsx("progress", { max: groups.length, value: review ? groups.length : current + 1, "aria-label": "Form progress" }), _jsx("h2", { className: "forms-step-heading", tabIndex: -1, children: review ? 'Review' : group?.label })] }), review ? reviewAnswers : _jsx("div", { className: "forms-grid", children: (definition.mode === 'standard' ? active : group?.fields || []).map(f => render(f)) }), _jsxs("div", { className: "forms-actions", hidden: hideActions, children: [definition.mode !== 'standard' && (current > 0 || review) && _jsx("button", { type: "button", disabled: busy, onClick: () => review ? setReview(false) : navigate(current - 1), children: "Back" }), definition.access.saveProgress && onSave && _jsx("button", { type: "button", disabled: busy || disabled, onClick: async () => { setBusy(true); try {
                             setMessage((await onSave(raw)).message);
                         }
                         catch (error) {

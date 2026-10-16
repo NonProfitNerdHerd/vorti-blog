@@ -74,6 +74,11 @@ export interface DateRestrictions {
     resource?: string;
 }
 export interface FormField {
+    buttons?: {
+        id: string;
+        label: string;
+        event: 'next' | 'back' | 'submit' | 'custom';
+    }[];
     blockLabel?: string;
     widthFraction?: number;
     contact?: {
@@ -160,6 +165,7 @@ export interface FormTheme {
     buttonLabel: string;
 }
 export interface FormDefinition {
+    graph?: import('./graph').FormGraph;
     workflow?: import('./workflow').EntryWorkflow;
     version: 1;
     mode: 'standard' | 'steps' | 'conversational';

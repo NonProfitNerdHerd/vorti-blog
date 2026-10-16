@@ -1,3 +1,4 @@
+import { runGraph, graphScope, graphAnswers, type GraphEvent } from '@design-system/payload-design-core/forms'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { validateAnswers, validateTemporal, publicDefinition, flattenFields, answerFields, attachmentReferences, type Answers, type FormDefinition } from '@design-system/payload-design-core/forms'
 import { FORM_INTERNAL, FORM_SITE } from './access'
@@ -263,7 +264,13 @@ export function formRuntimeEndpoints(platform: FormPlatform): Endpoint[] {
       if (!body.answers || typeof body.answers !== 'object' || Array.isArray(body.answers)) throw new FormHTTPError('Answers must be an object.')
       if (definition.access.turnstile) throw new FormHTTPError('Bot verification is not configured for this environment.', 503)
       if (!/^[a-zA-Z0-9_-]{16,100}$/.test(String(body.idempotencyKey || ''))) throw new FormHTTPError('A valid submission retry key is required.')
-      const evaluation = validateAnswers(definition, body.answers as Answers)
+      let activeDefinition = definition, activeAnswers = body.answers as Answers
+      if (definition.graph?.enabled) {
+        const run = runGraph(definition, activeAnswers, body.navigation as GraphEvent[])
+        if (run.error || run.node?.kind !== 'submit') throw new FormHTTPError(run.error || 'Follow the form flow to Submit.')
+        activeDefinition = graphScope(definition, run); activeAnswers = graphAnswers(definition, activeDefinition, run.answers)
+      }
+      const evaluation = validateAnswers(activeDefinition, activeAnswers)
       if (evaluation.issues.length) {
         if (definition.access.analytics && (!definition.access.analyticsConsent || body.analyticsConsent === true)) {
           const knownFields = new Set(flattenFields(definition.fields).map(field => field.id))

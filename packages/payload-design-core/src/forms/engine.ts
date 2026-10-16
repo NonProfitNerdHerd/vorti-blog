@@ -1,4 +1,5 @@
 import { contactComponents, normalizeContact } from './contact'
+import { graphIssues } from './graph'
 import { calculate, expressionReferences } from './expression'
 import { zonedParts } from './dates'
 import { definitionShapeIssues } from './shape'
@@ -45,7 +46,7 @@ function dependencyOrder(definition: FormDefinition): string[] {
 export function validateDefinition(definition: FormDefinition): FormIssue[] {
   const malformed = definitionShapeIssues(definition)
   if (malformed.length) return malformed
-  const issues: FormIssue[] = []
+  const issues: FormIssue[] = definition.graph?.enabled ? graphIssues(definition).map(issue => ({ path: 'graph', rule: issue.node || 'graph', message: issue.message })) : []
   const add = (message: string, field?: string, rule?: string, action?: string) => issues.push({ path: 'definition', message, field, rule, ...(action ? { action } : {}) })
   for (const key of ['origins', 'embedOrigins'] as const) {
     if (definition.access[key].length > 20 || definition.access[key].some(origin => !embedOrigin(origin))) add(`${key === 'embedOrigins' ? 'Iframe hosts' : 'Submission origins'} must contain up to 20 exact HTTPS origins, without paths, credentials, or wildcards. HTTP is allowed only for localhost development.`)

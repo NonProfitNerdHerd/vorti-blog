@@ -1,4 +1,5 @@
 import { contactComponents, normalizeContact } from './contact.js';
+import { graphIssues } from './graph.js';
 import { calculate, expressionReferences } from './expression.js';
 import { zonedParts } from './dates.js';
 import { definitionShapeIssues } from './shape.js';
@@ -48,7 +49,7 @@ export function validateDefinition(definition) {
     const malformed = definitionShapeIssues(definition);
     if (malformed.length)
         return malformed;
-    const issues = [];
+    const issues = definition.graph?.enabled ? graphIssues(definition).map(issue => ({ path: 'graph', rule: issue.node || 'graph', message: issue.message })) : [];
     const add = (message, field, rule, action) => issues.push({ path: 'definition', message, field, rule, ...(action ? { action } : {}) });
     for (const key of ['origins', 'embedOrigins']) {
         if (definition.access[key].length > 20 || definition.access[key].some(origin => !embedOrigin(origin)))

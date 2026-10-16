@@ -1,4 +1,6 @@
 export * from './model.js';
+export * from './graph.js';
+export * from './graph-example.js';
 export * from './registry.js';
 export * from './conditions.js';
 export * from './expression.js';

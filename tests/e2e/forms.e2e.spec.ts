@@ -4,7 +4,100 @@ import { randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
 import jsQR from 'jsqr'
 import { unzipSync, strFromU8 } from 'fflate'
-import { emptyDefinition } from '@design-system/payload-design-core/forms'
+import { emptyDefinition, supportExample } from '@design-system/payload-design-core/forms'
+
+test('visual logic editor preserves connections, configures blocks and runs the support preview', async ({ page }) => {
+  test.setTimeout(180000)
+  const slug = `logic-editor-${Date.now()}`
+  const created = await page.request.post('/api/forms?draft=true', { data: { title: 'Logic editor example', slug, definition: supportExample() } })
+  expect(created.ok()).toBe(true)
+  const { doc } = await created.json()
+  await page.goto(`/admin/collections/forms/${doc.id}`)
+  await expect(page.getByRole('button', { name: 'Undo form change' })).toBeVisible()
+  await expect(async () => { await page.getByRole('tab', { name: 'Logic', exact: true }).click(); await expect(page.locator('[data-form-view]')).toHaveAttribute('data-form-view', 'Logic', { timeout: 1000 }) }).toPass()
+  await expect(page.getByRole('region', { name: 'Visual logic designer' })).toBeVisible()
+  await expect(page.locator('.react-flow__node')).toHaveCount(17)
+  await page.locator('[data-id="canvas_name"]').getByRole('button', { name: 'Edit canvas' }).click()
+  await expect(page.getByRole('main', { name: 'Form canvas' })).toHaveAttribute('data-canvas-label', 'Name')
+  await page.getByRole('tab', { name: 'Logic', exact: true }).click()
+  await page.getByRole('complementary', { name: 'Logic blocks' }).getByRole('button', { name: 'Show Message', exact: true }).click()
+  await page.getByLabel('Block name', { exact: true }).fill('Temporary message')
+  await page.getByLabel('Message', { exact: true }).fill('Hello from logic')
+  await page.getByRole('combobox', { name: 'Connect Continue', exact: true }).selectOption('canvas_name')
+  await expect(page.getByRole('button', { name: 'Delete connection', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Delete block', exact: true }).click()
+  await expect(page.locator('.react-flow__node')).toHaveCount(17)
+  await page.getByRole('button', { name: 'Run Preview', exact: true }).click()
+  const preview = page.getByRole('region', { name: 'Connected form' })
+  await preview.getByLabel('First name', { exact: true }).fill('Ada')
+  await preview.getByLabel('Last name', { exact: true }).fill('Lovelace')
+  await preview.getByRole('button', { name: 'Next', exact: true }).click()
+  await preview.getByLabel('Email address').fill('ada@example.com')
+  await preview.getByRole('button', { name: 'Next', exact: true }).click()
+  await preview.getByLabel('What do you need help with?').selectOption('teams')
+  await preview.getByRole('button', { name: 'Next', exact: true }).click()
+  await preview.getByLabel('Describe your Teams issue').fill('Cannot join a call')
+  await preview.getByRole('radio', { name: 'Yes', exact: true }).check()
+  await preview.getByRole('button', { name: 'Next', exact: true }).click()
+  await preview.getByRole('button', { name: 'Submit', exact: true }).click()
+  await expect(preview.getByRole('heading', { name: 'Confirmation', exact: true })).toBeVisible()
+  await expect(page.getByText(/Simulated email:/)).toBeVisible()
+  await preview.getByRole('button', { name: 'Finish', exact: true }).click()
+  await expect(preview).toContainText('Your support request is complete')
+  await page.getByRole('button', { name: 'Reset Preview', exact: true }).click()
+  await expect(preview.getByRole('heading', { name: 'Name', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Close preview', exact: true }).click()
+  await page.screenshot({ path: '.wrangler/forms-graph-desktop.png', fullPage: true })
+  const save = page.waitForResponse(r => r.url().includes(`/api/forms/${doc.id}`) && r.request().method() === 'PATCH')
+  await page.getByRole('button', { name: 'Publish changes', exact: true }).click(); expect((await save).ok()).toBe(true)
+  await page.reload(); await expect(page.getByRole('button', { name: 'Undo form change' })).toBeVisible(); await expect(async () => { await page.getByRole('tab', { name: 'Logic', exact: true }).click(); await expect(page.locator('[data-form-view]')).toHaveAttribute('data-form-view', 'Logic', { timeout: 1000 }) }).toPass()
+  await expect(page.locator('.react-flow__node')).toHaveCount(17)
+  const stored = await (await page.request.get(`/api/forms/${doc.id}?draft=true`)).json()
+  expect(stored.definition.graph.edges).toEqual(supportExample().graph!.edges)
+  await page.getByRole('button', { name: 'Create separate example form', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Open example form', exact: true })).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: '.wrangler/forms-graph-mobile.png', fullPage: true })
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('published graph routes branches, goes Back, submits once and rejects forged history', async ({ page, baseURL }) => {
+  test.setTimeout(180000)
+  const slug = `logic-public-${Date.now()}`, definition = supportExample()
+  const created = await page.request.post('/api/forms', { data: { title: 'Published logic example', slug, definition, _status: 'published' } })
+  expect(created.ok()).toBe(true)
+  for (const type of ['sharepoint', 'teams', 'email', 'vortiquest']) {
+    await page.goto(`/forms/${slug}`)
+    const form = page.getByRole('region', { name: 'Connected form' })
+    await form.getByLabel('First name', { exact: true }).fill('Ada'); await form.getByLabel('Last name', { exact: true }).fill('Lovelace')
+    await form.getByRole('button', { name: 'Next', exact: true }).click()
+    await form.getByLabel('Email address').fill('ada@example.com')
+    await form.getByRole('button', { name: 'Next', exact: true }).click()
+    await form.getByLabel('What do you need help with?').selectOption(type)
+    await form.getByRole('button', { name: 'Next', exact: true }).click()
+    if (type === 'email') {
+      await form.getByRole('button', { name: 'Back', exact: true }).click()
+      await form.getByLabel('What do you need help with?').selectOption('teams')
+      await form.getByRole('button', { name: 'Next', exact: true }).click()
+      await form.getByLabel('Describe your Teams issue').fill('Old branch')
+      await form.getByRole('button', { name: 'Back', exact: true }).click()
+      await form.getByLabel('What do you need help with?').selectOption('email')
+      await form.getByRole('button', { name: 'Next', exact: true }).click()
+    }
+    await form.getByLabel(/Describe your .* issue/).fill('Please help')
+    if (type === 'teams') await form.getByRole('radio', { name: 'No', exact: true }).check()
+    await form.getByRole('button', { name: 'Next', exact: true }).click()
+    const response = page.waitForResponse(r => r.url().endsWith(`/forms-runtime/${slug}/submit`))
+    await form.getByRole('button', { name: 'Submit', exact: true }).click()
+    const accepted = await response; expect(accepted.ok(), await accepted.text()).toBe(true)
+    await expect(form.getByRole('heading', { name: 'Confirmation', exact: true })).toBeVisible()
+    await form.getByRole('button', { name: 'Finish', exact: true }).click()
+    await expect(form).toContainText('Your support request is complete')
+  }
+  const runtime = await (await page.request.get(`/api/forms-runtime/${slug}`)).json()
+  const invalid = await page.request.post(`/api/forms-runtime/${slug}/submit`, { headers: { Origin: baseURL!, 'X-Form-Session': runtime.session }, data: { revision: runtime.revision, idempotencyKey: randomBytes(16).toString('hex'), answers: {}, navigation: [{ node: 'canvas_review', output: 'next' }] } })
+  expect(invalid.status()).toBe(400)
+})
 
 async function addPart(page: Page, name: string) {
   await page.getByRole('button', { name: 'Add parts', exact: true }).click()
@@ -81,14 +174,17 @@ test('contact parts show real inputs, separate names, resize components and shar
   expect(saved.definition.fields.length).toBeGreaterThan(0)
   await page.reload()
   await expect(canvas.getByLabel('Area code', { exact: true })).toBeVisible()
+  // Confirm hydration before resizing; the server-rendered canvas is visible first.
+  await expect(async () => { await page.getByRole('tab', { name: 'Details', exact: true }).click(); await expect(page.locator('[data-form-view]')).toHaveAttribute('data-form-view', 'Details', { timeout: 1000 }) }).toPass()
+  await page.getByRole('tab', { name: 'Build', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Add parts', exact: true }).click()
   await expect(picker).toBeVisible()
   expect((await picker.boundingBox())!.width).toBeLessThanOrEqual(366)
   await page.keyboard.press('Escape')
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: '.wrangler/forms-contact-mobile.png', fullPage: true })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('published contact formats validate through the API and ranking supports keyboard cancellation', async ({ page, baseURL, playwright }) => {
@@ -1192,7 +1288,7 @@ test('one canvas, inline title and Email tab share edits without duplicate legac
   await page.setViewportSize({ width: 390, height: 844 })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
   await page.screenshot({ path: '.wrangler/forms-unified-email-mobile.png', fullPage: true })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('legacy conversion reports unsupported settings and retains original records on save', async ({ page }) => {
@@ -1275,7 +1371,7 @@ test('consolidated tabs keep Details, preview and history connected to the nativ
   await page.setViewportSize({ width: 390, height: 844 })
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
   await expect(toolbar.getByRole('button', { name: 'Try form', exact: true })).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.screenshot({ path: '.wrangler/forms-tabs-details-mobile.png', fullPage: true })
 })
 
@@ -1347,7 +1443,7 @@ test('named canvases support list selection, parts, movement, duplication, histo
   await expect(page.getByRole('dialog', { name: 'Add Parts', exact: true })).toBeVisible()
   await page.screenshot({ path: '.wrangler/forms-canvases-mobile.png', fullPage: true })
   await page.keyboard.press('Escape')
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('canvas organization is explicit and deletion identifies retained references', async ({ page }) => {

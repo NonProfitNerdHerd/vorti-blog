@@ -1,5 +1,7 @@
 'use client'
 import { ContactInput } from './ContactInput'
+import { GraphRenderer } from './GraphRenderer'
+import type { GraphEvent, GraphRun } from './graph'
 import { RankingInput } from './RankingInput'
 import { widthFraction, widthStyle } from './contact'
 
@@ -17,12 +19,15 @@ const measurementTime = () => Date.now()
 
 export interface UploadResult { id: string; name: string; status: 'unscanned' | 'pending' | 'clean' | 'rejected' | 'error' }
 export interface FormRendererProps {
+  hideActions?: boolean
+  renderFieldIDs?: string[]
+  onGraphRun?: (run: GraphRun) => void
   definition: FormDefinition
   initialAnswers?: Answers
   preview?: boolean
   disabled?: boolean
   onChange?: (answers: Answers) => void
-  onSubmit?: (answers: Answers) => Promise<{ message?: string; errors?: FormIssue[]; redirect?: string; analyticsRecorded?: boolean }>
+  onSubmit?: (answers: Answers, navigation?: GraphEvent[]) => Promise<{ message?: string; errors?: FormIssue[]; redirect?: string; analyticsRecorded?: boolean }>
   onSave?: (answers: Answers) => Promise<{ message: string }>
   onUpload?: (file: File, field: FormField, progress: (percent: number) => void) => Promise<UploadResult>
   onEvent?: (type: 'view' | 'start' | 'step' | 'step-exit' | 'error' | 'accepted', metadata: { step?: string; fields?: string[]; durationMs?: number; consent?: boolean }) => void
@@ -126,7 +131,10 @@ for (const kind of ['rating', 'nps']) registerFieldRenderer(kind, ScaleInput)
 registerFieldRenderer('likert', MatrixInput); registerFieldRenderer('ranking', RankingInput)
 registerFieldRenderer('upload', UploadInput); registerFieldRenderer('signature', SignatureInput)
 
-export function FormRenderer({ definition, initialAnswers = {}, preview, disabled, onChange, onSubmit, onSave, onUpload, onEvent, onAnalyticsConsent, showLogic, booking }: FormRendererProps) {
+export function FormRenderer(props: FormRendererProps) {
+  return props.definition.graph?.enabled ? <GraphRenderer {...props} /> : <StandardFormRenderer {...props} />
+}
+function StandardFormRenderer({ definition, initialAnswers = {}, preview, disabled, onChange, onSubmit, onSave, onUpload, onEvent, onAnalyticsConsent, showLogic, booking, hideActions, renderFieldIDs }: FormRendererProps) {
   const [raw, setRaw] = useState<Answers>(initialAnswers), [step, setStep] = useState(0)
   const [errors, setErrors] = useState<FormIssue[]>([]), [message, setMessage] = useState(''), [busy, setBusy] = useState(false)
   const [consent, setConsent] = useState(false), [review, setReview] = useState(false)
@@ -146,7 +154,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
     setErrors(old => old.filter(error => error.field !== id))
     if (!started) setStarted(true)
   }
-  const active = definition.fields.filter(f => evaluation.states[f.id]?.visible && f.kind !== 'hidden')
+  const active = definition.fields.filter(f => evaluation.states[f.id]?.visible && f.kind !== 'hidden' && (!renderFieldIDs || renderFieldIDs.includes(f.id)))
   const groups = definition.mode === 'conversational' ? active.map(f => ({ id: f.id, label: f.label, fields: [f] })) :
     active.some(f => f.kind === 'step') ? active.map(f => ({ id: f.id, label: f.label, fields: f.kind === 'step' ? f.children || [] : [f] })) : [{ id: 'form', label: 'Your answers', fields: active }]
   const current = Math.min(step, Math.max(0, groups.length - 1)), group = groups[current]
@@ -211,7 +219,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
     {definition.access.analytics && definition.access.analyticsConsent && !preview && <label className="forms-check"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />Allow anonymous form usage measurements. Answers are not included.</label>}
     {definition.mode !== 'standard' && <><p aria-live="polite">{review ? 'Review your answers' : `Step ${current + 1} of ${groups.length}`}</p><progress max={groups.length} value={review ? groups.length : current + 1} aria-label="Form progress" /><h2 className="forms-step-heading" tabIndex={-1}>{review ? 'Review' : group?.label}</h2></>}
     {review ? reviewAnswers : <div className="forms-grid">{(definition.mode === 'standard' ? active : group?.fields || []).map(f => render(f))}</div>}
-    <div className="forms-actions">{definition.mode !== 'standard' && (current > 0 || review) && <button type="button" disabled={busy} onClick={() => review ? setReview(false) : navigate(current - 1)}>Back</button>}
+    <div className="forms-actions" hidden={hideActions}>{definition.mode !== 'standard' && (current > 0 || review) && <button type="button" disabled={busy} onClick={() => review ? setReview(false) : navigate(current - 1)}>Back</button>}
       {definition.access.saveProgress && onSave && <button type="button" disabled={busy || disabled} onClick={async () => { setBusy(true); try { setMessage((await onSave(raw)).message) } catch (error) { setMessage((error as Error).message) } finally { setBusy(false) } }}>Save progress</button>}
       {definition.mode !== 'standard' && !review ? <button type="button" className="forms-primary" disabled={disabled || busy} onClick={next}>Continue</button> : <button type="button" className="forms-primary" disabled={disabled || busy} onClick={submit}>{busy ? 'Working…' : theme.buttonLabel}</button>}
     </div><p role="status">{message}</p>

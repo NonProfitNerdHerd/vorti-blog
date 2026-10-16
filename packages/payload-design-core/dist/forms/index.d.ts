@@ -1,4 +1,6 @@
 export * from './model';
+export * from './graph';
+export * from './graph-example';
 export * from './registry';
 export * from './conditions';
 export * from './expression';

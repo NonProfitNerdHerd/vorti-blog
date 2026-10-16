@@ -1,3 +1,4 @@
+import type { GraphEvent, GraphRun } from './graph';
 import React from 'react';
 import { type Answers, type FormDefinition, type FormField, type FormIssue, type FormValue } from './model';
 import './forms.css';
@@ -8,12 +9,15 @@ export interface UploadResult {
     status: 'unscanned' | 'pending' | 'clean' | 'rejected' | 'error';
 }
 export interface FormRendererProps {
+    hideActions?: boolean;
+    renderFieldIDs?: string[];
+    onGraphRun?: (run: GraphRun) => void;
     definition: FormDefinition;
     initialAnswers?: Answers;
     preview?: boolean;
     disabled?: boolean;
     onChange?: (answers: Answers) => void;
-    onSubmit?: (answers: Answers) => Promise<{
+    onSubmit?: (answers: Answers, navigation?: GraphEvent[]) => Promise<{
         message?: string;
         errors?: FormIssue[];
         redirect?: string;
@@ -45,4 +49,4 @@ export interface FieldInputProps {
 }
 export declare const fieldRenderers: Map<string, React.ComponentType<FieldInputProps>>;
 export declare function registerFieldRenderer(kind: string, renderer: React.ComponentType<FieldInputProps>): void;
-export declare function FormRenderer({ definition, initialAnswers, preview, disabled, onChange, onSubmit, onSave, onUpload, onEvent, onAnalyticsConsent, showLogic, booking }: FormRendererProps): import("react/jsx-runtime").JSX.Element;
+export declare function FormRenderer(props: FormRendererProps): import("react/jsx-runtime").JSX.Element;

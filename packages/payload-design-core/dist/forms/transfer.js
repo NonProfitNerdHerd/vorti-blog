@@ -37,6 +37,12 @@ export function importForm(input) {
         throw new Error(issues.map(issue => issue.message).join(' '));
     const cloned = cloneFields(definition.fields);
     definition.fields = cloned.fields;
+    if (definition.graph) {
+        const graph = definition.graph, nodes = new Map(graph.nodes.map(n => [n.id, makeID('logic')]));
+        graph.nodes = graph.nodes.map(n => ({ ...n, id: nodes.get(n.id), canvas: n.canvas ? cloned.ids.get(n.canvas) || n.canvas : undefined, field: n.field ? cloned.ids.get(n.field) || n.field : undefined, target: n.target && !n.variable ? cloned.ids.get(n.target) || n.target : n.target, source: n.source ? cloned.ids.get(n.source) || n.source : undefined, condition: n.condition ? cloned.condition(n.condition) : undefined, cases: n.cases?.map(c => ({ ...c, value: n.field ? cloned.remapValue(n.field, c.value) : c.value })), value: n.target && !n.variable && n.value !== undefined ? cloned.remapValue(n.target, n.value) : n.value, config: n.config ? Object.fromEntries(Object.entries(n.config).map(([key, text]) => [key, text.replace(/\{\{([\w-]+)\}\}/g, (_, id) => `{{${cloned.ids.get(id) || id}}}`)])) : undefined }));
+        graph.edges = graph.edges.map(e => ({ ...e, id: makeID('edge'), source: nodes.get(e.source), target: nodes.get(e.target) }));
+        graph.positions = Object.fromEntries(Object.entries(graph.positions).filter(([id]) => nodes.has(id)).map(([id, position]) => [nodes.get(id), position]));
+    }
     definition.rules = definition.rules.map(rule => ({ ...rule, id: makeID('rule'), when: cloned.condition(rule.when), effects: rule.effects.filter(effect => effect.kind !== 'action').map(cloned.effect) }));
     return { format: 'vorti-form', version: 1, title: typeof source.title === 'string' ? source.title.slice(0, 200) || 'Imported form' : 'Imported form', definition };
 }

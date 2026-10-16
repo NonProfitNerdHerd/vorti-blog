@@ -1,0 +1,13 @@
+.forms-graph-workspace{display:grid;grid-template-columns:190px minmax(280px,1fr) 300px;min-height:640px;border:1px solid var(--theme-elevation-150,#ccc)}
+.forms-graph-workspace>aside{padding:12px;background:var(--theme-elevation-50,#f5f5f5);min-width:0}
+.forms-graph-workspace>aside:first-child button{display:block;width:100%;text-align:left;margin:8px 0}
+.forms-graph-workspace label{display:block;margin-bottom:12px}.forms-graph-workspace input:not([type=checkbox]),.forms-graph-workspace select,.forms-graph-workspace textarea{display:block;max-width:100%;width:100%;box-sizing:border-box}
+.forms-graph-surface{height:680px;min-width:0;background:var(--theme-bg,#fafafa)}
+.forms-logic-node{width:210px;padding:14px;background:var(--theme-elevation-0,#fff);color:var(--theme-text,#171717);border:1px solid var(--theme-elevation-300,#aaa);border-radius:8px;box-shadow:0 2px 6px #0001}
+.forms-logic-node strong,.forms-logic-node small{display:block;margin-bottom:8px}.forms-logic-node p{font-size:12px;color:var(--theme-error-600,#b91c1c)}
+.forms-logic-output{position:relative;text-align:right;padding:5px 0}.forms-logic-output .react-flow__handle{right:-18px}.forms-logic-node.is-active,.react-flow__node.selected .forms-logic-node{outline:2px solid #2563eb}
+.forms-graph-preview{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.7fr);gap:20px;padding:20px 0}.forms-graph-preview pre{white-space:pre-wrap;overflow-wrap:anywhere}.forms-graph-preview li{margin-bottom:8px;overflow-wrap:anywhere}
+.forms-graph-runtime .forms-actions[hidden]{display:none}.forms-graph-runtime{min-width:0}.forms-graph-runtime h2:focus{outline:2px solid #2563eb;outline-offset:4px}
+@media(max-width:1000px){.forms-graph-workspace{grid-template-columns:150px minmax(0,1fr)}.forms-graph-workspace>aside:last-child{grid-column:1/-1}.forms-graph-preview{grid-template-columns:1fr}}
+@media(max-width:600px){.forms-graph-workspace{grid-template-columns:1fr}.forms-graph-workspace>aside:first-child{display:flex;flex-wrap:wrap;gap:6px}.forms-graph-workspace>aside:first-child button{width:auto}.forms-graph-surface{height:480px}}
+.forms-logic-node .forms-logic-summary{color:inherit;overflow-wrap:anywhere}.forms-graph-editor .react-flow__controls-button{padding:5px;width:28px;height:28px;min-height:0;border-radius:0}

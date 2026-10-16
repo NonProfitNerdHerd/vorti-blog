@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import { FormEmailHost, FormTransferHost, FormWorkspaceNavigation } from './FormTransferHost'
 import type { JSONFieldClientComponent } from 'payload'
-import type { FormDefinition } from '@design-system/payload-design-core/forms'
+import { supportExample, type FormDefinition } from '@design-system/payload-design-core/forms'
 import { FormBuilder, type PaymentAvailability } from '@design-system/payload-design-core/forms/client'
 import { EditorHeaderPortal } from '@design-system/payload-design-core/admin'
 import { FormSharing } from './FormSharing'
@@ -56,7 +56,12 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
     {review('fields')}
     {needsReview && <div className="forms-legacy-review"><label><input type="checkbox" disabled={!permitted} checked={reviewed} onChange={event => setValue({ ...working, legacyReview: event.target.checked ? legacy.issues.map(issue => issue.message) : [] } as ReviewedDefinition)} />I have reviewed the conversion differences in Build and Email. Keep the original settings for reference.</label><details><summary>Original settings (read only)</summary><pre>{JSON.stringify({ fields: data?.fields, emails: data?.emails, confirmationMessage: data?.confirmationMessage, redirect: data?.redirect }, null, 2)}</pre></details></div>}
     {emailHost?.target && createPortal(<>{showError && <p role="alert">{String(errorMessage)}</p>}{review('email')}{needsReview && <p>Return to Build to acknowledge the conversion differences before saving.</p>}</>, emailHost.target)}
-    <FormBuilder navigationTarget={navigationTarget} navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
+    <FormBuilder onCreateExample={async () => {
+      const response = await fetch(formatAdminURL({ apiRoute: config.routes.api, path: '/forms?draft=true' }), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Example ? Support ticket flow', slug: 'support-ticket-example-' + crypto.randomUUID().slice(0, 8), definition: supportExample(), _status: 'draft' }) })
+      const result = await response.json() as { doc?: { id: number | string }; message?: string; errors?: { message?: string }[] }
+      if (!response.ok || !result.doc?.id) throw new Error(result.errors?.[0]?.message || result.message || 'Could not create the example form.')
+      return formatAdminURL({ adminRoute: config.routes.admin, path: `/collections/forms/${result.doc.id}` })
+    }} navigationTarget={navigationTarget} navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
       saveStatus={hasPublishedDoc ? 'Draft changes do not alter your published form.' : 'Not yet published'}
       onSave={() => void submit({ action: draftAction, method: id ? 'PATCH' : 'POST', overrides: { _status: 'draft' }, skipValidation: true })}
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>

@@ -140,7 +140,7 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     activeDraftID.current = body.draftID; resumeToken.current = body.resumeToken; stopped.current = false; setForm(body); retryKey.current = crypto.randomUUID(); holds.current = {}; setReceipt(''); setReceiptURL('')
     setResumePath(new URL(`/forms/${encodeURIComponent(slug)}#resume=${body.resumeToken}`, window.location.origin).href); setSaveState('Saved draft resumed.')
     return true
-  }} />{!receipt && <FormRenderer key={`${form.revision}:${form.session}`} definition={form.definition} initialAnswers={form.answers} booking={booking} onEvent={analytics} onAnalyticsConsent={consentChanged} onSave={save} onChange={answers => {
+  }} />{(!receipt || form.definition.graph?.enabled) && <FormRenderer key={`${form.revision}:${form.session}`} definition={form.definition} initialAnswers={form.answers} booking={booking} onEvent={analytics} onAnalyticsConsent={consentChanged} onSave={save} onChange={answers => {
     if (form.definition.access.autosaveProgress && !revoking.current) { if (autosave.current) clearTimeout(autosave.current); autosave.current = setTimeout(() => { void save(answers).catch(() => {}) }, 2000) }
   }} onUpload={(file, field, progress) => new Promise((resolve, reject) => {
     const request = new XMLHttpRequest(); request.open('POST', `/api/forms-runtime/${encodeURIComponent(slug)}/upload`)
@@ -149,10 +149,10 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     request.onerror = () => reject(new Error('Upload failed. Please retry.'))
     request.onload = () => { try { const body = JSON.parse(request.responseText); if (request.status >= 400) reject(new Error(body.message || 'Upload failed.')); else resolve(body) } catch { reject(new Error('Invalid upload response.')) } }
     request.send(file)
-  })} onSubmit={async answers => {
+  })} onSubmit={async (answers, navigation) => {
     if (autosave.current) clearTimeout(autosave.current)
     await pendingSave.current.catch(() => {})
-    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) })
+    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, navigation, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) })
     const body = await response.json() as { message?: string; errors?: FormIssue[]; redirect?: string; analyticsRecorded?: boolean; receipt?: string; payment?: { token: string } }
     if (!response.ok && !body.errors) throw new Error(body.message || 'Could not submit. Please retry.')
     if (body.receipt) { stopped.current = true; setReceipt(body.receipt); setSaveState(body.message || 'Your response has been received.') }

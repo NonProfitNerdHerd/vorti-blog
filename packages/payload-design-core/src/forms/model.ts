@@ -29,6 +29,7 @@ export interface DateRestrictions {
   incrementMinutes?: number; timezone?: string; resource?: string
 }
 export interface FormField {
+  buttons?: { id: string; label: string; event: 'next' | 'back' | 'submit' | 'custom' }[]
   blockLabel?: string; widthFraction?: number
   contact?: { format: 'full' | 'firstLast' | 'middleInitial' | 'middle' | 'us' | 'international'; line2?: boolean }
   components?: Record<string, { label?: string; help?: string; placeholder?: string; widthFraction?: number }>
@@ -54,6 +55,7 @@ export interface FormTheme {
   labelPosition: 'above' | 'beside'; progress: 'bar' | 'steps'; buttonLabel: string
 }
 export interface FormDefinition {
+  graph?: import('./graph').FormGraph
   workflow?: import('./workflow').EntryWorkflow
   version: 1; mode: 'standard' | 'steps' | 'conversational'; locale: string; direction: 'ltr' | 'rtl'
   fields: FormField[]; rules: FormRule[]; actions: FormAction[]; theme: FormTheme

@@ -1,0 +1,26 @@
+import { emptyDefinition } from './model.js';
+export function supportExample() {
+    const field = (id, kind, label) => ({ id, kind, label, blockLabel: label, required: true });
+    const canvas = (id, label, children) => ({ id, kind: 'step', label, blockLabel: label, children, buttons: [{ id: 'next', label: id === 'review' ? 'Submit' : 'Next', event: id === 'review' ? 'submit' : 'next' }, { id: 'back', label: 'Back', event: 'back' }] });
+    const types = ['SharePoint', 'Teams', 'Email', 'VortiQuest'];
+    const fields = [canvas('name', 'Name', [{ ...field('person', 'name', 'Your name'), contact: { format: 'firstLast' } }]), canvas('contact', 'Contact Information', [field('email_address', 'email', 'Email address')]), canvas('ticket', 'Ticket Type', [{ ...field('ticket_type', 'select', 'What do you need help with?'), options: types.map(label => ({ id: label.toLowerCase(), label, value: label.toLowerCase() })) }]), ...types.map(label => canvas(label.toLowerCase(), `${label} Details`, [field(`${label.toLowerCase()}_details`, 'textarea', `Describe your ${label} issue`), ...(label === 'Teams' ? [{ ...field('blocked', 'radio', 'Is this preventing you from working?'), options: [{ id: 'yes', label: 'Yes', value: 'yes' }, { id: 'no', label: 'No', value: 'no' }] }] : [])])), canvas('review', 'Review', [{ id: 'review_content', kind: 'content', label: 'Ready to send?', help: 'Use Back to correct your answers, or Submit to send your request.' }]), canvas('confirmation', 'Confirmation', [{ id: 'confirmation_content', kind: 'content', label: 'Request accepted', help: 'Your entry has been accepted. The email action in this example is simulated.' }])];
+    fields.at(-1).buttons = [{ id: 'next', label: 'Finish', event: 'next' }];
+    const nodes = [{ id: 'start', kind: 'start', name: 'Start' }, ...fields.map(f => ({ id: `canvas_${f.id}`, kind: 'canvas', name: f.label, canvas: f.id })), { id: 'switch', kind: 'switch', name: 'Choose support team', field: 'ticket_type', cases: types.map(label => ({ id: label.toLowerCase(), label, value: label.toLowerCase() })) }, { id: 'blocked_check', kind: 'if', name: 'Preventing work?', condition: { field: 'blocked', operator: 'equals', value: 'yes' } }, { id: 'high', kind: 'set', name: 'High priority', variable: true, target: 'priority', value: 'High' }, { id: 'normal', kind: 'set', name: 'Normal priority', variable: true, target: 'priority', value: 'Normal' }, { id: 'submit', kind: 'submit', name: 'Submit support request' }, { id: 'email', kind: 'email', name: 'Support email · Simulated', config: { recipient: 'support@example.com', subject: 'Support: {{ticket_type}}', body: '{{email_address}} Priority: {{variable:priority}}' } }, { id: 'end', kind: 'end', name: 'Finished', message: 'Thank you. Your support request is complete.' }];
+    const graph = { version: 1, enabled: true, nodes, edges: [], positions: Object.fromEntries(nodes.map((n, i) => [n.id, { x: i % 4 * 300, y: Math.floor(i / 4) * 260 }])) };
+    const connect = (source, target, output = 'next') => graph.edges.push({ id: `edge_${graph.edges.length}`, source, target, output });
+    connect('start', 'canvas_name');
+    connect('canvas_name', 'canvas_contact');
+    connect('canvas_contact', 'canvas_ticket');
+    connect('canvas_ticket', 'switch');
+    types.forEach(label => { const id = label.toLowerCase(); connect('switch', `canvas_${id}`, id); connect(`canvas_${id}`, id === 'teams' ? 'blocked_check' : 'normal'); });
+    connect('switch', 'canvas_ticket', 'default');
+    connect('blocked_check', 'high', 'true');
+    connect('blocked_check', 'normal', 'false');
+    connect('high', 'canvas_review');
+    connect('normal', 'canvas_review');
+    connect('canvas_review', 'submit');
+    connect('submit', 'email', 'success');
+    connect('email', 'canvas_confirmation');
+    connect('canvas_confirmation', 'end');
+    return { ...emptyDefinition(), mode: 'steps', fields, graph };
+}

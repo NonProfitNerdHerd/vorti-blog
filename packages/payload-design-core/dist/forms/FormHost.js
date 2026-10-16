@@ -194,7 +194,7 @@ function FormInstance({ slug, embedded }) {
                     setResumePath(new URL(`/forms/${encodeURIComponent(slug)}#resume=${body.resumeToken}`, window.location.origin).href);
                     setSaveState('Saved draft resumed.');
                     return true;
-                } }), !receipt && _jsx(FormRenderer, { definition: form.definition, initialAnswers: form.answers, booking: booking, onEvent: analytics, onAnalyticsConsent: consentChanged, onSave: save, onChange: answers => {
+                } }), (!receipt || form.definition.graph?.enabled) && _jsx(FormRenderer, { definition: form.definition, initialAnswers: form.answers, booking: booking, onEvent: analytics, onAnalyticsConsent: consentChanged, onSave: save, onChange: answers => {
                     if (form.definition.access.autosaveProgress && !revoking.current) {
                         if (autosave.current)
                             clearTimeout(autosave.current);
@@ -222,11 +222,11 @@ function FormInstance({ slug, embedded }) {
                         reject(new Error('Invalid upload response.'));
                     } };
                     request.send(file);
-                }), onSubmit: async (answers) => {
+                }), onSubmit: async (answers, navigation) => {
                     if (autosave.current)
                         clearTimeout(autosave.current);
                     await pendingSave.current.catch(() => { });
-                    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) });
+                    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, navigation, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) });
                     const body = await response.json();
                     if (!response.ok && !body.errors)
                         throw new Error(body.message || 'Could not submit. Please retry.');

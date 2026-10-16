@@ -1,3 +1,4 @@
+import { graphShape } from './graph.js';
 import { workflowIssues } from './workflow.js';
 const record = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
 const optional = (value, check) => value === undefined || check(value);
@@ -30,6 +31,8 @@ function effect(value) {
 }
 function field(value, depth = 0) {
     if (!record(value) || depth > 11 || !text(value.id) || !text(value.kind) || !text(value.label))
+        return false;
+    if (value.buttons !== undefined && (!Array.isArray(value.buttons) || value.buttons.length > 20 || !value.buttons.every(b => record(b) && text(b.id) && text(b.label) && ['next', 'back', 'submit', 'custom'].includes(String(b.event)))))
         return false;
     if (!keys(value, ['help', 'placeholder', 'errorMessage', 'expression', 'currency', 'blockLabel'], text) || !keys(value, ['required', 'sensitive', 'disabled'], x => typeof x === 'boolean'))
         return false;
@@ -72,6 +75,8 @@ export function definitionShapeIssues(value) {
     const issue = (message) => [{ path: 'definition', message }];
     if (!record(value) || value.version !== 1 || !list(field)(value.fields))
         return issue('Use a version 1 form definition with valid field objects and supported nesting.');
+    if (value.graph !== undefined && !graphShape(value.graph))
+        return issue('Use a valid version 1 logic graph with bounded nodes and connections.');
     if (value.workflow !== undefined && workflowIssues(value.workflow).length)
         return issue(workflowIssues(value.workflow).join(' '));
     if (!list(rule => record(rule) && text(rule.id) && text(rule.name) && condition(rule.when) && list(effect)(rule.effects))(value.rules))

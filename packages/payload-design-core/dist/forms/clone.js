@@ -48,7 +48,7 @@ export function cloneFields(source) {
             return { ...value, target, value: remapValue(value.target, value.value) };
         return { ...value, target };
     };
-    return { fields, ids, condition, effect };
+    return { fields, ids, condition, effect, remapValue };
 }
 /** Duplicate in place. Copy local field behavior, not actions or global step routing. */
 export function duplicateFormField(definition, id) {
