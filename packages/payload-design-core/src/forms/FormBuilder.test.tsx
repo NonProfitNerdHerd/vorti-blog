@@ -8,6 +8,43 @@ import { emptyDefinition } from './model'
 
 afterEach(cleanup)
 
+it('filters empty palette categories and selects clean choice parts for inspector editing', () => {
+  function Editor() {
+    const [value, setValue] = React.useState(emptyDefinition())
+    return <FormBuilder value={value} onChange={setValue} />
+  }
+  const { container } = render(<Editor />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Add Parts' }))
+  fireEvent.change(screen.getByLabelText('Search parts'), { target: { value: 'Can' } })
+  expect(screen.queryByRole('heading', { name: 'Basic' })).toBeNull()
+  expect(screen.getByRole('heading', { name: 'Layout' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Canvas' }).querySelector('[data-part-icon="step"]')).toBeTruthy()
+  fireEvent.change(screen.getByLabelText('Search parts'), { target: { value: 'Dropdown' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Dropdown' }))
+  fireEvent.change(screen.getByLabelText('Option 1'), { target: { value: 'Updated choice' } })
+  expect(within(screen.getByRole('main', { name: 'Form canvas' })).getByText('Updated choice')).toBeTruthy()
+  expect(container.querySelector('.forms-canvas-card-title')).toBeNull()
+  expect(screen.queryByLabelText(/^Drag /)).toBeNull()
+})
+
+it('inserts real columns and switches layouts without losing nested fields', () => {
+  function Editor() {
+    const [value, setValue] = React.useState(emptyDefinition())
+    return <FormBuilder value={value} onChange={setValue} />
+  }
+  render(<Editor />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Add Parts' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Columns' }))
+  const chooser = screen.getByRole('region', { name: 'Select a column layout' })
+  fireEvent.click(within(chooser).getByRole('button', { name: '70/30 columns' }))
+  expect(screen.queryByRole('region', { name: 'Select a column layout' })).toBeNull()
+  expect(screen.getByRole('main', { name: 'Form canvas' }).querySelectorAll('.forms-editor-columns > .forms-part-slot')).toHaveLength(2)
+  fireEvent.click(screen.getByRole('button', { name: '100 columns' }))
+  expect(screen.getByRole('main', { name: 'Form canvas' }).querySelectorAll('.forms-editor-columns > .forms-part-slot')).toHaveLength(1)
+  fireEvent.click(screen.getByRole('button', { name: 'Undo form change' }))
+  expect(screen.getByRole('main', { name: 'Form canvas' }).querySelectorAll('.forms-editor-columns > .forms-part-slot')).toHaveLength(2)
+})
+
 it('keeps read-only construction and import disabled while allowing tab navigation and export', () => {
   const host = document.createElement('div')
   document.body.appendChild(host)

@@ -7,6 +7,7 @@ import { flattenFields, isEmpty } from './model.js';
 import './forms.css';
 import { wallTimeToInstant, zonedParts } from './dates.js';
 import { BookingInput } from './BookingInput.js';
+import { FormColumns } from './FormColumns.js';
 // Called from telemetry effects and interaction handlers, never to derive rendered output.
 const measurementTime = () => Date.now();
 export const fieldRenderers = new Map();
@@ -247,6 +248,10 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
             content = _jsx("hr", {});
         else if (field.kind === 'review')
             content = reviewAnswers;
+        else if (field.layout?.kind === 'columns')
+            content = _jsx(FormColumns, { field: field, preview: preview, disabled: off, children: field.children?.map(f => render(f, parent)) });
+        else if (field.layout?.kind === 'column')
+            content = _jsx("fieldset", { className: "forms-layout-column", disabled: off, "aria-label": field.label, children: _jsx("div", { className: "forms-grid", children: field.children?.map(f => render(f, parent)) }) });
         else if (['section', 'row', 'step'].includes(field.kind))
             content = _jsxs("fieldset", { disabled: off, children: [_jsx("legend", { children: field.label }), _jsx("div", { className: "forms-grid", children: field.children?.map(f => render(f, parent)) })] });
         else if (field.kind === 'datetime' && field.date?.resource)
@@ -259,7 +264,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
         }
         else
             content = _jsxs(_Fragment, { children: [title, Input ? _jsx(Input, { field: field, value: value, onChange: update, id: id, disabled: off, invalid: issues.length > 0, describedBy: `${id}-help ${id}-errors`, onUpload: onUpload }) : _jsx("p", { role: "alert", children: "This field type is unavailable." })] });
-        return _jsxs("div", { className: `forms-field forms-style-${state.style || 'normal'}`, style: { gridColumn: `span ${field.width || 12}` }, children: [content, field.help && field.kind !== 'content' && _jsx("small", { id: `${id}-help`, children: field.help }), _jsx("div", { id: `${id}-errors`, children: issues.map((error, i) => _jsx("p", { className: "forms-error", children: error.message }, i)) })] }, field.id);
+        return _jsxs("div", { className: `forms-field forms-style-${state.style || 'normal'}`, style: { gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }, children: [content, field.help && field.kind !== 'content' && _jsx("small", { id: `${id}-help`, children: field.help }), _jsx("div", { id: `${id}-errors`, children: issues.map((error, i) => _jsx("p", { className: "forms-error", children: error.message }, i)) })] }, field.id);
     };
     const theme = definition.theme;
     return _jsxs("div", { ref: root, className: `forms-runtime forms-size-${theme.size}`, lang: definition.locale, dir: definition.direction, style: { '--forms-primary': theme.primary, '--forms-background': theme.background, '--forms-text': theme.text, '--forms-border': theme.border, '--forms-error': theme.error, '--forms-radius': `${theme.radius}px`, '--forms-spacing': `${theme.spacing}px`, fontFamily: theme.font }, children: [errors.length > 0 && _jsxs("div", { ref: summary, tabIndex: -1, role: "alert", className: "forms-error-summary", children: [_jsx("h3", { children: "Please check your answers" }), errors.map((error, i) => _jsx("p", { children: _jsx("button", { type: "button", onClick: () => { const index = groups.findIndex(g => flattenFields(g.fields).some(f => f.id === error.field)); if (index >= 0)

@@ -41,7 +41,16 @@ export function organizeCanvases(definition) {
 /** Explicit destination: containers receive children; ordinary parts receive a preceding sibling. */
 export function movePart(fields, id, target) {
     const part = flattenFields(fields).find(field => field.id === id);
-    const destination = flattenFields(fields).find(field => field.id === target);
+    let destination = flattenFields(fields).find(field => field.id === target);
+    if (destination?.layout?.kind === 'columns' && part?.layout?.kind !== 'column') {
+        destination = destination.children?.[0];
+        target = destination?.id || target;
+    }
+    if (part?.layout?.kind === 'column') {
+        const owner = flattenFields(fields).find(field => field.children?.some(child => child.id === id));
+        if (!owner?.children?.some(child => child.id === target))
+            return fields;
+    }
     if (!part || id === target || flattenFields(part.children || []).some(field => field.id === target))
         return fields;
     if (part.kind === 'step' && target !== 'root' && !fields.some(field => field.id === target && field.kind === 'step'))
@@ -52,7 +61,7 @@ export function movePart(fields, id, target) {
     const next = editPart(fields, id, () => null);
     if (target === 'root' || target === virtualCanvasID)
         return [...next, part];
-    if (destination && containerKinds.includes(destination.kind) && part.kind !== 'step')
+    if (destination && containerKinds.includes(destination.kind) && part.kind !== 'step' && part.layout?.kind !== 'column')
         return editPart(next, target, field => ({ ...field, children: [...field.children || [], part] }));
     const before = (items) => items.flatMap(field => field.id === target ? [part, field] : [{ ...field, ...(field.children ? { children: before(field.children) } : {}) }]);
     return before(next);
@@ -70,9 +79,15 @@ export function deletionPlan(definition, id) {
         return { blockers: [], definition };
     const ids = new Set(flattenFields([part]).map(field => field.id));
     const blockers = [];
+    if (part.layout?.kind === 'column' && flattenFields(definition.fields).some(parent => parent.children?.some(child => child.id === id) && parent.children.length === 1))
+        blockers.push('Columns must retain at least one column. Delete the Columns layout instead.');
     const rules = definition.rules.filter(rule => {
         if (!references({ when: rule.when, effects: rule.effects }, ids))
             return true;
+        if (part.layout?.kind === 'column') {
+            blockers.push('Rule: ' + rule.name);
+            return true;
+        }
         const internal = rule.effects.length > 0 && rule.effects.every(effect => 'target' in effect && !['route', 'action'].includes(effect.kind) && ids.has(effect.target));
         if (internal)
             return false;

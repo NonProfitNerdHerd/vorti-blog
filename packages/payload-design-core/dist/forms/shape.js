@@ -37,6 +37,8 @@ function field(value, depth = 0) {
         return false;
     if (!optional(value.options, list(option)) || !optional(value.rows, list(option)) || !optional(value.children, list(child => field(child, depth + 1))))
         return false;
+    if (value.layout !== undefined && (!record(value.layout) || !(value.layout.kind === 'columns' ? optional(value.layout.width, width => ['inherit', 'content', 'full'].includes(String(width))) : value.layout.kind === 'column' && number(value.layout.weight) && Number(value.layout.weight) > 0 && Number(value.layout.weight) <= 100)))
+        return false;
     if (value.date !== undefined) {
         if (!record(value.date))
             return false;

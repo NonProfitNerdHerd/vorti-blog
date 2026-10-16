@@ -7,6 +7,7 @@ import { flattenFields, isEmpty, type Answers, type FormDefinition, type FormFie
 import './forms.css'
 import { wallTimeToInstant, zonedParts } from './dates'
 import { BookingInput, type BookingAdapter } from './BookingInput'
+import { FormColumns } from './FormColumns'
 
 // Called from telemetry effects and interaction handlers, never to derive rendered output.
 const measurementTime = () => Date.now()
@@ -192,6 +193,8 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
     else if (field.kind === 'content') content = <p>{field.help || field.label}</p>
     else if (field.kind === 'divider') content = <hr />
     else if (field.kind === 'review') content = reviewAnswers
+    else if (field.layout?.kind === 'columns') content = <FormColumns field={field} preview={preview} disabled={off}>{field.children?.map(f => render(f, parent))}</FormColumns>
+    else if (field.layout?.kind === 'column') content = <fieldset className="forms-layout-column" disabled={off} aria-label={field.label}><div className="forms-grid">{field.children?.map(f => render(f, parent))}</div></fieldset>
     else if (['section', 'row', 'step'].includes(field.kind)) content = <fieldset disabled={off}><legend>{field.label}</legend><div className="forms-grid">{field.children?.map(f => render(f, parent))}</div></fieldset>
     else if (field.kind === 'datetime' && field.date?.resource) content = <>{title}<BookingInput field={field} path={parent ? `${parent.prefix}${field.id}` : field.id} id={id} value={typeof value === 'string' ? value : undefined} disabled={off} adapter={preview ? undefined : booking} onChange={update} /></>
     else if (field.kind === 'calculated') content = <>{title}<output id={id}>{field.currency ? new Intl.NumberFormat(definition.locale, { style: 'currency', currency: field.currency }).format(Number(value || 0)) : String(value ?? '')}</output></>
@@ -199,7 +202,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
       const rows = Array.isArray(value) ? value as Answers[] : []
       content = <fieldset disabled={off}><legend>{field.label}</legend>{rows.map((row, index) => <fieldset key={index}><legend>{field.label} {index + 1}</legend>{field.children?.map(f => render(f, { values: row, prefix: `${field.id}.${index}.`, change: (key, next) => update(rows.map((r, i) => i === index ? { ...r, [key]: next } : r)) }))}<button type="button" disabled={off || rows.length <= (field.min || 0)} onClick={() => update(rows.filter((_, i) => i !== index))}>Remove item {index + 1}</button></fieldset>)}<button type="button" disabled={off || rows.length >= (field.max ?? 50)} onClick={() => update([...rows, {}])}>Add {field.label}</button></fieldset>
     } else content = <>{title}{Input ? <Input field={field} value={value} onChange={update} id={id} disabled={off} invalid={issues.length > 0} describedBy={`${id}-help ${id}-errors`} onUpload={onUpload} /> : <p role="alert">This field type is unavailable.</p>}</>
-    return <div key={field.id} className={`forms-field forms-style-${state.style || 'normal'}`} style={{ gridColumn: `span ${field.width || 12}` }}>{content}{field.help && field.kind !== 'content' && <small id={`${id}-help`}>{field.help}</small>}<div id={`${id}-errors`}>{issues.map((error, i) => <p key={i} className="forms-error">{error.message}</p>)}</div></div>
+    return <div key={field.id} className={`forms-field forms-style-${state.style || 'normal'}`} style={{ gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }}>{content}{field.help && field.kind !== 'content' && <small id={`${id}-help`}>{field.help}</small>}<div id={`${id}-errors`}>{issues.map((error, i) => <p key={i} className="forms-error">{error.message}</p>)}</div></div>
   }
   const theme = definition.theme
   return <div ref={root} className={`forms-runtime forms-size-${theme.size}`} lang={definition.locale} dir={definition.direction} style={{ '--forms-primary': theme.primary, '--forms-background': theme.background, '--forms-text': theme.text, '--forms-border': theme.border, '--forms-error': theme.error, '--forms-radius': `${theme.radius}px`, '--forms-spacing': `${theme.spacing}px`, fontFamily: theme.font } as React.CSSProperties}>

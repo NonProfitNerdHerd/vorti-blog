@@ -7,6 +7,7 @@ import { formActions } from './actions.js';
 import { cmsActionIssues } from './cms.js';
 import { embedOrigin } from './embed.js';
 import { paymentCurrencies } from './payment.js';
+import { canUseFullWidth } from './columns.js';
 import { flattenFields, isEmpty } from './model.js';
 const unsafeKeys = new Set(['__proto__', 'constructor', 'prototype']);
 const idPattern = /^[a-zA-Z][a-zA-Z0-9_-]{0,99}$/;
@@ -62,6 +63,14 @@ export function validateDefinition(definition) {
     if (fields.length > 250)
         add('A form can contain at most 250 fields.');
     for (const field of fields) {
+        if (field.layout?.kind === 'columns') {
+            if (field.kind !== 'row' || !field.children?.length || field.children.length > 4 || field.children.some(child => child.layout?.kind !== 'column'))
+                add('Columns need one to four column containers.', field.id);
+            if (field.layout.width === 'full' && !canUseFullWidth(definition.fields, field.id))
+                add('Move Columns directly onto a Canvas to use Full Page width.', field.id);
+        }
+        if (field.layout?.kind === 'column' && (field.kind !== 'section' || !fields.some(parent => parent.layout?.kind === 'columns' && parent.children?.some(child => child.id === field.id))))
+            add('Column containers must belong to Columns.', field.id);
         if (!idPattern.test(field.id) || unsafeKeys.has(field.id) || ids.has(field.id))
             add(`Invalid or duplicate field ID: ${field.id}.`, field.id);
         ids.add(field.id);

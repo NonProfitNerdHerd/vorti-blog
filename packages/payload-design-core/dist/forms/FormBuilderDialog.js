@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 export function FormBuilderDialog({ title, close, anchor, children }) {
     const ref = useRef(null), id = useId();
     useEffect(() => {
-        const dialog = ref.current, previous = document.activeElement;
+        const dialog = ref.current, previous = anchor?.current || document.activeElement;
         dialog.showModal();
         if (anchor?.current) {
             const bounds = anchor.current.getBoundingClientRect();
@@ -15,10 +15,14 @@ export function FormBuilderDialog({ title, close, anchor, children }) {
             dialog.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - dialog.offsetWidth - 12))}px`;
             dialog.style.top = `${Math.max(12, Math.min(bounds.bottom + 8, innerHeight - dialog.offsetHeight - 12))}px`;
         }
-        return () => { dialog.close(); if (previous?.isConnected)
-            previous.focus(); };
+        return () => { dialog.close(); requestAnimationFrame(() => { if (previous?.isConnected)
+            previous.focus(); }); };
     }, [anchor]);
-    return createPortal(_jsxs("dialog", { ref: ref, className: "forms-builder forms-part-dialog", "aria-labelledby": id, onCancel: event => { event.preventDefault(); close(); }, onClick: event => { if (event.target === event.currentTarget) {
+    return createPortal(_jsxs("dialog", { ref: ref, className: "forms-builder forms-part-dialog", "aria-labelledby": id, onKeyDown: event => { if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+        } }, onCancel: event => { event.preventDefault(); close(); }, onClick: event => { if (event.target === event.currentTarget) {
             const box = event.currentTarget.getBoundingClientRect();
             if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)
                 close();

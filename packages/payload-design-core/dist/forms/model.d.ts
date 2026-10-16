@@ -86,6 +86,13 @@ export interface FormField {
     width?: 3 | 4 | 6 | 8 | 9 | 12;
     children?: FormField[];
     options?: FormOption[];
+    layout?: {
+        kind: 'columns';
+        width?: 'inherit' | 'content' | 'full';
+    } | {
+        kind: 'column';
+        weight: number;
+    };
     rows?: FormOption[];
     min?: number;
     max?: number;

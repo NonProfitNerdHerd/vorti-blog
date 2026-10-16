@@ -7,6 +7,7 @@ import { formActions } from './actions'
 import { cmsActionIssues } from './cms'
 import { embedOrigin } from './embed'
 import { paymentCurrencies } from './payment'
+import { canUseFullWidth } from './columns'
 import { flattenFields, isEmpty, type Answers, type Condition, type FormDefinition, type FormField, type FormIssue, type FormValue } from './model'
 
 export interface FieldState { visible: boolean; enabled: boolean; required: boolean; style?: string }
@@ -55,6 +56,11 @@ export function validateDefinition(definition: FormDefinition): FormIssue[] {
   const fields = flattenFields(definition.fields), ids = new Set<string>()
   if (fields.length > 250) add('A form can contain at most 250 fields.')
   for (const field of fields) {
+    if (field.layout?.kind === 'columns') {
+      if (field.kind !== 'row' || !field.children?.length || field.children.length > 4 || field.children.some(child => child.layout?.kind !== 'column')) add('Columns need one to four column containers.', field.id)
+      if (field.layout.width === 'full' && !canUseFullWidth(definition.fields, field.id)) add('Move Columns directly onto a Canvas to use Full Page width.', field.id)
+    }
+    if (field.layout?.kind === 'column' && (field.kind !== 'section' || !fields.some(parent => parent.layout?.kind === 'columns' && parent.children?.some(child => child.id === field.id)))) add('Column containers must belong to Columns.', field.id)
     if (!idPattern.test(field.id) || unsafeKeys.has(field.id) || ids.has(field.id)) add(`Invalid or duplicate field ID: ${field.id}.`, field.id)
     ids.add(field.id)
     const registered = formFields.get(field.kind)

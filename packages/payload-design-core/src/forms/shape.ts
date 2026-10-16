@@ -26,6 +26,7 @@ function field(value: unknown, depth = 0): boolean {
   if (!keys(value, ['help', 'placeholder', 'errorMessage', 'expression', 'currency'], text) || !keys(value, ['required', 'sensitive', 'disabled'], x => typeof x === 'boolean')) return false
   if (!keys(value, ['min', 'max', 'minLength', 'maxLength', 'minChoices', 'maxChoices', 'precision', 'width'], number)) return false
   if (!optional(value.options, list(option)) || !optional(value.rows, list(option)) || !optional(value.children, list(child => field(child, depth + 1)))) return false
+  if (value.layout !== undefined && (!record(value.layout) || !(value.layout.kind === 'columns' ? optional(value.layout.width, width => ['inherit', 'content', 'full'].includes(String(width))) : value.layout.kind === 'column' && number(value.layout.weight) && Number(value.layout.weight) > 0 && Number(value.layout.weight) <= 100))) return false
   if (value.date !== undefined) {
     if (!record(value.date)) return false
     const date = value.date

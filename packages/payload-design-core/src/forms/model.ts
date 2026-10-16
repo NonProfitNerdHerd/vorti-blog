@@ -32,6 +32,7 @@ export interface FormField {
   id: string; kind: FieldKind | (string & {}); label: string; help?: string; placeholder?: string
   required?: boolean; defaultValue?: FormValue; sensitive?: boolean; disabled?: boolean
   width?: 3 | 4 | 6 | 8 | 9 | 12; children?: FormField[]; options?: FormOption[]
+  layout?: { kind: 'columns'; width?: 'inherit' | 'content' | 'full' } | { kind: 'column'; weight: number }
   rows?: FormOption[]; min?: number; max?: number; minLength?: number; maxLength?: number
   minChoices?: number; maxChoices?: number; errorMessage?: string; expression?: string
   currency?: string; precision?: number; date?: DateRestrictions
