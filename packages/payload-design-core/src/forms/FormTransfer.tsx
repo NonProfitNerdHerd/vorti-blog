@@ -3,8 +3,8 @@ import React, { useRef, useState } from 'react'
 import type { FormDefinition } from './model'
 import { exportForm, importForm, type FormPackage } from './transfer'
 
-export function FormTransfer({ value, onImport, readOnly }: {
-  value: FormDefinition; onImport: (definition: FormDefinition) => void; readOnly?: boolean
+export function FormTransfer({ value, onImport, readOnly, expanded = false }: {
+  value: FormDefinition; onImport: (definition: FormDefinition) => void; readOnly?: boolean; expanded?: boolean
 }) {
   const [candidate, setCandidate] = useState<FormPackage>()
   const [message, setMessage] = useState('')
@@ -32,7 +32,7 @@ export function FormTransfer({ value, onImport, readOnly }: {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
     setMessage('Definition exported. No submitted answers or private integration settings are included.')
   }
-  return <details className="forms-builder-panel"><summary>Import / export form definition</summary>
+  const content = <>
     <p>Move a versioned form definition between sites. Exports exclude submissions, actions, payment settings, private defaults, profile prefilling, collection connections, and allowed origins. Reconfigure these after importing.</p>
     <div className="forms-builder-actions"><button type="button" onClick={download}>Export definition</button>
       <label>Import JSON file<input ref={file} type="file" accept="application/json,.json" disabled={readOnly || busy} onChange={event => { const selected = event.target.files?.[0]; event.target.value = ''; if (selected) void load(selected) }} /></label></div>
@@ -43,5 +43,6 @@ export function FormTransfer({ value, onImport, readOnly }: {
           <button type="button" disabled={readOnly} onClick={() => { onImport(candidate.definition); setCandidate(undefined); setMessage('Imported into the working draft. Review configuration, then save the form.'); file.current?.focus() }}>Replace working definition</button></div></>}
       {message && <p role="status">{message}</p>}
     </div>
-  </details>
+  </>
+  return expanded ? <section className="forms-builder-panel" aria-label="Import / Export"><h2>Import / Export form definition</h2>{content}</section> : <details className="forms-builder-panel"><summary>Import / export form definition</summary>{content}</details>
 }

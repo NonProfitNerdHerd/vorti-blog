@@ -1,7 +1,8 @@
 'use client'
 import { useConfig, useDocumentInfo, useField, useForm, useLocale } from '@payloadcms/ui'
 import { formatAdminURL } from 'payload/shared'
-import { useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
+import { FormTransferHost } from './FormTransferHost'
 import type { JSONFieldClientComponent } from 'payload'
 import type { FormDefinition } from '@design-system/payload-design-core/forms'
 import { FormBuilder, type PaymentAvailability } from '@design-system/payload-design-core/forms/client'
@@ -11,6 +12,7 @@ import { useCollectionEditorAccess } from '../content-framework/usePostTypeAcces
 
 
 export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
+  const transferTarget = useContext(FormTransferHost)
   const { value, setValue, errorMessage, showError } = useField<FormDefinition>({ path })
   const { id, data, hasPublishedDoc } = useDocumentInfo()
   const access = useCollectionEditorAccess('forms', readOnly)
@@ -38,7 +40,7 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   }, [])
   return <>
     {showError && <p role="alert">{String(errorMessage)}</p>}
-    <FormBuilder value={value || fallback} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
+    <FormBuilder transferTarget={transferTarget} value={value || fallback} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
       saveStatus={hasPublishedDoc ? 'Draft changes do not alter your published form.' : 'Not yet published'}
       onSave={() => void submit({ action: draftAction, method: id ? 'PATCH' : 'POST', overrides: { _status: 'draft' }, skipValidation: true })}
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>

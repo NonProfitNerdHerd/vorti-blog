@@ -1,7 +1,7 @@
 import type { CollectionSlug, Config, Field, PayloadRequest } from 'payload'
 import { APIError, ValidationError } from 'payload'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
-import { definitionShapeIssues, validateDefinition, type Answers, type FormDefinition, type FormField } from '@design-system/payload-design-core/forms'
+import { emptyDefinition, makeID, definitionShapeIssues, validateDefinition, type Answers, type FormDefinition, type FormField } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_INTERNAL, FORM_SITE, internalRequest, siteAccess, type FormsUser } from './access'
 import { formCollections, siteField } from './collections'
 import type { FormPlatform } from './platform'
@@ -58,6 +58,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
           }] },
           { type: 'group', label: 'Analytics', fields: [{ name: 'formAnalytics', type: 'ui', admin: { components: { Field: './forms/FormReports#AnalyticsPanel' } } }] },
           { type: 'group', label: 'Results', fields: [{ name: 'formResults', type: 'ui', admin: { components: { Field: './forms/FormReports#ResultsPanel' } } }] },
+          { type: 'group', label: 'Import / Export', fields: [] },
         ] }]
       },
       hooks: {
@@ -78,6 +79,9 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
           // Payload creates an empty autosave draft before opening the editor.
           // The pre-existing Forms table requires a title even for that scaffold.
           if (operation === 'create' && !data.title && req.context.formsSavingDraft === true) data.title = 'Untitled form'
+          if (operation === 'create' && data.definition === undefined && !data.fields?.length) {
+            data.definition = { ...emptyDefinition(), fields: [{ id: makeID(), kind: 'section', label: 'Group 1', width: 12, children: [] }] }
+          }
           if (data.definition !== undefined) {
             const issues = definitionShapeIssues(data.definition)
             if (issues.length) throw new ValidationError({ errors: issues.map(issue => ({ path: 'definition', message: issue.message })) })

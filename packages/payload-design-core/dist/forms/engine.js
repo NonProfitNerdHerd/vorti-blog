@@ -253,8 +253,12 @@ export function evaluateForm(definition, input) {
             }
         }
         const parent = parents.get(id);
-        if (parent && (!states[parent].visible || !states[parent].enabled))
-            state.visible = false;
+        if (parent) {
+            if (!states[parent].visible)
+                state.visible = false;
+            if (!states[parent].enabled)
+                state.enabled = false;
+        }
         if (!state.visible || !state.enabled)
             delete answers[id];
         else if (field.kind === 'calculated' && field.expression)

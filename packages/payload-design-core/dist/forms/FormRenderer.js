@@ -248,14 +248,14 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
         else if (field.kind === 'review')
             content = reviewAnswers;
         else if (['section', 'row', 'step'].includes(field.kind))
-            content = _jsxs("fieldset", { children: [_jsx("legend", { children: field.label }), _jsx("div", { className: "forms-grid", children: field.children?.map(f => render(f, parent)) })] });
+            content = _jsxs("fieldset", { disabled: off, children: [_jsx("legend", { children: field.label }), _jsx("div", { className: "forms-grid", children: field.children?.map(f => render(f, parent)) })] });
         else if (field.kind === 'datetime' && field.date?.resource)
             content = _jsxs(_Fragment, { children: [title, _jsx(BookingInput, { field: field, path: parent ? `${parent.prefix}${field.id}` : field.id, id: id, value: typeof value === 'string' ? value : undefined, disabled: off, adapter: preview ? undefined : booking, onChange: update })] });
         else if (field.kind === 'calculated')
             content = _jsxs(_Fragment, { children: [title, _jsx("output", { id: id, children: field.currency ? new Intl.NumberFormat(definition.locale, { style: 'currency', currency: field.currency }).format(Number(value || 0)) : String(value ?? '') })] });
         else if (field.kind === 'repeater') {
             const rows = Array.isArray(value) ? value : [];
-            content = _jsxs("fieldset", { children: [_jsx("legend", { children: field.label }), rows.map((row, index) => _jsxs("fieldset", { children: [_jsxs("legend", { children: [field.label, " ", index + 1] }), field.children?.map(f => render(f, { values: row, prefix: `${field.id}.${index}.`, change: (key, next) => update(rows.map((r, i) => i === index ? { ...r, [key]: next } : r)) })), _jsxs("button", { type: "button", disabled: off || rows.length <= (field.min || 0), onClick: () => update(rows.filter((_, i) => i !== index)), children: ["Remove item ", index + 1] })] }, index)), _jsxs("button", { type: "button", disabled: off || rows.length >= (field.max ?? 50), onClick: () => update([...rows, {}]), children: ["Add ", field.label] })] });
+            content = _jsxs("fieldset", { disabled: off, children: [_jsx("legend", { children: field.label }), rows.map((row, index) => _jsxs("fieldset", { children: [_jsxs("legend", { children: [field.label, " ", index + 1] }), field.children?.map(f => render(f, { values: row, prefix: `${field.id}.${index}.`, change: (key, next) => update(rows.map((r, i) => i === index ? { ...r, [key]: next } : r)) })), _jsxs("button", { type: "button", disabled: off || rows.length <= (field.min || 0), onClick: () => update(rows.filter((_, i) => i !== index)), children: ["Remove item ", index + 1] })] }, index)), _jsxs("button", { type: "button", disabled: off || rows.length >= (field.max ?? 50), onClick: () => update([...rows, {}]), children: ["Add ", field.label] })] });
         }
         else
             content = _jsxs(_Fragment, { children: [title, Input ? _jsx(Input, { field: field, value: value, onChange: update, id: id, disabled: off, invalid: issues.length > 0, describedBy: `${id}-help ${id}-errors`, onUpload: onUpload }) : _jsx("p", { role: "alert", children: "This field type is unavailable." })] });

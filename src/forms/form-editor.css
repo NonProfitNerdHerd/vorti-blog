@@ -2,6 +2,13 @@
 .form-editor-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--theme-elevation-150); margin-bottom: 28px; }
 .form-editor-tabs [role=tab] { background: transparent; color: var(--theme-elevation-600); border: 0; border-bottom: 3px solid transparent; padding: 14px 22px; font: inherit; cursor: pointer; }
 .form-editor-tabs [aria-selected=true] { color: var(--theme-text); border-bottom-color: var(--theme-text); font-weight: 600; }
+.form-editor-tabs .form-transfer-tab { background: #fff1f2; color: #9f1239; border-radius: 6px 6px 0 0; }
+.form-editor-tabs .form-transfer-tab[aria-selected=true] { background: #ffe4e6; border-bottom-color: #be123c; }
+[data-theme=dark] .form-editor-tabs .form-transfer-tab { background: #3f2029; color: #fecdd3; }
+[data-theme=dark] .form-editor-tabs .form-transfer-tab[aria-selected=true] { background: #542632; border-bottom-color: #fda4af; }
+.form-editor-tabs { flex-wrap: wrap; }
+.form-transfer-host.forms-builder { margin: 0; }
+.form-transfer-host .forms-builder-panel { max-width: none; margin: 0; }
 .form-editor button:focus-visible, .form-editor a:focus-visible { outline: 2px solid var(--theme-success-500); outline-offset: 3px; }
 .form-editor [hidden] { display: none !important; }
 .form-editor .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

@@ -165,7 +165,10 @@ export function evaluateForm(definition: FormDefinition, input: Answers): Evalua
       }
     }
     const parent = parents.get(id)
-    if (parent && (!states[parent].visible || !states[parent].enabled)) state.visible = false
+    if (parent) {
+      if (!states[parent].visible) state.visible = false
+      if (!states[parent].enabled) state.enabled = false
+    }
     if (!state.visible || !state.enabled) delete answers[id]
     else if (field.kind === 'calculated' && field.expression) try {
       answers[id] = calculate(field.expression, answers)

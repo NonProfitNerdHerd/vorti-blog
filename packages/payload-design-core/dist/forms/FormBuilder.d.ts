@@ -3,6 +3,7 @@ import { type FormDefinition } from './model';
 import type { PaymentAvailability } from './PaymentSettings';
 import './builder.css';
 export interface FormBuilderProps {
+    transferTarget?: HTMLElement | null;
     local?: boolean;
     integrations?: {
         id: string;
@@ -27,4 +28,4 @@ export interface FormBuilderProps {
     onPublish?: () => void;
     children?: React.ReactNode;
 }
-export declare function FormBuilder({ value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;
+export declare function FormBuilder({ transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;

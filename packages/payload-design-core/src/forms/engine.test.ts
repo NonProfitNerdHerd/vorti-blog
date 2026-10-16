@@ -13,6 +13,25 @@ function example(): FormDefinition {
     { id: 'reason', kind: 'text', label: 'Reason', required: true },
   ], rules: [{ id: 'hide', name: 'Small orders', when: { field: 'quantity', operator: 'lt', value: 10 }, effects: [{ kind: 'visible', target: 'reason', value: false }] }] }
 }
+
+describe('conditional groups', () => {
+  it.each(['visible', 'enabled'] as const)('propagates %s through nested groups and excludes their answers', kind => {
+    const definition: FormDefinition = { ...emptyDefinition(), fields: [
+      { id: 'control', kind: 'checkbox', label: 'Control' },
+      { id: 'group', kind: 'section', label: 'Group 1', children: [
+        { id: 'nested', kind: 'section', label: 'Nested', children: [{ id: 'answer', kind: 'text', label: 'Answer', required: true }] },
+      ] },
+    ], rules: [{ id: 'toggle', name: 'Toggle group', when: { field: 'control', operator: 'equals', value: true }, effects: [{ kind, target: 'group', value: false }] }] }
+    expect(validateDefinition(definition)).toEqual([])
+    const result = evaluateForm(definition, { control: true, answer: 'Excluded' })
+    expect(result.states.answer[kind]).toBe(false)
+    expect(result.states.answer.visible).toBe(kind !== 'visible')
+    expect(result.answers.answer).toBeUndefined()
+    const restored = evaluateForm(definition, { control: false, answer: 'Included' })
+    expect(restored.states.answer).toMatchObject({ enabled: true, visible: true })
+    expect(restored.answers.answer).toBe('Included')
+  })
+})
 describe('calendar restrictions are authoritative', () => {
   it('checks business hours and minute increments in the configured timezone', () => {
     const field = { id: 'visit', kind: 'datetime', label: 'Visit', date: { timezone: 'America/Chicago', incrementMinutes: 30, businessHours: [{ weekday: 1, start: '09:00', end: '17:00' }] } }
