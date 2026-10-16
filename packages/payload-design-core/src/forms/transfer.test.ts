@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { emptyDefinition } from './model'
-import { exportForm, importForm } from './transfer'
+import { exportForm, importForm, publicDefinition } from './transfer'
 
 it('excludes sensitive defaults, linked configuration and action-only rules without changing the source', () => {
   const definition = emptyDefinition()
@@ -28,4 +28,11 @@ it('rejects unsupported and malformed imports without applying partial data', ()
   const definition = emptyDefinition()
   definition.fields = [{ id: 'bad', kind: 'calculated', label: 'Bad', expression: '[missing] + 1' }]
   expect(() => importForm({ format: 'vorti-form', version: 1, definition })).toThrow()
+})
+
+it('keeps legacy review notes private in published and portable definitions', () => {
+  const definition = { ...emptyDefinition(), legacyReview: ['CC private@example.test'], legacyEmailsImported: true }
+  expect(publicDefinition(definition)).not.toHaveProperty('legacyReview')
+  expect(exportForm('Example', definition).definition).not.toHaveProperty('legacyReview')
+  expect(definition.legacyReview).toEqual(['CC private@example.test'])
 })

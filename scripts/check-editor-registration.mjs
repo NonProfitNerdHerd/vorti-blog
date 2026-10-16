@@ -21,6 +21,7 @@ export const requiredEditorComponents = [
   './review/TaskDocument#TaskDocument',
   './components/SiteDesignNav#SiteDesignNav',
   './forms/FormWorkspace#FormWorkspace',
+  './forms/FormTitle#FormTitle',
   './forms/FormEditorTabs#FormEditorTabs',
   './forms/FormReports#AnalyticsPanel',
   './forms/FormReports#ResultsPanel',

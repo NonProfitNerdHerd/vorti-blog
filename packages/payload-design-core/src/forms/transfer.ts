@@ -7,6 +7,8 @@ export interface FormPackage { format: 'vorti-form'; version: 1; title: string; 
 /** Portable exports deliberately omit provider configuration and private action mappings. */
 export function exportForm(title: string, definition: FormDefinition): FormPackage {
   const portable = structuredClone(definition)
+  delete (portable as FormDefinition & { legacyReview?: unknown }).legacyReview
+  delete (portable as FormDefinition & { legacyEmailsImported?: unknown }).legacyEmailsImported
   const clean = (fields: typeof portable.fields, sensitive = false) => fields.forEach(field => {
     const privateField = sensitive || field.sensitive === true
     if (privateField || flattenFields(field.children || []).some(child => child.sensitive)) delete field.defaultValue
@@ -37,6 +39,8 @@ export function importForm(input: unknown): FormPackage {
 /** This is the only definition projection allowed on unauthenticated endpoints. */
 export function publicDefinition(definition: FormDefinition): FormDefinition {
   const projected = structuredClone(definition)
+  delete (projected as FormDefinition & { legacyReview?: unknown }).legacyReview
+  delete (projected as FormDefinition & { legacyEmailsImported?: unknown }).legacyEmailsImported
   projected.actions = []
   delete projected.workflow
   projected.rules = projected.rules.map(rule => ({ ...rule, effects: rule.effects.filter(effect => effect.kind !== 'action') }))

@@ -1,6 +1,7 @@
 import { type PaymentAvailability } from './PaymentSettings';
 import { type FormDefinition } from './model';
-export declare function ActionsEditor({ definition, onChange, disabled, integrations, local, payments, postTypes }: {
+export declare function ActionsEditor({ mode, definition, onChange, disabled, integrations, local, payments, postTypes }: {
+    mode?: 'all' | 'email' | 'other';
     definition: FormDefinition;
     onChange: (value: FormDefinition) => void;
     disabled?: boolean;

@@ -34,3 +34,5 @@
 .form-editor .forms-analytics-totals dd { margin: 8px 0 0; font-size: 24px; font-weight: 600; }
 @media (max-width: 600px) { .form-editor-tabs [role=tab] { padding: 12px; } .form-results-filters { padding: 12px; } .form-results-filters label { width: 100%; } }
 @media (max-width: 600px) { .form-editor .forms-analytics { padding: 16px; } .form-editor .forms-analytics .forms-builder-actions label { width: 100%; } }
+
+.forms-legacy-review{padding:16px;margin-block:12px;border:1px solid var(--theme-elevation-300);background:var(--theme-elevation-50);border-radius:4px}.forms-legacy-review pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}

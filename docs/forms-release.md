@@ -4,16 +4,16 @@ This release follows [the narrowed Forms scope](forms-release-scope.md). It does
 
 ## Using the builder
 
-1. Open **Forms → Forms → Create New**. Enter a title and add fields from the palette.
+1. Open **Forms → Forms → Create New**. Edit the title directly in the page heading and add fields from the palette.
 2. Select a field to edit its label, instructions, validation, choices and width. Drag fields or use their movement buttons. Undo/Redo preserves the working definition.
-3. Use **Preview** to try the form without creating entries. Use **Logic** for conditions and calculations, and **Actions** for notifications and already-supported record actions.
+3. Use **Preview** to try the form without creating entries. Use **Logic** for conditions and calculations, and **Email** for notifications and **Actions** for other already-supported record actions.
 4. **Save Draft** preserves changes without replacing the published form. **Publish changes** creates a new published revision. The public address is suggested from the title and can be edited in Form details.
 5. Insert the **Form** block on a Page/Post, select the published form, and publish the page. The Publish tab also provides a standalone link, QR code and iframe embed.
 6. Open **Forms → Entries** to review answers, attachments, workflow notes and notification status. Original answers and the field labels at submission time remain preserved.
 
 ## Form editor tabs
 
-**Primary** contains the title, builder, sharing tools and form details. **Analytics** contains activity and completion reporting. **Results** contains revision/date filters, a paginated table of entries, and the optional survey summary. Entry links open a separate tab to preserve the working form. Switching tabs retains unsaved values, selected fields and builder undo history; it does not publish the form.
+**Primary** contains the sole canvas builder, sharing tools and form metadata. The title stays editable in the page heading across tabs. **Email** contains notification recipients, messages, conditions and provider selection; it shares the same definition and undo history as Primary. **Analytics** contains activity and completion reporting. **Results** contains revision/date filters, a paginated table of entries, and the optional survey summary. Entry links open a separate tab to preserve the working form. Switching tabs retains unsaved values, selected fields and builder undo history; it does not publish the form.
 
 **Import / Export**, the light-red main tab, transfers form definitions rather than entries. Import confirmation updates the same working definition as Primary and can be undone there. The builder toolbar keeps Build/Logic/Design/Actions/Access on the left and Undo/Redo, device previews, Try Form and Publish on the right. Publish opens readiness and sharing tools without immediately publishing.
 
@@ -53,3 +53,11 @@ The historical [implementation ledger](forms-implementation.md) records prior ex
 Workspace refinement (2026-10-16): 185 framework tests passed across the full run and isolated retries of two timing-sensitive editor suites; 57 Forms integration tests, type checks, lint (existing warnings only), the 21-registration guard, and the production Worker build passed. Six authenticated browser scenarios passed against the local production bundle: main tabs/results, new Group 1, existing-empty opt-in and nested insertion, definition transfer and history, nested duplication/drag/save/reload, and published sharing/QR/iframe. Desktop and mobile dark-mode layouts were reviewed. Live authenticated editing was unavailable; production checks cover public responses and protected-route behavior. No migration is required for this refinement.
 
 Passed: 181 shared framework tests, 57 Forms integration tests, all 15 development-browser scenarios, application type checks, lint (warnings only), and the 18-component registration guard. The final production Worker build passed four additional authenticated editor/placement browser scenarios against copied local D1/R2 storage. Its scheduled processor returned 200; production-mode checks confirmed private entries and disabled local email capture. External provider delivery remains unverified until a provider is configured.
+
+## Legacy forms and unified editing
+
+The lower Form details section no longer exposes legacy field or email editors. Saved legacy fields are projected into the upper canvas, including supported IDs, widths, options, defaults and validation. Older notifications appear in Email, including when a form already uses a modern canvas definition. Opening a form does not persist conversion or change its published revision. A normal save records the working definition; original plugin fields and emails are retained.
+
+Unsupported settings (including custom field types, sender/CC/BCC, rich-text formatting and unmatched placeholders) are listed for review. Primary requires acknowledgment of those differences before conversion can save, and the server enforces this for direct API requests too. Acknowledgment means the author has reviewed/recreated the differences; it does not enable unsupported settings. Email delivery still requires a configured provider. Review notes remain private and are excluded from public responses and portable exports. No database migration is needed.
+
+Unified builder verification (2026-10-16): 187 framework tests, 61 Forms integration tests, lint, production TypeScript compilation, the 22-component registration guard and the Worker build passed. Five authenticated browser scenarios passed against the production bundle with isolated local storage, covering main tabs/results, creation/publication/submission, import/export/history, inline title validation and Email persistence, and legacy conversion/API review enforcement. Desktop and mobile dark-mode layouts were reviewed. Authenticated live verification remains unavailable; live checks verify public responses and protected routes.

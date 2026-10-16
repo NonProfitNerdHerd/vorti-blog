@@ -1,17 +1,19 @@
 'use client'
 import { useConfig, useDocumentInfo, useField, useForm, useLocale } from '@payloadcms/ui'
 import { formatAdminURL } from 'payload/shared'
+import { createPortal } from 'react-dom'
 import { useContext, useEffect, useMemo, useState } from 'react'
-import { FormTransferHost } from './FormTransferHost'
+import { FormEmailHost, FormTransferHost } from './FormTransferHost'
 import type { JSONFieldClientComponent } from 'payload'
 import type { FormDefinition } from '@design-system/payload-design-core/forms'
 import { FormBuilder, type PaymentAvailability } from '@design-system/payload-design-core/forms/client'
 import { FormSharing } from './FormSharing'
-import { legacyDefinition } from './legacy'
+import { prepareStoredForm, type ReviewedDefinition } from './legacy'
 import { useCollectionEditorAccess } from '../content-framework/usePostTypeAccess'
 
 
 export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
+  const emailHost = useContext(FormEmailHost)
   const transferTarget = useContext(FormTransferHost)
   const { value, setValue, errorMessage, showError } = useField<FormDefinition>({ path })
   const { id, data, hasPublishedDoc } = useDocumentInfo()
@@ -20,7 +22,11 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   const { config } = useConfig()
   const locale = useLocale()
   const draftAction = formatAdminURL({ apiRoute: config.routes.api, path: `/forms${id ? `/${id}` : ''}?${new URLSearchParams({ draft: 'true', depth: '0', 'fallback-locale': 'null', ...(locale?.code ? { locale: locale.code } : {}) })}` })
-  const fallback = useMemo(() => legacyDefinition(data || {}), [data])
+  const legacy = useMemo(() => prepareStoredForm(data || {}), [data])
+  const fallback = legacy.definition
+  const working = value ? prepareStoredForm({ ...data, definition: value }).definition : fallback
+  const needsReview = legacy.issues.length > 0
+  const reviewed = legacy.issues.every(issue => Array.isArray(working.legacyReview) && working.legacyReview.includes(issue.message))
   const permitted = access.canWrite(path)
   const [postTypes, setPostTypes] = useState<{ id: string; label: string }[]>([])
   const [payments, setPayments] = useState<PaymentAvailability>()
@@ -38,9 +44,13 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
     }).catch(() => {})
     return () => controller.abort()
   }, [])
+  const review = (area: 'fields' | 'email') => needsReview && legacy.issues.some(issue => issue.area === area) ? <section className="forms-legacy-review" aria-label={area === 'email' ? 'Legacy email review' : 'Legacy field review'}><h3>Review older {area === 'email' ? 'email settings' : 'form settings'}</h3><p>The original settings remain stored. These differences need review before conversion can be saved.</p><ul>{legacy.issues.filter(issue => issue.area === area).map(issue => <li key={issue.message}>{issue.message}</li>)}</ul>{area === 'fields' && emailHost && legacy.issues.some(issue => issue.area === 'email') && <button type="button" onClick={emailHost.open}>Review Email settings</button>}</section> : null
   return <>
     {showError && <p role="alert">{String(errorMessage)}</p>}
-    <FormBuilder transferTarget={transferTarget} value={value || fallback} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
+    {review('fields')}
+    {needsReview && <div className="forms-legacy-review"><label><input type="checkbox" disabled={!permitted} checked={reviewed} onChange={event => setValue({ ...working, legacyReview: event.target.checked ? legacy.issues.map(issue => issue.message) : [] } as ReviewedDefinition)} />I have reviewed the conversion differences in Primary and Email. Keep the original settings for reference.</label><details><summary>Original settings (read only)</summary><pre>{JSON.stringify({ fields: data?.fields, emails: data?.emails, confirmationMessage: data?.confirmationMessage, redirect: data?.redirect }, null, 2)}</pre></details></div>}
+    {emailHost?.target && createPortal(<>{showError && <p role="alert">{String(errorMessage)}</p>}{review('email')}{needsReview && <p>Return to Primary to acknowledge the conversion differences before saving.</p>}</>, emailHost.target)}
+    <FormBuilder emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
       saveStatus={hasPublishedDoc ? 'Draft changes do not alter your published form.' : 'Not yet published'}
       onSave={() => void submit({ action: draftAction, method: id ? 'PATCH' : 'POST', overrides: { _status: 'draft' }, skipValidation: true })}
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>

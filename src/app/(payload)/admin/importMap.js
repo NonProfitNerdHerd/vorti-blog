@@ -52,6 +52,7 @@ import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from 
 import { LocalDeliveryMessage as LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa } from '../../../forms/LocalDeliveryMessage'
 import { ResourceEditor as ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e } from '../../../forms/ResourceEditor'
 import { FormExportStatus as FormExportStatus_7c63ba332985da94d002f16d0ed2d99d } from '../../../forms/FormExportStatus'
+import { FormTitle as FormTitle_a9a78713f62ef4730677d1698272144c } from '../../../forms/FormTitle'
 import { FormWorkspace as FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36 } from '../../../forms/FormWorkspace'
 import { AnalyticsPanel as AnalyticsPanel_95642dffb8de17df7f13abb928a3428e } from '../../../forms/FormReports'
 import { ResultsPanel as ResultsPanel_95642dffb8de17df7f13abb928a3428e } from '../../../forms/FormReports'
@@ -130,6 +131,7 @@ export const importMap = {
   "./forms/LocalDeliveryMessage#LocalDeliveryMessage": LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa,
   "./forms/ResourceEditor#ResourceEditor": ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e,
   "./forms/FormExportStatus#FormExportStatus": FormExportStatus_7c63ba332985da94d002f16d0ed2d99d,
+  "./forms/FormTitle#FormTitle": FormTitle_a9a78713f62ef4730677d1698272144c,
   "./forms/FormWorkspace#FormWorkspace": FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36,
   "./forms/FormReports#AnalyticsPanel": AnalyticsPanel_95642dffb8de17df7f13abb928a3428e,
   "./forms/FormReports#ResultsPanel": ResultsPanel_95642dffb8de17df7f13abb928a3428e,

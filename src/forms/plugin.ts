@@ -1,5 +1,6 @@
 import type { CollectionSlug, Config, Field, PayloadRequest } from 'payload'
 import { APIError, ValidationError } from 'payload'
+import { prepareStoredForm } from './legacy'
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
 import { emptyDefinition, makeID, definitionShapeIssues, validateDefinition, type Answers, type FormDefinition, type FormField } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_INTERNAL, FORM_SITE, internalRequest, siteAccess, type FormsUser } from './access'
@@ -27,7 +28,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
     // Original hooks remain installed. Delivery is owned by the durable action queue.
     beforeEmail: () => [],
     formOverrides: {
-      admin: { group: 'Forms', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
+      admin: { components: { Description: '@design-system/payload-design-core/admin#EditorTitleSlot' }, group: 'Forms', defaultColumns: ['title', 'slug', '_status', 'updatedAt'] },
       versions: { drafts: { autosave: { interval: 5000 } }, maxPerDoc: 50 },
       lockDocuments: { duration: 300 },
       access: { read: siteAccess('edit'), create: siteAccess('create'), update: siteAccess('edit'), delete: () => false },
@@ -36,10 +37,11 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
         ...defaultFields.map((field): Field => {
           const result = { ...field }
           if ('name' in result && result.name !== 'title') {
-            // Legacy fields are retained for compatibility and hidden only for modern forms.
-            result.admin = { ...result.admin, condition: (data: Record<string, unknown>) => !data.definition }
+            // Retain legacy storage without exposing a second editing interface.
+            result.admin = { ...result.admin, condition: () => false }
             if ('required' in result) result.required = false
           }
+          if ('name' in result && result.name === 'title') result.admin = { ...result.admin, components: { Field: './forms/FormTitle#FormTitle' } }
           return result
         }),
         { name: 'slug', type: 'text', unique: true, index: true, admin: { description: 'Public address: /forms/your-slug' } },
@@ -56,6 +58,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
           type: 'collapsible', label: 'Form details and publishing settings', admin: { initCollapsed: true },
           fields: fields.filter(field => !('name' in field) || !['title', 'definition'].includes(field.name)),
           }] },
+          { type: 'group', label: 'Email', fields: [] },
           { type: 'group', label: 'Analytics', fields: [{ name: 'formAnalytics', type: 'ui', admin: { components: { Field: './forms/FormReports#AnalyticsPanel' } } }] },
           { type: 'group', label: 'Results', fields: [{ name: 'formResults', type: 'ui', admin: { components: { Field: './forms/FormReports#ResultsPanel' } } }] },
           { type: 'group', label: 'Import / Export', fields: [] },
@@ -79,9 +82,19 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
           // Payload creates an empty autosave draft before opening the editor.
           // The pre-existing Forms table requires a title even for that scaffold.
           if (operation === 'create' && !data.title && req.context.formsSavingDraft === true) data.title = 'Untitled form'
-          if (operation === 'create' && data.definition === undefined && !data.fields?.length) {
+          if (operation === 'create' && data.definition === undefined && !data.fields?.length && !data.emails?.length) {
             data.definition = { ...emptyDefinition(), fields: [{ id: makeID(), kind: 'section', label: 'Group 1', width: 12, children: [] }] }
           }
+          const legacy = { ...originalDoc, ...data }
+          const pendingLegacy = !originalDoc?.definition || (legacy.emails?.length && !originalDoc.definition.legacyEmailsImported)
+          if (pendingLegacy && (legacy.fields?.length || legacy.emails?.length)) {
+            // Review is derived from the saved source, not a client-supplied marker.
+            const source = prepareStoredForm({ ...legacy, definition: originalDoc?.definition })
+            const submitted = data.definition || source.definition
+            if (source.issues.some(issue => !Array.isArray(submitted.legacyReview) || !submitted.legacyReview.includes(issue.message))) throw new ValidationError({ errors: [{ path: 'definition', message: 'Review and acknowledge the listed legacy settings in Primary and Email before saving the converted form.' }] })
+            data.definition = { ...submitted, ...(legacy.emails?.length ? { legacyEmailsImported: true } : {}) }
+          }
+          if (data.definition && typeof data.definition === 'object' && originalDoc?.definition?.legacyEmailsImported === true) data.definition = { ...data.definition, legacyEmailsImported: true }
           if (data.definition !== undefined) {
             const issues = definitionShapeIssues(data.definition)
             if (issues.length) throw new ValidationError({ errors: issues.map(issue => ({ path: 'definition', message: issue.message })) })

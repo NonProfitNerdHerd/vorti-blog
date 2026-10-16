@@ -5,6 +5,8 @@ import { definitionShapeIssues } from './shape.js';
 /** Portable exports deliberately omit provider configuration and private action mappings. */
 export function exportForm(title, definition) {
     const portable = structuredClone(definition);
+    delete portable.legacyReview;
+    delete portable.legacyEmailsImported;
     const clean = (fields, sensitive = false) => fields.forEach(field => {
         const privateField = sensitive || field.sensitive === true;
         if (privateField || flattenFields(field.children || []).some(child => child.sensitive))
@@ -41,6 +43,8 @@ export function importForm(input) {
 /** This is the only definition projection allowed on unauthenticated endpoints. */
 export function publicDefinition(definition) {
     const projected = structuredClone(definition);
+    delete projected.legacyReview;
+    delete projected.legacyEmailsImported;
     projected.actions = [];
     delete projected.workflow;
     projected.rules = projected.rules.map(rule => ({ ...rule, effects: rule.effects.filter(effect => effect.kind !== 'action') }));
