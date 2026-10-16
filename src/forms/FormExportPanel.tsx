@@ -46,7 +46,7 @@ export function FormExportPanel({ formID }: { formID: string | number }) {
     } catch (error) { setError((error as Error).message) } finally { setBusy(false) }
   }
   return <section aria-label="Export entries" className="forms-analytics"><h2>Export entries</h2>
-    <p>Downloads use original submitted answers and historical field labels. Entry ID, revision, submission time, workflow status, and field-label metadata are always included. Repeated and compound values remain structured JSON within cells.</p>
+    <p>Choose the export’s date range and columns below. Exports include all revisions in that range, independently of the report filters. Downloads use original submitted answers and historical field labels. Entry ID, revision, submission time, workflow status, and field-label metadata are always included.</p>
     <div className="forms-builder-actions"><label>Export from<input type="date" value={range.from} onChange={e => setRange({ ...range, from: e.target.value })} /></label><label>Export through<input type="date" value={range.to} onChange={e => setRange({ ...range, to: e.target.value })} /></label>
       <label>File format<select aria-label="File format" value={format} onChange={e => setFormat(e.target.value)}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option></select></label>
       <label>Entry status<select aria-label="Entry status" value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{['received', 'in-review', 'approved', 'rejected', 'completed'].map(value => <option key={value}>{value}</option>)}</select></label>

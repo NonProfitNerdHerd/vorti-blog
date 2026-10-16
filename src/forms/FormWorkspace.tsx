@@ -1,28 +1,18 @@
 'use client'
-import { useAuth, useConfig, useDocumentInfo, useField, useForm, useLocale } from '@payloadcms/ui'
+import { useConfig, useDocumentInfo, useField, useForm, useLocale } from '@payloadcms/ui'
 import { formatAdminURL } from 'payload/shared'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { JSONFieldClientComponent } from 'payload'
 import type { FormDefinition } from '@design-system/payload-design-core/forms'
 import { FormBuilder, type PaymentAvailability } from '@design-system/payload-design-core/forms/client'
-import { FormAnalytics } from './FormAnalytics'
-import { FormExportPanel } from './FormExportPanel'
 import { FormSharing } from './FormSharing'
-import { FormSurvey } from './FormSurvey'
-import { canForm, type FormsUser } from './access'
-import { flattenFields } from '@design-system/payload-design-core/forms'
 import { legacyDefinition } from './legacy'
 import { useCollectionEditorAccess } from '../content-framework/usePostTypeAccess'
 
-function ReportPanel({ title, children }: { title: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false)
-  return <details onToggle={event => setOpen(event.currentTarget.open)}><summary>{title}</summary>{open && children}</details>
-}
 
 export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   const { value, setValue, errorMessage, showError } = useField<FormDefinition>({ path })
   const { id, data, hasPublishedDoc } = useDocumentInfo()
-  const { user } = useAuth()
   const access = useCollectionEditorAccess('forms', readOnly)
   const { submit } = useForm()
   const { config } = useConfig()
@@ -54,8 +44,5 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>
       {id ? <FormSharing formID={id} published={data?.publishedRevision} /> : <p>Save and publish this form to create its share link, QR code, and embed code.</p>}
     </FormBuilder>
-    {id && canForm(user as FormsUser, 'entries', String(data?.site || 'default')) && <ReportPanel title="Analytics and completion report"><FormAnalytics formID={id} labels={Object.fromEntries(flattenFields((value || fallback).fields).map(field => [field.id, field.label]))} /></ReportPanel>}
-    {id && canForm(user as FormsUser, 'entries', String(data?.site || 'default')) && <ReportPanel title="Survey results"><FormSurvey formID={id} /></ReportPanel>}
-    {id && canForm(user as FormsUser, 'export', String(data?.site || 'default')) && <ReportPanel title="Export entries"><FormExportPanel formID={id} /></ReportPanel>}
   </>
 }

@@ -53,6 +53,9 @@ import { LocalDeliveryMessage as LocalDeliveryMessage_8b0ef800975698b01ffb30b889
 import { ResourceEditor as ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e } from '../../../forms/ResourceEditor'
 import { FormExportStatus as FormExportStatus_7c63ba332985da94d002f16d0ed2d99d } from '../../../forms/FormExportStatus'
 import { FormWorkspace as FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36 } from '../../../forms/FormWorkspace'
+import { AnalyticsPanel as AnalyticsPanel_95642dffb8de17df7f13abb928a3428e } from '../../../forms/FormReports'
+import { ResultsPanel as ResultsPanel_95642dffb8de17df7f13abb928a3428e } from '../../../forms/FormReports'
+import { FormEditorTabs as FormEditorTabs_d02d62e87bd06ba275e3a7910c62b31b } from '../../../forms/FormEditorTabs'
 import { EntryDetails as EntryDetails_1645ff14c6d344483e1220fc8158486c } from '../../../forms/EntryDetails'
 import { FormatField as FormatField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { LimitField as LimitField_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -128,6 +131,9 @@ export const importMap = {
   "./forms/ResourceEditor#ResourceEditor": ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e,
   "./forms/FormExportStatus#FormExportStatus": FormExportStatus_7c63ba332985da94d002f16d0ed2d99d,
   "./forms/FormWorkspace#FormWorkspace": FormWorkspace_21fc2b2fd3d45e540ae836d03c755b36,
+  "./forms/FormReports#AnalyticsPanel": AnalyticsPanel_95642dffb8de17df7f13abb928a3428e,
+  "./forms/FormReports#ResultsPanel": ResultsPanel_95642dffb8de17df7f13abb928a3428e,
+  "./forms/FormEditorTabs#FormEditorTabs": FormEditorTabs_d02d62e87bd06ba275e3a7910c62b31b,
   "./forms/EntryDetails#EntryDetails": EntryDetails_1645ff14c6d344483e1220fc8158486c,
   "@payloadcms/plugin-import-export/rsc#FormatField": FormatField_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#LimitField": LimitField_cdf7e044479f899a31f804427d568b36,

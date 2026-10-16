@@ -51,10 +51,14 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
         { name: 'publishedRevision', type: 'text', admin: { hidden: true }, access: { update: ({ req }) => internalRequest(req) } },
       ]
         const named = (name: string) => fields.find(field => 'name' in field && field.name === name)!
-        return [named('title'), named('definition'), {
+        return [{ type: 'group', admin: { components: { Field: './forms/FormEditorTabs#FormEditorTabs' } }, fields: [
+          { type: 'group', label: 'Primary', fields: [named('title'), named('definition'), {
           type: 'collapsible', label: 'Form details and publishing settings', admin: { initCollapsed: true },
           fields: fields.filter(field => !('name' in field) || !['title', 'definition'].includes(field.name)),
-        }]
+          }] },
+          { type: 'group', label: 'Analytics', fields: [{ name: 'formAnalytics', type: 'ui', admin: { components: { Field: './forms/FormReports#AnalyticsPanel' } } }] },
+          { type: 'group', label: 'Results', fields: [{ name: 'formResults', type: 'ui', admin: { components: { Field: './forms/FormReports#ResultsPanel' } } }] },
+        ] }]
       },
       hooks: {
         beforeOperation: [({ args, operation }) => {

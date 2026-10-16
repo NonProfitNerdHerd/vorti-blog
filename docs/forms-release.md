@@ -11,6 +11,14 @@ This release follows [the narrowed Forms scope](forms-release-scope.md). It does
 5. Insert the **Form** block on a Page/Post, select the published form, and publish the page. The Publish tab also provides a standalone link, QR code and iframe embed.
 6. Open **Forms → Entries** to review answers, attachments, workflow notes and notification status. Original answers and the field labels at submission time remain preserved.
 
+## Form editor tabs
+
+**Primary** contains the title, builder, sharing tools and form details. **Analytics** contains activity and completion reporting. **Results** contains revision/date filters, a paginated table of entries, and the optional survey summary. Entry links open a separate tab to preserve the working form. Switching tabs retains unsaved values, selected fields and builder undo history; it does not publish the form.
+
+Use **Export entries** in Results to choose CSV or Excel, dates and answer columns. Exports use their explicitly selected date range across all revisions, independently of the report filters. Export progress remains available when switching tabs or hiding its settings. Existing entry and export permissions still apply. The layout uses unnamed Payload containers and UI-only report fields; stored form paths and database schema are unchanged.
+
+The tab update passed 57 Forms integration tests and five development-browser scenarios covering state retention, keyboard tab navigation, form creation/publication, survey results, analytics and Excel export. Two additional authenticated scenarios passed against the production Worker bundle with isolated local storage. TypeScript, focused lint, the 21-component registration guard and the production Worker build passed. No production data changes are required.
+
 ## Capability and configuration status
 
 | Area | Release behavior |
