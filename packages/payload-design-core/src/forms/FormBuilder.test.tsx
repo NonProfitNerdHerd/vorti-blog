@@ -8,6 +8,18 @@ import { emptyDefinition } from './model'
 
 afterEach(cleanup)
 
+it('captures the legacy internal label when its public question changes', () => {
+  let latest = { ...emptyDefinition(), fields: [{ id: 'old', kind: 'text', label: 'Old question' }] }
+  function Editor() { const [value, setValue] = React.useState(latest); return <FormBuilder value={value} onChange={next => { latest = next; setValue(next) }} /> }
+  render(<Editor />)
+  fireEvent.click(screen.getByRole('group', { name: 'Old question Single-line text' }))
+  fireEvent.change(screen.getByLabelText('Question / label'), { target: { value: 'A longer question for respondents' } })
+  expect(latest.fields[0]).toMatchObject({ label: 'A longer question for respondents', blockLabel: 'Old question' })
+  fireEvent.click(screen.getByRole('button', { name: 'Duplicate' }))
+  expect(latest.fields[1]).toMatchObject({ label: 'A longer question for respondents', blockLabel: 'Old question copy' })
+  expect(latest.fields[1].id).not.toBe('old')
+})
+
 it('filters empty palette categories and selects clean choice parts for inspector editing', () => {
   function Editor() {
     const [value, setValue] = React.useState(emptyDefinition())
@@ -21,6 +33,7 @@ it('filters empty palette categories and selects clean choice parts for inspecto
   expect(screen.getByRole('button', { name: 'Canvas' }).querySelector('[data-part-icon="step"]')).toBeTruthy()
   fireEvent.change(screen.getByLabelText('Search parts'), { target: { value: 'Dropdown' } })
   fireEvent.click(screen.getByRole('button', { name: 'Dropdown' }))
+  fireEvent.click(screen.getByRole('tab', { name: 'Choices' }))
   fireEvent.change(screen.getByLabelText('Option 1'), { target: { value: 'Updated choice' } })
   expect(within(screen.getByRole('main', { name: 'Form canvas' })).getByText('Updated choice')).toBeTruthy()
   expect(container.querySelector('.forms-canvas-card-title')).toBeNull()

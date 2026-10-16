@@ -20,10 +20,10 @@ export function organizeIssue(fields: FormField[]): string | undefined {
   if (fields.some(field => field.kind === 'step') && fields.some(field => field.kind !== 'step')) return 'This form mixes canvases and top-level parts. Move the top-level parts into an existing canvas before adding another canvas.'
 }
 export function newCanvas(fields: FormField[]): FormField {
-  const labels = new Set(fields.map(field => field.label))
+  const labels = new Set(fields.map(field => field.blockLabel || field.label))
   let number = 1
   while (labels.has(`Canvas ${number}`)) number++
-  return { id: makeID(), kind: 'step', label: `Canvas ${number}`, width: 12, children: [] }
+  return { id: makeID(), kind: 'step', label: `Canvas ${number}`, blockLabel: `Canvas ${number}`, width: 12, children: [] }
 }
 export function organizeCanvases(definition: FormDefinition): FormDefinition {
   const issue = organizeIssue(definition.fields)

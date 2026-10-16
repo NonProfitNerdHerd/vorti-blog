@@ -46,7 +46,7 @@ export function duplicateFormField(definition: FormDefinition, id: string): { de
   const original = flattenFields(definition.fields).find(field => field.id === id)
   if (!original) throw new Error('Select a field to duplicate.')
   const cloned = cloneFields([original]), copy = cloned.fields[0]
-  copy.label += ' copy'
+  copy.blockLabel = (copy.blockLabel || copy.label) + ' copy'
   const insert = (fields: FormField[]): FormField[] => fields.flatMap(field => field.id === id ? [field, copy] : [{ ...field, ...(field.children ? { children: insert(field.children) } : {}) }])
   const rules = definition.rules.flatMap(rule => {
     const effects = rule.effects.filter(effect => 'target' in effect && effect.kind !== 'action' && effect.kind !== 'route' && cloned.ids.has(effect.target)).map(cloned.effect)

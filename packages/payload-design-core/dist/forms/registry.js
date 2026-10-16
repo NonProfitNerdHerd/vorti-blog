@@ -1,3 +1,4 @@
+import { contactErrors } from './contact.js';
 import { isEmpty } from './model.js';
 /** Registries reject collisions so a plugin cannot silently change stored semantics. */
 export class Registry {
@@ -32,18 +33,10 @@ const register = (kind, label, category, description, extra = {}) => formFields.
     validate: stringValue, format: structuredFormat, ...extra });
 register('text', 'Single-line text', 'Basic', 'A short answer.');
 register('textarea', 'Paragraph', 'Basic', 'A longer answer.');
-const structuredText = (keys, requiredKeys) => (value, field) => {
-    if (objectValue(value).length)
-        return ['Enter the structured values.'];
-    const record = value;
-    if (Object.entries(record).some(([key, val]) => !keys.includes(key) || typeof val !== 'string' || val.length > 1000))
-        return ['Unexpected or invalid structured value.'];
-    return field.required && requiredKeys.some(key => !String(record[key] || '').trim()) ? [`Complete ${requiredKeys.join(', ')}.`] : [];
-};
-register('name', 'Name', 'Basic', 'First and last name stored separately.', { validate: structuredText(['first', 'last'], ['first', 'last']) });
-register('address', 'Address', 'Basic', 'Structured postal address.', { validate: structuredText(['line1', 'line2', 'city', 'region', 'postalCode', 'country'], ['line1', 'city', 'country']) });
+register('name', 'Name', 'Basic', 'A full name or separate name components.', { validate: contactErrors });
+register('address', 'Address', 'Basic', 'Structured postal address.', { validate: contactErrors });
 register('email', 'Email', 'Basic', 'A valid email address.', { input: 'email', validate: v => typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? [] : ['Enter a valid email address.'] });
-register('phone', 'Phone', 'Basic', 'International or local telephone number.', { input: 'tel', validate: v => typeof v === 'string' && /^[+()\d\s.\-]{5,30}$/.test(v) && (v.match(/\d/g)?.length || 0) >= 5 ? [] : ['Enter a phone number.'] });
+register('phone', 'Phone', 'Basic', 'US or international telephone number.', { input: 'tel', validate: contactErrors });
 register('url', 'Website', 'Basic', 'An HTTP or HTTPS website address.', { input: 'url', validate: v => {
         try {
             return typeof v === 'string' && ['http:', 'https:'].includes(new URL(v).protocol) ? [] : ['Enter an HTTP or HTTPS URL.'];

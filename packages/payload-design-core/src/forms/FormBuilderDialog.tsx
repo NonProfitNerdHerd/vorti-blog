@@ -4,18 +4,18 @@ import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 
 /** Native dialog provides focus containment, Escape dismissal, and return focus. */
-export function FormBuilderDialog({ title, close, anchor, children }: { title: string; close: () => void; anchor?: React.RefObject<HTMLElement | null>; children: React.ReactNode }) {
+export function FormBuilderDialog({ title, close, anchor, centered, variant, children }: { title: string; centered?: boolean; variant?: 'parts' | 'settings'; close: () => void; anchor?: React.RefObject<HTMLElement | null>; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null), id = useId()
   useEffect(() => {
     const dialog = ref.current!, previous = anchor?.current || document.activeElement as HTMLElement | null
     dialog.showModal()
-    if (anchor?.current) {
+    if (anchor?.current && !centered) {
       const bounds = anchor.current.getBoundingClientRect()
       dialog.style.margin = '0'
       dialog.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - dialog.offsetWidth - 12))}px`
       dialog.style.top = `${Math.max(12, Math.min(bounds.bottom + 8, innerHeight - dialog.offsetHeight - 12))}px`
     }
     return () => { dialog.close(); requestAnimationFrame(() => { if (previous?.isConnected) previous.focus() }) }
-  }, [anchor])
-  return createPortal(<dialog ref={ref} className="forms-builder forms-part-dialog" aria-labelledby={id} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() } }} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close() } }}><div className="forms-dialog-heading"><h2 id={id}>{title}</h2><button type="button" aria-label="Close dialog" onClick={close}><X size={18} /></button></div>{children}</dialog>, document.body)
+  }, [anchor, centered])
+  return createPortal(<dialog ref={ref} className={`forms-builder forms-part-dialog ${variant ? 'forms-dialog-' + variant : ''}`} aria-labelledby={id} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close() } }} onCancel={event => { event.preventDefault(); close() }} onClick={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close() } }}><div className="forms-dialog-heading"><h2 id={id}>{title}</h2><button type="button" aria-label="Close dialog" onClick={close}><X size={18} /></button></div>{children}</dialog>, document.body)
 }

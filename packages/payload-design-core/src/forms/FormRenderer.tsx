@@ -1,4 +1,7 @@
 'use client'
+import { ContactInput } from './ContactInput'
+import { RankingInput } from './RankingInput'
+import { widthFraction, widthStyle } from './contact'
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { evaluateForm, validateAnswers } from './engine'
@@ -81,10 +84,6 @@ const MatrixInput = ({ field, value, onChange, id, disabled }: FieldInputProps) 
   const values = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
   return <div id={id} className="forms-matrix">{field.rows?.map(row => <fieldset key={row.id}><legend>{row.label}</legend>{field.options?.map(option => <label key={option.id} className="forms-check"><input type="radio" name={`${id}-${row.id}`} disabled={disabled} checked={values[row.id] === option.id} onChange={() => onChange({ ...values, [row.id]: option.id })} />{option.label}</label>)}</fieldset>)}</div>
 }
-const RankingInput = ({ field, value, onChange, id, disabled }: FieldInputProps) => {
-  const ordered = Array.isArray(value) ? value.map(String) : field.options?.map(o => o.id) || []
-  return <div id={id}><ol>{ordered.map((item, index) => <li key={item}>{field.options?.find(o => o.id === item)?.label}<span className="forms-actions">{[-1, 1].map(delta => <button key={delta} type="button" disabled={disabled || index + delta < 0 || index + delta >= ordered.length} aria-label={`Move ${field.options?.find(o => o.id === item)?.label} ${delta < 0 ? 'up' : 'down'}`} onClick={() => { const next = [...ordered]; [next[index], next[index + delta]] = [next[index + delta], next[index]]; onChange(next) }}>{delta < 0 ? '↑' : '↓'}</button>)}</span></li>)}</ol><button type="button" disabled={disabled} onClick={() => onChange(ordered)}>Confirm this ranking</button></div>
-}
 const UploadInput = ({ field, value, onChange, id, disabled, onUpload }: FieldInputProps) => {
   const [progress, setProgress] = useState<number>(), [error, setError] = useState('')
   const [files, setFiles] = useState<Record<string, UploadResult>>({})
@@ -119,7 +118,9 @@ const SignatureInput = ({ value, onChange, id, disabled }: FieldInputProps) => {
 for (const kind of ['text', 'textarea', 'email', 'phone', 'url', 'number', 'currency', 'slider', 'date', 'time']) registerFieldRenderer(kind, TextInput)
 registerFieldRenderer('datetime', DateTimeInput)
 for (const kind of ['checkbox', 'consent', 'terms']) registerFieldRenderer(kind, CheckboxInput)
-for (const kind of ['name', 'address', 'dateRange']) registerFieldRenderer(kind, StructuredInput)
+for (const kind of ['name', 'address']) registerFieldRenderer(kind, ContactInput)
+registerFieldRenderer('dateRange', StructuredInput)
+fieldRenderers.set('phone', props => props.field.contact ? <ContactInput {...props} /> : <TextInput {...props} />)
 for (const kind of ['select', 'searchSelect', 'radio', 'multiSelect', 'imageChoice']) registerFieldRenderer(kind, ChoiceInput)
 for (const kind of ['rating', 'nps']) registerFieldRenderer(kind, ScaleInput)
 registerFieldRenderer('likert', MatrixInput); registerFieldRenderer('ranking', RankingInput)
@@ -202,7 +203,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
       const rows = Array.isArray(value) ? value as Answers[] : []
       content = <fieldset disabled={off}><legend>{field.label}</legend>{rows.map((row, index) => <fieldset key={index}><legend>{field.label} {index + 1}</legend>{field.children?.map(f => render(f, { values: row, prefix: `${field.id}.${index}.`, change: (key, next) => update(rows.map((r, i) => i === index ? { ...r, [key]: next } : r)) }))}<button type="button" disabled={off || rows.length <= (field.min || 0)} onClick={() => update(rows.filter((_, i) => i !== index))}>Remove item {index + 1}</button></fieldset>)}<button type="button" disabled={off || rows.length >= (field.max ?? 50)} onClick={() => update([...rows, {}])}>Add {field.label}</button></fieldset>
     } else content = <>{title}{Input ? <Input field={field} value={value} onChange={update} id={id} disabled={off} invalid={issues.length > 0} describedBy={`${id}-help ${id}-errors`} onUpload={onUpload} /> : <p role="alert">This field type is unavailable.</p>}</>
-    return <div key={field.id} className={`forms-field forms-style-${state.style || 'normal'}`} style={{ gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }}>{content}{field.help && field.kind !== 'content' && <small id={`${id}-help`}>{field.help}</small>}<div id={`${id}-errors`}>{issues.map((error, i) => <p key={i} className="forms-error">{error.message}</p>)}</div></div>
+    return <div key={field.id} className={`forms-field forms-style-${state.style || 'normal'}`} style={{ ...widthStyle(field.layout?.kind === 'columns' && field.layout.width === 'full' ? 1 : widthFraction(field)), gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }}>{content}{field.help && field.kind !== 'content' && <small id={`${id}-help`}>{field.help}</small>}<div id={`${id}-errors`}>{issues.map((error, i) => <p key={i} className="forms-error">{error.message}</p>)}</div></div>
   }
   const theme = definition.theme
   return <div ref={root} className={`forms-runtime forms-size-${theme.size}`} lang={definition.locale} dir={definition.direction} style={{ '--forms-primary': theme.primary, '--forms-background': theme.background, '--forms-text': theme.text, '--forms-border': theme.border, '--forms-error': theme.error, '--forms-radius': `${theme.radius}px`, '--forms-spacing': `${theme.spacing}px`, fontFamily: theme.font } as React.CSSProperties}>

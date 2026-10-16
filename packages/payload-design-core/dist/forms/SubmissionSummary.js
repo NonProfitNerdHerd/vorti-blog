@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { formFields } from './registry.js';
 import './summary.css';
-const labels = { first: 'First name', last: 'Last name', line1: 'Address', line2: 'Address line 2', city: 'City', region: 'State / region', postalCode: 'Postal code', country: 'Country', start: 'Start', end: 'End' };
+const labels = { full: 'Full name', middle: 'Middle name / initial', first: 'First name', last: 'Last name', line1: 'Address', line2: 'Address line 2', city: 'City', region: 'State / region', postalCode: 'Postal code', country: 'Country', start: 'Start', end: 'End' };
 function StructuredValue({ value }) {
     if (value === null || value === undefined || value === '')
         return _jsx("span", { className: "forms-summary-empty", children: "Not provided" });

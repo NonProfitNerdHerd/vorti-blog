@@ -4,12 +4,12 @@ import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 /** Native dialog provides focus containment, Escape dismissal, and return focus. */
-export function FormBuilderDialog({ title, close, anchor, children }) {
+export function FormBuilderDialog({ title, close, anchor, centered, variant, children }) {
     const ref = useRef(null), id = useId();
     useEffect(() => {
         const dialog = ref.current, previous = anchor?.current || document.activeElement;
         dialog.showModal();
-        if (anchor?.current) {
+        if (anchor?.current && !centered) {
             const bounds = anchor.current.getBoundingClientRect();
             dialog.style.margin = '0';
             dialog.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - dialog.offsetWidth - 12))}px`;
@@ -17,8 +17,8 @@ export function FormBuilderDialog({ title, close, anchor, children }) {
         }
         return () => { dialog.close(); requestAnimationFrame(() => { if (previous?.isConnected)
             previous.focus(); }); };
-    }, [anchor]);
-    return createPortal(_jsxs("dialog", { ref: ref, className: "forms-builder forms-part-dialog", "aria-labelledby": id, onKeyDown: event => { if (event.key === 'Escape') {
+    }, [anchor, centered]);
+    return createPortal(_jsxs("dialog", { ref: ref, className: `forms-builder forms-part-dialog ${variant ? 'forms-dialog-' + variant : ''}`, "aria-labelledby": id, onKeyDown: event => { if (event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
             close();

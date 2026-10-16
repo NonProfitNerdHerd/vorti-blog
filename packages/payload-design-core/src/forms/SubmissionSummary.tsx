@@ -8,7 +8,7 @@ export interface SubmissionSummaryProps {
   answers: Answers
   attachment?: (id: string, field: FormField) => ReactNode
 }
-const labels: Record<string, string> = { first: 'First name', last: 'Last name', line1: 'Address', line2: 'Address line 2', city: 'City', region: 'State / region', postalCode: 'Postal code', country: 'Country', start: 'Start', end: 'End' }
+const labels: Record<string, string> = { full: 'Full name', middle: 'Middle name / initial', first: 'First name', last: 'Last name', line1: 'Address', line2: 'Address line 2', city: 'City', region: 'State / region', postalCode: 'Postal code', country: 'Country', start: 'Start', end: 'End' }
 function StructuredValue({ value }: { value: FormValue }): ReactNode {
   if (value === null || value === undefined || value === '') return <span className="forms-summary-empty">Not provided</span>
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'

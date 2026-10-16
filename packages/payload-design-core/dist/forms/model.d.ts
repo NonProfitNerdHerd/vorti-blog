@@ -74,6 +74,18 @@ export interface DateRestrictions {
     resource?: string;
 }
 export interface FormField {
+    blockLabel?: string;
+    widthFraction?: number;
+    contact?: {
+        format: 'full' | 'firstLast' | 'middleInitial' | 'middle' | 'us' | 'international';
+        line2?: boolean;
+    };
+    components?: Record<string, {
+        label?: string;
+        help?: string;
+        placeholder?: string;
+        widthFraction?: number;
+    }>;
     id: string;
     kind: FieldKind | (string & {});
     label: string;

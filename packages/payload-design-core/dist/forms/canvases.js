@@ -24,11 +24,11 @@ export function organizeIssue(fields) {
         return 'This form mixes canvases and top-level parts. Move the top-level parts into an existing canvas before adding another canvas.';
 }
 export function newCanvas(fields) {
-    const labels = new Set(fields.map(field => field.label));
+    const labels = new Set(fields.map(field => field.blockLabel || field.label));
     let number = 1;
     while (labels.has(`Canvas ${number}`))
         number++;
-    return { id: makeID(), kind: 'step', label: `Canvas ${number}`, width: 12, children: [] };
+    return { id: makeID(), kind: 'step', label: `Canvas ${number}`, blockLabel: `Canvas ${number}`, width: 12, children: [] };
 }
 export function organizeCanvases(definition) {
     const issue = organizeIssue(definition.fields);

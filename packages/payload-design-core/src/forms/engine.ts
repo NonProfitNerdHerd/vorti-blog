@@ -1,3 +1,4 @@
+import { contactComponents, normalizeContact } from './contact'
 import { calculate, expressionReferences } from './expression'
 import { zonedParts } from './dates'
 import { definitionShapeIssues } from './shape'
@@ -56,6 +57,16 @@ export function validateDefinition(definition: FormDefinition): FormIssue[] {
   const fields = flattenFields(definition.fields), ids = new Set<string>()
   if (fields.length > 250) add('A form can contain at most 250 fields.')
   for (const field of fields) {
+    if (field.contact && !(field.kind === 'name' ? ['full', 'firstLast', 'middleInitial', 'middle'] : ['phone', 'address'].includes(field.kind) ? ['us', 'international'] : []).includes(field.contact.format)) add('Choose a format compatible with this field.', field.id)
+    if (field.components && !['name', 'phone', 'address'].includes(field.kind)) add('Subfield settings are only available for Name, Phone, and Address.', field.id)
+    if (field.components) {
+      const keys = field.kind === 'name' ? ['first', 'last', 'full', 'middle'] : field.kind === 'address' ? ['line1', 'line2', 'city', 'region', 'postalCode', 'country'] : ['code', 'area', 'prefix', 'line', 'national']
+      if (Object.keys(field.components).some(key => !keys.includes(key))) add('Subfield settings reference a component unavailable for this part.', field.id)
+    }
+    if (field.contact && field.defaultValue && typeof field.defaultValue === 'object' && !Array.isArray(field.defaultValue)) {
+      const visible = contactComponents(field).map(part => part.key)
+      if (Object.entries(field.defaultValue).some(([key, value]) => value && !visible.includes(key) && !(field.kind === 'address' && key === 'country' && value === 'US'))) add('The default contains values hidden by this contact format. Review or clear the default answer before publishing.', field.id)
+    }
     if (field.layout?.kind === 'columns') {
       if (field.kind !== 'row' || !field.children?.length || field.children.length > 4 || field.children.some(child => child.layout?.kind !== 'column')) add('Columns need one to four column containers.', field.id)
       if (field.layout.width === 'full' && !canUseFullWidth(definition.fields, field.id)) add('Move Columns directly onto a Canvas to use Full Page width.', field.id)
@@ -148,7 +159,7 @@ export function evaluateForm(definition: FormDefinition, input: Answers): Evalua
     states[f.id] = { visible: true, enabled: !f.disabled, required: !!f.required }
     if (!formFields.get(f.kind)?.structural && !repeated.has(f.id)) {
       const value = f.kind === 'hidden' || f.kind === 'calculated' ? f.defaultValue : input[f.id] ?? f.defaultValue
-      if (value !== undefined) answers[f.id] = structuredClone(value)
+      if (value !== undefined) answers[f.id] = normalizeContact(structuredClone(value), f)
     }
   }
   const matched = new Set<string>(), actions = new Set<string>()
@@ -166,7 +177,7 @@ export function evaluateForm(definition: FormDefinition, input: Answers): Evalua
         if (effect.kind === 'enabled') state.enabled = effect.value
         if (effect.kind === 'required') state.required = effect.value
         if (effect.kind === 'style') state.style = effect.value
-        if (effect.kind === 'set') answers[id] = structuredClone(effect.value)
+        if (effect.kind === 'set') answers[id] = normalizeContact(structuredClone(effect.value), field)
         if (effect.kind === 'clear') delete answers[id]
       }
     }

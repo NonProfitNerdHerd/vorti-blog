@@ -29,6 +29,9 @@ export interface DateRestrictions {
   incrementMinutes?: number; timezone?: string; resource?: string
 }
 export interface FormField {
+  blockLabel?: string; widthFraction?: number
+  contact?: { format: 'full' | 'firstLast' | 'middleInitial' | 'middle' | 'us' | 'international'; line2?: boolean }
+  components?: Record<string, { label?: string; help?: string; placeholder?: string; widthFraction?: number }>
   id: string; kind: FieldKind | (string & {}); label: string; help?: string; placeholder?: string
   required?: boolean; defaultValue?: FormValue; sensitive?: boolean; disabled?: boolean
   width?: 3 | 4 | 6 | 8 | 9 | 12; children?: FormField[]; options?: FormOption[]

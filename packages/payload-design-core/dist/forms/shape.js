@@ -31,11 +31,18 @@ function effect(value) {
 function field(value, depth = 0) {
     if (!record(value) || depth > 11 || !text(value.id) || !text(value.kind) || !text(value.label))
         return false;
-    if (!keys(value, ['help', 'placeholder', 'errorMessage', 'expression', 'currency'], text) || !keys(value, ['required', 'sensitive', 'disabled'], x => typeof x === 'boolean'))
+    if (!keys(value, ['help', 'placeholder', 'errorMessage', 'expression', 'currency', 'blockLabel'], text) || !keys(value, ['required', 'sensitive', 'disabled'], x => typeof x === 'boolean'))
         return false;
     if (!keys(value, ['min', 'max', 'minLength', 'maxLength', 'minChoices', 'maxChoices', 'precision', 'width'], number))
         return false;
     if (!optional(value.options, list(option)) || !optional(value.rows, list(option)) || !optional(value.children, list(child => field(child, depth + 1))))
+        return false;
+    const fraction = (x) => number(x) && Number(x) >= .1 && Number(x) <= 1 && Math.abs(Number(x) * 100 - Math.round(Number(x) * 100)) < .00001;
+    if (!optional(value.widthFraction, fraction))
+        return false;
+    if (value.contact !== undefined && (!record(value.contact) || !['full', 'firstLast', 'middleInitial', 'middle', 'us', 'international'].includes(String(value.contact.format)) || !optional(value.contact.line2, x => typeof x === 'boolean')))
+        return false;
+    if (value.components !== undefined && (!record(value.components) || Object.entries(value.components).some(([key, component]) => !['full', 'first', 'middle', 'last', 'line1', 'line2', 'city', 'region', 'postalCode', 'country', 'code', 'area', 'prefix', 'line', 'national'].includes(key) || !record(component) || !keys(component, ['label', 'help', 'placeholder'], text) || !optional(component.widthFraction, fraction))))
         return false;
     if (value.layout !== undefined && (!record(value.layout) || !(value.layout.kind === 'columns' ? optional(value.layout.width, width => ['inherit', 'content', 'full'].includes(String(width))) : value.layout.kind === 'column' && number(value.layout.weight) && Number(value.layout.weight) > 0 && Number(value.layout.weight) <= 100)))
         return false;

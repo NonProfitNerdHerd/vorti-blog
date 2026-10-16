@@ -1,5 +1,8 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { ContactInput } from './ContactInput.js';
+import { RankingInput } from './RankingInput.js';
+import { widthFraction, widthStyle } from './contact.js';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { evaluateForm, validateAnswers } from './engine.js';
 import { formFields } from './registry.js';
@@ -62,10 +65,6 @@ const MatrixInput = ({ field, value, onChange, id, disabled }) => {
     const values = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     return _jsx("div", { id: id, className: "forms-matrix", children: field.rows?.map(row => _jsxs("fieldset", { children: [_jsx("legend", { children: row.label }), field.options?.map(option => _jsxs("label", { className: "forms-check", children: [_jsx("input", { type: "radio", name: `${id}-${row.id}`, disabled: disabled, checked: values[row.id] === option.id, onChange: () => onChange({ ...values, [row.id]: option.id }) }), option.label] }, option.id))] }, row.id)) });
 };
-const RankingInput = ({ field, value, onChange, id, disabled }) => {
-    const ordered = Array.isArray(value) ? value.map(String) : field.options?.map(o => o.id) || [];
-    return _jsxs("div", { id: id, children: [_jsx("ol", { children: ordered.map((item, index) => _jsxs("li", { children: [field.options?.find(o => o.id === item)?.label, _jsx("span", { className: "forms-actions", children: [-1, 1].map(delta => _jsx("button", { type: "button", disabled: disabled || index + delta < 0 || index + delta >= ordered.length, "aria-label": `Move ${field.options?.find(o => o.id === item)?.label} ${delta < 0 ? 'up' : 'down'}`, onClick: () => { const next = [...ordered]; [next[index], next[index + delta]] = [next[index + delta], next[index]]; onChange(next); }, children: delta < 0 ? '↑' : '↓' }, delta)) })] }, item)) }), _jsx("button", { type: "button", disabled: disabled, onClick: () => onChange(ordered), children: "Confirm this ranking" })] });
-};
 const UploadInput = ({ field, value, onChange, id, disabled, onUpload }) => {
     const [progress, setProgress] = useState(), [error, setError] = useState('');
     const [files, setFiles] = useState({});
@@ -126,8 +125,10 @@ for (const kind of ['text', 'textarea', 'email', 'phone', 'url', 'number', 'curr
 registerFieldRenderer('datetime', DateTimeInput);
 for (const kind of ['checkbox', 'consent', 'terms'])
     registerFieldRenderer(kind, CheckboxInput);
-for (const kind of ['name', 'address', 'dateRange'])
-    registerFieldRenderer(kind, StructuredInput);
+for (const kind of ['name', 'address'])
+    registerFieldRenderer(kind, ContactInput);
+registerFieldRenderer('dateRange', StructuredInput);
+fieldRenderers.set('phone', props => props.field.contact ? _jsx(ContactInput, { ...props }) : _jsx(TextInput, { ...props }));
 for (const kind of ['select', 'searchSelect', 'radio', 'multiSelect', 'imageChoice'])
     registerFieldRenderer(kind, ChoiceInput);
 for (const kind of ['rating', 'nps'])
@@ -264,7 +265,7 @@ export function FormRenderer({ definition, initialAnswers = {}, preview, disable
         }
         else
             content = _jsxs(_Fragment, { children: [title, Input ? _jsx(Input, { field: field, value: value, onChange: update, id: id, disabled: off, invalid: issues.length > 0, describedBy: `${id}-help ${id}-errors`, onUpload: onUpload }) : _jsx("p", { role: "alert", children: "This field type is unavailable." })] });
-        return _jsxs("div", { className: `forms-field forms-style-${state.style || 'normal'}`, style: { gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }, children: [content, field.help && field.kind !== 'content' && _jsx("small", { id: `${id}-help`, children: field.help }), _jsx("div", { id: `${id}-errors`, children: issues.map((error, i) => _jsx("p", { className: "forms-error", children: error.message }, i)) })] }, field.id);
+        return _jsxs("div", { className: `forms-field forms-style-${state.style || 'normal'}`, style: { ...widthStyle(field.layout?.kind === 'columns' && field.layout.width === 'full' ? 1 : widthFraction(field)), gridColumn: `span ${field.layout?.kind === 'columns' && field.layout.width === 'full' ? 12 : field.width || 12}` }, children: [content, field.help && field.kind !== 'content' && _jsx("small", { id: `${id}-help`, children: field.help }), _jsx("div", { id: `${id}-errors`, children: issues.map((error, i) => _jsx("p", { className: "forms-error", children: error.message }, i)) })] }, field.id);
     };
     const theme = definition.theme;
     return _jsxs("div", { ref: root, className: `forms-runtime forms-size-${theme.size}`, lang: definition.locale, dir: definition.direction, style: { '--forms-primary': theme.primary, '--forms-background': theme.background, '--forms-text': theme.text, '--forms-border': theme.border, '--forms-error': theme.error, '--forms-radius': `${theme.radius}px`, '--forms-spacing': `${theme.spacing}px`, fontFamily: theme.font }, children: [errors.length > 0 && _jsxs("div", { ref: summary, tabIndex: -1, role: "alert", className: "forms-error-summary", children: [_jsx("h3", { children: "Please check your answers" }), errors.map((error, i) => _jsx("p", { children: _jsx("button", { type: "button", onClick: () => { const index = groups.findIndex(g => flattenFields(g.fields).some(f => f.id === error.field)); if (index >= 0)
