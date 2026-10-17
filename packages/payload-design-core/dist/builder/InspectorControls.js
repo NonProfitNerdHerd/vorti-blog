@@ -55,6 +55,7 @@ export function InspectorToggle({ open, change, }) {
             if (event.key === 'Escape' &&
                 !event.defaultPrevented &&
                 event.target instanceof Element &&
+                !event.target.closest('.editor-dialog-layer') &&
                 (ref.current?.contains(event.target) ||
                     event.target.closest('.content-workspace__right, .template-editor__sidebar--right')) &&
                 ref.current?.getClientRects().length &&
@@ -78,6 +79,7 @@ export function InspectorToggle({ open, change, }) {
 }
 export function Popover({ label, trigger, children, }) {
     const [open, setOpen] = useState(false), [position, setPosition] = useState({ top: 0, left: 0 });
+    const [host, setHost] = useState(null);
     const button = useRef(null), panel = useRef(null), id = useId();
     useEffect(() => {
         if (!open)
@@ -122,8 +124,11 @@ export function Popover({ label, trigger, children, }) {
             window.removeEventListener('scroll', place, true);
         };
     }, [open]);
-    return (_jsxs(_Fragment, { children: [_jsx("button", { ref: button, type: "button", title: label, "aria-label": label, "aria-expanded": open, "aria-controls": open ? id : undefined, onClick: () => setOpen(!open), children: trigger }), open &&
-                createPortal(_jsx("div", { id: id, ref: panel, role: "dialog", "aria-label": label, className: "inspector-popover", style: { position: 'fixed', ...position }, children: children }), document.body)] }));
+    return (_jsxs(_Fragment, { children: [_jsx("button", { ref: button, type: "button", title: label, "aria-label": label, "aria-expanded": open, "aria-controls": open ? id : undefined, onClick: (event) => {
+                    setHost(event.currentTarget.closest('.editor-dialog-layer') ?? document.body);
+                    setOpen(!open);
+                }, children: trigger }), open &&
+                createPortal(_jsx("div", { id: id, ref: panel, role: "dialog", "aria-label": label, className: "inspector-popover", style: { position: 'fixed', ...position }, children: children }), host ?? document.body)] }));
 }
 export function DeviceControl({ label }) {
     const device = useContext(InspectorDevice);

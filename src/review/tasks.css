@@ -71,6 +71,50 @@
 .review-list li > button {
   text-align: left;
   font-weight: 600;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.review-list li > button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.review-list li small {
+  margin-top: 4px;
+}
+.review-task-dialog .review-edit {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.review-task-dialog button {
+  border-radius: 7px;
+}
+.review-task-dialog .review-edit > label:nth-of-type(-n + 2),
+.review-task-dialog .review-edit > button {
+  grid-column: 1 / -1;
+}
+.review-task-dialog .review-edit > button {
+  margin-top: 12px;
+  padding: 11px 16px;
+  border-radius: 8px;
+}
+.review-task-dialog :is(input, select, textarea) {
+  border-radius: 7px;
+  padding: 10px 12px;
+}
+@media (max-width: 600px) {
+  .review-task-dialog .review-edit {
+    grid-template-columns: 1fr;
+  }
 }
 .review-shortcuts {
   display: flex;

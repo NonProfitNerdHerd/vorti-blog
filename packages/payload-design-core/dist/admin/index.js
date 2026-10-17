@@ -1,5 +1,6 @@
 export { BlockDesignPanel } from './BlockDesignPanel.js';
 export { ContentWorkspace } from './ContentWorkspace.js';
+export { EditorDialog } from '../builder/EditorDialog.js';
 export { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
 export { contentSidebarNodes, templateSidebarNodes, shellSidebarNodes, outlineSummary, insertionTarget, } from '../builder/sidebar-model.js';
 export { BlockStyleControls } from '../builder/BlockStyleControls.js';

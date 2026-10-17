@@ -1,0 +1,89 @@
+.editor-dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 42%);
+  backdrop-filter: blur(5px);
+  color: var(--theme-text);
+}
+.editor-dialog-card {
+  width: clamp(480px, 40vw, 960px);
+  max-width: calc(100vw - 48px);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--theme-bg, #fff);
+  border: 1px solid var(--theme-elevation-200, #dfe3e8);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 24%);
+  overflow: hidden;
+}
+.editor-dialog-heading:not([hidden]) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+  flex-shrink: 0;
+}
+.editor-dialog-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.editor-dialog-card .editor-dialog-heading button {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.editor-dialog-card .editor-dialog-heading button:hover {
+  background: var(--theme-elevation-100);
+}
+.editor-dialog-content {
+  padding: 20px 24px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.editor-dialog-layer :focus-visible {
+  outline: 2px solid var(--theme-success-500);
+  outline-offset: 3px;
+}
+.editor-dialog-layer .editor-inspector-expand {
+  display: none;
+}
+.builder-frame.builder-frame:has(.editor-dialog-layer) {
+  z-index: 1000;
+  overflow: visible;
+}
+.builder-frame > [data-inspector-expanded='true'],
+.builder-frame > [data-inspector-expanded='true'] > .template-editor__sidebar-inner {
+  display: contents !important;
+}
+@media (max-width: 600px) {
+  .editor-dialog-layer {
+    padding: 12px;
+  }
+  .editor-dialog-card {
+    width: calc(100vw - 24px);
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    border-radius: 12px;
+  }
+  .editor-dialog-heading:not([hidden]) {
+    padding: 16px;
+  }
+  .editor-dialog-content {
+    padding: 16px;
+  }
+}

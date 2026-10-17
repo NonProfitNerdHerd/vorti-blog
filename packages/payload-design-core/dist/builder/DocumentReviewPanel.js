@@ -28,6 +28,8 @@ export function DocumentReviewPanel({ children, count, open, onOpenChange, disab
         const escape = (event) => {
             if (event.key !== 'Escape' || event.defaultPrevented)
                 return;
+            if (event.target?.closest?.('.editor-dialog-layer'))
+                return;
             event.preventDefault();
             event.stopPropagation();
             onOpenChange(false);

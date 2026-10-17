@@ -40,6 +40,7 @@ export function DocumentReviewPanel({
     panel.current?.focus()
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
+      if ((event.target as Element)?.closest?.('.editor-dialog-layer')) return
       event.preventDefault()
       event.stopPropagation()
       onOpenChange(false)

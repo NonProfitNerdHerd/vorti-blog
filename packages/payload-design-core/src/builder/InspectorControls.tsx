@@ -171,6 +171,7 @@ export function InspectorToggle({
         event.key === 'Escape' &&
         !event.defaultPrevented &&
         event.target instanceof Element &&
+        !event.target.closest('.editor-dialog-layer') &&
         (ref.current?.contains(event.target) ||
           event.target.closest('.content-workspace__right, .template-editor__sidebar--right')) &&
         ref.current?.getClientRects().length &&
@@ -217,6 +218,7 @@ export function Popover({
 }) {
   const [open, setOpen] = useState(false),
     [position, setPosition] = useState({ top: 0, left: 0 })
+  const [host, setHost] = useState<Element | null>(null)
   const button = useRef<HTMLButtonElement>(null),
     panel = useRef<HTMLDivElement>(null),
     id = useId()
@@ -278,7 +280,10 @@ export function Popover({
         aria-label={label}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={(event) => {
+          setHost(event.currentTarget.closest('.editor-dialog-layer') ?? document.body)
+          setOpen(!open)
+        }}
       >
         {trigger}
       </button>
@@ -294,7 +299,7 @@ export function Popover({
           >
             {children}
           </div>,
-          document.body,
+          host ?? document.body,
         )}
     </>
   )

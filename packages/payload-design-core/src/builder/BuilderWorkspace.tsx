@@ -1,5 +1,6 @@
 'use client'
 import { InspectorTabs } from './InspectorTabs'
+import { EditorDialog } from './EditorDialog'
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { EditorHeaderPortal, EditorDevices } from './EditorHeader'
@@ -85,6 +86,7 @@ export function BuilderWorkspace({
   readOnly?: boolean
 }) {
   const [inspectorOpen, setInspectorOpen] = useState(true)
+  const [inspectorExpanded, setInspectorExpanded] = useState(false)
   const [tab, setTab] = useState<'block' | 'document'>('block')
   useEffect(() => {
     if (selectionKey) {
@@ -117,7 +119,7 @@ export function BuilderWorkspace({
       <BuilderPanels
         className="template-editor__workspace"
         leftOpen={libraryOpen}
-        rightOpen={inspectorOpen}
+        rightOpen={inspectorOpen && !inspectorExpanded}
         viewport={viewport}
         onViewportChange={onViewportChange}
       >
@@ -162,11 +164,13 @@ export function BuilderWorkspace({
         {inspectorOpen && (
           <aside
             aria-label="Configure panel"
+            data-inspector-expanded={inspectorExpanded}
             className="template-editor__sidebar template-editor__sidebar--right"
           >
             <div className="template-editor__sidebar-inner">
+              <EditorDialog inline open={inspectorExpanded} title={tab === 'document' ? `${documentLabel} settings` : 'Block settings'} onClose={() => { setInspectorExpanded(false); setInspectorOpen(true) }}>
               {documentSettings && (
-                <InspectorTabs value={tab} onChange={setTab} documentLabel={documentLabel} />
+                <InspectorTabs value={tab} onChange={setTab} documentLabel={documentLabel} onExpand={() => setInspectorExpanded(true)} />
               )}
               <fieldset
                 disabled={readOnly}
@@ -174,6 +178,7 @@ export function BuilderWorkspace({
               >
                 {tab === 'document' && documentSettings ? documentSettings : inspector}
               </fieldset>
+              </EditorDialog>
             </div>
           </aside>
         )}

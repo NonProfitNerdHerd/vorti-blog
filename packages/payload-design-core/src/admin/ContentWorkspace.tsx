@@ -1,5 +1,6 @@
 'use client'
 import { InspectorTabs } from '../builder/InspectorTabs'
+import { EditorDialog } from '../builder/EditorDialog'
 import { InlineText } from '../builder/InlineText'
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
 import { BlockGlyph } from '../blocks/BlockGlyph'
@@ -152,6 +153,7 @@ export const ContentWorkspace = (
   const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`)
   const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar
   const [right, setRight] = useState(true)
+  const [inspectorExpanded, setInspectorExpanded] = useState(false)
   useEffect(() => {
     const narrow = window.matchMedia('(max-width: 1100px)')
     const closeDrawers = () => {
@@ -686,7 +688,7 @@ export const ContentWorkspace = (
           onViewportChange={setViewport}
           className="content-workspace__layout"
           leftOpen={left}
-          rightOpen={right}
+          rightOpen={right && !inspectorExpanded}
         >
           {
             <aside
@@ -796,8 +798,9 @@ export const ContentWorkspace = (
             </div>
           </div>
           {right && (
-            <aside className="content-workspace__right" aria-label="Inspector">
-              <InspectorTabs value={panel} onChange={setPanel} documentLabel={documentLabel} />
+            <aside className="content-workspace__right" aria-label="Inspector" data-inspector-expanded={inspectorExpanded}>
+              <EditorDialog inline open={inspectorExpanded} title={panel === 'document' ? `${documentLabel} settings` : 'Block settings'} onClose={() => { setInspectorExpanded(false); setRight(true) }}>
+              <InspectorTabs value={panel} onChange={setPanel} documentLabel={documentLabel} onExpand={() => setInspectorExpanded(true)} />
               {panel === 'document' ? (
                 <div className="builder-document-settings">{gear}</div>
               ) : !active ? (
@@ -836,6 +839,7 @@ export const ContentWorkspace = (
                   )}
                 </>
               )}
+              </EditorDialog>
             </aside>
           )}
         </BuilderPanels>

@@ -26,3 +26,31 @@
   outline: 2px solid var(--theme-success-500);
   outline-offset: 2px;
 }
+.editor-inspector-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.editor-inspector-heading .editor-inspector-tabs {
+  flex: 1;
+}
+.editor-inspector-expand {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 6px;
+  background: transparent;
+  color: var(--theme-text);
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.editor-inspector-expand:hover {
+  background: var(--theme-elevation-100);
+}
+.editor-inspector-expand:focus-visible {
+  outline: 2px solid var(--theme-success-500);
+  outline-offset: 2px;
+}

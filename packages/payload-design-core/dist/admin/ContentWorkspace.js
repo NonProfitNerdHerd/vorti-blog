@@ -1,6 +1,7 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { InspectorTabs } from '../builder/InspectorTabs.js';
+import { EditorDialog } from '../builder/EditorDialog.js';
 import { InlineText } from '../builder/InlineText.js';
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
 import { BlockGlyph } from '../blocks/BlockGlyph.js';
@@ -115,6 +116,7 @@ export const ContentWorkspace = (props) => {
     const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`);
     const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar;
     const [right, setRight] = useState(true);
+    const [inspectorExpanded, setInspectorExpanded] = useState(false);
     useEffect(() => {
         const narrow = window.matchMedia('(max-width: 1100px)');
         const closeDrawers = () => {
@@ -426,7 +428,7 @@ export const ContentWorkspace = (props) => {
                                     setRight(open);
                                     if (open && window.matchMedia('(max-width: 1100px)').matches)
                                         setLeft(false);
-                                } })] }) }), _jsx(EditorHeaderPortal, { slot: "title", children: _jsx("div", { className: "editor-header__title", children: renderFields(['title']) }) }), _jsxs(BuilderPanels, { viewport: viewport, onViewportChange: setViewport, className: "content-workspace__layout", leftOpen: left, rightOpen: right, children: [_jsx("aside", { hidden: !left, className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+                                } })] }) }), _jsx(EditorHeaderPortal, { slot: "title", children: _jsx("div", { className: "editor-header__title", children: renderFields(['title']) }) }), _jsxs(BuilderPanels, { viewport: viewport, onViewportChange: setViewport, className: "content-workspace__layout", leftOpen: left, rightOpen: right && !inspectorExpanded, children: [_jsx("aside", { hidden: !left, className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: _jsx(BuilderSidebar, { state: sidebar, adapter: {
                                     nodes: sidebarNodes,
                                     selected,
                                     canEdit: capabilities.editStructure,
@@ -475,11 +477,11 @@ export const ContentWorkspace = (props) => {
                                             }
                                         }, children: String(value.errorMessage) }, path))) })), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
                                         maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
-                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsxs("aside", { className: "content-workspace__right", "aria-label": "Inspector", children: [_jsx(InspectorTabs, { value: panel, onChange: setPanel, documentLabel: documentLabel }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
-                                                ? bindField(active)
-                                                : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
-                                                .filter((node) => node.kind === 'postListing')
-                                                .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }))] })] }) }));
+                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsx("aside", { className: "content-workspace__right", "aria-label": "Inspector", "data-inspector-expanded": inspectorExpanded, children: _jsxs(EditorDialog, { inline: true, open: inspectorExpanded, title: panel === 'document' ? `${documentLabel} settings` : 'Block settings', onClose: () => { setInspectorExpanded(false); setRight(true); }, children: [_jsx(InspectorTabs, { value: panel, onChange: setPanel, documentLabel: documentLabel, onExpand: () => setInspectorExpanded(true) }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
+                                                    ? bindField(active)
+                                                    : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
+                                                    .filter((node) => node.kind === 'postListing')
+                                                    .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }) }))] })] }) }));
 };
 function Insertion({ empty = false, parent, before, disabled, onChoose, }) {
     const drop = useDroppable({

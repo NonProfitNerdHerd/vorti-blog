@@ -6,6 +6,93 @@ import {
 } from '../../packages/payload-design-core/src/blocks/adapters'
 import { expect, test } from '@playwright/test'
 
+test('expanded inspector preserves settings and restores the sidebar across editor contexts', async ({
+  page,
+}) => {
+  test.setTimeout(240000)
+  const { user } = await (await page.request.get('/api/users/me')).json()
+  for (const collection of ['pages', 'posts', 'design-templates', 'site-templates']) {
+    const name = `expanded-${collection}-${Date.now()}`
+    const response = await page.request.post(`/api/${collection}`, {
+      data: {
+        [collection === 'pages' || collection === 'posts' ? 'title' : 'name']: name,
+        slug: name,
+        _status: 'draft',
+        ...(collection === 'posts' ? { author: user.id } : {}),
+        ...(collection === 'pages' || collection === 'posts'
+          ? {
+              contentLayout: {
+                version: 1,
+                nodes: [
+                  {
+                    id: 'dialog-heading',
+                    kind: 'heading',
+                    label: 'Heading',
+                    text: 'Keep this draft',
+                  },
+                ],
+              },
+            }
+          : {}),
+        ...(collection === 'design-templates' ? { layout: [], allowedCollections: ['pages'] } : {}),
+      },
+    })
+    expect(response.ok(), await response.text()).toBeTruthy()
+    const { doc } = await response.json()
+    await page.goto(`/admin/collections/${collection}/${doc.id}`)
+    await page.getByRole('tab', { name: 'Document settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Expand inspector' }).click()
+    const dialog = page.locator('.editor-dialog-layer')
+    await expect(dialog).toBeVisible()
+    await expect(page.locator('.builder-frame')).toHaveAttribute('data-right', 'false')
+    const bounds = await dialog.locator('.editor-dialog-card').boundingBox()
+    expect(bounds!.width).toBeCloseTo(720, 0)
+    expect(bounds!.x + bounds!.width / 2).toBeCloseTo(900, 0)
+    if (collection === 'pages')
+      await page.screenshot({ path: '.wrangler/expanded-inspector-desktop.png' })
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(page.locator('.builder-frame')).toHaveAttribute('data-right', 'true')
+    await expect(page.getByRole('button', { name: 'Expand inspector' })).toBeFocused()
+    if (collection === 'pages' || collection === 'posts') {
+      await page.locator('textarea[aria-label="Heading"]').fill('Keep this unsaved edit')
+      await page.getByRole('button', { name: 'Expand inspector' }).click()
+      await dialog.getByRole('tab', { name: 'Layout', exact: true }).click()
+      await dialog.getByRole('textbox', { name: 'Padding', exact: true }).fill('19px')
+      await dialog.getByRole('textbox', { name: 'Padding', exact: true }).press('Tab')
+      await dialog.getByRole('button', { name: 'Close dialog' }).click()
+      await expect(page.locator('textarea[aria-label="Heading"]')).toHaveValue(
+        'Keep this unsaved edit',
+      )
+      await expect(page.locator('[data-block-kind=heading]')).toHaveCSS('padding-top', '19px')
+      await page.getByRole('button', { name: 'Save Draft', exact: true }).click()
+      await expect
+        .poll(async () => {
+          const saved = await (
+            await page.request.get(`/api/${collection}/${doc.id}?draft=true`)
+          ).json()
+          return saved.contentLayout?.nodes[0]?.text
+        })
+        .toBe('Keep this unsaved edit')
+      await page.reload()
+      await expect(page.locator('textarea[aria-label="Heading"]')).toHaveValue(
+        'Keep this unsaved edit',
+      )
+      await expect(page.locator('[data-block-kind=heading]')).toHaveCSS('padding-top', '19px')
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 })
+  const inspectorToggle = page.getByRole('button', { name: 'Toggle inspector', exact: true })
+  if ((await inspectorToggle.getAttribute('aria-expanded')) !== 'true')
+    await inspectorToggle.click()
+  await page.getByRole('button', { name: 'Expand inspector' }).click()
+  await expect(page.locator('.editor-dialog-card')).toBeVisible()
+  expect(
+    await page.locator('.editor-dialog-card').evaluate((el) => el.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: '.wrangler/expanded-inspector-mobile.png' })
+})
+
 test('Hero variation chooser preserves editable content through layout changes and reload', async ({
   page,
 }) => {
