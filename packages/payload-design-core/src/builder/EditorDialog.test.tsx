@@ -8,6 +8,24 @@ import { InspectorToggle, Popover } from './InspectorControls'
 
 afterEach(cleanup)
 
+it('leaves keyboard events to an external media or relationship drawer', () => {
+  render(
+    <>
+      <Harness />
+      <div role="dialog" aria-label="Media drawer">
+        <input aria-label="Media search" />
+      </div>
+    </>,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Expand inspector' }))
+  const input = screen.getByLabelText('Media search')
+  input.focus()
+  fireEvent.keyDown(input, { key: 'Tab' })
+  expect(document.activeElement).toBe(input)
+  fireEvent.keyDown(input, { key: 'Escape' })
+  expect(screen.getByRole('dialog', { name: 'Block settings' })).toBeTruthy()
+})
+
 it('lets the dialog handle Escape without closing the inspector sidebar', () => {
   const change = vi.fn()
   render(

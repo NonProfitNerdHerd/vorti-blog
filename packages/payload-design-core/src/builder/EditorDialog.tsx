@@ -27,15 +27,17 @@ export function EditorDialog({
         Array.from(document.querySelectorAll('.editor-dialog-layer')).at(-1) !== ref.current
       )
         return
+      if (
+        event.target instanceof Element &&
+        !ref.current?.contains(event.target) &&
+        event.target.closest('.doc-drawer, [role="dialog"]')
+      )
+        return
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
         onClose()
-      } else if (
-        event.key === 'Tab' &&
-        event.target instanceof Node &&
-        !ref.current?.contains(event.target)
-      ) {
+      } else if (event.key === 'Tab' && event.target === document.body) {
         event.preventDefault()
         ref.current?.querySelector<HTMLElement>('[data-dialog-close]')?.focus()
       }
@@ -69,6 +71,7 @@ export function EditorDialog({
       }}
       onKeyDown={(event) => {
         if (!open || event.defaultPrevented) return
+        if (event.target instanceof Node && !event.currentTarget.contains(event.target)) return
         if (event.key === 'Escape') {
           event.preventDefault()
           event.stopPropagation()
