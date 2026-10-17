@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useId, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
+import { useCategoriesEnabled } from '../categories'
 import type { TypeField, FieldRule, TypeFieldKind } from '../views/model'
 import { availableRules, ruleLabels, validateRuleDefinitions } from '../views/field-rules'
 export const typeFieldDescriptions: Record<TypeField['kind'], string> = {
@@ -213,6 +214,7 @@ export function TypeFieldBuilder({
   requiredKinds?: TypeFieldKind[]
   serverError?: string
 }) {
+  const categoriesEnabled = useCategoriesEnabled()
   const [selected, setSelected] = useState(0),
     [showPreview, setShowPreview] = useState(false)
   const field = fields[selected]
@@ -455,9 +457,11 @@ export function TypeFieldBuilder({
                   value={field.relationTo || 'posts'}
                   onChange={(e) => update({ relationTo: e.target.value, defaultValue: undefined })}
                 >
-                  {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
+                  {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views']
+                    .filter((c) => categoriesEnabled || c !== 'categories')
+                    .map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
                 </select>
               </label>
             )}

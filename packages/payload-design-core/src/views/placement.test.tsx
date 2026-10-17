@@ -12,12 +12,43 @@ import {
 } from '../blocks/adapters'
 import { resolveBlocks } from '../blocks/resolve'
 import { ViewPlacementSetup } from './ViewPlacementSetup'
+import { CategoriesEnabledProvider } from '../categories'
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 describe('named dynamic display placements', () => {
+  it('hides category controls while preserving saved rules when editing other filters', () => {
+    const node = createContentNode(viewBlockKind('grid-1'))
+    node.props = {
+      viewSetup: {
+        configuration: {
+          version: 1,
+          layout: 'grid-1',
+          query: {
+            source: 'posts',
+            rules: [{ field: 'categories', operator: 'any', values: ['3'] }],
+          },
+        },
+      },
+    }
+    const change = vi.fn()
+    render(
+      <CategoriesEnabledProvider value={false}>
+        <ViewPlacementSetup node={node} onChange={change} />
+      </CategoriesEnabledProvider>,
+    )
+    expect(screen.queryByRole('combobox', { name: 'Category matching' })).toBeNull()
+    fireEvent.change(screen.getByRole('combobox', { name: 'Tag matching' }), {
+      target: { value: 'exclude' },
+    })
+    expect(change.mock.calls[0][0].props.viewSetup.configuration.query.rules).toContainEqual({
+      field: 'categories',
+      operator: 'any',
+      values: ['3'],
+    })
+  })
   it('exposes every registered display in every editor and retains its reference through adapters', () => {
     for (const view of listViews()) {
       const kind = viewBlockKind(view.key),

@@ -146,6 +146,7 @@ export type ViewItem = {
   longitude?: number
 }
 export type ViewResult = {
+  categoriesEnabled?: boolean
   items: ViewItem[]
   page: number
   totalPages: number

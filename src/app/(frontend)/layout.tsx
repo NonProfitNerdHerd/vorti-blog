@@ -4,6 +4,8 @@ import { resolvePublicSiteShell } from '@/lib/siteTemplate'
 import { LegacyFooter, LegacyHeader } from '@/components/site-shell/LegacySiteShell'
 import { SiteTemplateFooter, SiteTemplateHeader, SiteTemplateStyles } from '@/components/site-shell/SiteTemplateShell'
 import './styles.css'
+import { CategoriesEnabledProvider } from '@design-system/payload-design-core/content'
+import { publicCategoriesEnabled } from '@/lib/public-categories'
 
 export const dynamic = 'force-dynamic'
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,9 +18,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const shell = await resolvePublicSiteShell()
+  const categoriesEnabled = await publicCategoriesEnabled()
   return <html lang="en"><body>
     {shell.kind === 'template' ? <><SiteTemplateStyles template={shell.template} /><SiteTemplateHeader {...shell} /></> : <LegacyHeader {...shell} />}
-    <main>{children}</main>
+    <CategoriesEnabledProvider value={categoriesEnabled}><main>{children}</main></CategoriesEnabledProvider>
     {shell.kind === 'template' ? <SiteTemplateFooter {...shell} /> : <LegacyFooter {...shell} />}
   </body></html>
 }

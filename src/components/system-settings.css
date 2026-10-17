@@ -1,0 +1,94 @@
+.system-settings-table-scroll {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.system-settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--theme-text);
+}
+.system-settings-table th,
+.system-settings-table td {
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+  text-align: left;
+}
+.system-settings-table thead th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: var(--theme-elevation-50);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.system-settings-table td:nth-child(2) {
+  color: var(--theme-elevation-700);
+  line-height: 1.55;
+}
+.system-settings-table th:last-child,
+.system-settings-table td:last-child {
+  text-align: right;
+  width: 110px;
+}
+.system-settings-switch {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+.system-settings-switch input {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  cursor: pointer;
+}
+.system-settings-switch__track {
+  width: 42px;
+  height: 24px;
+  border-radius: 20px;
+  background: var(--theme-elevation-400);
+  transition: background 0.15s;
+}
+.system-settings-switch__track::after {
+  content: '';
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+.system-settings-switch input:checked + span {
+  background: #4865e8;
+}
+.system-settings-switch input:checked + span::after {
+  transform: translateX(18px);
+}
+.system-settings-switch input:focus-visible + span {
+  outline: 2px solid var(--theme-text);
+  outline-offset: 4px;
+}
+.system-settings-switch input:disabled ~ span {
+  opacity: 0.6;
+  cursor: default;
+}
+.system-settings-help {
+  margin: 16px 0 0;
+  color: var(--theme-elevation-650);
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .system-settings-table th,
+  .system-settings-table td {
+    padding: 12px 8px;
+  }
+  .system-settings-table th:first-child {
+    width: 85px;
+  }
+}

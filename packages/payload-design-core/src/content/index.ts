@@ -1,4 +1,5 @@
 export * from './model'
+export { CategoriesEnabledProvider, useCategoriesEnabled } from '../categories'
 export * from './ContentRenderer'
 export { createRendererRegistry } from '../registry'
 export * from '../blocks/registry'

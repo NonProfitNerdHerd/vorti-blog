@@ -1,5 +1,6 @@
 'use client'
 import { isViewPlacement } from '../views/model'
+import { useCategoriesEnabled } from '../categories'
 import { ViewPlacementSetup } from '../views/ViewPlacementSetup'
 import { BlockGlyph } from '../blocks/BlockGlyph'
 import { SaveReusableView } from '../views/SaveReusableView'
@@ -132,6 +133,7 @@ export function UnifiedBlockInspector({
   activeTab?: InspectorTab
   hideHeader?: boolean
 }) {
+  const categoriesEnabled = useCategoriesEnabled()
   const [ownTab, setOwnTab] = useState<InspectorTab>('style')
   const sharedTab = useContext(InspectorTabContext)
   const tab = activeTab ?? sharedTab?.tab ?? ownTab,
@@ -261,206 +263,243 @@ export function UnifiedBlockInspector({
           Reset layout styling
         </button>
       )}
-      {tab === 'style' && target === 'block' && !isViewPlacement(node.kind) && node.kind !== 'form' && (
-        <details open>
-          <summary>{contentLabel}</summary>
-          {children}
-          <RepeatedItemsControl node={node} change={onChange} />
-          {node.role === 'item' && (
-            <>
-              <label>
-                Entry date
-                <input
-                  type="date"
-                  value={String(node.props?.date ?? '')}
-                  onChange={(event) =>
-                    onChange({ props: { ...node.props, date: event.target.value } })
-                  }
-                />
-              </label>
-              <label>
-                Marker label
-                <input
-                  value={String(node.props?.marker ?? '')}
-                  onChange={(event) =>
-                    onChange({ props: { ...node.props, marker: event.target.value } })
-                  }
-                />
-              </label>
-            </>
-          )}
-          {showFields &&
-            definition?.fields.map((field) => {
-              const FieldLabel =
-                ['items', 'icon'].includes(field.type) ||
-                (node.kind === 'postListing' && ['ids', 'categories'].includes(field.key))
-                  ? 'div'
-                  : 'label'
-              return (
-                <div key={field.key}>
-                  <FieldLabel>
-                    {field.label}
-                    {field.key === 'initialPanel' ? (
-                      <select
-                        value={String(
-                          node.props?.initialPanel ?? (node.kind === 'accordion' ? -1 : 0),
+      {tab === 'style' &&
+        target === 'block' &&
+        !isViewPlacement(node.kind) &&
+        node.kind !== 'form' && (
+          <details open>
+            <summary>{contentLabel}</summary>
+            {children}
+            <RepeatedItemsControl node={node} change={onChange} />
+            {node.role === 'item' && (
+              <>
+                <label>
+                  Entry date
+                  <input
+                    type="date"
+                    value={String(node.props?.date ?? '')}
+                    onChange={(event) =>
+                      onChange({ props: { ...node.props, date: event.target.value } })
+                    }
+                  />
+                </label>
+                <label>
+                  Marker label
+                  <input
+                    value={String(node.props?.marker ?? '')}
+                    onChange={(event) =>
+                      onChange({ props: { ...node.props, marker: event.target.value } })
+                    }
+                  />
+                </label>
+              </>
+            )}
+            {showFields &&
+              definition?.fields
+                .filter((field) => categoriesEnabled || field.key !== 'categories')
+                .map((field) => {
+                  const FieldLabel =
+                    ['items', 'icon'].includes(field.type) ||
+                    (node.kind === 'postListing' && ['ids', 'categories'].includes(field.key))
+                      ? 'div'
+                      : 'label'
+                  return (
+                    <div key={field.key}>
+                      <FieldLabel>
+                        {field.label}
+                        {field.key === 'initialPanel' ? (
+                          <select
+                            value={String(
+                              node.props?.initialPanel ?? (node.kind === 'accordion' ? -1 : 0),
+                            )}
+                            onChange={(event) =>
+                              onChange({
+                                props: { ...node.props, initialPanel: Number(event.target.value) },
+                              })
+                            }
+                          >
+                            {node.kind === 'accordion' && (
+                              <option value="-1">All panels closed</option>
+                            )}
+                            {node.children?.map((child, index) => (
+                              <option key={child.id} value={index}>
+                                {child.label || 'Item ' + (index + 1)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : field.key === 'listingID' ? (
+                          <select
+                            value={String(node.props?.listingID ?? '')}
+                            onChange={(event) =>
+                              onChange({ props: { ...node.props, listingID: event.target.value } })
+                            }
+                          >
+                            <option value="">Choose a listing</option>
+                            {listings.map((listing) => (
+                              <option key={listing.id} value={listing.id}>
+                                {listing.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : node.kind === 'postListing' &&
+                          ['ids', 'categories'].includes(field.key) &&
+                          renderDocumentPicker ? (
+                          renderDocumentPicker(
+                            field.key === 'categories'
+                              ? 'categories'
+                              : String(node.props?.collection ?? 'posts'),
+                            field.key === 'categories' ? 'Categories' : 'Documents',
+                            String(node.props?.[field.key] ?? ''),
+                            (value) => onChange({ props: { ...node.props, [field.key]: value } }),
+                          )
+                        ) : field.type === 'toggle' ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(node.props?.[field.key])}
+                            onChange={(event) =>
+                              onChange({
+                                props: { ...node.props, [field.key]: event.target.checked },
+                              })
+                            }
+                          />
+                        ) : field.type === 'items' ? (
+                          <ItemsEditor
+                            value={node.props?.[field.key]}
+                            social={node.kind === 'socialButtons'}
+                            change={(value) =>
+                              onChange({ props: { ...node.props, [field.key]: value } })
+                            }
+                          />
+                        ) : field.type === 'icon' ? (
+                          <IconPicker
+                            value={String(node.props?.[field.key] ?? field.defaultValue ?? 'star')}
+                            change={(value) =>
+                              onChange({ props: { ...node.props, [field.key]: value } })
+                            }
+                          />
+                        ) : field.type === 'select' ? (
+                          <select
+                            value={String(node.props?.[field.key] ?? field.defaultValue ?? '')}
+                            onChange={(event) =>
+                              onChange({
+                                props: { ...node.props, [field.key]: event.target.value },
+                              })
+                            }
+                          >
+                            {(field.options ?? []).map((value) => (
+                              <option key={value}>{value}</option>
+                            ))}
+                          </select>
+                        ) : field.type === 'textarea' ? (
+                          <textarea
+                            value={String(node.props?.[field.key] ?? '')}
+                            onChange={(event) =>
+                              onChange({
+                                props: { ...node.props, [field.key]: event.target.value },
+                              })
+                            }
+                          />
+                        ) : field.type === 'number' ? (
+                          <span className="inspector-number-row">
+                            <input
+                              type="range"
+                              aria-label={field.label + ' slider'}
+                              min={field.min ?? 0}
+                              max={field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0))}
+                              value={Number(node.props?.[field.key] ?? 0)}
+                              onChange={(event) =>
+                                onChange({
+                                  props: { ...node.props, [field.key]: Number(event.target.value) },
+                                })
+                              }
+                            />
+                            <input
+                              type="number"
+                              aria-label={field.label}
+                              min={field.min}
+                              max={field.max}
+                              value={String(node.props?.[field.key] ?? '')}
+                              onChange={(event) =>
+                                onChange({
+                                  props: { ...node.props, [field.key]: Number(event.target.value) },
+                                })
+                              }
+                            />
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={String(node.props?.[field.key] ?? '')}
+                            onChange={(event) =>
+                              onChange({
+                                props: {
+                                  ...node.props,
+                                  [field.key]: event.target.value,
+                                },
+                              })
+                            }
+                          />
                         )}
-                        onChange={(event) =>
-                          onChange({
-                            props: { ...node.props, initialPanel: Number(event.target.value) },
-                          })
-                        }
-                      >
-                        {node.kind === 'accordion' && <option value="-1">All panels closed</option>}
-                        {node.children?.map((child, index) => (
-                          <option key={child.id} value={index}>
-                            {child.label || 'Item ' + (index + 1)}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.key === 'listingID' ? (
-                      <select
-                        value={String(node.props?.listingID ?? '')}
-                        onChange={(event) =>
-                          onChange({ props: { ...node.props, listingID: event.target.value } })
-                        }
-                      >
-                        <option value="">Choose a listing</option>
-                        {listings.map((listing) => (
-                          <option key={listing.id} value={listing.id}>
-                            {listing.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : node.kind === 'postListing' &&
-                      ['ids', 'categories'].includes(field.key) &&
-                      renderDocumentPicker ? (
-                      renderDocumentPicker(
-                        field.key === 'categories'
-                          ? 'categories'
-                          : String(node.props?.collection ?? 'posts'),
-                        field.key === 'categories' ? 'Categories' : 'Documents',
-                        String(node.props?.[field.key] ?? ''),
-                        (value) => onChange({ props: { ...node.props, [field.key]: value } }),
-                      )
-                    ) : field.type === 'toggle' ? (
-                      <input
-                        type="checkbox"
-                        checked={Boolean(node.props?.[field.key])}
-                        onChange={(event) =>
-                          onChange({ props: { ...node.props, [field.key]: event.target.checked } })
-                        }
-                      />
-                    ) : field.type === 'items' ? (
-                      <ItemsEditor
-                        value={node.props?.[field.key]}
-                        social={node.kind === 'socialButtons'}
-                        change={(value) =>
-                          onChange({ props: { ...node.props, [field.key]: value } })
-                        }
-                      />
-                    ) : field.type === 'icon' ? (
-                      <IconPicker
-                        value={String(node.props?.[field.key] ?? field.defaultValue ?? 'star')}
-                        change={(value) =>
-                          onChange({ props: { ...node.props, [field.key]: value } })
-                        }
-                      />
-                    ) : field.type === 'select' ? (
-                      <select
-                        value={String(node.props?.[field.key] ?? field.defaultValue ?? '')}
-                        onChange={(event) =>
-                          onChange({ props: { ...node.props, [field.key]: event.target.value } })
-                        }
-                      >
-                        {(field.options ?? []).map((value) => (
-                          <option key={value}>{value}</option>
-                        ))}
-                      </select>
-                    ) : field.type === 'textarea' ? (
-                      <textarea
-                        value={String(node.props?.[field.key] ?? '')}
-                        onChange={(event) =>
-                          onChange({ props: { ...node.props, [field.key]: event.target.value } })
-                        }
-                      />
-                    ) : field.type === 'number' ? (
-                      <span className="inspector-number-row">
-                        <input
-                          type="range"
-                          aria-label={field.label + ' slider'}
-                          min={field.min ?? 0}
-                          max={field.max ?? Math.max(100, Number(node.props?.[field.key] ?? 0))}
-                          value={Number(node.props?.[field.key] ?? 0)}
+                      </FieldLabel>
+                      {field.bindable && (
+                        <select
+                          aria-label={`Bind ${field.label}`}
+                          value={node.bindings?.[field.key] ?? ''}
                           onChange={(event) =>
                             onChange({
-                              props: { ...node.props, [field.key]: Number(event.target.value) },
+                              bindings: { ...node.bindings, [field.key]: event.target.value },
                             })
                           }
-                        />
-                        <input
-                          type="number"
-                          aria-label={field.label}
-                          min={field.min}
-                          max={field.max}
-                          value={String(node.props?.[field.key] ?? '')}
-                          onChange={(event) =>
-                            onChange({
-                              props: { ...node.props, [field.key]: Number(event.target.value) },
-                            })
-                          }
-                        />
-                      </span>
-                    ) : (
-                      <input
-                        type="text"
-                        value={String(node.props?.[field.key] ?? '')}
-                        onChange={(event) =>
-                          onChange({
-                            props: {
-                              ...node.props,
-                              [field.key]: event.target.value,
-                            },
-                          })
-                        }
-                      />
-                    )}
-                  </FieldLabel>
-                  {field.bindable && (
-                    <select
-                      aria-label={`Bind ${field.label}`}
-                      value={node.bindings?.[field.key] ?? ''}
-                      onChange={(event) =>
-                        onChange({
-                          bindings: { ...node.bindings, [field.key]: event.target.value },
-                        })
-                      }
-                    >
-                      <option value="">Static value</option>
-                      {bindingFields.map((field) => (
-                        <option key={field.path} value={field.path}>
-                          {field.label}
-                        </option>
-                      ))}
-                      {publicDocumentFields.map((key) => (
-                        <option key={key} value={key}>
-                          Document {key}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )
-            })}
-        </details>
-      )}
+                        >
+                          <option value="">Static value</option>
+                          {bindingFields.filter(field => categoriesEnabled || field.path !== 'categories').map((field) => (
+                            <option key={field.path} value={field.path}>
+                              {field.label}
+                            </option>
+                          ))}
+                          {publicDocumentFields.filter(key => categoriesEnabled || key !== 'categories').map((key) => (
+                            <option key={key} value={key}>
+                              Document {key}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )
+                })}
+          </details>
+        )}
       {node.kind === 'postListing' && tab === 'layout' && (
         <SaveReusableView node={node} onChange={onChange} disabled={disabled} />
       )}
-      {node.kind === 'form' && showFields && <>
-        {renderDocumentPicker?.('forms', 'Published Form', String(node.props?.formID ?? ''), value => onChange({ props: { ...node.props, formID: value.split(',').filter(Boolean).pop() || '' } }))}
-        <p>Fields, validation, notifications, and internal styling are managed in <a href={node.props?.formID ? `/admin/collections/forms/${encodeURIComponent(String(node.props.formID))}` : '/admin/collections/forms'} target="_blank" rel="noreferrer">Forms</a>. Publishing changes there updates every placement.</p>
-      </>}
+      {node.kind === 'form' && showFields && (
+        <>
+          {renderDocumentPicker?.(
+            'forms',
+            'Published Form',
+            String(node.props?.formID ?? ''),
+            (value) =>
+              onChange({
+                props: { ...node.props, formID: value.split(',').filter(Boolean).pop() || '' },
+              }),
+          )}
+          <p>
+            Fields, validation, notifications, and internal styling are managed in{' '}
+            <a
+              href={
+                node.props?.formID
+                  ? `/admin/collections/forms/${encodeURIComponent(String(node.props.formID))}`
+                  : '/admin/collections/forms'
+              }
+              target="_blank"
+              rel="noreferrer"
+            >
+              Forms
+            </a>
+            . Publishing changes there updates every placement.
+          </p>
+        </>
+      )}
       {isViewPlacement(node.kind) && showFields && (
         <ViewPlacementSetup
           key={node.id}
@@ -940,7 +979,7 @@ export function UnifiedBlockInspector({
                   value={rule.field}
                   onChange={(event) => changeRule(index, { field: event.target.value })}
                 >
-                  {publicDocumentFields.map((key) => (
+                  {publicDocumentFields.filter(key => categoriesEnabled || key !== 'categories').map((key) => (
                     <option key={key}>{key}</option>
                   ))}
                 </select>

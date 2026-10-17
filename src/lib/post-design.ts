@@ -5,6 +5,7 @@ import { createPayloadDesignStore, resolveContentTemplate } from '@design-system
 import type { TemplateNode } from '@design-system/payload-design-core'
 import type { HeroBoardValues } from '@design-system/payload-design-core/hero-board'
 import { mediaURL } from './media'
+import { readCategoriesEnabled } from './system-settings'
 import {withPostType} from '../content-framework/presentation'
 import { resolveDocumentBlocks } from './content-layout'
 import type { ContentNode } from '@design-system/payload-design-core'
@@ -22,6 +23,7 @@ type TemplatedDocumentExtras = {
 }
 
 export async function resolveContentDesign(source: Post | Page, context: { draft?: boolean; user?: PayloadRequest['user'] } = {}): Promise<PostDesignSection[]> {
+  const categoriesEnabled = await readCategoriesEnabled(await getPayload({ config }))
   if('postType' in source) source=await withPostType(await getPayload({config}),source as unknown as Record<string,unknown>) as unknown as Post
   if ((source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
     const payload = await getPayload({ config })
@@ -38,6 +40,7 @@ export async function resolveContentDesign(source: Post | Page, context: { draft
   const resolved = await resolveContentTemplate(createPayloadDesignStore(payload), { id: document.id, template, templateValues: values as never, designOverrides: { ...((document.designOverrides ?? {}) as Record<string, string | number | null>), ...pendingOverrides } })
   async function mediaValue(reference: unknown) { try { const media = typeof reference === 'object' ? reference : await payload.findByID({ collection: 'media', id: Number(reference), depth: 0, overrideAccess: false }); return { url: mediaURL(media as never) ?? '', alt: (media as { alt?: string }).alt ?? '' } } catch { return null } }
   function documentValue(field: string): unknown {
+    if (field === 'categories' && !categoriesEnabled) return undefined
     if (field === 'author' && 'author' in document) return typeof document.author === 'object' ? document.author.displayName || document.author.email : document.author
     return document[field as keyof typeof document]
   }

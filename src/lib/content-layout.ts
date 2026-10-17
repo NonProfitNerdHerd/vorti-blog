@@ -1,5 +1,6 @@
 import { resolveBlocks } from '@design-system/payload-design-core/content'
 import { queryBlockListing } from './block-listings'
+import { readCategoriesEnabled } from './system-settings'
 import type { Payload, PayloadRequest } from 'payload'
 import type {
   ContentNode,
@@ -22,6 +23,7 @@ export async function resolveDocumentBlocks(
   document: Record<string, unknown>,
   context: { draft?: boolean; user?: PayloadRequest['user'] } = {},
 ): Promise<ContentNode[] | null> {
+  const categoriesEnabled = await readCategoriesEnabled(payload)
   const reference = document.designTemplate
   const templateID =
     reference && typeof reference === 'object' ? (reference as { id: number }).id : reference
@@ -65,7 +67,7 @@ export async function resolveDocumentBlocks(
       Promise.all([...blockTypes].map((id) => load<BlockType>('design-block-types', id))),
       Promise.all([...blockDesigns].map((id) => load<BlockDesign>('design-block-designs', id))),
     ])
-    nodes = templateContentNodes(template, document, types, designs)
+    nodes = templateContentNodes(template, categoriesEnabled ? document : { ...document, categories: [] }, types, designs)
   } else if (document.contentLayout) {
     const valid = validateContentLayout(document.contentLayout)
     if (valid !== true) throw new Error(valid)
@@ -120,6 +122,7 @@ export async function resolveDocumentBlocks(
     for (const node of walkContent(result))
       if (node.kind === 'postListing') node.props = { ...node.props, draft: true }
   return resolveBlocks(result, {
+    categoriesEnabled,
     document,
     view: async id => queryView(payload,await readSavedView(payload,id,context),undefined,context),
     list: (props, page) => queryBlockListing(payload, props, page, context),

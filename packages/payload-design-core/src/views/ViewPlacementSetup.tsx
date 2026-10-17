@@ -1,5 +1,6 @@
 'use client'
 import { useState, type ReactNode } from 'react'
+import { useCategoriesEnabled } from '../categories'
 import type { ContentNode } from '../content/model'
 import { defaultView, viewForBlock, type ViewConfig, type QueryRule } from './model'
 
@@ -17,6 +18,7 @@ export function ViewPlacementSetup({
     change: (value: string) => void,
   ) => ReactNode
 }) {
+  const categoriesEnabled = useCategoriesEnabled()
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('')
   const view = viewForBlock(node.kind)
@@ -123,38 +125,40 @@ export function ViewPlacementSetup({
               event types.
             </p>
           )}
-          {(['categories', 'tags'] as const).map((field) => (
-            <div key={field}>
-              {renderPicker?.(
-                field,
-                field === 'categories' ? 'Categories' : 'Tags',
-                rules.find((rule) => rule.field === field)?.values.join(',') ?? '',
-                (value) => filter(field, value),
-              )}
-              <label>
-                {field === 'categories' ? 'Category matching' : 'Tag matching'}
-                <select
-                  value={rules.find((rule) => rule.field === field)?.operator ?? 'any'}
-                  onChange={(event) =>
-                    query({
-                      rules: [
-                        ...rules.filter((rule) => rule.field !== field),
-                        {
-                          field,
-                          operator: event.target.value as QueryRule['operator'],
-                          values: rules.find((rule) => rule.field === field)?.values ?? [],
-                        },
-                      ],
-                    })
-                  }
-                >
-                  <option value="any">Any selected</option>
-                  <option value="all">All selected</option>
-                  <option value="exclude">Exclude selected</option>
-                </select>
-              </label>
-            </div>
-          ))}
+          {(['categories', 'tags'] as const)
+            .filter((field) => categoriesEnabled || field !== 'categories')
+            .map((field) => (
+              <div key={field}>
+                {renderPicker?.(
+                  field,
+                  field === 'categories' ? 'Categories' : 'Tags',
+                  rules.find((rule) => rule.field === field)?.values.join(',') ?? '',
+                  (value) => filter(field, value),
+                )}
+                <label>
+                  {field === 'categories' ? 'Category matching' : 'Tag matching'}
+                  <select
+                    value={rules.find((rule) => rule.field === field)?.operator ?? 'any'}
+                    onChange={(event) =>
+                      query({
+                        rules: [
+                          ...rules.filter((rule) => rule.field !== field),
+                          {
+                            field,
+                            operator: event.target.value as QueryRule['operator'],
+                            values: rules.find((rule) => rule.field === field)?.values ?? [],
+                          },
+                        ],
+                      })
+                    }
+                  >
+                    <option value="any">Any selected</option>
+                    <option value="all">All selected</option>
+                    <option value="exclude">Exclude selected</option>
+                  </select>
+                </label>
+              </div>
+            ))}
           <label>
             Combine filters
             <select

@@ -18,7 +18,7 @@ export async function resolveBlocks(source, context) {
                 if (!definition?.fields.some((item) => item.key === key && item.bindable) ||
                     !publicDocumentFields.includes(field))
                     continue;
-                node.props = { ...node.props, [key]: readPublicDocumentField(context.document, field) };
+                node.props = { ...node.props, [key]: field === 'categories' && context.categoriesEnabled === false ? '' : readPublicDocumentField(context.document, field) };
             }
             if (node.children)
                 node.children = await resolve(node.children);

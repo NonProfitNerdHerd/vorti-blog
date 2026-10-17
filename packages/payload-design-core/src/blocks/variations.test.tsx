@@ -51,7 +51,7 @@ describe('block variations', () => {
       variation: undefined,
       styles: { desktop: { padding: '19px', color: '#123456' } },
     }
-    expect(effectiveStyles(node).desktop).toEqual(node.styles.desktop)
+    expect(effectiveStyles(node).desktop).toEqual(node.styles?.desktop)
     expect(resetLayoutStyles(node)?.desktop).toEqual({ color: '#123456' })
     expect(renderToStaticMarkup(<ContentRenderer nodes={[node]} />)).not.toContain(
       'class="block-composition"',

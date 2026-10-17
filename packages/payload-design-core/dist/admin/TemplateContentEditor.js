@@ -4,6 +4,7 @@ import { UploadInput, useConfig, useField, useFormFields } from '@payloadcms/ui'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client';
 import { useEffect, useState } from 'react';
 import { templateFields } from '../template-tree.js';
+import { useCategoriesEnabled } from '../categories.js';
 export function TemplateContentEditor({ lexicalSchemaPath }) {
     const selected = useFormFields(([fields]) => fields.designTemplate?.value);
     const templateID = typeof selected === 'object' && selected !== null ? selected.id : selected;
@@ -78,6 +79,9 @@ export function TemplateContentEditor({ lexicalSchemaPath }) {
 function DynamicTemplateField({ field, lexicalSchemaPath, value, disabled, onChange }) {
     const label = `${field.label}${field.required ? ' *' : ''}`;
     const { config } = useConfig();
+    const categoriesEnabled = useCategoriesEnabled();
+    if (!categoriesEnabled && field.fieldType === 'relationship' && field.relationTo === 'categories')
+        return null;
     if (field.fieldType === 'toggle')
         return _jsxs("label", { className: "template-content-editor__toggle", children: [label, _jsx("input", { disabled: disabled, type: "checkbox", checked: Boolean(value), onChange: (event) => onChange(event.target.checked) })] });
     if (field.fieldType === 'image' || field.fieldType === 'images')

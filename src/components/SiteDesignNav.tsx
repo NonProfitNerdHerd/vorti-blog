@@ -1,4 +1,5 @@
-import { DefaultNavClient, NavHamburger, NavWrapper } from '@payloadcms/next/client'
+import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
+import { PolicyNav } from './DashboardNavLink'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
 import type { NavPreferences, PayloadRequest, ServerProps } from 'payload'
@@ -66,7 +67,7 @@ export async function SiteDesignNav({
   return (
     <NavWrapper baseClass="nav">
       <nav className="nav__wrap">
-        <DefaultNavClient groups={groups} navPreferences={navPreferences} />
+        <PolicyNav admin={payload.config.routes.admin} groups={groups} navPreferences={navPreferences} />
         <div className="nav__controls">
           <Logout />
         </div>

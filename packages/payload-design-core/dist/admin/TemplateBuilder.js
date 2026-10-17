@@ -1,7 +1,8 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 /* eslint-disable react-hooks/refs -- Undo history mutations also trigger a React state revision. */
-import { useDocumentInfo, useField, useForm, useNav } from '@payloadcms/ui';
+import { useDocumentInfo, useField, useForm } from '@payloadcms/ui';
+import { useCategoriesEnabled } from '../categories.js';
 import { useEffect, useRef, useState } from 'react';
 import { BuilderCore } from '../builder/BuilderCore.js';
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';
@@ -159,14 +160,6 @@ export function ContentTemplateBuilder({ configuredCollections = defaultConfigur
     const [sidebarSelected, setSidebarSelected] = useState();
     const [error, setError] = useState(null);
     const [viewport, setViewport] = useState('desktop');
-    const nav = useNav();
-    const collapsed = useRef(false);
-    useEffect(() => {
-        if (nav.hydrated && !collapsed.current) {
-            collapsed.current = true;
-            nav.setNavOpen(false);
-        }
-    }, [nav]);
     const history = useRef({ past: [], future: [] });
     const lastHistoryChange = useRef(0);
     const snapshot = () => structuredClone({ nodes, fields: customFields });
@@ -429,6 +422,7 @@ const customFieldTypeOptions = [
     { value: 'relationship', label: 'Relationship' },
 ];
 function CustomFieldsPanel({ fields, setFields, }) {
+    const categoriesEnabled = useCategoriesEnabled();
     const update = (id, changes) => setFields(fields.map((field) => (field.id === id ? { ...field, ...changes } : field)));
     const move = (index, offset) => {
         const next = [...fields];
@@ -448,7 +442,7 @@ function CustomFieldsPanel({ fields, setFields, }) {
                                                     .split('\n')
                                                     .map((option) => option.trim())
                                                     .filter(Boolean),
-                                            }) })] })), field.fieldType === 'relationship' && (_jsxs("label", { children: ["Related collection", _jsxs("select", { "aria-label": `Related Collection ${index + 1}`, value: field.relationTo ?? '', onChange: (event) => update(field.id, { relationTo: event.target.value }), children: [_jsx("option", { value: "", children: "Choose collection" }), ['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map((slug) => (_jsx("option", { value: slug, children: slug === 'saved-views' ? 'Saved Views' : slug }, slug)))] })] }))] }), _jsxs("p", { className: "template-editor__field-id", children: ["Stable ID: ", field.id] })] }, field.id))) }), _jsx("p", { className: "template-editor__retention-note", children: "Removing a definition does not delete values already stored on content." })] }));
+                                            }) })] })), field.fieldType === 'relationship' && (_jsxs("label", { children: ["Related collection", _jsxs("select", { "aria-label": `Related Collection ${index + 1}`, value: field.relationTo ?? '', onChange: (event) => update(field.id, { relationTo: event.target.value }), children: [_jsx("option", { value: "", children: "Choose collection" }), ['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].filter(collection => categoriesEnabled || collection !== 'categories').map((slug) => (_jsx("option", { value: slug, children: slug === 'saved-views' ? 'Saved Views' : slug }, slug)))] })] }))] }), _jsxs("p", { className: "template-editor__field-id", children: ["Stable ID: ", field.id] })] }, field.id))) }), _jsx("p", { className: "template-editor__retention-note", children: "Removing a definition does not delete values already stored on content." })] }));
 }
 function NodeEditor({ item, node, types, designs, allowedCollections, customFields, cancel, create, update, }) {
     const kind = item?.kind ?? node?.type;

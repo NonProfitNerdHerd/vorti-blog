@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Post } from '@/payload-types'
+import { publicCategoriesEnabled } from '@/lib/public-categories'
 import { mediaURL } from '@/lib/frontend'
 
-export function PostCard({ post }: { post: Post }) {
+export async function PostCard({ post }: { post: Post }) {
+  const categoriesEnabled = await publicCategoriesEnabled()
   const image = mediaURL(post.featuredImage)
   return (
     <article className="post-card">
@@ -12,7 +14,7 @@ export function PostCard({ post }: { post: Post }) {
         <h2><Link href={documentURL(post)}>{post.title}</Link></h2>
         {post.publishedAt && <time dateTime={post.publishedAt}>{new Date(post.publishedAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</time>}
         {post.excerpt && <p>{post.excerpt}</p>}
-        {!!post.categories?.length && <p className="taxonomy">{post.categories.map((category) => typeof category === 'object' ? category.name : null).filter(Boolean).join(' · ')}</p>}
+        {categoriesEnabled && !!post.categories?.length && <p className="taxonomy">{post.categories.map((category) => typeof category === 'object' ? category.name : null).filter(Boolean).join(' · ')}</p>}
       </div>
     </article>
   )

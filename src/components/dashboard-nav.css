@@ -1,0 +1,19 @@
+.vorti-dashboard-link {
+  display: block;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--theme-elevation-650);
+  text-decoration: none;
+}
+.vorti-dashboard-link:hover,
+.vorti-dashboard-link[aria-current='page'] {
+  color: var(--theme-text);
+}
+.vorti-dashboard-link:focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: 4px;
+  border-radius: 3px;
+}

@@ -12,6 +12,7 @@ export default defineConfig({
     'content-workspace.e2e.spec.ts',
     'review-tasks.e2e.spec.ts',
     'task-dashboard.e2e.spec.ts',
+    'system-settings.e2e.spec.ts',
     'editor-registration.e2e.spec.ts',
   ],
   workers: 1,

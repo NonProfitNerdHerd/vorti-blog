@@ -1,4 +1,5 @@
 export { BlockDesignPanel } from './BlockDesignPanel.js';
+export { CategoriesEnabledProvider, useCategoriesEnabled } from '../categories.js';
 export { ContentWorkspace } from './ContentWorkspace.js';
 export { EditorDialog } from '../builder/EditorDialog.js';
 export { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar.js';

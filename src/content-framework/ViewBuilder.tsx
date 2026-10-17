@@ -11,6 +11,7 @@ import {
   type QueryRule,
 } from '@design-system/payload-design-core/content'
 import './framework.css'
+import { useCategoriesEnabled } from '@design-system/payload-design-core/admin'
 import { ViewDesignEditor, BackgroundMediaPicker } from '@design-system/payload-design-core/admin'
 export function RelationPicker({
   label,
@@ -27,6 +28,7 @@ export function RelationPicker({
   single?: boolean
   disabled?: boolean
 }) {
+  const available = useCategoriesEnabled() || collection !== 'categories'
   const [search, setSearch] = useState(''),
     [items, setItems] = useState<
       Array<{
@@ -40,6 +42,7 @@ export function RelationPicker({
       }>
     >([])
   useEffect(() => {
+    if (!available) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
       const field = ['categories', 'tags', 'saved-views'].includes(collection)
@@ -74,7 +77,8 @@ export function RelationPicker({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [collection, search])
+  }, [collection, search, available])
+  if (!available) return null
   return (
     <fieldset disabled={disabled}>
       <legend>{label}</legend>
@@ -120,6 +124,7 @@ export function RelationPicker({
   )
 }
 export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
+  const categoriesEnabled = useCategoriesEnabled()
   const { value = defaultView, setValue } = useField<ViewConfig>({ path }),
     [tab, setTab] = useState('Layout'),
     [family, setFamily] = useState('posts')
@@ -208,7 +213,7 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
               </select>
             </label>
             {rules.map((r, i) => (
-              <fieldset key={i}>
+              <fieldset key={i} hidden={!categoriesEnabled && r.field === 'categories'}>
                 <div className="cf-row">
                   <label>
                     Field
@@ -218,7 +223,7 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
                         rule(i, { field: e.target.value as QueryRule['field'], values: [] })
                       }
                     >
-                      {['categories', 'tags', 'author', 'featured', 'postType'].map((f) => (
+                      {['categories', 'tags', 'author', 'featured', 'postType'].filter(f => categoriesEnabled || f !== 'categories').map((f) => (
                         <option key={f}>{f}</option>
                       ))}
                     </select>
@@ -274,7 +279,7 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
               <button
                 type="button"
                 onClick={() =>
-                  query({ rules: [...rules, { field: 'categories', operator: 'any', values: [] }] })
+                  query({ rules: [...rules, { field: categoriesEnabled ? 'categories' : 'tags', operator: 'any', values: [] }] })
                 }
               >
                 Add filter group

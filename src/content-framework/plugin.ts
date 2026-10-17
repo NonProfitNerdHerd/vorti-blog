@@ -2,6 +2,7 @@ import type { Plugin, CollectionSlug } from 'payload'
 import { ValidationError } from 'payload'
 import { publishedType, refID } from './collections'
 import { validateValues } from './validation'
+import { protectCategoryValues } from '../lib/system-settings'
 import {
   eventInstant,
   createPayloadDesignStore,
@@ -196,6 +197,7 @@ export const contentTypes: Plugin = (config) => {
         for (const f of fields)
           if (values[f.id] === undefined && f.defaultValue !== undefined)
             values[f.id] = f.defaultValue
+        await protectCategoryValues(req, fields, values, originalDoc?.postTypeValues || {}, 'postTypeValues')
         const publishing =
           req.context.postTypeSavingDraft !== true &&
           (data._status ?? originalDoc?._status) === 'published'

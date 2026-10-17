@@ -162,10 +162,12 @@ export interface Config {
   globals: {
     navigation: Navigation;
     'site-settings': SiteSetting;
+    'system-settings': SystemSetting;
   };
   globalsSelect: {
     navigation: NavigationSelect<false> | NavigationSelect<true>;
     'site-settings': SiteSettingsSelect<false> | SiteSettingsSelect<true>;
+    'system-settings': SystemSettingsSelect<false> | SystemSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2853,6 +2855,16 @@ export interface SiteSetting {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "system-settings".
+ */
+export interface SystemSetting {
+  id: number;
+  categoriesEnabled?: boolean | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navigation_select".
  */
 export interface NavigationSelect<T extends boolean = true> {
@@ -2934,6 +2946,16 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   copyrightText?: T;
   contactEmail?: T;
   contactInformation?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "system-settings_select".
+ */
+export interface SystemSettingsSelect<T extends boolean = true> {
+  categoriesEnabled?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

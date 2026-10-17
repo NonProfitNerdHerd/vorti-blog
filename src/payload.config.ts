@@ -24,6 +24,7 @@ import { Tags } from './collections/Tags'
 import { SiteTemplates } from './collections/SiteTemplates'
 import { Navigation } from './globals/Navigation'
 import { SiteSettings } from './globals/SiteSettings'
+import { SystemSettings } from './globals/SystemSettings'
 import { organizePageHierarchy } from './plugins/organizePageHierarchy'
 import { contentWorkspace } from './plugins/contentWorkspace'
 import { designSystemPlugin } from '@design-system/payload-design-core'
@@ -87,6 +88,7 @@ export default buildConfig({
     user: Users.slug,
     components: {
       Nav: './components/SiteDesignNav#SiteDesignNav',
+      providers: ['./components/AdminPolicy#AdminPolicy'],
     },
     livePreview: {
       collections: ['posts', 'pages'],
@@ -108,7 +110,7 @@ export default buildConfig({
     },
   },
   collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, PostTypes, SavedViews, EventSeries],
-  globals: [Navigation, SiteSettings],
+  globals: [Navigation, SiteSettings, SystemSettings],
   editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

@@ -1,12 +1,13 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { InspectorTabs } from '../builder/InspectorTabs.js';
+import { useCategoriesEnabled } from '../categories.js';
 import { EditorDialog } from '../builder/EditorDialog.js';
 import { InlineText } from '../builder/InlineText.js';
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
 import { BlockGlyph } from '../blocks/BlockGlyph.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { RenderFields, UploadInput, RelationshipInput, useConfig, useDocumentInfo, useField, useForm, useFormFields, useNav, } from '@payloadcms/ui';
+import { RenderFields, UploadInput, RelationshipInput, useConfig, useDocumentInfo, useField, useForm, useFormFields, } from '@payloadcms/ui';
 import { RenderLexical } from '@payloadcms/richtext-lexical/client';
 import { useDroppable } from '@dnd-kit/core';
 import { InspectorGesture, markInspectorGesture, InspectorToggle, } from '../builder/InspectorControls.js';
@@ -72,14 +73,6 @@ export const ContentWorkspace = (props) => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR controls must stay disabled until event handlers are hydrated.
     useEffect(() => setReady(true), []);
     const lockedForm = Boolean(readOnly || disabled || !ready);
-    const nav = useNav();
-    const didCollapse = useRef(false);
-    useEffect(() => {
-        if (nav.hydrated && !didCollapse.current) {
-            didCollapse.current = true;
-            nav.setNavOpen(false);
-        }
-    }, [nav]);
     const layoutField = useField({ path: 'contentLayout' });
     const valuesField = useField({ path: 'templateValues' });
     const typeValuesField = useField({ path: 'postTypeValues' });
@@ -506,11 +499,14 @@ function MediaPicker({ value, onChange, many = false, disabled = false, label = 
 }
 function BoundValue({ node, document, lexicalSchemaPath, disabled, onValues, }) {
     const binding = node.binding;
+    const categoriesEnabled = useCategoriesEnabled();
     const field = useField({
         path: binding.path,
         disableFormData: binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.'),
     });
     const value = readPath(document, binding.path);
+    if (!categoriesEnabled && (binding.path === 'categories' || binding.relationTo === 'categories'))
+        return null;
     const update = (value) => binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.')
         ? onValues(binding.path, value)
         : field.setValue(value);

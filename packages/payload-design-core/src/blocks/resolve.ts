@@ -12,6 +12,7 @@ export type ListingItem = {
 }
 export type ListingResult = { results: ListingItem[]; page: number; totalPages: number }
 export type BlockResolveContext = {
+  categoriesEnabled?: boolean
   document: Record<string, unknown>
   now?: number
   preview?: boolean
@@ -39,7 +40,7 @@ export async function resolveBlocks(
           !(publicDocumentFields as readonly string[]).includes(field)
         )
           continue
-        node.props = { ...node.props, [key]: readPublicDocumentField(context.document, field) }
+        node.props = { ...node.props, [key]: field === 'categories' && context.categoriesEnabled === false ? '' : readPublicDocumentField(context.document, field) }
       }
       if (node.children) node.children = await resolve(node.children)
       if(isViewPlacement(node.kind)&&context.view&&node.props?.viewID) {

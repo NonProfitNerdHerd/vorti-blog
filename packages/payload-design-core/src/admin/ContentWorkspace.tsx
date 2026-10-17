@@ -1,5 +1,6 @@
 'use client'
 import { InspectorTabs } from '../builder/InspectorTabs'
+import { useCategoriesEnabled } from '../categories'
 import { EditorDialog } from '../builder/EditorDialog'
 import { InlineText } from '../builder/InlineText'
 /* eslint-disable react-hooks/refs -- dnd-kit returns callback refs and live drag state. */
@@ -15,7 +16,6 @@ import {
   useField,
   useForm,
   useFormFields,
-  useNav,
 } from '@payloadcms/ui'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useDroppable } from '@dnd-kit/core'
@@ -108,14 +108,6 @@ export const ContentWorkspace = (
   // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR controls must stay disabled until event handlers are hydrated.
   useEffect(() => setReady(true), [])
   const lockedForm = Boolean(readOnly || disabled || !ready)
-  const nav = useNav()
-  const didCollapse = useRef(false)
-  useEffect(() => {
-    if (nav.hydrated && !didCollapse.current) {
-      didCollapse.current = true
-      nav.setNavOpen(false)
-    }
-  }, [nav])
   const layoutField = useField<ContentLayout | null>({ path: 'contentLayout' })
   const valuesField = useField<Record<string, unknown>>({ path: 'templateValues' })
   const typeValuesField = useField<Record<string, unknown>>({ path: 'postTypeValues' })
@@ -960,11 +952,13 @@ function BoundValue({
   onValues: (path: string, value: unknown) => void
 }) {
   const binding = node.binding!
+  const categoriesEnabled = useCategoriesEnabled()
   const field = useField({
     path: binding.path,
     disableFormData: binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.'),
   })
   const value = readPath(document, binding.path)
+  if (!categoriesEnabled && (binding.path === 'categories' || binding.relationTo === 'categories')) return null
   const update = (value: unknown) =>
     binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.')
       ? onValues(binding.path, value)

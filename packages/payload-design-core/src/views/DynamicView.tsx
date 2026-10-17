@@ -1,6 +1,7 @@
 'use client'
 /* eslint-disable @next/next/no-img-element -- Media is resolved by the application adapter. */
 import { useEffect, useId, useRef, useState } from 'react'
+import { useCategoriesEnabled } from '../categories'
 import {
   defaultView,
   getView,
@@ -105,6 +106,7 @@ export function DynamicView({
     [result, setResult] = useState<ViewResult | undefined>(initial),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
+  const categoriesEnabled = useCategoriesEnabled() && result?.categoriesEnabled !== false
   const [search, setSearch] = useState(''),
     [category, setCategory] = useState(''),
     [tag, setTag] = useState(''),
@@ -163,7 +165,7 @@ export function DynamicView({
           const params = new URLSearchParams({
             page: String(page),
             search,
-            categories: category,
+            categories: categoriesEnabled ? category : '',
             tags: tag,
             from,
             to,
@@ -207,7 +209,7 @@ export function DynamicView({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh]) // configurationKey captures the full configuration
+  }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh, categoriesEnabled]) // configurationKey captures the full configuration
   useEffect(() => {
     const update = () => {
       setRefresh((v) => v + 1)
@@ -254,7 +256,7 @@ export function DynamicView({
           </a>
         )}
         <div className="cv-content">
-          {cfg.taxonomy !== false && !!item.categories?.length && (
+          {categoriesEnabled && cfg.taxonomy !== false && !!item.categories?.length && (
             <p className="cv-taxonomy">{item.categories.map((c) => c.name).join(' · ')}</p>
           )}
           <h3 className="cv-title">
@@ -366,7 +368,7 @@ export function DynamicView({
               )}
               {cfg.filters && (
                 <>
-                  <label>
+                  <label hidden={!categoriesEnabled}>
                     Category
                     <select value={category} onChange={(e) => setCategory(e.target.value)}>
                       <option value="">All categories</option>
@@ -616,7 +618,7 @@ export function DynamicView({
           ) : layout === 'taxonomy' ? (
             <>
               <div className="cv-taxonomy-grid">
-                {categories.map((c) => (
+                {categoriesEnabled && categories.map((c) => (
                   <button type="button" key={c.id} onClick={() => setCategory(c.id)}>
                     {c.name}
                   </button>

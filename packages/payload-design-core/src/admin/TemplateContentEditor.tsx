@@ -5,6 +5,7 @@ import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useEffect, useState } from 'react'
 import type { FieldDefinition, ID, Template, TemplateField } from '../types'
 import { templateFields } from '../template-tree'
+import { useCategoriesEnabled } from '../categories'
 
 type DesignOption = { id: ID; name: string; blockType: ID }
 type SectionData = { fields: FieldDefinition[]; designs: DesignOption[] }
@@ -95,6 +96,8 @@ export function TemplateContentEditor({ lexicalSchemaPath }: { lexicalSchemaPath
 function DynamicTemplateField({ field, lexicalSchemaPath, value, disabled, onChange }: { field: TemplateField; lexicalSchemaPath: string; value: unknown; disabled: boolean; onChange: (value: unknown) => void }) {
   const label = `${field.label}${field.required ? ' *' : ''}`
   const { config } = useConfig()
+  const categoriesEnabled = useCategoriesEnabled()
+  if (!categoriesEnabled && field.fieldType === 'relationship' && field.relationTo === 'categories') return null
   if (field.fieldType === 'toggle') return <label className="template-content-editor__toggle">{label}<input disabled={disabled} type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /></label>
   if (field.fieldType === 'image' || field.fieldType === 'images') return <UploadInput api={config.routes.api} allowCreate hasMany={field.fieldType === 'images'} isSortable={field.fieldType === 'images'} label={label} description={field.helpText} onChange={onChange} path={`templateValues.${field.id}`} readOnly={disabled} relationTo="media" required={field.required} serverURL={config.serverURL} showError={false} value={value as never} />
   if (field.fieldType === 'richText') return <RenderLexical field={{ name: field.id, type: 'richText', label, required: field.required, admin: { description: field.helpText, readOnly: false } }} path={`templateValues.${field.id}`} schemaPath={lexicalSchemaPath} value={value as never} setValue={(next) => onChange(next)} />

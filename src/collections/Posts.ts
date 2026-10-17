@@ -1,6 +1,8 @@
 import type { CollectionConfig } from 'payload'
 import { authenticated, publishedOrAuthenticated } from '../access/content'
 import { slugField } from '../fields/slug'
+import { categoriesEnabledForRequest, sameCategories } from '../lib/system-settings'
+import { ValidationError } from 'payload'
 
 const hasRichTextContent = (value: unknown): boolean => {
   if (!value || typeof value !== 'object') return false
@@ -23,6 +25,11 @@ export const Posts: CollectionConfig = {
     delete: authenticated,
   },
   versions: { drafts: true },
+  hooks: { beforeValidate: [async ({ data, originalDoc, req }) => {
+    if (data && Object.hasOwn(data, 'categories') && !sameCategories(data.categories, originalDoc?.categories) && !await categoriesEnabledForRequest(req))
+      throw new ValidationError({ errors: [{ path: 'categories', message: 'Categories are disabled in Site Settings.' }] })
+    return data
+  }] },
   fields: [
     {
       type: 'tabs',
@@ -67,7 +74,7 @@ export const Posts: CollectionConfig = {
         {
           label: 'Organization',
           fields: [
-            { name: 'categories', type: 'relationship', relationTo: 'categories', hasMany: true },
+            { name: 'categories', type: 'relationship', relationTo: 'categories', hasMany: true, admin: { components: { Field: './components/CategoryField#CategoryField' } } },
             { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
           ],
         },

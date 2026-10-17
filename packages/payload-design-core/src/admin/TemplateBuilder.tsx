@@ -1,7 +1,8 @@
 'use client'
 /* eslint-disable react-hooks/refs -- Undo history mutations also trigger a React state revision. */
 
-import { useDocumentInfo, useField, useForm, useNav } from '@payloadcms/ui'
+import { useDocumentInfo, useField, useForm } from '@payloadcms/ui'
+import { useCategoriesEnabled } from '../categories'
 import { useEffect, useRef, useState } from 'react'
 import { BuilderCore } from '../builder/BuilderCore'
 import { BuilderSidebar, SidebarControls, useBuilderSidebar } from '../builder/BuilderSidebar'
@@ -294,14 +295,6 @@ export function ContentTemplateBuilder({
   const [sidebarSelected, setSidebarSelected] = useState<string>()
   const [error, setError] = useState<string | null>(null)
   const [viewport, setViewport] = useState<BuilderViewport>('desktop')
-  const nav = useNav()
-  const collapsed = useRef(false)
-  useEffect(() => {
-    if (nav.hydrated && !collapsed.current) {
-      collapsed.current = true
-      nav.setNavOpen(false)
-    }
-  }, [nav])
   const history = useRef<{
     past: Array<{ nodes: TemplateNode[]; fields: TemplateCustomField[] }>
     future: Array<{ nodes: TemplateNode[]; fields: TemplateCustomField[] }>
@@ -798,6 +791,7 @@ function CustomFieldsPanel({
   fields: TemplateCustomField[]
   setFields: (fields: TemplateCustomField[]) => void
 }) {
+  const categoriesEnabled = useCategoriesEnabled()
   const update = (id: string, changes: Partial<TemplateCustomField>) =>
     setFields(fields.map((field) => (field.id === id ? { ...field, ...changes } : field)))
   const move = (index: number, offset: -1 | 1) => {
@@ -960,7 +954,7 @@ function CustomFieldsPanel({
                     onChange={(event) => update(field.id, { relationTo: event.target.value })}
                   >
                     <option value="">Choose collection</option>
-                    {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].map(
+                    {['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].filter(collection => categoriesEnabled || collection !== 'categories').map(
                       (slug) => (
                         <option key={slug} value={slug}>
                           {slug === 'saved-views' ? 'Saved Views' : slug}

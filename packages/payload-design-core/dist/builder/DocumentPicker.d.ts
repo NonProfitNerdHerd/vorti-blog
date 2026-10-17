@@ -3,4 +3,4 @@ export declare function DocumentPicker({ collection, label, value, change, }: {
     label: string;
     value: string;
     change: (value: string) => void;
-}): import("react/jsx-runtime").JSX.Element;
+}): import("react/jsx-runtime").JSX.Element | null;

@@ -14,6 +14,7 @@ import * as migration_20261012_040000_post_types_views from './20261012_040000_p
 import * as migration_20261012_200651_forms_module from './20261012_200651_forms_module';
 import * as migration_20261012_220000_forms_payments from './20261012_220000_forms_payments';
 import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_forms_cms_actions';
+import * as migration_20261017_195736_system_settings from './20261017_195736_system_settings';
 
 export const migrations = [
   {
@@ -94,6 +95,11 @@ export const migrations = [
   {
     up: migration_20261013_000807_forms_cms_actions.up,
     down: migration_20261013_000807_forms_cms_actions.down,
-    name: '20261013_000807_forms_cms_actions'
+    name: '20261013_000807_forms_cms_actions',
+  },
+  {
+    up: migration_20261017_195736_system_settings.up,
+    down: migration_20261017_195736_system_settings.down,
+    name: '20261017_195736_system_settings'
   },
 ];

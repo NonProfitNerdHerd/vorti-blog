@@ -12,6 +12,7 @@ import {
 } from '@design-system/payload-design-core'
 import { mediaURL } from '../lib/media'
 import { validateView } from './validation'
+import { readCategoriesEnabled } from '../lib/system-settings'
 type Context = { user?: PayloadRequest['user']; draft?: boolean }
 export async function readSavedView(payload: Payload, id: string, context: Context = {}) {
   const result = await payload.find({
@@ -39,6 +40,7 @@ export async function queryView(
   context: Context = {},
 ): Promise<ViewResult> {
   validateView(config)
+  const categoriesEnabled = await readCategoriesEnabled(payload)
   const query = config.query,
     event = getView(config.layout)?.capability === 'event'
   const page = Math.max(1, Math.min(10000, Number(params.get('page')) || 1)),
@@ -64,7 +66,7 @@ export async function queryView(
     rules.push({ title: { like: params.get('search')!.slice(0, 200) } })
   if ((config.filters || config.layout === 'taxonomy') && query.source === 'posts')
     for (const field of ['categories', 'tags'])
-      if (params.get(field))
+      if ((field !== 'categories' || categoriesEnabled) && params.get(field))
         rules.push({ [field]: { in: params.get(field)!.split(',').slice(0, 30) } })
   const from = Date.parse(params.get('from') || new Date().toISOString()),
     to = Date.parse(params.get('to') || new Date(from + 90 * 86400000).toISOString())
@@ -163,7 +165,7 @@ export async function queryView(
       image: mediaURL(doc.featuredImage as never) || undefined,
       date: doc.publishedAt ? String(doc.publishedAt) : undefined,
       author: author?.profilePublic ? String(author.displayName || '') : undefined,
-      categories: taxonomy(doc.categories),
+      categories: categoriesEnabled ? taxonomy(doc.categories) : [],
       tags: taxonomy(doc.tags),
       readingTime: Math.max(
         1,
@@ -225,14 +227,16 @@ export async function queryView(
   if ((config.filters || config.layout === 'taxonomy') && query.source === 'posts') {
     const results = await Promise.all(
       (['categories', 'tags'] as const).map((collection) =>
-        payload.find({
-          collection,
-          overrideAccess: false,
-          user: context.user,
-          depth: 0,
-          pagination: false,
-          select: { name: true },
-        }),
+        collection === 'categories' && !categoriesEnabled
+          ? Promise.resolve({ docs: [] })
+          : payload.find({
+              collection,
+              overrideAccess: false,
+              user: context.user,
+              depth: 0,
+              pagination: false,
+              select: { name: true },
+            }),
       ),
     )
     facets = {
@@ -240,5 +244,13 @@ export async function queryView(
       tags: results[1].docs.map((doc) => ({ id: String(doc.id), name: doc.name })),
     }
   }
-  return { items, page, totalPages, total, facets, config: { ...defaultView, ...config } }
+  return {
+    items,
+    page,
+    totalPages,
+    total,
+    facets,
+    categoriesEnabled,
+    config: { ...defaultView, ...config },
+  }
 }

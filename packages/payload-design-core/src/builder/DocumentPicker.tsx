@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useConfig } from '@payloadcms/ui'
+import { useCategoriesEnabled } from '../categories'
 export function DocumentPicker({
   collection,
   label,
@@ -13,25 +14,33 @@ export function DocumentPicker({
   change: (value: string) => void
 }) {
   const { config } = useConfig()
+  const available = useCategoriesEnabled() || collection !== 'categories'
   const [search, setSearch] = useState(''),
-    [docs, setDocs] = useState<Array<{ id: string | number; title?: string; name?: string; singular?: string }>>([]),
+    [docs, setDocs] = useState<
+      Array<{ id: string | number; title?: string; name?: string; singular?: string }>
+    >([]),
     [error, setError] = useState('')
   const selected = value
     .split(',')
     .map((id) => id.trim())
     .filter(Boolean)
   useEffect(() => {
+    if (!available) return
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       try {
-        const titleField = collection === 'post-types' ? 'singular' : ['categories', 'tags', 'saved-views'].includes(collection) ? 'name' : 'title'
+        const titleField =
+          collection === 'post-types'
+            ? 'singular'
+            : ['categories', 'tags', 'saved-views'].includes(collection)
+              ? 'name'
+              : 'title'
         const params = new URLSearchParams({
           limit: '50',
           depth: '0',
           sort: titleField,
         })
-        if (search)
-          params.set(`where[${titleField}][like]`, search)
+        if (search) params.set(`where[${titleField}][like]`, search)
         if (collection === 'forms') {
           params.set('where[_status][equals]', 'published')
           params.set('where[archived][not_equals]', 'true')
@@ -51,7 +60,8 @@ export function DocumentPicker({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [collection, search, config.routes.api, config.serverURL])
+  }, [collection, search, config.routes.api, config.serverURL, available])
+  if (!available) return null
   return (
     <fieldset>
       <legend>{label}</legend>

@@ -13,6 +13,7 @@ export type ListingResult = {
     totalPages: number;
 };
 export type BlockResolveContext = {
+    categoriesEnabled?: boolean;
     document: Record<string, unknown>;
     now?: number;
     preview?: boolean;

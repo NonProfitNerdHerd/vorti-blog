@@ -1,5 +1,6 @@
 import type { Field, Plugin, GroupField } from 'payload'
 import { publishedType, refID } from '../content-framework/collections'
+import { protectCategoryValues, categoriesEnabledForRequest } from '../lib/system-settings'
 import { getFieldPaths } from 'payload/shared'
 import { validateContentLayout, configureEditorHeader } from '@design-system/payload-design-core'
 
@@ -103,6 +104,11 @@ export const contentWorkspace =
             const template =
               ('designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate) ||
               refID(type?.defaultTemplate)
+            if (template && data.templateValues && !await categoriesEnabledForRequest(req)) {
+              const definition = await req.payload.findByID({ collection: 'design-templates', id: refID(template)!, depth: 0, overrideAccess: false, req })
+              const categoryFields = Array.isArray(definition.customFields) ? definition.customFields as Array<{ id: string; relationTo?: string }> : []
+              await protectCategoryValues(req, categoryFields, { ...(originalDoc?.templateValues || {}), ...data.templateValues }, originalDoc?.templateValues || {}, 'templateValues')
+            }
             for (const key of ['designOverrides', 'responsiveDesigns']) {
               if (
                 key in data &&

@@ -1,5 +1,6 @@
 import type { Payload, PayloadRequest, Where } from 'payload'
 import { mediaURL } from './media'
+import { readCategoriesEnabled } from './system-settings'
 import {documentURL} from '@design-system/payload-design-core/content'
 /** Only publicly accessible document data crosses the block rendering boundary. */
 export async function queryBlockListing(
@@ -9,6 +10,7 @@ export async function queryBlockListing(
   context: { draft?: boolean; user?: PayloadRequest['user'] } = {},
 ) {
   const collection = props.collection === 'pages' ? 'pages' : 'posts'
+  const categoriesEnabled = await readCategoriesEnabled(payload)
   const limit = Math.min(50, Math.max(1, Number(props.limit) || 6))
   const draft = !!context.draft && !!context.user
   const where: Where[] = draft ? [] : [{ _status: { equals: 'published' } }]
@@ -50,7 +52,7 @@ export async function queryBlockListing(
           item.featuredImage && typeof item.featuredImage === 'object'
             ? (mediaURL(item.featuredImage as never) ?? undefined)
             : undefined,
-        taxonomy: Array.isArray(item.categories)
+        taxonomy: categoriesEnabled && Array.isArray(item.categories)
           ? item.categories
               .map((category) =>
                 typeof category === 'object' && category
