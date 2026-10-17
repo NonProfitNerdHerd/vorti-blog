@@ -18,6 +18,8 @@ export function useBuilderSidebar(identity) {
         const escape = (event) => {
             if (event.key !== 'Escape' || event.defaultPrevented)
                 return;
+            if (document.querySelector('.editor-dialog-layer'))
+                return;
             setOpen(false);
             setTarget(undefined);
             opener.current?.focus();

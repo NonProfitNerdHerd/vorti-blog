@@ -40,6 +40,8 @@ test('expanded inspector preserves settings and restores the sidebar across edit
     expect(response.ok(), await response.text()).toBeTruthy()
     const { doc } = await response.json()
     await page.goto(`/admin/collections/${collection}/${doc.id}`)
+    if (collection === 'site-templates')
+      await page.getByRole('tab', { name: 'Header', exact: true }).click()
     await page.getByRole('tab', { name: 'Document settings', exact: true }).click()
     await page.getByRole('button', { name: 'Expand inspector' }).click()
     const dialog = page.locator('.editor-dialog-layer')

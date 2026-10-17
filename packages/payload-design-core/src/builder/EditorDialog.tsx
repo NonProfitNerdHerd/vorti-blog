@@ -21,6 +21,30 @@ export function EditorDialog({
   const id = useId()
   useEffect(() => {
     if (!open) return
+    const key = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        Array.from(document.querySelectorAll('.editor-dialog-layer')).at(-1) !== ref.current
+      )
+        return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+      } else if (
+        event.key === 'Tab' &&
+        event.target instanceof Node &&
+        !ref.current?.contains(event.target)
+      ) {
+        event.preventDefault()
+        ref.current?.querySelector<HTMLElement>('[data-dialog-close]')?.focus()
+      }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [open, onClose])
+  useEffect(() => {
+    if (!open) return
     const previous = document.activeElement as HTMLElement | null
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'

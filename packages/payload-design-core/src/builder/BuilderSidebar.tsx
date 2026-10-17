@@ -27,6 +27,7 @@ export function useBuilderSidebar(identity?: string) {
     if (!open) return
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (document.querySelector('.editor-dialog-layer')) return
       setOpen(false)
       setTarget(undefined)
       opener.current?.focus()
