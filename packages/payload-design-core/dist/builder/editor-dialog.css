@@ -62,6 +62,10 @@
 .editor-dialog-layer .editor-inspector-expand {
   display: none;
 }
+body:has(.editor-dialog-layer) .block-actions__toolbar {
+  visibility: hidden !important;
+  pointer-events: none;
+}
 .builder-frame.builder-frame:has(.editor-dialog-layer) {
   z-index: 1000;
   overflow: visible;

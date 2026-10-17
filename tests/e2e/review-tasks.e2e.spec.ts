@@ -32,6 +32,7 @@ test('review tasks stay separate from unsaved content and navigate globally', as
   await panel.getByRole('button', { name: 'Add task', exact: true }).click()
   const taskDialog = page.locator('.editor-dialog-layer')
   await expect(taskDialog).toHaveAttribute('aria-modal', 'true')
+  await expect(page.locator('.block-actions__toolbar')).toBeHidden()
   await taskDialog.getByLabel('Task title', { exact: true }).fill(taskTitle)
   await taskDialog.getByLabel('Task title', { exact: true }).press('Enter')
   await expect(taskDialog.getByRole('heading', { name: 'New task', exact: true })).toBeVisible()
