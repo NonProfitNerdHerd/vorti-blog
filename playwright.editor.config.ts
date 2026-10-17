@@ -7,7 +7,7 @@ process.env.PAYLOAD_SECRET = 'local-editor-validation-only'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: ['content-workspace.e2e.spec.ts', 'review-tasks.e2e.spec.ts'],
+  testMatch: ['content-workspace.e2e.spec.ts', 'review-tasks.e2e.spec.ts', 'task-dashboard.e2e.spec.ts'],
   workers: 1,
   timeout: 120_000,
   expect: { timeout: 20_000 },

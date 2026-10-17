@@ -5,6 +5,7 @@ export type Task = {
   documentType: string
   documentID: string
   documentTitle?: string
+  documentDeleted?: boolean
   region?: string
   parent?: number
   status: string

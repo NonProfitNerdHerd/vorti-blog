@@ -5,6 +5,8 @@ import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { query, reviewAPI, reviewAll, statuses, taskSearchTerms, type Task } from './client'
+import { TaskDashboard } from './TaskDashboard'
+import { taskDocumentLink } from './links'
 
 type Person = { id: number; label: string }
 type Context = { type: string; id: string }
@@ -52,6 +54,7 @@ export function Tasks({
   const ownerType = owner?.type,
     ownerID = owner?.id
   const listRequest = useRef(0)
+  const [dashboardVersion, setDashboardVersion] = useState(0)
   const [tasks, setTasks] = useState<Task[]>([]),
     [people, setPeople] = useState<Person[]>([])
   const [selected, setSelected] = useState<Task | null>(null),
@@ -70,6 +73,7 @@ export function Tasks({
     [page, setPage] = useState(1),
     [pages, setPages] = useState(1)
   const refresh = useCallback(async () => {
+    if (!ownerType || !ownerID) return
     const requestID = ++listRequest.current
     const and: object[] = [{ archived: { equals: archived } }]
     if (ownerType && ownerID)
@@ -134,6 +138,7 @@ export function Tasks({
       await action()
       await refresh()
       await onChange?.()
+      setDashboardVersion((value) => value + 1)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -146,11 +151,7 @@ export function Tasks({
     const result = await reviewAPI<{ available: boolean }>(api, `review-tasks/${task.id}/document`)
     if (!result.available)
       throw new Error('Document unavailable. Its review history is retained here.')
-    const params = new URLSearchParams({ task: String(task.id) })
-    if (task.region && task.region !== 'document') params.set('reviewRegion', task.region)
-    router.push(
-      `${admin}/collections/${task.documentType}/${encodeURIComponent(task.documentID)}?${params}`,
-    )
+    router.push(taskDocumentLink(task, admin))
   }
   return (
     <div
@@ -270,176 +271,187 @@ export function Tasks({
           </div>
         </EditorDialog>
       ) : null}
-      <>
-        {owner && (
-          <button
-            type="button"
-            onClick={() => {
-              setParent(null)
-              setCreating(true)
-            }}
-          >
-            Add task
-          </button>
-        )}
-        <div className="review-shortcuts">
-          <button
-            type="button"
-            onClick={() => {
-              setAssignee(String(user?.id))
-              setCreator('')
-            }}
-          >
-            Assigned to me
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setCreator(String(user?.id))
-              setAssignee('')
-            }}
-          >
-            Created by me
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAssignee('')
-              setCreator('')
-            }}
-          >
-            Everyone
-          </button>
-        </div>
-        <label>
-          Search tasks
-          <input maxLength={120} value={search} onChange={(e) => setSearch(e.target.value)} />
-        </label>
-        <details>
-          <summary>Filters</summary>
-          <div className="review-filters">
-            <label>
-              Status
-              <select
-                aria-label="Status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="active">Unfinished</option>
-                <option value="">All statuses</option>
-                {Object.entries(statuses).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Assignee
-              <select
-                aria-label="Assignee"
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-              >
-                <option value="">Everyone</option>
-                {people.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Creator
-              <select
-                aria-label="Creator"
-                value={creator}
-                onChange={(e) => setCreator(e.target.value)}
-              >
-                <option value="">Everyone</option>
-                {people.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Priority
-              <select
-                aria-label="Priority"
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-              >
-                <option value="">All priorities</option>
-                {['low', 'normal', 'high', 'urgent'].map((p) => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
-            </label>
-            {!owner && (
+      {owner ? (
+        <>
+          {owner && (
+            <button
+              type="button"
+              onClick={() => {
+                setParent(null)
+                setCreating(true)
+              }}
+            >
+              Add task
+            </button>
+          )}
+          <div className="review-shortcuts">
+            <button
+              type="button"
+              onClick={() => {
+                setAssignee(String(user?.id))
+                setCreator('')
+              }}
+            >
+              Assigned to me
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreator(String(user?.id))
+                setAssignee('')
+              }}
+            >
+              Created by me
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAssignee('')
+                setCreator('')
+              }}
+            >
+              Everyone
+            </button>
+          </div>
+          <label>
+            Search tasks
+            <input maxLength={120} value={search} onChange={(e) => setSearch(e.target.value)} />
+          </label>
+          <details>
+            <summary>Filters</summary>
+            <div className="review-filters">
               <label>
-                Document type
+                Status
                 <select
-                  aria-label="Document type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  aria-label="Status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
                 >
-                  <option value="">All documents</option>
-                  {['posts', 'pages', 'design-templates', 'site-templates'].map((t) => (
-                    <option key={t}>{t}</option>
+                  <option value="active">Unfinished</option>
+                  <option value="">All statuses</option>
+                  {Object.entries(statuses).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
                   ))}
                 </select>
               </label>
-            )}
-            <label>
-              Due on or before
-              <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={archived}
-                onChange={(e) => setArchived(e.target.checked)}
-              />{' '}
-              Archived tasks
-            </label>
-          </div>
-        </details>
-        <ul className="review-list">
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <button type="button" onClick={() => setSelected(task)}>
-                {task.title}
-              </button>
-              <small>
-                {statuses[task.status as keyof typeof statuses]} · {person(task.assignee)}
-                {task.parent ? ` · Subtask of #${task.parent}` : ''}
-              </small>
+              <label>
+                Assignee
+                <select
+                  aria-label="Assignee"
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                >
+                  <option value="">Everyone</option>
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Creator
+                <select
+                  aria-label="Creator"
+                  value={creator}
+                  onChange={(e) => setCreator(e.target.value)}
+                >
+                  <option value="">Everyone</option>
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Priority
+                <select
+                  aria-label="Priority"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                >
+                  <option value="">All priorities</option>
+                  {['low', 'normal', 'high', 'urgent'].map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+              </label>
               {!owner && (
-                <small>
-                  {task.documentTitle} · {task.documentType}
-                </small>
+                <label>
+                  Document type
+                  <select
+                    aria-label="Document type"
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
+                  >
+                    <option value="">All documents</option>
+                    {['posts', 'pages', 'design-templates', 'site-templates'].map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
               )}
-              {task.dueDate && <small>Due {task.dueDate.slice(0, 10)}</small>}
-            </li>
-          ))}
-        </ul>
-        {!tasks.length && <p>No tasks match these filters.</p>}
-        {pages > 1 && (
-          <nav aria-label="Task pages">
-            <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)}>
-              Previous
-            </button>
-            <span>
-              {page} / {pages}
-            </span>
-            <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-              Next
-            </button>
-          </nav>
-        )}
-      </>
+              <label>
+                Due on or before
+                <input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={archived}
+                  onChange={(e) => setArchived(e.target.checked)}
+                />{' '}
+                Archived tasks
+              </label>
+            </div>
+          </details>
+          <ul className="review-list">
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <button type="button" onClick={() => setSelected(task)}>
+                  {task.title}
+                </button>
+                <small>
+                  {statuses[task.status as keyof typeof statuses]} · {person(task.assignee)}
+                  {task.parent ? ` · Subtask of #${task.parent}` : ''}
+                </small>
+                {!owner && (
+                  <small>
+                    {task.documentTitle} · {task.documentType}
+                  </small>
+                )}
+                {task.dueDate && <small>Due {task.dueDate.slice(0, 10)}</small>}
+              </li>
+            ))}
+          </ul>
+          {!tasks.length && <p>No tasks match these filters.</p>}
+          {pages > 1 && (
+            <nav aria-label="Task pages">
+              <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                Previous
+              </button>
+              <span>
+                {page} / {pages}
+              </span>
+              <button type="button" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+                Next
+              </button>
+            </nav>
+          )}
+        </>
+      ) : (
+        <TaskDashboard
+          api={api}
+          admin={admin}
+          people={people}
+          userID={user?.id}
+          refreshKey={dashboardVersion}
+          onSelect={setSelected}
+        />
+      )}
     </div>
   )
 }
