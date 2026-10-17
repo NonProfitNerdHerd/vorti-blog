@@ -23,7 +23,7 @@ import { EditingSelection } from '../blocks/EditingSelection.js';
 import { resolveDocumentHeadings } from '../blocks/resolve.js';
 import { styleOnlyKinds, variationsFor } from '../blocks/variations.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
-import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, textDocument, } from '../content/model.js';
+import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, } from '../content/model.js';
 import { readPath, templateContentNodes } from '../content/template-adapter.js';
 import { EditorHeaderPortal, EditorDevices, EditorHistory } from '../builder/EditorHeader.js';
 import './content-workspace.css';
@@ -378,7 +378,7 @@ export const ContentWorkspace = (props) => {
                     type: 'richText',
                     label: node.label,
                     admin: { readOnly: lockedForm },
-                }, path: `editorText.${node.id}`, schemaPath: lexicalSchemaPath, value: node.richText, setValue: (richText) => changeNode(node.id, { richText }, true) })) : (_jsxs(_Fragment, { children: [_jsx(InlineText, { node: node, disabled: lockedForm, onChange: (text) => changeNode(node.id, { text }, true) }), selected === node.id && (_jsx("button", { type: "button", disabled: lockedForm, onClick: () => changeNode(node.id, { richText: textDocument(node) }), children: "Format text" }))] }));
+                }, path: `editorText.${node.id}`, schemaPath: lexicalSchemaPath, value: node.richText, setValue: (richText) => changeNode(node.id, { richText }, true) })) : (_jsx(InlineText, { node: node, disabled: lockedForm, onChange: (text) => changeNode(node.id, { text }, true) }));
         if (node.kind === 'richText')
             return (_jsx(RenderLexical, { field: {
                     name: 'content',

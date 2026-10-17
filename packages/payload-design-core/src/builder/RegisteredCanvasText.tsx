@@ -3,8 +3,7 @@ import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import { useConfig } from '@payloadcms/ui'
 import { getFieldPaths } from 'payload/shared'
 import type { ClientField } from 'payload'
-import { useState } from 'react'
-import { textDocument, type ContentNode } from '../content/model'
+import type { ContentNode } from '../content/model'
 import { InlineText } from './InlineText'
 
 function contentEditorPath(
@@ -33,7 +32,6 @@ export function RegisteredCanvasText({
   change: (patch: Partial<ContentNode>) => void
 }) {
   const { config } = useConfig()
-  const [focused, setFocused] = useState(false)
   const schemaPath = config.collections
     ?.map((collection) => contentEditorPath(collection.fields, `collection.${collection.slug}`))
     .find(Boolean)
@@ -50,18 +48,8 @@ export function RegisteredCanvasText({
     )
   }
   return (
-    <div
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
-      }}
-    >
+    <div>
       <InlineText node={node} disabled={disabled} onChange={(text) => change({ text })} />
-      {focused && !disabled && schemaPath && node.kind !== 'button' && (
-        <button type="button" onClick={() => change({ richText: textDocument(node) })}>
-          Format text
-        </button>
-      )}
     </div>
   )
 }

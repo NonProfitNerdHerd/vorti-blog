@@ -47,7 +47,6 @@ import {
   removeContent,
   updateContent,
   walkContent,
-  textDocument,
   type ContentLayout,
   type ContentNode,
   type ContentKind,
@@ -524,22 +523,11 @@ export const ContentWorkspace = (
           setValue={(richText) => changeNode(node.id, { richText }, true)}
         />
       ) : (
-        <>
-          <InlineText
-            node={node}
-            disabled={lockedForm}
-            onChange={(text) => changeNode(node.id, { text }, true)}
-          />
-          {selected === node.id && (
-            <button
-              type="button"
-              disabled={lockedForm}
-              onClick={() => changeNode(node.id, { richText: textDocument(node) })}
-            >
-              Format text
-            </button>
-          )}
-        </>
+        <InlineText
+          node={node}
+          disabled={lockedForm}
+          onChange={(text) => changeNode(node.id, { text }, true)}
+        />
       )
     if (node.kind === 'richText')
       return (
