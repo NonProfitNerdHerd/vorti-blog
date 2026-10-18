@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { SiteFormatProvider } from '@design-system/payload-design-core/content'
 import { readCategoriesEnabled } from '@/lib/system-settings'
 import { AdminPolicyClient } from './AdminPolicyClient'
+import { WorkspaceDialogs } from '../review/WorkspaceDialogs'
 
 export async function AdminPolicy({
   payload,
@@ -37,6 +38,7 @@ export async function AdminPolicy({
       initialDashboardOpen={value?.open !== false}
     >
       {children}
+      <WorkspaceDialogs/>
     </AdminPolicyClient></SiteFormatProvider>
   )
 }

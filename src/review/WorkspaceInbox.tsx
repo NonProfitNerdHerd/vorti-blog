@@ -43,6 +43,9 @@ type Notice = {
   board?: number
   comment?: number
   request?: number
+  project?: number
+  thread?: number
+  projectChange?: number
   message: string
   read?: boolean
   createdAt: string
@@ -147,10 +150,17 @@ export function WorkspaceInbox({
                 </button>
               ) : item.board ? (
                 <Link
-                  href={`${admin}/collections/review-tasks?workspace=boards&board=${item.board}`}
+                  href={`${admin}/collections/review-tasks?workspace=boards&board=${item.board}${item.thread ? `&view=messages&thread=${item.thread}` : ''}`}
                   onClick={() => void mark(item)}
                 >
                   Open board
+                </Link>
+              ) : item.project || item.projectChange ? (
+                <Link
+                  href={`${admin}/collections/review-tasks?workspace=projects${item.project ? `&project=${item.project}` : ''}`}
+                  onClick={() => void mark(item)}
+                >
+                  {item.projectChange ? 'Review sharing request' : 'Open project'}
                 </Link>
               ) : null}
             </div>

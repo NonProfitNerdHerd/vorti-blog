@@ -1,3 +1,4 @@
+import { workspaceReq } from './workspace-access'
 import { userIdentity } from '@design-system/payload-design-core'
 import {
   type CollectionConfig,
@@ -7,6 +8,8 @@ import {
 } from 'payload'
 import { relationID, isAdministrator } from './documents'
 import { queueBoardEvent } from './notifications'
+import { requireProject, projectWhere } from './project-access'
+import { ensureWorkspaceRevisions } from './workspace-revisions'
 import {
   boardRole,
   boardWhere,
@@ -16,7 +19,7 @@ import {
   requireBoard,
   requireTask,
   taskWhere,
-  workspaceContext,
+  workspaceDB,
 } from './workspace-access'
 
 const signedIn = ({ req }: { req: PayloadRequest }) => !!req.user
@@ -24,7 +27,9 @@ const denied = () => false
 const hidden = { hidden: true } as const
 // Keep trusted inverse-join ACL paths distinct. Payload's SQLite join-alias cache
 // uses inverse field names, so client traversals must not pre-seed those aliases.
-const directQueryOnly: CollectionBeforeOperationHook = ({ args }) => {
+export const directQueryOnly: CollectionBeforeOperationHook = ({ args, req }) => {
+  if (internalWorkspace(req)) return args
+  if ('overrideAccess' in args && args.overrideAccess === true) return args
   const query = args as unknown as { where?: unknown; sort?: unknown }
   const check = (value: unknown): void => {
     if (Array.isArray(value)) {
@@ -66,6 +71,15 @@ export const TaskBoards: CollectionConfig = {
   fields: [
     { name: 'name', type: 'text', required: true, maxLength: 120 },
     { name: 'description', type: 'textarea', maxLength: 10000 },
+    relation('project', 'task-projects', false),
+    { name: 'inheritProject', type: 'checkbox', defaultValue: false, index: true },
+    {
+      name: 'membershipRevision',
+      type: 'number',
+      defaultValue: 0,
+      admin: hidden,
+      access: { create: () => false, update: () => false },
+    },
     relation('owner', 'users'),
     {
       name: 'visibility',
@@ -105,7 +119,45 @@ export const TaskBoards: CollectionConfig = {
     beforeValidate: [
       async ({ data, originalDoc, req, operation }) => {
         if (!req.user) reject('Sign in to create a board.')
+        await ensureWorkspaceRevisions(workspaceDB(req))
+        delete data?.membershipRevision
         if (operation === 'create') data!.owner = req.user.id
+        if (operation === 'create') {
+          if (data?.project) await requireProject(req, data.project, 'edit')
+          else {
+            const existing = await req.payload.find({
+              collection: 'task-projects',
+              req,
+              depth: 0,
+              overrideAccess: true,
+              limit: 1,
+              where: {
+                and: [
+                  { owner: { equals: req.user.id } },
+                  { name: { equals: 'My projects' } },
+                  { archived: { not_equals: true } },
+                ],
+              },
+            })
+            const project =
+              existing.docs[0] ??
+              (await req.payload.create({
+                collection: 'task-projects',
+                req,
+                depth: 0,
+                overrideAccess: false,
+                data: { name: 'My projects', owner: req.user.id, visibility: 'private' },
+              }))
+            data!.project = project.id
+          }
+        } else if (
+          !internalWorkspace(req) &&
+          ((data?.project !== undefined &&
+            relationID(data.project) !== relationID(originalDoc?.project)) ||
+            (data?.inheritProject !== undefined &&
+              data.inheritProject !== originalDoc?.inheritProject))
+        )
+          reject('Use the project sharing confirmation to change inheritance or move boards.')
         if (data?.expectedUpdatedAt && data.expectedUpdatedAt !== originalDoc?.updatedAt)
           reject('This board changed. Reload before saving.', 409)
         if (
@@ -122,8 +174,55 @@ export const TaskBoards: CollectionConfig = {
     ],
     afterChange: [
       async ({ doc, previousDoc, req, operation }) => {
-        if (operation === 'create') await boardAudit(req, String(doc.id), 'Board created')
-        else
+        if (operation === 'create') {
+          await boardAudit(req, String(doc.id), 'Board created')
+          const estimates = await req.payload.find({
+            collection: 'task-field-definitions',
+            req,
+            overrideAccess: true,
+            depth: 0,
+            limit: 1,
+            where: { systemKey: { equals: 'estimated-hours' } },
+          })
+          const estimate =
+            estimates.docs[0] ??
+            (await req.payload.create({
+              collection: 'task-field-definitions',
+              req: workspaceReq(req),
+              overrideAccess: true,
+              data: {
+                name: 'Estimated hours',
+                kind: 'number',
+                systemKey: 'estimated-hours',
+                configuration: { precision: 2 },
+              },
+            }))
+          await req.payload.create({
+            collection: 'task-board-fields',
+            req: workspaceReq(req),
+            overrideAccess: true,
+            data: { board: doc.id, field: estimate.id, position: 0 },
+          })
+          for (const [position, kind] of [
+            'overview',
+            'list',
+            'board',
+            'calendar',
+            'files',
+          ].entries())
+            await req.payload.create({
+              collection: 'task-views',
+              req: workspaceReq(req),
+              overrideAccess: true,
+              data: {
+                board: doc.id,
+                name: kind[0].toUpperCase() + kind.slice(1),
+                kind: kind as 'list',
+                position,
+                defaultView: kind === 'list',
+              },
+            })
+        } else
           for (const field of ['name', 'visibility', 'owner', 'archived'])
             if (relationID(doc[field]) !== relationID(previousDoc?.[field]))
               await boardAudit(req, String(doc.id), `Board ${field} changed`)
@@ -209,6 +308,7 @@ export const TaskBoardMemberships: CollectionConfig = {
       async ({ data, originalDoc, req }) => {
         const next = { ...originalDoc, ...data }
         await requireBoard(req, next.board, 'owner')
+        await ensureWorkspaceRevisions(workspaceDB(req))
         if (
           originalDoc?.id &&
           (relationID(next.board) !== relationID(originalDoc.board) ||
@@ -233,6 +333,7 @@ export const TaskBoardMemberships: CollectionConfig = {
           depth: 0,
         })
         await requireBoard(req, member.board, 'owner')
+        await ensureWorkspaceRevisions(workspaceDB(req))
       },
     ],
     afterChange: [
@@ -271,15 +372,27 @@ export const TaskSections: CollectionConfig = {
     { name: 'name', type: 'text', required: true, maxLength: 120 },
     { name: 'position', type: 'number', defaultValue: 0 },
     { name: 'archived', type: 'checkbox', defaultValue: false },
+    { name: 'expectedUpdatedAt', type: 'text', virtual: true, admin: hidden },
   ],
   hooks: {
     beforeValidate: [
       async ({ data, originalDoc, req }) => {
         const board = originalDoc?.board ?? data?.board
         await requireBoard(req, board, 'edit')
+        if (originalDoc?.id && data?.expectedUpdatedAt !== originalDoc.updatedAt)
+          reject('This section changed. Reload before saving.', 409)
         if (originalDoc?.id && data?.board && relationID(board) !== relationID(data.board))
           reject('Sections cannot move between boards.')
         return data
+      },
+    ],
+    afterChange: [
+      async ({ doc, previousDoc, req }) => {
+        if (doc.archived && !previousDoc?.archived)
+          await workspaceDB(req)
+            .prepare('UPDATE task_placements SET section_id=NULL,updated_at=? WHERE section_id=?')
+            .bind(new Date().toISOString(), doc.id)
+            .run()
       },
     ],
   },
@@ -389,7 +502,28 @@ export const TaskBoardPreferences: CollectionConfig = {
     { name: 'key', type: 'text', unique: true, required: true },
     { name: 'favorite', type: 'checkbox', defaultValue: false },
     { ...relation('favoriteUser', 'users', false), admin: hidden },
-    { name: 'view', type: 'select', defaultValue: 'list', options: ['list', 'board', 'calendar'] },
+    {
+      name: 'view',
+      type: 'select',
+      defaultValue: 'list',
+      options: [
+        'overview',
+        'list',
+        'board',
+        'calendar',
+        'timeline',
+        'gantt',
+        'dashboard',
+        'files',
+        'page',
+        'messages',
+        'embed',
+        'workload',
+        'timesheets',
+      ],
+    },
+    relation('viewInstance', 'task-views', false),
+    { name: 'viewSettings', type: 'json' },
   ],
   hooks: {
     beforeValidate: [
@@ -500,9 +634,26 @@ export const TaskNotifications: CollectionConfig = {
                   {
                     and: [
                       { task: { exists: false } },
+                      { board: { exists: true } },
                       isAdministrator(req)
                         ? {}
                         : boardWhere(req, 'read', 'board.', 'directMemberships'),
+                    ],
+                  },
+                  {
+                    and: [
+                      { task: { exists: false } },
+                      { board: { exists: false } },
+                      { project: { exists: true } },
+                      isAdministrator(req)
+                        ? {}
+                        : projectWhere(req, 'read', 'project.', 'notificationProjectGrants'),
+                    ],
+                  },
+                  {
+                    and: [
+                      { projectChange: { exists: true } },
+                      { 'projectChange.approvers': { equals: req.user.id } },
                     ],
                   },
                 ],
@@ -520,6 +671,9 @@ export const TaskNotifications: CollectionConfig = {
     relation('board', 'task-boards', false),
     relation('comment', 'review-comments', false),
     relation('request', 'task-sharing-requests', false),
+    relation('project', 'task-projects', false),
+    relation('thread', 'task-board-messages', false),
+    relation('projectChange', 'task-project-changes', false),
     {
       name: 'kind',
       type: 'select',
@@ -583,9 +737,8 @@ export const TaskBoardActivity: CollectionConfig = {
 export async function boardAudit(req: PayloadRequest, board: string, message: string) {
   await req.payload.create({
     collection: 'task-board-activity',
-    req,
+    req: workspaceReq(req),
     overrideAccess: true,
-    context: workspaceContext,
     data: { board: Number(board), actor: req.user?.id, message },
   })
 }
@@ -596,6 +749,9 @@ type Notification = {
   board?: string
   comment?: string
   request?: string
+  project?: string
+  thread?: string
+  projectChange?: string
   kind: 'mention' | 'assignment' | 'invitation' | 'comment' | 'approval'
   key: string
   message: string
@@ -633,9 +789,8 @@ export async function notify(req: PayloadRequest, event: Notification) {
   try {
     await req.payload.create({
       collection: 'task-notifications',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
-      context: workspaceContext,
       data: {
         ...event,
         recipient: Number(event.recipient),
@@ -643,6 +798,9 @@ export async function notify(req: PayloadRequest, event: Notification) {
         board: event.board ? Number(event.board) : undefined,
         comment: event.comment ? Number(event.comment) : undefined,
         request: event.request ? Number(event.request) : undefined,
+        project: event.project ? Number(event.project) : undefined,
+        thread: event.thread ? Number(event.thread) : undefined,
+        projectChange: event.projectChange ? Number(event.projectChange) : undefined,
         key,
       },
     })

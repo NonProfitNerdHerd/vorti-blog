@@ -33,6 +33,10 @@ import { heroBoardRegistration } from '@design-system/payload-design-core/hero-b
 import { ReviewTasks, ReviewComments, ReviewActivity } from './review/collections'
 import { documentReview } from './review/plugin'
 import { workspaceCollections } from './review/workspace-collections'
+import { projectCollections } from './review/project-collections'
+import { workspaceEndpoints } from './review/workspace-endpoints'
+import { workspaceFileEndpoints } from './review/workspace-files'
+import { TaskProjectChanges, projectSharingEndpoints } from './review/project-sharing'
 import { TaskNotificationEvents } from './review/notifications'
 import { PostTypes, SavedViews, EventSeries } from './content-framework/collections'
 import { contentTypes } from './content-framework/plugin'
@@ -112,8 +116,9 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, TaskNotificationEvents, PostTypes, SavedViews, EventSeries],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, ...projectCollections, TaskProjectChanges, TaskNotificationEvents, PostTypes, SavedViews, EventSeries],
   globals: [Navigation, SiteSettings, SystemSettings],
+  endpoints: [...workspaceEndpoints, ...projectSharingEndpoints, ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES)],
   editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

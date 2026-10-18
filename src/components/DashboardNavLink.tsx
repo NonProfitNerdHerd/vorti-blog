@@ -73,6 +73,7 @@ export function PolicyNav({
           <nav className="task-nav-children" aria-label="Tasks navigation">
             <Link href={`${taskURL}?taskView=assigned`}>My tasks</Link>
             <Link href={taskURL}>All tasks</Link>
+            <Link href={`${taskURL}?workspace=projects`}>Projects</Link>
             <Link href={`${taskURL}?workspace=boards`}>Boards</Link>
             <Link href={`${taskURL}?workspace=inbox`}>
               Inbox <InboxBadge api={api} />

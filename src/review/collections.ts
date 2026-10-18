@@ -1,3 +1,4 @@
+import { workspaceReq } from './workspace-access'
 import { userIdentity } from '@design-system/payload-design-core'
 import { APIError, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 import {
@@ -7,7 +8,6 @@ import {
   requireBoard,
   requireTask,
   taskWhere,
-  workspaceContext,
 } from './workspace-access'
 import { workspaceEndpoint } from './workspace-service'
 import { commentEvent, drainNotifications, taskEvent } from './notifications'
@@ -23,6 +23,7 @@ import {
 } from './documents'
 
 const internalActivity = Symbol('review-activity')
+const creationSection=Symbol('creation-section')
 const deny = () => false
 const authenticated = ({ req }: { req: PayloadRequest }) => !!req.user
 const documentFields = [
@@ -140,6 +141,7 @@ export const ReviewTasks: CollectionConfig = {
     { name: 'personal', type: 'checkbox', defaultValue: false, admin: { hidden: true } },
     { name: 'expectedUpdatedAt', type: 'text', virtual: true, admin: { hidden: true } },
     { name: 'initialBoard', type: 'number', virtual: true, admin: { hidden: true } },
+    { name: 'initialSection',type:'number',virtual:true,admin:{hidden:true} },
     ...documentFields,
     { name: 'documentTitle', type: 'text', admin: { readOnly: true } },
     {
@@ -171,6 +173,8 @@ export const ReviewTasks: CollectionConfig = {
     },
     { name: 'assignee', type: 'relationship', relationTo: 'users', index: true },
     { name: 'dueDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
+    { name: 'startDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
+    { name: 'milestone', type: 'checkbox', defaultValue: false },
     {
       name: 'creator',
       type: 'relationship',
@@ -201,6 +205,7 @@ export const ReviewTasks: CollectionConfig = {
         data.documentDeleted = originalDoc?.documentDeleted ?? false
         if (typeof data.title === 'string') data.title = data.title.trim()
         const next = { ...originalDoc, ...data }
+        if (next.startDate && next.dueDate && String(next.startDate).slice(0, 10) > String(next.dueDate).slice(0, 10)) throw new APIError('Start date must be on or before the due date.', 400)
         if (data.expectedUpdatedAt && data.expectedUpdatedAt !== originalDoc?.updatedAt)
           throw new APIError('This task changed. Reload it before saving.', 409)
         if (
@@ -224,6 +229,7 @@ export const ReviewTasks: CollectionConfig = {
           if (data.initialBoard && next.parent) fail('Subtasks inherit their parent’s boards.')
           if (data.initialBoard) {
             await requireBoard(req, data.initialBoard, 'edit')
+            if(data.initialSection){const section=await req.payload.findByID({collection:'task-sections',id:Number(data.initialSection),req,overrideAccess:false,depth:0});if(section.archived||relationID(section.board)!==String(data.initialBoard))fail('Choose an active section on this board.');req.context.reviewCreationScope=true;(req.context as Record<symbol,unknown>)[creationSection]=section.id}
             data.boards = [Number(data.initialBoard)]
             data.personal = false
             Object.assign(next, data)
@@ -342,6 +348,8 @@ export const ReviewTasks: CollectionConfig = {
     ],
     afterChange: [
       async ({ doc, previousDoc, req, operation }) => {
+        const section=(req.context as Record<symbol,unknown>)[creationSection] as number|undefined
+        delete (req.context as Record<symbol,unknown>)[creationSection];delete req.context.reviewCreationScope
         if (operation === 'create' && !doc.parent)
           for (const board of ids(doc.boards)) {
             const last = await req.payload.find({
@@ -355,12 +363,12 @@ export const ReviewTasks: CollectionConfig = {
             })
             await req.payload.create({
               collection: 'task-placements',
-              req,
+              req: workspaceReq(req),
               overrideAccess: true,
-              context: workspaceContext,
               data: {
                 task: doc.id,
                 board: Number(board),
+                section:section??null,
                 key: `${doc.id}:${board}`,
                 active: true,
                 position: (last.docs[0]?.position ?? -1) + 1,
@@ -379,7 +387,7 @@ export const ReviewTasks: CollectionConfig = {
         for (const message of changes)
           await req.payload.create({
             collection: 'review-activity',
-            req,
+            req:{...req,headers:req.headers,url:req.url,query:{...req.query},context:{...req.context}},
             overrideAccess: true,
             context: { [internalActivity]: true },
             data: {
@@ -620,6 +628,7 @@ export const ReviewComments: CollectionConfig = {
     { name: 'body', type: 'textarea', required: true, maxLength: 20000 },
     { name: 'mentions', type: 'json' },
     { name: 'moderated', type: 'checkbox', defaultValue: false },
+    {name:'expectedUpdatedAt',type:'text',virtual:true,admin:{hidden:true}},
   ],
   hooks: {
     beforeChange: [
@@ -637,6 +646,7 @@ export const ReviewComments: CollectionConfig = {
     beforeValidate: [
       async ({ data, originalDoc, req, operation }) => {
         if (!req.user || !data) fail('Sign in to comment.')
+        if(operation==='update'&&data.expectedUpdatedAt&&data.expectedUpdatedAt!==originalDoc.updatedAt)throw new APIError('This comment changed. Reload before saving.',409)
         if (typeof data.body === 'string') data.body = data.body.trim()
         const task = await requireTask(req, originalDoc?.task ?? data.task, 'comment')
         await requireTask(req, task.id, 'comment')

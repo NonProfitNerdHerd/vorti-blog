@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth, useConfig } from '@payloadcms/ui'
 import { useSearchParams } from 'next/navigation'
 import { InboxBadge } from './WorkspaceInbox'
+import { ProjectNavigator } from './WorkspaceProjects'
 export function TaskList() {
   const { user } = useAuth()
   const {
@@ -28,6 +29,7 @@ export function TaskList() {
         {[
           { key: 'mine', label: 'My tasks', href: `${base}?taskView=assigned` },
           { key: 'all', label: 'All tasks', href: base },
+          { key: 'projects', label: 'Projects', href: `${base}?workspace=projects` },
           { key: 'boards', label: 'Boards', href: `${base}?workspace=boards` },
           { key: 'inbox', label: 'Inbox', href: `${base}?workspace=inbox` },
         ].map((tab) => (
@@ -47,7 +49,7 @@ export function TaskList() {
           Your existing account and task access stay the same.
         </p>
       )}
-      <Tasks key={active} />
+      <div className="workspace-shell"><ProjectNavigator api={api} admin={admin}/><div className="workspace-main"><Tasks key={active} /></div></div>
     </main>
   )
 }

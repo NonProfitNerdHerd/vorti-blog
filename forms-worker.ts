@@ -10,7 +10,7 @@ export default {
     // public network hop. The token remains a Worker secret.
     if (!env.FORM_JOB_TOKEN || env.FORM_JOB_TOKEN.length < 32) throw new Error('Forms scheduled processing requires FORM_JOB_TOKEN.')
     const failures: string[] = []
-    for (const path of ['/api/forms-actions/tick', '/api/review-tasks/notifications/tick']) {
+    for (const path of ['/api/forms-actions/tick', '/api/review-tasks/notifications/tick','/api/task-workspace/maintenance']) {
       try {
         const response = await handler.fetch(new Request(`https://jobs.internal${path}`, {
           method: 'POST', headers: { Authorization: `Bearer ${env.FORM_JOB_TOKEN}` },

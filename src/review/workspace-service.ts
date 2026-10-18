@@ -1,6 +1,13 @@
+import { workspaceReq } from './workspace-access'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { relationID, isAdministrator } from './documents'
-import { ids, reject, requireBoard, requireTask, workspaceContext } from './workspace-access'
+import {
+  ids,
+  reject,
+  requireBoard,
+  requireTask,
+  workspaceDB,
+} from './workspace-access'
 import { boardAudit } from './workspace-collections'
 import { queueBoardEvent } from './notifications'
 
@@ -42,12 +49,42 @@ async function audience(
       where: { board: { equals: id } },
       sort: 'id',
     })
+    let projectSnapshot: unknown = null
+    if (board.project) {
+      const project = await req.payload.findByID({
+        collection: 'task-projects',
+        id: relationID(board.project),
+        req,
+        depth: 0,
+        overrideAccess: true,
+      })
+      if (project.archived) reject('Restore the project before sharing tasks.', 400)
+      if (board.inheritProject && ids(task.boards).includes(id))
+        owners.add(relationID(project.owner))
+      const grants = await req.payload.find({
+        collection: 'task-project-memberships',
+        req,
+        depth: 0,
+        overrideAccess: true,
+        pagination: false,
+        where: { project: { equals: project.id } },
+        sort: 'id',
+      })
+      projectSnapshot = [
+        project.id,
+        project.updatedAt,
+        grants.docs.map((grant) => [grant.id, grant.updatedAt]),
+        project.membershipRevision ?? 0,
+      ]
+    }
     snapshot.push([
       id,
       board.owner,
       board.visibility,
       board.updatedAt,
       members.docs.map((m) => [m.id, m.user, m.role, m.updatedAt]),
+      projectSnapshot,
+      board.membershipRevision ?? 0,
     ])
   }
   return { owners: [...owners], fingerprint: JSON.stringify(snapshot), snapshot }
@@ -89,11 +126,13 @@ async function placementBatch(
     string,
     string,
     [number, number, string, string][],
+    [number, string, [number, string][], number] | null,
+    number,
   ][]) {
     checks.push(
-      'EXISTS (SELECT 1 FROM task_boards WHERE id = ? AND owner_id = ? AND visibility = ? AND updated_at = ? AND archived != 1)',
+      'EXISTS (SELECT 1 FROM task_boards WHERE id = ? AND owner_id = ? AND visibility = ? AND updated_at = ? AND archived != 1 AND coalesce(membership_revision,0)=?)',
     )
-    bindings.push(Number(item[0]), Number(item[1]), item[2], item[3])
+    bindings.push(Number(item[0]), Number(item[1]), item[2], item[3], item[6])
     checks.push('(SELECT COUNT(*) FROM task_board_memberships WHERE board_id = ?) = ?')
     bindings.push(Number(item[0]), item[4].length)
     for (const member of item[4]) {
@@ -101,6 +140,19 @@ async function placementBatch(
         'EXISTS (SELECT 1 FROM task_board_memberships WHERE id = ? AND user_id = ? AND role = ? AND updated_at = ?)',
       )
       bindings.push(member[0], Number(member[1]), member[2], member[3])
+    }
+    if (item[5]) {
+      const [projectID, updatedAt, grants, revision] = item[5]
+      checks.push(
+        'EXISTS(SELECT 1 FROM task_projects WHERE id=? AND updated_at=? AND archived!=1 AND coalesce(membership_revision,0)=?)',
+      )
+      bindings.push(projectID, updatedAt, revision)
+      checks.push('(SELECT count(*) FROM task_project_memberships WHERE project_id=?)=?')
+      bindings.push(projectID, grants.length)
+      for (const grant of grants) {
+        checks.push('EXISTS(SELECT 1 FROM task_project_memberships WHERE id=? AND updated_at=?)')
+        bindings.push(grant[0], grant[1])
+      }
     }
   }
   // Split guards into bounded statements; every guard remains in the same atomic batch.
@@ -248,9 +300,8 @@ export const workspaceEndpoint: Endpoint = {
         await req.payload.update({
           collection: 'task-sharing-requests',
           id: request.id,
-          req,
+          req: workspaceReq(req),
           overrideAccess: true,
-          context: workspaceContext,
           data: { state: 'stale' },
         })
         reject('Membership changed. Submit a new sharing request.', 409)
@@ -259,9 +310,8 @@ export const workspaceEndpoint: Endpoint = {
         await req.payload.update({
           collection: 'task-sharing-requests',
           id: request!.id,
-          req,
+          req: workspaceReq(req),
           overrideAccess: true,
-          context: workspaceContext,
           data: { state: 'rejected' },
         })
         return Response.json({ ok: true })
@@ -297,16 +347,14 @@ export const workspaceEndpoint: Endpoint = {
           ? await req.payload.update({
               collection: 'task-sharing-requests',
               id: request.id,
-              req,
+              req: workspaceReq(req),
               overrideAccess: true,
-              context: workspaceContext,
               data,
             })
           : await req.payload.create({
               collection: 'task-sharing-requests',
-              req,
+              req: workspaceReq(req),
               overrideAccess: true,
-              context: workspaceContext,
               data,
             })
         if (!allowed) {
@@ -391,14 +439,26 @@ export const workspaceEndpoint: Endpoint = {
         reject('Choose an active section on this board.', 400)
       const position = Number(body.position ?? 0)
       if (!Number.isFinite(position)) reject('Invalid card position.', 400)
-      await req.payload.update({
-        collection: 'task-placements',
-        id: current.id,
-        req,
-        overrideAccess: true,
-        context: workspaceContext,
-        data: { section: section?.id ?? null, position },
-      })
+      const sectionID = section?.id ?? null,
+        next = new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString()
+      const changed = await workspaceDB(req)
+        .prepare(
+          'UPDATE task_placements SET section_id=?,position=?,updated_at=? WHERE id=? AND updated_at=? AND active=1 AND (? IS NULL OR EXISTS(SELECT 1 FROM task_sections WHERE id=? AND board_id=? AND archived!=1))',
+        )
+        .bind(
+          sectionID,
+          position,
+          next,
+          current.id,
+          current.updatedAt,
+          sectionID,
+          sectionID,
+          Number(destination),
+        )
+        .run()
+      if (!changed.meta.changes)
+        reject('This card or its section changed. Reload before moving it again.', 409)
+      await boardAudit(req, destination, `Task #${task.id} moved`)
       return Response.json({ ok: true })
     }
     reject('Unknown workspace action.', 400)

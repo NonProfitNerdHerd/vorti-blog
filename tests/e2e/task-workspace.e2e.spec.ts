@@ -20,7 +20,7 @@ test('create a board and shared task, organize views, schedule, and edit subtask
     .fill('Coordinate publishing without losing context.')
   await dialog.getByRole('button', { name: 'Create board', exact: true }).click()
   await expect(dialog).toHaveCount(0)
-  await page.getByRole('link', { name, exact: true }).click()
+  await page.locator('.task-board-directory').getByRole('link', { name, exact: true }).click()
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Add task', exact: true }).click()
   await dialog.getByLabel('Task title', { exact: true }).fill('Prepare launch')
@@ -43,34 +43,34 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await page.getByText('Manage sections', { exact: true }).click()
   await page.getByLabel('New section', { exact: true }).fill('Publishing')
   await page.getByRole('button', { name: 'Add section', exact: true }).click()
-  await expect(page.getByText('Publishing', { exact: true }).first()).toBeVisible()
+  await expect(page.getByRole('button', { name: '▾ Publishing', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Board', exact: true }).click()
   const card = page
-    .locator('.task-board-card')
+    .locator('.workspace-kanban article')
     .filter({ has: page.getByRole('button', { name: 'Prepare launch', exact: true }) })
   const move = card.getByRole('combobox', { name: 'Move Prepare launch to' })
   await move.selectOption({ label: 'Publishing' })
   await expect(
     page
-      .locator('.task-kanban>section')
+      .locator('.workspace-kanban>section')
       .filter({ has: page.getByRole('heading', { name: /^Publishing/ }) })
       .getByRole('button', { name: 'Prepare launch', exact: true }),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Calendar', exact: true }).click()
   const undated = page
-    .locator('.task-undated>div')
+    .locator('.task-workspace-toolbar')
     .filter({ has: page.getByRole('button', { name: 'Prepare launch', exact: true }) })
-  await undated.getByLabel('Schedule', { exact: true }).fill('2026-10-20')
+  await undated.getByLabel('Schedule Prepare launch', { exact: true }).fill('2026-10-20')
   await page.getByLabel('Calendar date', { exact: true }).fill('2026-10-20')
   await expect(
     page
-      .locator('.task-calendar>section[aria-label="2026-10-20"]')
+      .locator('.workspace-calendar>section[aria-label="2026-10-20"]')
       .getByRole('button', { name: 'Prepare launch', exact: true }),
   ).toBeVisible()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Calendar', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
+    'aria-current',
+    'page',
   )
   await expect(page.getByText('Loading tasks…', { exact: true })).toHaveCount(0)
   await page.screenshot({ path: '.wrangler/workspace-desktop.png', fullPage: true })
@@ -118,6 +118,7 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   expect(share.ok(), await share.text()).toBe(true)
   await page.goto(`/admin/collections/review-tasks?task=${task.id}`)
   const dialog = page.locator('.editor-dialog-layer')
+  await dialog.getByRole('tab', { name: 'Comment Log', exact: true }).click()
   await dialog.getByLabel('Add comment', { exact: true }).fill(`Please review @mention-${suffix}`)
   await expect(dialog.getByRole('option', { name: new RegExp(`@mention-${suffix}`) })).toBeVisible()
   await dialog.getByLabel('Add comment', { exact: true }).press('Enter')

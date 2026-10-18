@@ -13,6 +13,7 @@ export const SystemSettings: GlobalConfig = {
   },
   access: { read: () => true, update: ({ req }) => req.user?.role === 'administrator' },
   fields: [
+    { name:'workspaceEmbedOrigins',type:'json',defaultValue:[],validate:(value:unknown)=>Array.isArray(value)&&value.length<=30&&value.every(origin=>{try{const url=new URL(String(origin));return url.protocol==='https:'&&url.origin===origin&&!url.username&&!url.password}catch{return false}})||'Use up to 30 exact HTTPS origins without paths or credentials.' },
     {
       name: 'tagManagementRoles',
       type: 'select',

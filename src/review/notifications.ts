@@ -1,9 +1,10 @@
+import { workspaceReq } from './workspace-access'
 import type { CollectionConfig, PayloadRequest } from 'payload'
 import { relationID } from './documents'
-import { internalWorkspace, reject, workspaceContext } from './workspace-access'
+import { internalWorkspace, reject } from './workspace-access'
 import { notify } from './workspace-collections'
 
-type Delivery = { recipient: string; kind: 'mention' | 'assignment' | 'comment' | 'invitation' | 'approval'; board?: string; request?: string }
+type Delivery = { recipient: string; kind: 'mention' | 'assignment' | 'comment' | 'invitation' | 'approval'; board?: string; request?: string; project?: string; thread?: string; projectChange?: string }
 type EventDocument = {
   id: number
   updatedAt: string
@@ -47,9 +48,8 @@ export async function followAutomatically(req: PayloadRequest, task: number, use
   if (!found.totalDocs)
     await req.payload.create({
       collection: 'task-followers',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
-      context: workspaceContext,
       data: { task, user: Number(relationID(user)), key, following: true, muted: false },
     })
 }
@@ -79,9 +79,8 @@ export async function queueTaskEvent(
   if (!existing.docs[0])
     await req.payload.create({
       collection: 'task-notification-events',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
-      context: workspaceContext,
       data: { key, task, actor: req.user?.id, comment, deliveries: unique },
     })
   await drainNotifications(req)
@@ -126,14 +125,13 @@ export async function drainNotifications(req: PayloadRequest) {
               ? 'You were mentioned in a task.'
               : delivery.kind === 'assignment'
                 ? 'A task was assigned to you.'
-                : delivery.kind === 'invitation' ? 'You were added to a board.' : delivery.kind === 'approval' ? 'A shared task needs your board-sharing approval.' : 'New comment on a task you follow.',
+                : delivery.kind === 'invitation' ? `You were added to a ${delivery.project ? 'project' : 'board'}.` : delivery.kind === 'approval' ? 'A sharing change needs your approval.' : delivery.thread ? 'New board discussion activity.' : 'New comment on a task you follow.',
         })
       await req.payload.update({
         collection: 'task-notification-events',
         id: event.id,
-        req,
+        req: workspaceReq(req),
         overrideAccess: true,
-        context: workspaceContext,
         data: {
           delivered: deliveries.length <= 10,
           deliveries: deliveries.slice(10),
@@ -149,21 +147,20 @@ export async function drainNotifications(req: PayloadRequest) {
       await req.payload.update({
         collection: 'task-notification-events',
         id: event.id,
-        req,
+        req: workspaceReq(req),
         overrideAccess: true,
-        context: workspaceContext,
         data: { attempts: (event.attempts ?? 0) + 1 },
       })
     }
   }
 }
 
-export async function queueBoardEvent(req: PayloadRequest, event: { recipient: string; board?: string; task?: string; request?: string; kind: 'invitation' | 'approval'; key: string }) {
+export async function queueBoardEvent(req: PayloadRequest, event: { recipient: string; board?: string; task?: string; request?: string; project?: string; thread?: string; projectChange?: string; kind: 'invitation' | 'approval' | 'mention' | 'comment'; key: string }) {
   if (event.recipient === String(req.user?.id)) return
   const key = `${event.key}:${event.recipient}`
   const found = await req.payload.count({ collection: 'task-notification-events', req, overrideAccess: true, where: { key: { equals: key } } })
-  if (!found.totalDocs) await req.payload.create({ collection: 'task-notification-events', req, overrideAccess: true, context: workspaceContext,
-    data: { key, task: event.task ? Number(event.task) : undefined, actor: req.user?.id, deliveries: [{ recipient: event.recipient, board: event.board, request: event.request, kind: event.kind }] } })
+  if (!found.totalDocs) await req.payload.create({ collection: 'task-notification-events', req: workspaceReq(req), overrideAccess: true,
+    data: { key, task: event.task ? Number(event.task) : undefined, actor: req.user?.id, deliveries: [{ recipient: event.recipient, board: event.board, request: event.request, project:event.project,thread:event.thread,projectChange:event.projectChange,kind: event.kind }] } })
   await drainNotifications(req)
 }
 

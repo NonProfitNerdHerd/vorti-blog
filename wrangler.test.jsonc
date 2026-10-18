@@ -11,5 +11,5 @@
     "database_id": "00000000-0000-4000-8000-000000000001",
     "remote": false
   }],
-  "r2_buckets": [{ "binding": "R2", "bucket_name": "vorti-blog-local-test" }]
+  "r2_buckets": [{ "binding": "R2", "bucket_name": "vorti-blog-local-test" }, { "binding": "WORKSPACE_FILES", "bucket_name": "vorti-workspace-private-local-test" }]
 }

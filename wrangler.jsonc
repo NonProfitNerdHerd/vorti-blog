@@ -35,6 +35,7 @@
     // },
   ],
   "r2_buckets": [
+    { "binding": "WORKSPACE_FILES", "bucket_name": "vorti-workspace-private" },
     {
       "binding": "R2",
       "bucket_name": "vorti-blog","preview_bucket_name": "vorti-blog",
