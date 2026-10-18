@@ -1,5 +1,6 @@
 import type { ServerProps } from 'payload'
 import type { ReactNode } from 'react'
+import { SiteFormatProvider } from '@design-system/payload-design-core/content'
 import { readCategoriesEnabled } from '@/lib/system-settings'
 import { AdminPolicyClient } from './AdminPolicyClient'
 
@@ -8,7 +9,7 @@ export async function AdminPolicy({
   user,
   children,
 }: ServerProps & { children: ReactNode }) {
-  const [categoriesEnabled, preference] = await Promise.all([
+  const [categoriesEnabled, preference, site] = await Promise.all([
     readCategoriesEnabled(payload),
     user
       ? payload.find({
@@ -26,15 +27,16 @@ export async function AdminPolicy({
           },
         })
       : null,
+    payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: false }),
   ])
   const value = preference?.docs[0]?.value as { open?: boolean } | undefined
   return (
-    <AdminPolicyClient
+    <SiteFormatProvider value={{ timezone: site.timezone, dateFormat: site.dateFormat, timeFormat: site.timeFormat }}><AdminPolicyClient
       key={user ? `${user.collection}:${user.id}` : 'anonymous'}
       initialCategoriesEnabled={categoriesEnabled}
       initialDashboardOpen={value?.open !== false}
     >
       {children}
-    </AdminPolicyClient>
+    </AdminPolicyClient></SiteFormatProvider>
   )
 }

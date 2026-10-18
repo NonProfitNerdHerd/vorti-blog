@@ -56,3 +56,5 @@ h2 { line-height: 1.25; }
 .site-shell-menu-toggle { display: none; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 768px) { .site-shell-menu-toggle { display: inline-flex; } .site-shell-navigation { display: none; } .site-shell-navigation[data-open] { display: block; } .site-shell-navigation ul, .site-shell-layout--columns { flex-direction: column; } .site-shell-column { width: 100%; flex-basis: auto !important; } }
+
+.site-privacy-link { display: inline-block; margin: .75rem 0; text-underline-offset: .2em; }

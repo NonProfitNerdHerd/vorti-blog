@@ -40,7 +40,14 @@ export const FormAudit = base('form-audit', 'Form audit entry', [text('submissio
 export const FormAnalytics = base('form-analytics', 'Form analytics event', [text('formID', { index: true }), text('revision'), text('eventID', { unique: true }), text('sessionHash'), text('kind'), text('step'), number('durationMs'), json('fieldIDs')], 'entries')
 export const FormDeliveries = base('form-deliveries', 'Local delivery', [text('kind'), text('eventID', { unique: true }), text('recipient'), text('subject'), text('body'), json('headers')], 'integrations')
 FormDeliveries.fields = FormDeliveries.fields.map(field => 'name' in field && field.name === 'body' ? { ...field, admin: { components: { Field: './forms/LocalDeliveryMessage#LocalDeliveryMessage' } } } : field)
-export const FormResources = base('form-resources', 'Booking resource', [text('timezone', { defaultValue: 'UTC' }), json('availability'), { name: 'capacity', label: 'Default places per slot', type: 'number', defaultValue: 1, min: 1, max: 1000 }, { name: 'holdMinutes', label: 'Temporary hold (minutes)', type: 'number', defaultValue: 10, min: 1, max: 60 }], 'edit')
+export const FormResources = base('form-resources', 'Booking resource', [text('timezone', { defaultValue: 'UTC', admin: { components: { Field: './components/SiteTimezoneField#SiteTimezoneField' } } }), json('availability'), { name: 'capacity', label: 'Default places per slot', type: 'number', defaultValue: 1, min: 1, max: 1000 }, { name: 'holdMinutes', label: 'Temporary hold (minutes)', type: 'number', defaultValue: 10, min: 1, max: 60 }], 'edit')
+FormResources.hooks = { beforeOperation: [async ({ args, operation }) => {
+  if (operation === 'create' && 'data' in args && !args.data.timezone) {
+    const site = await args.req.payload.findGlobal({ slug: 'site-settings', depth: 0, req: args.req })
+    args.data.timezone = site.timezone || 'UTC'
+  }
+  return args
+}] }
 FormResources.access = { read: siteAccess('edit'), create: siteAccess('edit'), update: siteAccess('edit'), delete: siteAccess('admin') }
 export const FormTemplates = base('form-templates', 'Form template', [json('definition'), { name: 'kind', type: 'select', options: ['template', 'field-group', 'theme'], defaultValue: 'template' }, json('theme'), text('revision')], 'edit')
 FormTemplates.access = { read: siteAccess('edit'), create: siteAccess('edit'), update: siteAccess('edit'), delete: siteAccess('admin') }

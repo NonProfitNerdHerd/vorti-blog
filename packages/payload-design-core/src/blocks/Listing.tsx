@@ -1,10 +1,13 @@
 'use client'
 /* eslint-disable @next/next/no-img-element -- Media URLs are already resolved by the host application. */
+import { useSiteFormat } from '../SiteFormatContext'
+import { formatSiteDate } from '../site-format'
 import { useEffect, useState } from 'react'
 import { safeURL, type ContentNode } from '../content/model'
 import type { ListingResult } from './resolve'
 const emptyProps: Record<string, unknown> = {}
 export default function Listing({ node, editing }: { node: ContentNode; editing?: boolean }) {
+  const siteFormat = useSiteFormat()
   const props = node.props ?? emptyProps
   const [result, setResult] = useState<ListingResult>({
     results: Array.isArray(props.results) ? (props.results as ListingResult['results']) : [],
@@ -119,7 +122,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
             {props.showExcerpt !== false && <p className="listing-excerpt">{item.excerpt}</p>}
             {props.showDate !== false && item.publishedAt && (
               <time className="listing-meta" dateTime={item.publishedAt}>
-                {item.publishedAt.slice(0, 10)}
+                {formatSiteDate(item.publishedAt, siteFormat)}
               </time>
             )}
             {props.showTaxonomy !== false && <p className="listing-meta">{item.taxonomy}</p>}

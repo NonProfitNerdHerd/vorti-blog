@@ -51,6 +51,7 @@ import { TemplateBuilder as TemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } f
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { LocalDeliveryMessage as LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa } from '../../../forms/LocalDeliveryMessage'
+import { SiteTimezoneField as SiteTimezoneField_119f6619c8f6b5471611aa1cf30e0423 } from '../../../components/SiteTimezoneField'
 import { ResourceEditor as ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e } from '../../../forms/ResourceEditor'
 import { FormExportStatus as FormExportStatus_7c63ba332985da94d002f16d0ed2d99d } from '../../../forms/FormExportStatus'
 import { FormTitle as FormTitle_a9a78713f62ef4730677d1698272144c } from '../../../forms/FormTitle'
@@ -71,7 +72,9 @@ import { ExportPreview as ExportPreview_cdf7e044479f899a31f804427d568b36 } from 
 import { ExportSaveButton as ExportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportPreview as ImportPreview_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportSaveButton as ImportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
+import { SettingsHubLink as SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f } from '../../../components/SettingsHubLink'
 import { SystemSettingsTable as SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68 } from '../../../components/SystemSettingsTable'
+import { SettingsHub as SettingsHub_cd94f594cada3901a15a9f15dbaa2349 } from '../../../components/SettingsHub'
 import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from '../../../components/SiteDesignNav'
 import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../../../components/AdminPolicy'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -133,6 +136,7 @@ export const importMap = {
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
   "./forms/LocalDeliveryMessage#LocalDeliveryMessage": LocalDeliveryMessage_8b0ef800975698b01ffb30b8896887fa,
+  "./components/SiteTimezoneField#SiteTimezoneField": SiteTimezoneField_119f6619c8f6b5471611aa1cf30e0423,
   "./forms/ResourceEditor#ResourceEditor": ResourceEditor_3e2b61ad4dce24c3df9a35fc7de1c18e,
   "./forms/FormExportStatus#FormExportStatus": FormExportStatus_7c63ba332985da94d002f16d0ed2d99d,
   "./forms/FormTitle#FormTitle": FormTitle_a9a78713f62ef4730677d1698272144c,
@@ -153,7 +157,9 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportSaveButton": ExportSaveButton_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportPreview": ImportPreview_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportSaveButton": ImportSaveButton_cdf7e044479f899a31f804427d568b36,
+  "./components/SettingsHubLink#SettingsHubLink": SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f,
   "./components/SystemSettingsTable#SystemSettingsTable": SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68,
+  "./components/SettingsHub#SettingsHub": SettingsHub_cd94f594cada3901a15a9f15dbaa2349,
   "./components/SiteDesignNav#SiteDesignNav": SiteDesignNav_146389be3746eb1a45b524567d6e0718,
   "./components/AdminPolicy#AdminPolicy": AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,

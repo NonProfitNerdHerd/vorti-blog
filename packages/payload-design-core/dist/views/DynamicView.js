@@ -2,6 +2,8 @@
 import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 /* eslint-disable @next/next/no-img-element -- Media is resolved by the application adapter. */
 import { useEffect, useId, useRef, useState } from 'react';
+import { useSiteFormat } from '../SiteFormatContext.js';
+import { formatSiteDate, formatSiteTime } from '../site-format.js';
 import { useCategoriesEnabled } from '../categories.js';
 import { defaultView, getView, occurrenceLanes, } from './model.js';
 import { eventInstant } from './schedule.js';
@@ -153,11 +155,8 @@ export function DynamicView({ viewID, initial, configuration, editing = false, }
         else
             dialog.current?.close();
     }, [selected]);
-    const items = result?.items || [], format = (value) => new Intl.DateTimeFormat(undefined, {
-        timeZone: zone,
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    const siteFormat = useSiteFormat();
+    const items = result?.items || [], format = (value) => `${formatSiteDate(value, siteFormat, zone)} ${formatSiteTime(value, siteFormat, zone)}`;
     const open = (item) => {
         trigger.current = document.activeElement;
         setSelected(item);

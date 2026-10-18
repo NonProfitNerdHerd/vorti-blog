@@ -194,6 +194,13 @@ export const contentTypes: Plugin = (config) => {
           throw new Error('Only administrators may change an existing Post Type')
         const fields = (type.fieldDefinitions || []) as TypeField[]
         const values = { ...(originalDoc?.postTypeValues || {}), ...(data.postTypeValues || {}) }
+        for (const field of fields.filter(f => f.kind === 'eventSchedule')) {
+          const schedule = values[field.id] as Partial<EventSchedule> | undefined
+          if (schedule && !schedule.timezone && !originalDoc?.postTypeValues?.[field.id]) {
+            const site = await req.payload.findGlobal({ slug: 'site-settings', depth: 0, req })
+            values[field.id] = { ...schedule, timezone: site.timezone || 'UTC' }
+          }
+        }
         for (const f of fields)
           if (values[f.id] === undefined && f.defaultValue !== undefined)
             values[f.id] = f.defaultValue

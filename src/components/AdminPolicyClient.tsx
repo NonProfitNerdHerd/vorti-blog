@@ -22,7 +22,7 @@ export function AdminPolicyClient({
   const { breakpoints } = useWindowInfo()
   const pathname = usePathname()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refreshPermissions } = useAuth()
   const dashboard = pathname.replace(/\/$/, '') === config.routes.admin.replace(/\/$/, '')
   const mobile = breakpoints.l !== false
   const [dashboardOpen, setDashboardOpen] = useState(initialDashboardOpen)
@@ -60,6 +60,7 @@ export function AdminPolicyClient({
   }, [denied, router, config.routes.admin])
   useEffect(() => {
     const refresh = () => {
+      void refreshPermissions().catch(() => {})
       void fetch(`${config.routes.api}/globals/system-settings?depth=0`, {
         credentials: 'same-origin',
       })
@@ -80,7 +81,7 @@ export function AdminPolicyClient({
       window.removeEventListener('system-settings-saved', saved)
       window.removeEventListener('focus', refresh)
     }
-  }, [config.routes.api, router])
+  }, [config.routes.api, router, refreshPermissions])
   return (
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
       <CategoriesEnabledProvider value={categoriesEnabled}>

@@ -1,4 +1,5 @@
 'use client'
+import { useSiteFormat } from '../SiteFormatContext'
 import { createPortal } from 'react-dom'
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, pointerWithin, rectIntersection, useSensor, useSensors, useDraggable, useDroppable, type CollisionDetection } from '@dnd-kit/core'
@@ -53,6 +54,7 @@ function FieldCard({ field, selected, select, open, children }: { field: FormFie
 }
 export function FormBuilder({ onCreateExample, navigationTarget, navigation, toolbarTarget, emailTarget, onEmailIssue, transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps) {
   const dragContextID = useId()
+  const siteFormat = useSiteFormat()
   const [localView, setLocalView] = useState('Build')
   const tab = navigation?.view ?? localView
   const setTab = (view: string) => navigation ? navigation.onChange(view) : setLocalView(view)
@@ -117,7 +119,7 @@ export function FormBuilder({ onCreateExample, navigationTarget, navigation, too
     if (kind === 'row') { field.layout = { kind: 'columns', width: 'inherit' }; field.children = [createColumn(0, 50), createColumn(1, 50)] }
     if (kind === 'calculated') field.expression = '0'
     if (kind === 'upload') field.files = { maxCount: 3, maxBytes: 10 * 1024 * 1024, mimeTypes: ['image/jpeg', 'image/png', 'application/pdf'] }
-    if (kind === 'datetime') field.date = { timezone: 'UTC' }
+    if (kind === 'datetime') field.date = { timezone: siteFormat.timezone || 'UTC' }
     let destination = target ? fields.find(item => item.id === target) : current || (activeCanvas.id !== virtualCanvasID ? activeCanvas : undefined)
     if (destination?.layout?.kind === 'columns') destination = destination.children?.[0]
     let next: FormField[]

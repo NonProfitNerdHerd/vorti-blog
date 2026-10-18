@@ -7,9 +7,11 @@ import { mediaURL } from '@/lib/media'
 import { PostDesignSections } from './PostDesignSections'
 import type { PostDesignSection } from '@/lib/post-design'
 import {EventDetails} from '@/content-framework/EventDetails'
+import { useSiteFormat, formatSiteDate } from '@design-system/payload-design-core/content'
 import {savedViewConverters} from '@design-system/payload-design-core/content'
 
 export function PostArticle({ post, designSections = [] }: { post: Post; designSections?: PostDesignSection[] }) {
+  const siteFormat = useSiteFormat()
   const categoriesEnabled = useCategoriesEnabled()
   const image = mediaURL(post.featuredImage)
   const author = typeof post.author === 'object' && post.author?.profilePublic ? post.author : null
@@ -17,7 +19,7 @@ export function PostArticle({ post, designSections = [] }: { post: Post; designS
     <article className="container article">
       <header>
         <h1>{post.title || 'Untitled Post'}</h1>
-        {post.publishedAt && <time dateTime={post.publishedAt}>{new Date(post.publishedAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</time>}
+        {post.publishedAt && <time dateTime={post.publishedAt}>{formatSiteDate(post.publishedAt, siteFormat)}</time>}
         {author?.displayName && <p>By {author.displayName}</p>}
         {post.excerpt && <p className="lead">{post.excerpt}</p>}
         {categoriesEnabled && !!post.categories?.length && <p className="taxonomy">Categories: {post.categories.map((category) => typeof category === 'object' ? category.name : null).filter(Boolean).join(' · ')}</p>}

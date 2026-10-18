@@ -15,6 +15,7 @@ import * as migration_20261012_200651_forms_module from './20261012_200651_forms
 import * as migration_20261012_220000_forms_payments from './20261012_220000_forms_payments';
 import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_forms_cms_actions';
 import * as migration_20261017_195736_system_settings from './20261017_195736_system_settings';
+import * as migration_20261018_001622 from './20261018_001622';
 
 export const migrations = [
   {
@@ -100,6 +101,11 @@ export const migrations = [
   {
     up: migration_20261017_195736_system_settings.up,
     down: migration_20261017_195736_system_settings.down,
-    name: '20261017_195736_system_settings'
+    name: '20261017_195736_system_settings',
+  },
+  {
+    up: migration_20261018_001622.up,
+    down: migration_20261018_001622.down,
+    name: '20261018_001622'
   },
 ];

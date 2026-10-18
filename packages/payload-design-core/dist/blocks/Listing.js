@@ -1,10 +1,13 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 /* eslint-disable @next/next/no-img-element -- Media URLs are already resolved by the host application. */
+import { useSiteFormat } from '../SiteFormatContext.js';
+import { formatSiteDate } from '../site-format.js';
 import { useEffect, useState } from 'react';
 import { safeURL } from '../content/model.js';
 const emptyProps = {};
 export default function Listing({ node, editing }) {
+    const siteFormat = useSiteFormat();
     const props = node.props ?? emptyProps;
     const [result, setResult] = useState({
         results: Array.isArray(props.results) ? props.results : [],
@@ -96,7 +99,7 @@ export default function Listing({ node, editing }) {
                         ? '1fr'
                         : 'repeat(auto-fit,minmax(220px,1fr))',
                     gap: '1rem',
-                }, children: result.results.map((item, index) => (_jsxs("article", { className: "listing-item", children: [props.showImage !== false && item.image && (_jsx("img", { className: "listing-image", src: safeURL(item.image), alt: "", style: { maxWidth: '100%' } })), props.showTitle !== false && _jsx("h3", { className: "listing-title", children: item.title }), props.showExcerpt !== false && _jsx("p", { className: "listing-excerpt", children: item.excerpt }), props.showDate !== false && item.publishedAt && (_jsx("time", { className: "listing-meta", dateTime: item.publishedAt, children: item.publishedAt.slice(0, 10) })), props.showTaxonomy !== false && _jsx("p", { className: "listing-meta", children: item.taxonomy }), props.showLink !== false && (_jsx("a", { className: "listing-link", href: safeURL(item.url), onClick: editing ? (event) => event.preventDefault() : undefined, children: "Read more" }))] }, `${item.url}-${index}`))) }), _jsx("p", { role: "status", children: loading
+                }, children: result.results.map((item, index) => (_jsxs("article", { className: "listing-item", children: [props.showImage !== false && item.image && (_jsx("img", { className: "listing-image", src: safeURL(item.image), alt: "", style: { maxWidth: '100%' } })), props.showTitle !== false && _jsx("h3", { className: "listing-title", children: item.title }), props.showExcerpt !== false && _jsx("p", { className: "listing-excerpt", children: item.excerpt }), props.showDate !== false && item.publishedAt && (_jsx("time", { className: "listing-meta", dateTime: item.publishedAt, children: formatSiteDate(item.publishedAt, siteFormat) })), props.showTaxonomy !== false && _jsx("p", { className: "listing-meta", children: item.taxonomy }), props.showLink !== false && (_jsx("a", { className: "listing-link", href: safeURL(item.url), onClick: editing ? (event) => event.preventDefault() : undefined, children: "Read more" }))] }, `${item.url}-${index}`))) }), _jsx("p", { role: "status", children: loading
                     ? 'Loading content…'
                     : !result.results.length
                         ? editing

@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import { authenticated } from '../access/content'
+import { manageTags } from '../access/tags'
 import { slugField } from '../fields/slug'
 
 export const Tags: CollectionConfig = {
@@ -7,9 +7,9 @@ export const Tags: CollectionConfig = {
   admin: { group: 'Content', useAsTitle: 'name', defaultColumns: ['name', 'slug', 'updatedAt'] },
   access: {
     read: () => true,
-    create: authenticated,
-    update: authenticated,
-    delete: authenticated,
+    create: manageTags,
+    update: manageTags,
+    delete: manageTags,
   },
   fields: [
     { name: 'name', type: 'text', required: true },

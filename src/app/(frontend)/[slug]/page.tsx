@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { homePage, postsPath } from '@/lib/site-pages'
+import { PostsListing } from '@/components/PostsListing'
 import { notFound } from 'next/navigation'
 import { LivePagePreview } from '@/components/LivePagePreview'
 import { PageArticle } from '@/components/PageArticle'
@@ -7,12 +9,13 @@ import type { Page } from '@/payload-types'
 import { resolvePageDesign } from '@/lib/post-design'
 
 export const dynamic = 'force-dynamic'
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePreview?: string }> }
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePreview?: string; page?: string }> }
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   if ((await searchParams).livePreview) return { robots: { index: false, follow: false } }
   const page = await getPublishedPage((await params).slug)
-  return page ? contentMetadata(page, await getSiteSettings()) : {}
+  const site = await getSiteSettings()
+  return page ? { ...contentMetadata(page, site), alternates: { canonical: homePage(site)?.id === page.id ? '/' : `/${encodeURIComponent(page.slug!)}` } } : {}
 }
 
 export default async function PageDetail({ params, searchParams }: Props) {
@@ -26,6 +29,9 @@ export default async function PageDetail({ params, searchParams }: Props) {
   }
   const page = await getPublishedPage((await params).slug)
   if (!page) notFound()
+  const site = await getSiteSettings()
+  const path = `/${encodeURIComponent(page.slug!)}`
+  if (postsPath(site) === path) return <PostsListing path={path} title={page.title} rawPage={(await searchParams).page} />
   return <PageArticle page={page} designSections={await resolvePageDesign(page)} />
 }
 

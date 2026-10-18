@@ -1,4 +1,6 @@
 'use client'
+import { useSiteFormat } from '../SiteFormatContext'
+import { formatSiteDate, formatSiteTime } from '../site-format'
 import React, { useEffect, useState } from 'react'
 import { zonedParts } from './dates'
 import type { FormField } from './model'
@@ -14,6 +16,7 @@ export interface BookingAdapter {
 export function BookingInput({ field, path, id, value, disabled, adapter, onChange }: {
   field: FormField; path: string; id: string; value?: string; disabled?: boolean; adapter?: BookingAdapter; onChange: (value: string) => void
 }) {
+  const siteFormat = useSiteFormat()
   const [day, setDay] = useState(() => zonedParts(value ? new Date(value) : new Date(), field.date?.timezone || 'UTC').slice(0, 10))
   const [slots, setSlots] = useState<BookingOption[]>([]), [loaded, setLoaded] = useState(''), [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(''), [expires, setExpires] = useState(() => adapter?.selected?.(path)?.expiresAt || ''), [refresh, setRefresh] = useState(0)
@@ -41,13 +44,13 @@ export function BookingInput({ field, path, id, value, disabled, adapter, onChan
     <div role="group" aria-label={`${field.label} available times`}>
       {(!loading ? slots : []).map(slot => <button type="button" key={slot.id} disabled={disabled || busy || !!expires && value === slot.startsAt} aria-pressed={!!expires && value === slot.startsAt} onClick={async () => {
         setBusy(true)
-        try { const selected = await adapter.reserve(field, path, slot.id); onChange(selected.startsAt); setExpires(selected.expiresAt); setMessage(`Held until ${new Date(selected.expiresAt).toLocaleTimeString()}. Submit to confirm your place.`) }
+        try { const selected = await adapter.reserve(field, path, slot.id); onChange(selected.startsAt); setExpires(selected.expiresAt); setMessage(`Held until ${formatSiteTime(selected.expiresAt, siteFormat, field.date?.timezone || 'UTC')}. Submit to confirm your place.`) }
         catch (error) { setMessage((error as Error).message); setRefresh(n => n + 1) }
         finally { setBusy(false) }
-      }}>{new Intl.DateTimeFormat(undefined, { timeZone: field.date?.timezone || 'UTC', hour: 'numeric', minute: '2-digit' }).format(new Date(slot.startsAt))} · {slot.remaining} available</button>)}
+      }}>{formatSiteTime(slot.startsAt, siteFormat, field.date?.timezone || 'UTC')} · {slot.remaining} available</button>)}
     </div>
     {loading ? <p role="status">Checking available times…</p> : !slots.length && <p>No times are available on this date. Try another day.</p>}
-    {value && <p>Selected: {zonedParts(new Date(value), field.date?.timezone || 'UTC').replace('T', ' ')} {!expires && '— reserve again before submitting'}</p>}
+    {value && <p>Selected: {`${formatSiteDate(value, siteFormat, field.date?.timezone || 'UTC')} ${formatSiteTime(value, siteFormat, field.date?.timezone || 'UTC')}`} {!expires && '— reserve again before submitting'}</p>}
     {value && <button type="button" disabled={disabled || busy} onClick={async () => { setBusy(true); try { await adapter.release(field, path); onChange(''); setExpires(''); setRefresh(n => n + 1) } catch (error) { setMessage((error as Error).message) } finally { setBusy(false) } }}>Release selected time</button>}
     <button type="button" disabled={disabled || busy || loading} onClick={() => setRefresh(n => n + 1)}>Refresh availability</button>
     <p role="status">{message}</p>

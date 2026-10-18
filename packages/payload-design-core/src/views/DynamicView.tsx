@@ -1,6 +1,8 @@
 'use client'
 /* eslint-disable @next/next/no-img-element -- Media is resolved by the application adapter. */
 import { useEffect, useId, useRef, useState } from 'react'
+import { useSiteFormat } from '../SiteFormatContext'
+import { formatSiteDate, formatSiteTime } from '../site-format'
 import { useCategoriesEnabled } from '../categories'
 import {
   defaultView,
@@ -226,13 +228,9 @@ export function DynamicView({
     if (selected) dialog.current?.showModal()
     else dialog.current?.close()
   }, [selected])
+  const siteFormat = useSiteFormat()
   const items = result?.items || [],
-    format = (value: string) =>
-      new Intl.DateTimeFormat(undefined, {
-        timeZone: zone,
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(new Date(value))
+    format = (value: string) => `${formatSiteDate(value, siteFormat, zone)} ${formatSiteTime(value, siteFormat, zone)}`
   const open = (item: ViewItem) => {
     trigger.current = document.activeElement as HTMLElement
     setSelected(item)

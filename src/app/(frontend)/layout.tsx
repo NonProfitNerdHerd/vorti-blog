@@ -4,6 +4,8 @@ import { resolvePublicSiteShell } from '@/lib/siteTemplate'
 import { LegacyFooter, LegacyHeader } from '@/components/site-shell/LegacySiteShell'
 import { SiteTemplateFooter, SiteTemplateHeader, SiteTemplateStyles } from '@/components/site-shell/SiteTemplateShell'
 import './styles.css'
+import { mediaURL } from '@/lib/media'
+import { SiteFormatProvider } from '@design-system/payload-design-core/content'
 import { CategoriesEnabledProvider } from '@design-system/payload-design-core/content'
 import { publicCategoriesEnabled } from '@/lib/public-categories'
 
@@ -11,6 +13,8 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata(): Promise<Metadata> {
   const { siteSettings } = await getPublicSiteDataSafe()
   return {
+    icons: mediaURL(siteSettings.favicon) ? { icon: mediaURL(siteSettings.favicon)! } : undefined,
+    robots: siteSettings.discourageSearchIndexing ? { index: false, follow: false } : undefined,
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://vorti-blog.ike-j-rebout.workers.dev'),
     title: siteSettings.defaultSeoTitle || siteSettings.siteName || 'Vorti Blog',
     description: siteSettings.defaultSeoDescription || siteSettings.siteDescription || undefined,
@@ -18,10 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const shell = await resolvePublicSiteShell()
+  const { siteSettings } = await getPublicSiteDataSafe()
   const categoriesEnabled = await publicCategoriesEnabled()
   return <html lang="en"><body>
     {shell.kind === 'template' ? <><SiteTemplateStyles template={shell.template} /><SiteTemplateHeader {...shell} /></> : <LegacyHeader {...shell} />}
-    <CategoriesEnabledProvider value={categoriesEnabled}><main>{children}</main></CategoriesEnabledProvider>
+    <SiteFormatProvider value={{ timezone: siteSettings.timezone, dateFormat: siteSettings.dateFormat, timeFormat: siteSettings.timeFormat }}><CategoriesEnabledProvider value={categoriesEnabled}><main>{children}</main></CategoriesEnabledProvider></SiteFormatProvider>
     {shell.kind === 'template' ? <SiteTemplateFooter {...shell} /> : <LegacyFooter {...shell} />}
   </body></html>
 }

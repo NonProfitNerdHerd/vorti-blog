@@ -2821,6 +2821,12 @@ export interface SiteSetting {
   id: number;
   siteName: string;
   siteTagline?: string | null;
+  timezone?: string | null;
+  dateFormat?: ('long' | 'short' | 'iso' | 'us' | 'day-first') | null;
+  timeFormat?: ('12' | '24') | null;
+  discourageSearchIndexing?: boolean | null;
+  privacyPolicyPage?: (number | null) | Page;
+  showPrivacyPolicyLink?: boolean | null;
   siteDescription?: string | null;
   logo?: (number | null) | Media;
   darkLogo?: (number | null) | Media;
@@ -2859,6 +2865,7 @@ export interface SiteSetting {
  */
 export interface SystemSetting {
   id: number;
+  tagManagementRoles?: ('administrator' | 'designer' | 'editor')[] | null;
   categoriesEnabled?: boolean | null;
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -2923,6 +2930,12 @@ export interface NavigationSelect<T extends boolean = true> {
 export interface SiteSettingsSelect<T extends boolean = true> {
   siteName?: T;
   siteTagline?: T;
+  timezone?: T;
+  dateFormat?: T;
+  timeFormat?: T;
+  discourageSearchIndexing?: T;
+  privacyPolicyPage?: T;
+  showPrivacyPolicyLink?: T;
   siteDescription?: T;
   logo?: T;
   darkLogo?: T;
@@ -2955,6 +2968,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
  * via the `definition` "system-settings_select".
  */
 export interface SystemSettingsSelect<T extends boolean = true> {
+  tagManagementRoles?: T;
   categoriesEnabled?: T;
   updatedAt?: T;
   createdAt?: T;

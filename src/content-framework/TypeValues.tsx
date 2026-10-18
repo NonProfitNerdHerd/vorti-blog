@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useSiteFormat } from '@design-system/payload-design-core/content'
 import { useField, useFormFields } from '@payloadcms/ui'
 import type { JSONFieldClientComponent } from 'payload'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
@@ -297,6 +298,7 @@ export function TypeValueForm({
   readOnly?: boolean
   lexicalSchemaPath?: string
 }) {
+  const siteFormat = useSiteFormat()
   const [mediaResult, setMedia] = useState<{ key: string; facts: MediaFacts }>({
     key: '',
     facts: {},
@@ -337,7 +339,7 @@ export function TypeValueForm({
           {f.kind === 'eventSchedule' ? (
             <ScheduleEditor
               disabled={readOnly}
-              value={(value[f.id] || { timezone: 'UTC' }) as EventSchedule}
+              value={(value[f.id] || { timezone: siteFormat.timezone || 'UTC' }) as EventSchedule}
               onChange={(v) => change(f.id, v)}
             />
           ) : ['relationship', 'media'].includes(f.kind) ? (

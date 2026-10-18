@@ -1,5 +1,8 @@
+'use client'
+import { useSiteFormat, formatSiteDate, formatSiteTime, eventInstant } from '@design-system/payload-design-core/content'
 import type { EventSchedule, TypeField } from '@design-system/payload-design-core/content'
 export function EventDetails({ post }: { post: unknown }) {
+  const siteFormat = useSiteFormat()
   const doc = post as {
     postType?: { capability?: string; fieldDefinitions?: TypeField[] }
     postTypeValues?: Record<string, unknown>
@@ -9,15 +12,20 @@ export function EventDetails({ post }: { post: unknown }) {
     values = doc.postTypeValues || {},
     schedule = field && (values[field.id] as EventSchedule | undefined)
   if (!schedule) return null
+  const display = (value: string) => {
+    if (schedule.allDay) return formatSiteDate(value.slice(0, 10), siteFormat)
+    const instant = new Date(eventInstant(value, schedule.timezone))
+    return `${formatSiteDate(instant, siteFormat, schedule.timezone)} ${formatSiteTime(instant, siteFormat, schedule.timezone)}`
+  }
   return (
     <section aria-label="Event information" className="event-details">
       <h2>Event information</h2>
       <dl>
         <dt>Starts</dt>
-        <dd>{schedule.start.replace('T', ' ')}</dd>
+        <dd>{display(schedule.start)}</dd>
         <dt>Ends</dt>
         <dd>
-          {schedule.end.replace('T', ' ')}
+          {display(schedule.end)}
           {schedule.allDay ? ' (all day; end date exclusive)' : ''}
         </dd>
         <dt>Timezone</dt>
@@ -27,7 +35,7 @@ export function EventDetails({ post }: { post: unknown }) {
             <dt>Repeats</dt>
             <dd>
               Every {schedule.interval || 1} {schedule.frequency} period
-              {schedule.until ? `, until ${schedule.until}` : ''}
+              {schedule.until ? `, until ${formatSiteDate(schedule.until.slice(0, 10), siteFormat)}` : ''}
             </dd>
           </>
         )}

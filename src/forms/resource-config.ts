@@ -8,6 +8,7 @@ export function resourceCollection(base: CollectionConfig, platform: FormPlatfor
   return { ...base, fields: base.fields.map(field => 'name' in field && field.name === 'availability' ? {
     ...field, admin: { components: { Field: './forms/ResourceEditor#ResourceEditor' } },
   } : field), hooks: {
+    ...base.hooks,
     beforeValidate: [async ({ data, originalDoc }) => {
       if (!data) return data
       const fail = (message: string, path = 'availability'): never => { throw new ValidationError({ errors: [{ path, message }] }) }

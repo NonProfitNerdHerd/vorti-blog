@@ -1,8 +1,11 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useSiteFormat } from '../SiteFormatContext.js';
+import { formatSiteDate, formatSiteTime } from '../site-format.js';
 import { useEffect, useState } from 'react';
 import { zonedParts } from './dates.js';
 export function BookingInput({ field, path, id, value, disabled, adapter, onChange }) {
+    const siteFormat = useSiteFormat();
     const [day, setDay] = useState(() => zonedParts(value ? new Date(value) : new Date(), field.date?.timezone || 'UTC').slice(0, 10));
     const [slots, setSlots] = useState([]), [loaded, setLoaded] = useState(''), [busy, setBusy] = useState(false);
     const [message, setMessage] = useState(''), [expires, setExpires] = useState(() => adapter?.selected?.(path)?.expiresAt || ''), [refresh, setRefresh] = useState(0);
@@ -39,7 +42,7 @@ export function BookingInput({ field, path, id, value, disabled, adapter, onChan
                             const selected = await adapter.reserve(field, path, slot.id);
                             onChange(selected.startsAt);
                             setExpires(selected.expiresAt);
-                            setMessage(`Held until ${new Date(selected.expiresAt).toLocaleTimeString()}. Submit to confirm your place.`);
+                            setMessage(`Held until ${formatSiteTime(selected.expiresAt, siteFormat, field.date?.timezone || 'UTC')}. Submit to confirm your place.`);
                         }
                         catch (error) {
                             setMessage(error.message);
@@ -48,7 +51,7 @@ export function BookingInput({ field, path, id, value, disabled, adapter, onChan
                         finally {
                             setBusy(false);
                         }
-                    }, children: [new Intl.DateTimeFormat(undefined, { timeZone: field.date?.timezone || 'UTC', hour: 'numeric', minute: '2-digit' }).format(new Date(slot.startsAt)), " \u00B7 ", slot.remaining, " available"] }, slot.id)) }), loading ? _jsx("p", { role: "status", children: "Checking available times\u2026" }) : !slots.length && _jsx("p", { children: "No times are available on this date. Try another day." }), value && _jsxs("p", { children: ["Selected: ", zonedParts(new Date(value), field.date?.timezone || 'UTC').replace('T', ' '), " ", !expires && '— reserve again before submitting'] }), value && _jsx("button", { type: "button", disabled: disabled || busy, onClick: async () => { setBusy(true); try {
+                    }, children: [formatSiteTime(slot.startsAt, siteFormat, field.date?.timezone || 'UTC'), " \u00B7 ", slot.remaining, " available"] }, slot.id)) }), loading ? _jsx("p", { role: "status", children: "Checking available times\u2026" }) : !slots.length && _jsx("p", { children: "No times are available on this date. Try another day." }), value && _jsxs("p", { children: ["Selected: ", `${formatSiteDate(value, siteFormat, field.date?.timezone || 'UTC')} ${formatSiteTime(value, siteFormat, field.date?.timezone || 'UTC')}`, " ", !expires && '— reserve again before submitting'] }), value && _jsx("button", { type: "button", disabled: disabled || busy, onClick: async () => { setBusy(true); try {
                     await adapter.release(field, path);
                     onChange('');
                     setExpires('');

@@ -92,10 +92,11 @@ test('Categories switch saves, preserves assignments and saved rules, blocks wri
   }
   try {
     await page.goto('/admin/globals/system-settings')
+    await page.getByRole('button', { name: 'Features', exact: true }).click()
     const toggle = page.getByRole('switch', { name: 'Categories', exact: true })
     await expect(toggle).toBeChecked()
     await toggle.uncheck()
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click()
     await expect
       .poll(
         async () =>
@@ -106,6 +107,7 @@ test('Categories switch saves, preserves assignments and saved rules, blocks wri
     await expect(page.locator('a#nav-categories')).toHaveCount(0)
     await page.screenshot({ path: '.wrangler/site-settings-desktop.png', animations: 'disabled' })
     await page.reload()
+    await page.getByRole('button', { name: 'Features', exact: true }).click()
     await expect(toggle).not.toBeChecked()
     for (const [method, url, data] of [
       ['post', '/api/categories', { name: 'Blocked', slug: `blocked-${suffix}` }],
@@ -134,6 +136,7 @@ test('Categories switch saves, preserves assignments and saved rules, blocks wri
     await expect(page.locator('.builder-document-settings')).toBeVisible()
     await expect(page.locator('#field-categories')).toHaveCount(0)
     await page.goto('/admin/globals/system-settings')
+    await page.getByRole('button', { name: 'Features', exact: true }).click()
     await page.setViewportSize({ width: 390, height: 844 })
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
     await expect
@@ -146,7 +149,7 @@ test('Categories switch saves, preserves assignments and saved rules, blocks wri
     await toggle.focus()
     await toggle.press('Space')
     await expect(toggle).toBeChecked()
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click()
     await expect
       .poll(
         async () =>
