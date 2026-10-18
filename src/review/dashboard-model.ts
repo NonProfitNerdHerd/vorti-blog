@@ -65,6 +65,33 @@ export function taskPresetFilters(preset: TaskPreset, userID: string, limit = 10
   if (preset === 'overdue' || preset === 'soon') filters.due = preset
   return filters
 }
+/** Complete, validated URL state lets Dashboard links restore a personal task view. */
+export function taskURLState(params: URLSearchParams, userID: string) {
+  const requested = params.get('taskView')
+  const preset: TaskPreset = taskPresets.some(({ key }) => key === requested)
+    ? (requested as TaskPreset)
+    : 'all'
+  const filters = { ...taskPresetFilters(preset, userID), ...taskPagination(params) }
+  for (const key of ['search', 'assignee', 'creator', 'before'] as const)
+    if (params.has(key)) filters[key] = params.get(key)!.slice(0, 120)
+  const choices = {
+    status: ['', 'active', 'open', 'in-progress', 'ready-for-review', 'done'],
+    priority: ['', 'low', 'normal', 'high', 'urgent'],
+    documentType: ['', 'posts', 'pages', 'site-templates', 'design-templates'],
+    due: ['', 'overdue', 'today', 'soon', 'none', 'before'],
+  }
+  for (const key of ['status', 'priority', 'documentType', 'due'] as const) {
+    const value = params.get(key)
+    if (value !== null && choices[key].includes(value)) Object.assign(filters, { [key]: value })
+  }
+  if (params.has('archived')) filters.archived = params.get('archived') === 'true'
+  return { preset, filters }
+}
+export function writeTaskURL(params: URLSearchParams, filters: TaskFilters, preset: TaskPreset) {
+  params.set('taskView', preset)
+  for (const [key, value] of Object.entries(filters)) params.set(key, String(value))
+  return params
+}
 export function taskFiltersWhere(filters: TaskFilters, today: string): Where {
   const and: Where[] = [{ archived: { equals: filters.archived } }]
   for (const term of taskSearchTerms(filters.search)) and.push({ title: { contains: term } })

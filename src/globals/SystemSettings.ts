@@ -5,7 +5,7 @@ export const SystemSettings: GlobalConfig = {
   slug: 'system-settings',
   label: 'Settings',
   admin: {
-    group: 'Site',
+    group: 'Admin',
     hidden: ({ user }) => user?.role !== 'administrator',
     components: {
       views: { edit: { root: { Component: './components/SettingsHub#SettingsHub' } } },

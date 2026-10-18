@@ -7,7 +7,8 @@ import {
   defaultTaskFilters,
   localTaskDay,
   taskFiltersWhere,
-  taskPagination,
+  taskURLState,
+  writeTaskURL,
   taskPresetFilters,
   taskPresets,
   type TaskFilters,
@@ -83,27 +84,24 @@ export function TaskDashboard({
   const id = userID == null ? '' : String(userID)
 
   useEffect(() => {
-    setFilters((current) => ({
-      ...current,
-      ...taskPagination(new URLSearchParams(location.search)),
-    }))
+    const restore = () => {
+      const state = taskURLState(new URLSearchParams(location.search), id)
+      setFilters(state.filters)
+      setPreset(state.preset)
+    }
+    restore()
     setToday(localTaskDay())
     setReady(true)
-    const back = () =>
-      setFilters((current) => ({
-        ...current,
-        ...taskPagination(new URLSearchParams(location.search)),
-      }))
+    const back = restore
     window.addEventListener('popstate', back)
     return () => window.removeEventListener('popstate', back)
-  }, [])
+  }, [id])
   useEffect(() => {
     if (!ready) return
     const url = new URL(location.href)
-    url.searchParams.set('page', String(filters.page))
-    url.searchParams.set('limit', String(filters.limit))
+    writeTaskURL(url.searchParams, filters, preset)
     window.history.replaceState(window.history.state, '', url)
-  }, [ready, filters.page, filters.limit])
+  }, [ready, filters, preset])
   useEffect(() => {
     if (!today) return
     const midnight = new Date()

@@ -1,4 +1,5 @@
-.vorti-dashboard-link {
+.vorti-dashboard-link,
+.vorti-nav-parent-link {
   display: block;
   padding: 8px 0;
   margin-bottom: 8px;
@@ -9,10 +10,13 @@
   text-decoration: none;
 }
 .vorti-dashboard-link:hover,
-.vorti-dashboard-link[aria-current='page'] {
+.vorti-nav-parent-link:hover,
+.vorti-dashboard-link[aria-current='page'],
+.vorti-nav-parent-link[aria-current='page'] {
   color: var(--theme-text);
 }
-.vorti-dashboard-link:focus-visible {
+.vorti-dashboard-link:focus-visible,
+.vorti-nav-parent-link:focus-visible {
   outline: 2px solid var(--theme-text);
   outline-offset: 4px;
   border-radius: 3px;

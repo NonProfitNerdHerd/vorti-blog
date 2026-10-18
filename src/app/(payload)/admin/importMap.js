@@ -79,6 +79,7 @@ import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from 
 import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../../../components/AdminPolicy'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
+import { Dashboard as Dashboard_0e35033058204011832f5374d42fa864 } from '../../../dashboard/Dashboard'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -164,5 +165,6 @@ export const importMap = {
   "./components/AdminPolicy#AdminPolicy": AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,
+  "./dashboard/Dashboard#Dashboard": Dashboard_0e35033058204011832f5374d42fa864,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

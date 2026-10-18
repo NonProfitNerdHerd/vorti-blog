@@ -89,6 +89,7 @@ export default buildConfig({
     components: {
       Nav: './components/SiteDesignNav#SiteDesignNav',
       providers: ['./components/AdminPolicy#AdminPolicy'],
+      views: { dashboard: { Component: './dashboard/Dashboard#Dashboard' } },
     },
     livePreview: {
       collections: ['posts', 'pages'],
@@ -144,7 +145,7 @@ export default buildConfig({
     }),
     redirectsPlugin({
       collections: ['posts', 'pages'],
-      overrides: { admin: { group: 'Site' } },
+      overrides: { admin: { group: 'Admin' } },
     }),
     formsModule({ db: cloudflare.env.D1, storage: cloudflare.env.R2, local: Boolean(localPersistPath), defer: after }),
     importExportPlugin({

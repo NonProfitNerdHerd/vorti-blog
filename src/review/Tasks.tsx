@@ -4,6 +4,7 @@ import { useAuth, useConfig } from '@payloadcms/ui'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { query, reviewAPI, reviewAll, statuses, taskSearchTerms, type Task } from './client'
 import { TaskDashboard } from './TaskDashboard'
 import { taskDocumentLink } from './links'
@@ -40,9 +41,11 @@ function SafeText({ text }: { text: string }) {
 export function Tasks({
   document: owner,
   onChange,
+  renderList,
 }: {
   document?: Context
   onChange?: () => Promise<void>
+  renderList?: (props: { onSelect: (task: Task) => void; refreshKey: number }) => ReactNode
 }) {
   const {
     config: {
@@ -271,7 +274,7 @@ export function Tasks({
           </div>
         </EditorDialog>
       ) : null}
-      {owner ? (
+      {renderList ? renderList({ onSelect: setSelected, refreshKey: dashboardVersion }) : owner ? (
         <>
           {owner && (
             <button

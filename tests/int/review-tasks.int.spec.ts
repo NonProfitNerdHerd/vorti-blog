@@ -251,8 +251,14 @@ describe('Document review workflow and access', () => {
       ).id,
     ).toBe(task)
     expect(
-      (await payload.find({ collection: 'review-comments', req: editor, overrideAccess: false }))
-        .docs,
+      (
+        await payload.find({
+          collection: 'review-comments',
+          req: editor,
+          overrideAccess: false,
+          where: { task: { equals: task } },
+        })
+      ).docs,
     ).toEqual([])
   })
   it('keeps private template tasks and comments out of editor lists and assignments', async () => {
@@ -301,6 +307,22 @@ describe('Document review workflow and access', () => {
         })
       ).totalDocs,
     ).toBe(0)
+    // Dashboard totals must apply the same access rules as task lists.
+    for (const [req, expected] of [
+      [editor, 0],
+      [admin, 1],
+    ] as const) {
+      expect(
+        (
+          await payload.count({
+            collection: 'review-tasks',
+            req,
+            overrideAccess: false,
+            where: { id: { equals: privateTask.id } },
+          })
+        ).totalDocs,
+      ).toBe(expected)
+    }
     await expect(
       payload.findByID({
         collection: 'review-comments',
