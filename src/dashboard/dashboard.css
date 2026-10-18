@@ -202,6 +202,9 @@
   color: #22764d;
   background: #36a76a20;
 }
+[data-theme='dark'] .vp-dashboard__badge--published {
+  color: #8edbad;
+}
 .vp-dashboard__badge--in-progress,
 .vp-dashboard__badge--ready-for-review {
   color: var(--vp-accent);
