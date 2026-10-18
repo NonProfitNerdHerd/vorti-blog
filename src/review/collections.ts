@@ -1,3 +1,4 @@
+import { userIdentity } from '@design-system/payload-design-core'
 import { APIError, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 import {
   canReviewCollection,
@@ -245,7 +246,7 @@ export const ReviewTasks: CollectionConfig = {
               ? await reviewDocument({ ...req, user } as PayloadRequest, collection, id)
               : canReviewCollection({ ...req, user } as PayloadRequest, collection)
           )
-            docs.push({ id: user.id, label: user.displayName || user.email })
+            docs.push({ id: user.id, label: userIdentity(user, user.displayName || user.email) })
         return Response.json({ docs })
       },
     },

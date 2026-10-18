@@ -1,3 +1,4 @@
+import { userIdentity } from '@design-system/payload-design-core'
 import { getPayload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
 import type { Page, Post } from '@/payload-types'
@@ -41,7 +42,7 @@ export async function resolveContentDesign(source: Post | Page, context: { draft
   async function mediaValue(reference: unknown) { try { const media = typeof reference === 'object' ? reference : await payload.findByID({ collection: 'media', id: Number(reference), depth: 0, overrideAccess: false }); return { url: mediaURL(media as never) ?? '', alt: (media as { alt?: string }).alt ?? '' } } catch { return null } }
   function documentValue(field: string): unknown {
     if (field === 'categories' && !categoriesEnabled) return undefined
-    if (field === 'author' && 'author' in document) return typeof document.author === 'object' ? document.author.displayName || document.author.email : document.author
+    if (field === 'author' && 'author' in document) return typeof document.author === 'object' ? userIdentity(document.author, document.author.displayName || document.author.email) : document.author
     return document[field as keyof typeof document]
   }
   const blockMap = new Map(resolved.blocks.map((block) => [block.id, block]))

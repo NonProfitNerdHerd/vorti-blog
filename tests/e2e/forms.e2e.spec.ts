@@ -589,7 +589,7 @@ test('CMS actions create private contacts, support requests and one draft Post w
   expect(approver).not.toBe('999999')
   const invalidPatch = await page.request.patch(`/api/forms/${doc.id}`, { data: { definition: invalid } })
   expect(invalidPatch.status()).toBe(400)
-  const designerCredentials = { email: `cms-designer-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url') }
+  const designerCredentials = { username: (`cms-designer-${Date.now()}@example.test`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `cms-designer-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url') }
   expect((await page.request.post('/api/users', { data: { ...designerCredentials, role: 'designer' } })).ok()).toBe(true)
   const designer = await playwright.request.newContext({ baseURL })
   expect((await designer.post('/api/users/login', { data: designerCredentials })).ok()).toBe(true)
@@ -964,7 +964,7 @@ test('account drafts list only owned progress and revoke private links', async (
     expect((await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { id: list.drafts[0].id } })).status()).toBe(401)
     expect((await visitor.post(`/api/forms-runtime/${slug}/resume`, { data: { token: saved.resumeToken } })).status()).toBe(403)
     expect((await visitor.post(`/api/forms-runtime/${slug}/revoke`, { data: { token: saved.resumeToken } })).status()).toBe(404)
-    const otherAccount = { email: `other-${slug}@example.test`, password: randomBytes(24).toString('hex') }
+    const otherAccount = { username: (`other-${slug}@example.test`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `other-${slug}@example.test`, password: randomBytes(24).toString('hex') }
     expect((await page.request.post('/api/users', { data: { ...otherAccount, role: 'editor' } })).ok()).toBe(true)
     expect((await visitor.post('/api/users/login', { data: otherAccount })).ok()).toBe(true)
     expect((await (await visitor.get(`/api/forms-runtime/${slug}/drafts`)).json()).drafts).toEqual([])
@@ -1151,7 +1151,7 @@ test('anonymous progress, uploads and retries remain scoped to their session and
     expect(downloaded.status()).toBe(200)
     expect(downloaded.headers()['x-form-scan-status']).toBe('unscanned')
     expect((await downloaded.body()).toString()).toContain('Local ownership test')
-    const editor = { email: `forms-reader-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url'), role: 'editor' }
+    const editor = { username: (`forms-reader-${Date.now()}@example.test`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `forms-reader-${Date.now()}@example.test`, password: randomBytes(24).toString('base64url'), role: 'editor' }
     expect((await page.request.post('/api/users', { data: editor })).ok()).toBe(true)
     expect((await visitor.post('/api/users/login', { data: editor })).ok()).toBe(true)
     const { doc } = await created.json()

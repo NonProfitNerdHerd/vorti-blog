@@ -122,9 +122,13 @@ export function Tasks({
       ownerType && ownerID
         ? new URLSearchParams({ documentType: ownerType, documentID: ownerID })
         : ''
-    void reviewAPI<{ docs: Person[] }>(api, `review-tasks/assignees?${params}`)
-      .then((data) => setPeople(data.docs))
-      .catch((e) => setError(e.message))
+    const loadPeople = (): void =>
+      void reviewAPI<{ docs: Person[] }>(api, `review-tasks/assignees?${params}`)
+        .then((data) => setPeople(data.docs))
+        .catch((e) => setError(e.message))
+    loadPeople()
+    window.addEventListener('focus', loadPeople)
+    window.addEventListener('vorti-user-identity-saved', loadPeople)
     const id = new URLSearchParams(location.search).get('task')
     if (id)
       void reviewAPI<Task>(api, `review-tasks/${encodeURIComponent(id)}?depth=0`)
@@ -133,6 +137,10 @@ export function Tasks({
             setSelected(task)
         })
         .catch((e) => setError(e.message))
+    return () => {
+      window.removeEventListener('focus', loadPeople)
+      window.removeEventListener('vorti-user-identity-saved', loadPeople)
+    }
   }, [api, ownerType, ownerID])
   const run = async (action: () => Promise<void>) => {
     setBusy(true)
@@ -274,7 +282,9 @@ export function Tasks({
           </div>
         </EditorDialog>
       ) : null}
-      {renderList ? renderList({ onSelect: setSelected, refreshKey: dashboardVersion }) : owner ? (
+      {renderList ? (
+        renderList({ onSelect: setSelected, refreshKey: dashboardVersion })
+      ) : owner ? (
         <>
           {owner && (
             <button

@@ -3,7 +3,9 @@ import config from '@/payload.config'
 import { getPublicAuthorProfile, getPublicSiteData } from '@/lib/publicContent'
 import { getPublishedPage, getPublishedPost, getPublishedPosts } from '@/lib/frontend'
 
-import { describe, it, beforeAll, expect } from 'vitest'
+import { describe, it, beforeAll, expect, vi } from 'vitest'
+
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 let payload: Payload
 
@@ -23,7 +25,7 @@ describe('API', () => {
   it('publishes only opted-in author profile fields', async () => {
     const user = await payload.create({
       collection: 'users',
-      data: {
+      data: { username: ('public-author-validation@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
         email: 'public-author-validation@example.invalid',
         password: 'local-validation-password',
         displayName: 'Public Author Validation',
@@ -34,7 +36,7 @@ describe('API', () => {
 
     try {
       const profile = await getPublicAuthorProfile('public-author-validation')
-      expect(profile?.displayName).toBe('Public Author Validation')
+      expect(profile?.displayName).toBe(user.username)
       expect(profile?.shortBio).toBe('A public biography.')
       expect(JSON.stringify(profile)).not.toMatch(/email|password|hash|salt|session|token/i)
 
@@ -166,7 +168,7 @@ describe('API', () => {
           children: [{ type: 'text', text: 'Visible body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }],
       },
     }
-    const author = await payload.create({ collection: 'users', data: {
+    const author = await payload.create({ collection: 'users', data: { username: (`frontend-validation-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
       email: `frontend-validation-${suffix}@example.invalid`, password: 'local-validation-password',
     } })
     const page = await payload.create({ collection: 'pages', draft: true, data: {

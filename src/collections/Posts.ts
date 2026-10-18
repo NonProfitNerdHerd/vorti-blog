@@ -25,7 +25,8 @@ export const Posts: CollectionConfig = {
     delete: authenticated,
   },
   versions: { drafts: true },
-  hooks: { beforeValidate: [async ({ data, originalDoc, req }) => {
+  hooks: { beforeValidate: [async ({ data, originalDoc, req, operation }) => {
+    if (data && operation === 'create' && data.author == null && req.user) data.author = req.user.id
     if (data && Object.hasOwn(data, 'categories') && !sameCategories(data.categories, originalDoc?.categories) && !await categoriesEnabledForRequest(req))
       throw new ValidationError({ errors: [{ path: 'categories', message: 'Categories are disabled in Site Settings.' }] })
     return data
@@ -81,7 +82,7 @@ export const Posts: CollectionConfig = {
         {
           label: 'Publishing',
           fields: [
-            { name: 'author', type: 'relationship', relationTo: 'users', required: true },
+            { name: 'author', type: 'relationship', relationTo: 'users', required: true, defaultValue: ({ user }) => user?.id },
             { name: 'publishedAt', type: 'date' },
             { name: 'featured', type: 'checkbox', defaultValue: false },
             { name: 'allowComments', type: 'checkbox', defaultValue: false },

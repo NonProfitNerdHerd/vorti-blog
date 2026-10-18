@@ -18,7 +18,7 @@ describe('Post Types and Saved Views publication boundaries', () => {
     payload = await getPayload({ config })
     const user = await payload.create({
       collection: 'users',
-      data: {
+      data: { username: (`framework-${stamp}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
         email: `framework-${stamp}@example.invalid`,
         password: 'local-framework-password',
         role: 'administrator',

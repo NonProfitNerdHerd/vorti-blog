@@ -187,22 +187,34 @@ export interface Config {
   };
 }
 export interface UserAuthOperations {
-  forgotPassword: {
-    email: string;
-    password: string;
-  };
-  login: {
-    email: string;
-    password: string;
-  };
+  forgotPassword:
+    | {
+        email: string;
+      }
+    | {
+        username: string;
+      };
+  login:
+    | {
+        email: string;
+        password: string;
+      }
+    | {
+        password: string;
+        username: string;
+      };
   registerFirstUser: {
-    email: string;
     password: string;
-  };
-  unlock: {
+    username?: string;
     email: string;
-    password: string;
   };
+  unlock:
+    | {
+        email: string;
+      }
+    | {
+        username: string;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -497,6 +509,11 @@ export interface Tag {
 export interface User {
   id: number;
   /**
+   * Used across the platform, including previous posts and linked items. Leave unchanged to retain legacy attribution.
+   */
+  attributionPreference?: ('username' | 'email') | null;
+  attributionLabel?: string | null;
+  /**
    * Administrator and Designer can manage global designs. Editor can edit content.
    */
   role?: ('administrator' | 'designer' | 'editor') | null;
@@ -506,7 +523,7 @@ export interface User {
   profilePublic?: boolean | null;
   displayName?: string | null;
   /**
-   * Generated from displayName when left empty. You can edit it.
+   * Initialized from your username. Changing your username does not change this profile URL.
    */
   slug?: string | null;
   profilePhoto?: (number | null) | Media;
@@ -535,6 +552,10 @@ export interface User {
   updatedAt: string;
   createdAt: string;
   email: string;
+  /**
+   * 3–32 letters, numbers, dots, underscores, or hyphens. You can sign in with this username or your email.
+   */
+  username?: string | null;
   resetPasswordToken?: string | null;
   resetPasswordExpiration?: string | null;
   salt?: string | null;
@@ -1993,6 +2014,8 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  attributionPreference?: T;
+  attributionLabel?: T;
   role?: T;
   profilePublic?: T;
   displayName?: T;
@@ -2009,6 +2032,7 @@ export interface UsersSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   email?: T;
+  username?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;
   salt?: T;

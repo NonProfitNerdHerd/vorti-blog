@@ -172,7 +172,7 @@ test('only administrators can change system settings and dashboard preferences a
 }) => {
   for (const role of ['designer', 'editor']) {
     const email = `settings-${role}-${Date.now()}@example.invalid`
-    await create(page.request, 'users', { email, password: 'test-settings-password', role })
+    await create(page.request, 'users', { username: (email).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email, password: 'test-settings-password', role })
     const context = await browser.newContext({ baseURL, viewport: { width: 1800, height: 1100 } })
     await context.request.post('/api/users/login', {
       data: { email, password: 'test-settings-password' },

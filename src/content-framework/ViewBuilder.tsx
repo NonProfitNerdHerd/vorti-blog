@@ -37,6 +37,8 @@ export function RelationPicker({
         name?: string
         singular?: string
         filename?: string
+        attributionPreference?: 'username' | 'email' | null
+        attributionLabel?: string
         displayName?: string
         email?: string
       }>
@@ -52,7 +54,7 @@ export function RelationPicker({
           : collection === 'media'
             ? 'filename'
             : collection === 'users'
-              ? 'email'
+              ? 'attributionLabel'
               : 'title'
       fetch(
         `/api/${collection}?limit=50&depth=0&where[${field}][like]=${encodeURIComponent(search)}`,
@@ -109,6 +111,7 @@ export function RelationPicker({
               item.name ||
               item.singular ||
               item.filename ||
+              (item.attributionPreference ? item.attributionLabel : undefined) ||
               item.displayName ||
               item.email ||
               item.id}

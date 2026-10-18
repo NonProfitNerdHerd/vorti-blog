@@ -179,7 +179,7 @@ test('tag role policy blocks direct mutations but keeps existing tag assignment 
     for (const role of ['editor', 'designer']) {
       const email = `hub-${role}-${suffix}@example.com`
       const userResponse = await page.request.post('/api/users', {
-        data: { email, password: 'local-hub-test-password', role },
+        data: { username: (email).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email, password: 'local-hub-test-password', role },
       })
       expect(userResponse.ok(), await userResponse.text()).toBeTruthy()
       const userID = (await userResponse.json()).doc.id

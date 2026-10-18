@@ -1,4 +1,5 @@
 import { templateStyle, textDocument } from './model.js';
+import { userIdentity } from '../identity.js';
 export function readPath(source, path) {
     return path
         .split('.')
@@ -7,12 +8,15 @@ export function readPath(source, path) {
 export function templateContentNodes(template, document, types, designs, includeUnplacedFields = false) {
     function fieldNode(field, path) {
         const bindingPath = path ??
-            (field.content?.source === 'postType' ? `postTypeValues.${field.content.fieldId}` : field.content?.source === 'document'
-                ? field.content.field
-                : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`);
+            (field.content?.source === 'postType'
+                ? `postTypeValues.${field.content.fieldId}`
+                : field.content?.source === 'document'
+                    ? field.content.field
+                    : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`);
         const value = field.content?.source === 'static' ? field.content.value : readPath(document, bindingPath);
-        const kind = field.fieldType === 'relationship' && field.relationTo === 'saved-views' ? 'savedView' :
-            {
+        const kind = field.fieldType === 'relationship' && field.relationTo === 'saved-views'
+            ? 'savedView'
+            : ({
                 shortText: 'heading',
                 longText: 'paragraph',
                 richText: 'richText',
@@ -20,11 +24,17 @@ export function templateContentNodes(template, document, types, designs, include
                 images: 'gallery',
                 videoURL: 'video',
                 link: 'button',
-            }[field.fieldType] ?? 'value';
+            }[field.fieldType] ?? 'value');
         return {
             id: field.id,
             kind,
-            ...(kind === 'savedView' ? { props: { viewID: typeof value === 'object' && value ? 'id' in value ? value.id : undefined : value } } : {}),
+            ...(kind === 'savedView'
+                ? {
+                    props: {
+                        viewID: typeof value === 'object' && value ? ('id' in value ? value.id : undefined) : value,
+                    },
+                }
+                : {}),
             label: field.label,
             text: typeof value === 'string' || typeof value === 'number'
                 ? String(value)
@@ -33,7 +43,12 @@ export function templateContentNodes(template, document, types, designs, include
                         ? 'Yes'
                         : 'No'
                     : value && typeof value === 'object'
-                        ? String(value.displayName ??
+                        ? String(('attributionPreference' in value || 'username' in value
+                            ? userIdentity(value, String(value.displayName ??
+                                value.title ??
+                                ''))
+                            : undefined) ??
+                            value.displayName ??
                             value.title ??
                             '')
                         : '',

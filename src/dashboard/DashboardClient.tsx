@@ -1,4 +1,5 @@
 'use client'
+import { userIdentity } from '@design-system/payload-design-core/content'
 /* eslint-disable react-hooks/set-state-in-effect -- Each request lifecycle synchronizes loading and remote result state. */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -378,7 +379,10 @@ export function DashboardClient({ collections }: { collections: string[] }) {
     () => taskFiltersWhere(taskPresetFilters('assigned', userID), localTaskDay()),
     [userID],
   )
-  const name = typeof user?.displayName === 'string' ? user.displayName.split(' ')[0] : ''
+  const name = userIdentity(
+    user,
+    typeof user?.displayName === 'string' ? user.displayName.split(' ')[0] : '',
+  )
   return (
     <main className="vp-dashboard">
       <header className="vp-dashboard__heading">

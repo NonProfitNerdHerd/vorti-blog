@@ -81,7 +81,7 @@ describe('Design Core integration', () => {
     expect(isDesignManager({ role: 'designer' })).toBe(true)
     expect(isDesignManager({ role: 'editor' })).toBe(false)
     expect(isDesignManager(null)).toBe(false)
-    const editor = await payload.create({ collection: 'users', data: { email: 'design-editor-test@example.invalid', password: 'local-validation-password', role: 'editor' } })
+    const editor = await payload.create({ collection: 'users', data: { username: ('design-editor-test@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'design-editor-test@example.invalid', password: 'local-validation-password', role: 'editor' } })
     try {
       await expect(payload.update({ collection: 'design-block-designs', id: featureID, data: { name: 'Unauthorized edit' }, overrideAccess: false, user: editor })).rejects.toThrow()
       await expect(payload.update({ collection: 'design-templates', id: templateID, data: { name: 'Unauthorized edit' }, overrideAccess: false, user: editor })).rejects.toThrow()
@@ -139,7 +139,7 @@ describe('Design Core integration', () => {
   })
 
   it('resolves a real Post through published Template and Design changes', async () => {
-    const author = await payload.create({ collection: 'users', data: { email: 'stage3-post@example.invalid', password: 'local-validation-password', role: 'editor' } })
+    const author = await payload.create({ collection: 'users', data: { username: ('stage3-post@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'stage3-post@example.invalid', password: 'local-validation-password', role: 'editor' } })
     const classic = await payload.create({ collection: 'design-block-designs', data: {
       name: 'Classic Test', slug: 'classic-stage3-test', blockType: typeID, status: 'published', _status: 'published', design: { alignment: 'left' },
     } })

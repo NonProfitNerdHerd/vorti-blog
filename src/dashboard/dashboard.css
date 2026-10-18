@@ -16,6 +16,10 @@
 .vp-dashboard__heading {
   margin-bottom: 24px;
 }
+.vp-dashboard__heading > div {
+  min-width: 0;
+  max-width: 100%;
+}
 .vp-dashboard__heading p {
   margin: 0 0 6px;
   color: var(--theme-elevation-550);
@@ -24,6 +28,7 @@
   letter-spacing: 0.09em;
 }
 .vp-dashboard h1 {
+  overflow-wrap: anywhere;
   font-size: clamp(24px, 3vw, 34px);
   margin: 0 0 8px;
   letter-spacing: -0.035em;

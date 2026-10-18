@@ -1,5 +1,6 @@
 import type { Template, TemplateField, BlockType, BlockDesign, TemplateNode } from '../types'
 import { templateStyle, textDocument, type ContentNode } from './model'
+import { userIdentity, type AttributionUser } from '../identity'
 
 export function readPath(source: Record<string, unknown>, path: string): unknown {
   return path
@@ -20,27 +21,38 @@ export function templateContentNodes(
   function fieldNode(field: TemplateField, path?: string): ContentNode {
     const bindingPath =
       path ??
-      (field.content?.source === 'postType' ? `postTypeValues.${field.content.fieldId}` : field.content?.source === 'document'
-        ? field.content.field
-        : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`)
+      (field.content?.source === 'postType'
+        ? `postTypeValues.${field.content.fieldId}`
+        : field.content?.source === 'document'
+          ? field.content.field
+          : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`)
     const value =
       field.content?.source === 'static' ? field.content.value : readPath(document, bindingPath)
-    const kind = field.fieldType==='relationship'&&field.relationTo==='saved-views'?'savedView':
-      (
-        {
-          shortText: 'heading',
-          longText: 'paragraph',
-          richText: 'richText',
-          image: 'image',
-          images: 'gallery',
-          videoURL: 'video',
-          link: 'button',
-        } as const
-      )[field.fieldType as 'shortText'] ?? 'value'
+    const kind =
+      field.fieldType === 'relationship' && field.relationTo === 'saved-views'
+        ? 'savedView'
+        : ((
+            {
+              shortText: 'heading',
+              longText: 'paragraph',
+              richText: 'richText',
+              image: 'image',
+              images: 'gallery',
+              videoURL: 'video',
+              link: 'button',
+            } as const
+          )[field.fieldType as 'shortText'] ?? 'value')
     return {
       id: field.id,
       kind,
-      ...(kind==='savedView'?{props:{viewID:typeof value==='object'&&value?'id' in value?value.id:undefined:value}}:{}),
+      ...(kind === 'savedView'
+        ? {
+            props: {
+              viewID:
+                typeof value === 'object' && value ? ('id' in value ? value.id : undefined) : value,
+            },
+          }
+        : {}),
       label: field.label,
       text:
         typeof value === 'string' || typeof value === 'number'
@@ -51,7 +63,17 @@ export function templateContentNodes(
               : 'No'
             : value && typeof value === 'object'
               ? String(
-                  (value as { displayName?: string; title?: string }).displayName ??
+                  ('attributionPreference' in value || 'username' in value
+                    ? userIdentity(
+                        value as AttributionUser,
+                        String(
+                          (value as AttributionUser).displayName ??
+                            (value as { title?: string }).title ??
+                            '',
+                        ),
+                      )
+                    : undefined) ??
+                    (value as { displayName?: string; title?: string }).displayName ??
                     (value as { title?: string }).title ??
                     '',
                 )

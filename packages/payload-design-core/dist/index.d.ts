@@ -27,3 +27,4 @@ export { findSiteShellNode, insertSiteShellNode, moveSiteShellNode, moveSiteShel
 export * from './views/model';
 export * from './views/field-rules';
 export * from './views/schedule';
+export * from './identity';

@@ -1,4 +1,5 @@
 'use client'
+import { publicAuthorIdentity } from '@design-system/payload-design-core/content'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import Image from 'next/image'
 import type { Post } from '@/payload-types'
@@ -14,13 +15,13 @@ export function PostArticle({ post, designSections = [] }: { post: Post; designS
   const siteFormat = useSiteFormat()
   const categoriesEnabled = useCategoriesEnabled()
   const image = mediaURL(post.featuredImage)
-  const author = typeof post.author === 'object' && post.author?.profilePublic ? post.author : null
+  const author = typeof post.author === 'object' ? publicAuthorIdentity(post.author) : ''
   return (
     <article className="container article">
       <header>
         <h1>{post.title || 'Untitled Post'}</h1>
         {post.publishedAt && <time dateTime={post.publishedAt}>{formatSiteDate(post.publishedAt, siteFormat)}</time>}
-        {author?.displayName && <p>By {author.displayName}</p>}
+        {author && <p style={{ overflowWrap: 'anywhere' }}>By {author}</p>}
         {post.excerpt && <p className="lead">{post.excerpt}</p>}
         {categoriesEnabled && !!post.categories?.length && <p className="taxonomy">Categories: {post.categories.map((category) => typeof category === 'object' ? category.name : null).filter(Boolean).join(' · ')}</p>}
         {!!post.tags?.length && <p className="taxonomy">Tags: {post.tags.map((tag) => typeof tag === 'object' ? tag.name : null).filter(Boolean).join(' · ')}</p>}

@@ -279,7 +279,7 @@ test('existing type is read-only for editors and wizard stays usable in dark mod
   const type = (await typeResponse.json()).doc.id
   const email = `type-editor-${stamp}@example.invalid`
   const user = await page.request.post('/api/users', {
-    data: { email, password: 'local-test-password', role: 'editor' },
+    data: { username: (email).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email, password: 'local-test-password', role: 'editor' },
   })
   expect(user.ok()).toBeTruthy()
   const context = await browser.newContext({

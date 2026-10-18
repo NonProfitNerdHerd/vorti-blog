@@ -1,0 +1,19 @@
+@media (max-width: 767px) {
+  .collection-edit--users .doc-controls__wrapper,
+  .collection-edit--users .doc-controls__content {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .collection-edit--users .doc-controls__meta {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .collection-edit--users .payload-settings::before,
+  .collection-edit--users .payload-settings::after {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+}

@@ -14,3 +14,4 @@ export { registerBlockIcon } from '../blocks/BlockGlyph'
 
 export * from '../site-format'
 export * from '../SiteFormatContext'
+export * from '../identity'

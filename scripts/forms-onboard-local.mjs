@@ -10,7 +10,7 @@ if (initialized) {
   await fs.access(destination).catch(() => { throw new Error('This local database already has users. Sign in with its existing account; onboarding will not replace users or passwords.') })
   console.log('Existing local onboarding credentials retained in the ignored .wrangler directory.')
 } else {
-  const credentials = { email: process.env.FORM_ADMIN_EMAIL || 'forms-local@example.test', password: process.env.FORM_ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url'), role: 'administrator' }
+  const credentials = { username: process.env.FORM_ADMIN_USERNAME || 'forms-local', email: process.env.FORM_ADMIN_EMAIL || 'forms-local@example.test', password: process.env.FORM_ADMIN_PASSWORD || crypto.randomBytes(24).toString('base64url'), role: 'administrator' }
   const created = await fetch(new URL('/api/users/first-register', origin), { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin.origin }, body: JSON.stringify(credentials) })
   if (!created.ok) throw new Error(`Local onboarding failed: HTTP ${created.status}`)
   await fs.mkdir('.wrangler', { recursive: true })

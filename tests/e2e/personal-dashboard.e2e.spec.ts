@@ -21,7 +21,7 @@ test('Dashboard shows personal counts, ordered tasks, shared editing and filtere
   test.setTimeout(240000)
   const suffix = Date.now()
   const password = 'local-dashboard-test-password'
-  const person = await create(page.request, 'users', {
+  const person = await create(page.request, 'users', { username: (`dashboard-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
     email: `dashboard-${suffix}@example.invalid`,
     password,
     role: 'editor',
@@ -57,7 +57,7 @@ test('Dashboard shows personal counts, ordered tasks, shared editing and filtere
   }
   await page.request.post('/api/users/login', { data: { email: person.email, password } })
   await page.goto('/admin')
-  await expect(page.getByRole('heading', { name: 'Welcome back, Dashboard' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: `Welcome back, ${person.username}` })).toBeVisible()
   const widget = page.getByRole('region', { name: 'My tasks', exact: true })
   await expect(widget.getByRole('listitem')).toHaveCount(5)
   await expect(widget.getByRole('listitem').nth(0)).toContainText(`Overdue first ${suffix}`)

@@ -12,7 +12,7 @@ describe('Document review workflow and access', () => {
       ['editor', 'administrator', 'editor'].map((role, i) =>
         payload.create({
           collection: 'users',
-          data: {
+          data: { username: (`review-${suffix}-${i}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
             email: `review-${suffix}-${i}@example.invalid`,
             password: 'local-review-test-password',
             role: role as 'editor' | 'administrator',

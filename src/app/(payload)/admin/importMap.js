@@ -40,6 +40,7 @@ import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37
 import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
 import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { AttributionPreference as AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc } from '../../../components/AttributionPreference'
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
 import { TypeIcon as TypeIcon_3221402a39773c4eae838b562cc3f8e5 } from '../../../content-framework/TypeIcon'
 import { FieldsEditor as FieldsEditor_fd102340ae664c8fafb380461e34656b } from '../../../content-framework/FieldsEditor'
@@ -126,6 +127,7 @@ export const importMap = {
   "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
   "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
+  "./components/AttributionPreference#AttributionPreference": AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc,
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
   "./content-framework/TypeIcon#TypeIcon": TypeIcon_3221402a39773c4eae838b562cc3f8e5,
   "./content-framework/FieldsEditor#FieldsEditor": FieldsEditor_fd102340ae664c8fafb380461e34656b,

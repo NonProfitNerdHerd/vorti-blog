@@ -5,6 +5,7 @@ import config from '@/payload.config'
 import type { Page, Post, SiteSetting } from '@/payload-types'
 import { mediaURL } from './media'
 import { withPostType } from '@/content-framework/presentation'
+import { publicAuthors } from './public-attribution'
 
 export { mediaURL } from './media'
 
@@ -34,10 +35,12 @@ export async function getPublishedPost(slug: string): Promise<Post | null> {
 }
 
 export async function getPublishedPosts(page = 1, limit = 10) {
-  return (await payload()).find({
+  const result = await (await payload()).find({
     collection: 'posts', where: { _status: { equals: 'published' } },
     depth: 1, limit, page, sort: '-publishedAt', draft: false, overrideAccess: false,
   })
+  const authors = await publicAuthors(await payload(), result.docs.map((post) => post.author))
+  return { ...result, docs: result.docs.map((post) => typeof post.author === 'number' ? { ...post, author: authors.get(post.author) || post.author } as unknown as Post : post) }
 }
 
 export async function getAuthenticatedPreview(collection: 'posts', id: string): Promise<Post | null>

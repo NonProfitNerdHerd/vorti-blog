@@ -1,3 +1,5 @@
+import { publicAuthorIdentity } from '@design-system/payload-design-core'
+import { publicAuthors } from '../lib/public-attribution'
 import type { CollectionSlug, Payload, PayloadRequest, Where } from 'payload'
 import {
   defaultView,
@@ -148,6 +150,7 @@ export async function queryView(
           .map((v) => ({ id: String(v.id), name: String(v.name || v.title || '') }))
       : []
   let items: ViewItem[] = []
+  const authorLabels = await publicAuthors(payload, documents.map((doc) => doc.author).filter((author) => typeof author === 'number'))
   for (const doc of documents) {
     const type =
       doc.postType && typeof doc.postType === 'object'
@@ -156,7 +159,7 @@ export async function queryView(
     const author =
       doc.author && typeof doc.author === 'object'
         ? (doc.author as Record<string, unknown>)
-        : undefined
+        : authorLabels.get(Number(doc.author))
     const item: ViewItem = {
       id: String(doc.id),
       title: String(doc.title || 'Untitled'),
@@ -164,7 +167,7 @@ export async function queryView(
       excerpt: String(doc.excerpt || ''),
       image: mediaURL(doc.featuredImage as never) || undefined,
       date: doc.publishedAt ? String(doc.publishedAt) : undefined,
-      author: author?.profilePublic ? String(author.displayName || '') : undefined,
+      author: publicAuthorIdentity(author) || undefined,
       categories: categoriesEnabled ? taxonomy(doc.categories) : [],
       tags: taxonomy(doc.tags),
       readingTime: Math.max(

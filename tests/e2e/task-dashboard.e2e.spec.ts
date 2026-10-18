@@ -164,7 +164,7 @@ test('task dashboard counts and links respect task access and retain deleted doc
 }) => {
   test.setTimeout(180000)
   const suffix = Date.now()
-  const editor = await create(page.request, 'users', {
+  const editor = await create(page.request, 'users', { username: (`dashboard-editor-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
     email: `dashboard-editor-${suffix}@example.invalid`,
     password: 'local-dashboard-editor-password',
     role: 'editor',

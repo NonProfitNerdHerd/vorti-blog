@@ -13,3 +13,4 @@ export * from '../views/schedule.js';
 export { registerBlockIcon } from '../blocks/BlockGlyph.js';
 export * from '../site-format.js';
 export * from '../SiteFormatContext.js';
+export * from '../identity.js';

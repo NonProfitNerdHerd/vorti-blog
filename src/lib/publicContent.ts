@@ -1,3 +1,4 @@
+import { userIdentity } from '@design-system/payload-design-core'
 import { getPayload } from 'payload'
 import { cache } from 'react'
 import config from '@/payload.config'
@@ -37,6 +38,9 @@ export async function getPublicAuthorProfile(slug: string) {
     overrideAccess: true,
     select: {
       displayName: true,
+      username: true,
+      email: true,
+      attributionPreference: true,
       slug: true,
       profilePhoto: true,
       shortBio: true,
@@ -50,11 +54,11 @@ export async function getPublicAuthorProfile(slug: string) {
     },
   })
   const author = result.docs[0]
-  if (!author?.displayName || !author.slug) return null
+  if (!author || !userIdentity(author, author.displayName || '') || !author.slug) return null
 
   const photo = author.profilePhoto
   return {
-    displayName: author.displayName,
+    displayName: userIdentity(author, author.displayName || ''),
     slug: author.slug,
     profilePhoto:
       photo && typeof photo === 'object' ? { url: photo.url, alt: photo.alt } : null,

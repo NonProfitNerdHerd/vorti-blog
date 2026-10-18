@@ -2,7 +2,7 @@ import { getPayload } from 'payload'
 import config from '../../src/payload.config.js'
 import { heroBoardFields, heroBoardDesigns } from '@design-system/payload-design-core/hero-board/registration'
 
-export const testUser = {
+export const testUser = { username: ('dev@payloadcms.com').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
   email: 'dev@payloadcms.com',
   password: 'test',
   role: 'administrator' as const,
