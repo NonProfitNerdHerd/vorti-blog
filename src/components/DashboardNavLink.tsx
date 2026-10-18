@@ -6,6 +6,8 @@ import type { ComponentProps } from 'react'
 import { DefaultNavClient } from '@payloadcms/next/client'
 import { NavGroup, useTranslation } from '@payloadcms/ui'
 import './dashboard-nav.css'
+import { InboxBadge } from '../review/WorkspaceInbox'
+import { useConfig } from '@payloadcms/ui'
 
 export function DashboardNavLink({ admin }: { admin: string }) {
   const pathname = usePathname()
@@ -26,6 +28,11 @@ export function PolicyNav({
   ...props
 }: ComponentProps<typeof DefaultNavClient> & { admin: string }) {
   const enabled = useCategoriesEnabled()
+  const {
+    config: {
+      routes: { api },
+    },
+  } = useConfig()
   const pathname = usePathname()
   const { i18n } = useTranslation()
   const tasks = groups.some((group) =>
@@ -52,16 +59,26 @@ export function PolicyNav({
       <DashboardNavLink admin={admin} />
       <DefaultNavClient {...props} groups={primary} />
       {tasks && (
-        <Link
-          className="vorti-nav-parent-link"
-          id="nav-review-tasks"
-          href={taskURL}
-          aria-current={
-            pathname === taskURL || pathname.startsWith(`${taskURL}/`) ? 'page' : undefined
-          }
-        >
-          Tasks
-        </Link>
+        <div>
+          <Link
+            className="vorti-nav-parent-link"
+            id="nav-review-tasks"
+            href={taskURL}
+            aria-current={
+              pathname === taskURL || pathname.startsWith(`${taskURL}/`) ? 'page' : undefined
+            }
+          >
+            Tasks
+          </Link>
+          <nav className="task-nav-children" aria-label="Tasks navigation">
+            <Link href={`${taskURL}?taskView=assigned`}>My tasks</Link>
+            <Link href={taskURL}>All tasks</Link>
+            <Link href={`${taskURL}?workspace=boards`}>Boards</Link>
+            <Link href={`${taskURL}?workspace=inbox`}>
+              Inbox <InboxBadge api={api} />
+            </Link>
+          </nav>
+        </div>
       )}
       {visible
         .filter((group) => group.label === 'Admin')

@@ -9,10 +9,16 @@ export default {
     // Call the same bounded, leased processor as manual recovery, without a
     // public network hop. The token remains a Worker secret.
     if (!env.FORM_JOB_TOKEN || env.FORM_JOB_TOKEN.length < 32) throw new Error('Forms scheduled processing requires FORM_JOB_TOKEN.')
-    const response = await handler.fetch(new Request('https://forms.internal/api/forms-actions/tick', {
-      method: 'POST', headers: { Authorization: `Bearer ${env.FORM_JOB_TOKEN}` },
-    }), env, ctx)
-    if (!response.ok) throw new Error(`Forms scheduled processing returned ${response.status}.`)
-    await response.body?.cancel()
+    const failures: string[] = []
+    for (const path of ['/api/forms-actions/tick', '/api/review-tasks/notifications/tick']) {
+      try {
+        const response = await handler.fetch(new Request(`https://jobs.internal${path}`, {
+          method: 'POST', headers: { Authorization: `Bearer ${env.FORM_JOB_TOKEN}` },
+        }), env, ctx)
+        if (!response.ok) failures.push(`${path}: ${response.status}`)
+        await response.body?.cancel()
+      } catch { failures.push(`${path}: failed`) }
+    }
+    if (failures.length) throw new Error(`Scheduled processing failed: ${failures.join(', ')}`)
   },
 } satisfies ExportedHandler<CloudflareEnv & { FORM_JOB_TOKEN?: string }>

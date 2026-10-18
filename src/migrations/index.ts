@@ -17,6 +17,8 @@ import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_
 import * as migration_20261017_195736_system_settings from './20261017_195736_system_settings';
 import * as migration_20261018_001622 from './20261018_001622';
 import * as migration_20261018_180337_usernames from './20261018_180337_usernames';
+import * as migration_20261018_193401_tasks_workspace from './20261018_193401_tasks_workspace';
+import * as migration_20261018_194411_workspace_preferences from './20261018_194411_workspace_preferences';
 
 export const migrations = [
   {
@@ -112,6 +114,16 @@ export const migrations = [
   {
     up: migration_20261018_180337_usernames.up,
     down: migration_20261018_180337_usernames.down,
-    name: '20261018_180337_usernames'
+    name: '20261018_180337_usernames',
+  },
+  {
+    up: migration_20261018_193401_tasks_workspace.up,
+    down: migration_20261018_193401_tasks_workspace.down,
+    name: '20261018_193401_tasks_workspace',
+  },
+  {
+    up: migration_20261018_194411_workspace_preferences.up,
+    down: migration_20261018_194411_workspace_preferences.down,
+    name: '20261018_194411_workspace_preferences'
   },
 ];

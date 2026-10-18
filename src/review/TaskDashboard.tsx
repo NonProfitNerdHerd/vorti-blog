@@ -477,7 +477,10 @@ export function TaskDashboard({
                     )}
                   </td>
                   <td>
-                    {task.documentDeleted ? (
+                    {task.documentDeleted ||
+                    task.documentRestricted ||
+                    !task.documentType ||
+                    !task.documentID ? (
                       <button
                         type="button"
                         className="task-dashboard__document-link"

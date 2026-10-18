@@ -8,6 +8,13 @@ import type { ReactNode } from 'react'
 import { query, reviewAPI, reviewAll, statuses, taskSearchTerms, type Task } from './client'
 import { TaskDashboard } from './TaskDashboard'
 import { taskDocumentLink } from './links'
+import { MentionInput } from './MentionInput'
+import type { Mention } from './mentions'
+import { TaskCollaboration } from './TaskCollaboration'
+import { WorkspaceBoards } from './WorkspaceBoards'
+import { WorkspaceInbox } from './WorkspaceInbox'
+import { useSearchParams } from 'next/navigation'
+import './workspace.css'
 
 type Person = { id: number; label: string }
 type Context = { type: string; id: string }
@@ -19,10 +26,27 @@ type Comment = {
   createdAt: string
   updatedAt: string
   moderated?: boolean
+  mentions?: Mention[]
+  mentionLabels?: (Mention & { username: string })[]
+  authorLabel?: string
 }
-type Activity = { id: number; actor?: number; message: string; createdAt: string }
+type Activity = {
+  id: number
+  actor?: number
+  actorLabel?: string
+  message: string
+  createdAt: string
+}
 
-function SafeText({ text }: { text: string }) {
+function SafeText({
+  text,
+  mentions = [],
+}: {
+  text: string
+  mentions?: (Mention & { username: string })[]
+}) {
+  for (const mention of [...mentions].sort((a, b) => b.start - a.start))
+    text = text.slice(0, mention.start) + `@${mention.username}` + text.slice(mention.end)
   return (
     <span style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
       {text.split(/(https?:\/\/[^\s<>]+)/g).map((part, i) =>
@@ -53,6 +77,9 @@ export function Tasks({
     },
   } = useConfig()
   const { user } = useAuth()
+  const params = useSearchParams()
+  const workspace = params.get('workspace')
+  const boardID = workspace === 'boards' ? (params.get('board') ?? undefined) : undefined
   const router = useRouter()
   const ownerType = owner?.type,
     ownerID = owner?.id
@@ -63,6 +90,11 @@ export function Tasks({
   const [selected, setSelected] = useState<Task | null>(null),
     [creating, setCreating] = useState(false)
   const [parent, setParent] = useState<Task | null>(null)
+  const selectTask = (task: Task) => {
+    void reviewAPI<Task>(api, `review-tasks/${task.id}?depth=0`)
+      .then(setSelected)
+      .catch((e) => setError(e.message))
+  }
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
   const [search, setSearch] = useState(''),
@@ -118,10 +150,13 @@ export function Tasks({
     setPage(1)
   }, [search, status, assignee, creator, priority, type, due, archived])
   useEffect(() => {
-    const params =
-      ownerType && ownerID
-        ? new URLSearchParams({ documentType: ownerType, documentID: ownerID })
-        : ''
+    const params = selected?.id
+      ? new URLSearchParams({ taskID: String(selected.id) })
+      : boardID
+        ? new URLSearchParams({ board: boardID })
+        : ownerType && ownerID
+          ? new URLSearchParams({ documentType: ownerType, documentID: ownerID })
+          : ''
     const loadPeople = (): void =>
       void reviewAPI<{ docs: Person[] }>(api, `review-tasks/assignees?${params}`)
         .then((data) => setPeople(data.docs))
@@ -130,7 +165,7 @@ export function Tasks({
     window.addEventListener('focus', loadPeople)
     window.addEventListener('vorti-user-identity-saved', loadPeople)
     const id = new URLSearchParams(location.search).get('task')
-    if (id)
+    if (id && !selected?.id && !creating)
       void reviewAPI<Task>(api, `review-tasks/${encodeURIComponent(id)}?depth=0`)
         .then((task) => {
           if (!ownerType || (task.documentType === ownerType && task.documentID === ownerID))
@@ -141,7 +176,7 @@ export function Tasks({
       window.removeEventListener('focus', loadPeople)
       window.removeEventListener('vorti-user-identity-saved', loadPeople)
     }
-  }, [api, ownerType, ownerID])
+  }, [api, ownerType, ownerID, selected?.id, creating, boardID])
   const run = async (action: () => Promise<void>) => {
     setBusy(true)
     setError('')
@@ -150,6 +185,7 @@ export function Tasks({
       await refresh()
       await onChange?.()
       setDashboardVersion((value) => value + 1)
+      window.dispatchEvent(new Event('vorti-tasks-changed'))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -179,6 +215,11 @@ export function Tasks({
           open
           title={selected ? 'Task details' : parent ? `Subtask of ${parent.title}` : 'New task'}
           onClose={() => {
+            if (busy) return
+            const url = new URL(location.href)
+            url.searchParams.delete('task')
+            url.searchParams.delete('comment')
+            history.replaceState(null, '', url)
             setSelected(null)
             setCreating(false)
             setParent(null)
@@ -194,6 +235,8 @@ export function Tasks({
               owner={owner}
               people={people}
               busy={busy}
+              api={api}
+              boardID={boardID}
               save={(data) =>
                 run(async () => {
                   const result = await reviewAPI<{ doc: Task }>(
@@ -211,10 +254,24 @@ export function Tasks({
             {selected && (
               <>
                 <p>
-                  {selected.documentTitle || selected.documentID} · {selected.documentType}
-                  {selected.region !== 'document' ? ` · ${selected.region}` : ''}
+                  {selected.documentDeleted ? (
+                    'Linked document is no longer available.'
+                  ) : selected.documentRestricted ? (
+                    'Linked document is restricted.'
+                  ) : selected.documentType ? (
+                    <>
+                      {selected.documentTitle || selected.documentID} · {selected.documentType}
+                      {selected.region && selected.region !== 'document'
+                        ? ` · ${selected.region}`
+                        : ''}
+                    </>
+                  ) : selected.personal ? (
+                    'Personal task'
+                  ) : (
+                    'Board task'
+                  )}
                 </p>
-                {!owner && (
+                {!owner && selected.documentType && selected.documentID && (
                   <button
                     type="button"
                     disabled={busy}
@@ -243,13 +300,15 @@ export function Tasks({
                     task={selected}
                     select={setSelected}
                     add={() => {
+                      if (busy) return
                       setParent(selected)
                       setSelected(null)
                       setCreating(true)
                     }}
                   />
                 )}
-                {user?.role === 'administrator' && (
+                {(user?.role === 'administrator' ||
+                  (selected.canEdit && (!!selected.boards?.length || selected.personal))) && (
                   <button
                     type="button"
                     disabled={busy}
@@ -268,6 +327,15 @@ export function Tasks({
                     {selected.archived ? 'Restore task' : 'Archive task'}
                   </button>
                 )}
+                <TaskCollaboration
+                  api={api}
+                  task={selected}
+                  onChange={async () => {
+                    setSelected(await reviewAPI<Task>(api, `review-tasks/${selected.id}?depth=0`))
+                    setDashboardVersion((value) => value + 1)
+                    await onChange?.()
+                  }}
+                />
                 <Discussion
                   key={selected.id}
                   api={api}
@@ -282,8 +350,34 @@ export function Tasks({
           </div>
         </EditorDialog>
       ) : null}
-      {renderList ? (
-        renderList({ onSelect: setSelected, refreshKey: dashboardVersion })
+      {!owner && !renderList && workspace !== 'boards' && workspace !== 'inbox' && (
+        <button
+          className="task-primary"
+          type="button"
+          onClick={() => {
+            setParent(null)
+            setCreating(true)
+          }}
+        >
+          Add task
+        </button>
+      )}
+      {!owner && !renderList && workspace === 'boards' ? (
+        <WorkspaceBoards
+          api={api}
+          admin={admin}
+          boardID={boardID}
+          onSelect={selectTask}
+          onCreate={() => {
+            setParent(null)
+            setCreating(true)
+          }}
+          refreshKey={dashboardVersion}
+        />
+      ) : !owner && !renderList && workspace === 'inbox' ? (
+        <WorkspaceInbox api={api} admin={admin} onSelect={selectTask} />
+      ) : renderList ? (
+        renderList({ onSelect: selectTask, refreshKey: dashboardVersion })
       ) : owner ? (
         <>
           {owner && (
@@ -424,7 +518,7 @@ export function Tasks({
           <ul className="review-list">
             {tasks.map((task) => (
               <li key={task.id}>
-                <button type="button" onClick={() => setSelected(task)}>
+                <button type="button" onClick={() => selectTask(task)}>
                   {task.title}
                 </button>
                 <small>
@@ -462,7 +556,7 @@ export function Tasks({
           people={people}
           userID={user?.id}
           refreshKey={dashboardVersion}
-          onSelect={setSelected}
+          onSelect={selectTask}
         />
       )}
     </div>
@@ -476,6 +570,8 @@ function TaskEditor({
   people,
   busy,
   save,
+  api,
+  boardID,
 }: {
   task: Task | null
   parent: Task | null
@@ -483,9 +579,12 @@ function TaskEditor({
   people: Person[]
   busy: boolean
   save: (data: object) => Promise<void>
+  api: string
+  boardID?: string
 }) {
   const [title, setTitle] = useState(task?.title ?? ''),
     [description, setDescription] = useState(task?.description ?? '')
+  const [mentions, setMentions] = useState<Mention[]>(task?.mentions ?? [])
   const [status, setStatus] = useState(task?.status ?? 'open'),
     [priority, setPriority] = useState(task?.priority ?? 'normal')
   const [assignee, setAssignee] = useState(String(task?.assignee ?? '')),
@@ -498,19 +597,27 @@ function TaskEditor({
       'document',
   )
   return (
-    <fieldset className="review-edit" disabled={busy}>
+    <fieldset className="review-edit" disabled={busy || task?.canEdit === false}>
       <label>
         Task title
         <input required maxLength={240} value={title} onChange={(e) => setTitle(e.target.value)} />
       </label>
-      <label>
-        Description
-        <textarea
-          value={description}
-          maxLength={20000}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </label>
+      <MentionInput
+        api={api}
+        taskID={task?.id}
+        scope={{
+          board: boardID ? Number(boardID) : undefined,
+          parent: parent?.id,
+          documentType: owner?.type,
+          documentID: owner?.id,
+          assignee: assignee ? Number(assignee) : undefined,
+        }}
+        label="Description"
+        value={description}
+        onChange={setDescription}
+        mentions={mentions}
+        onMentions={setMentions}
+      />
       <label>
         Status
         <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -569,12 +676,15 @@ function TaskEditor({
           void save({
             title: title.trim(),
             description,
+            mentions,
+            ...(task?.updatedAt ? { expectedUpdatedAt: task.updatedAt } : {}),
             status,
             priority,
             assignee: assignee ? Number(assignee) : null,
             dueDate: date ? `${date}T12:00:00.000Z` : null,
             ...(!task
               ? {
+                  initialBoard: !parent && boardID ? Number(boardID) : undefined,
                   documentType: owner?.type ?? parent?.documentType,
                   documentID: owner?.id ?? parent?.documentID,
                   region: parent?.region ?? region,
@@ -622,7 +732,11 @@ function Subtasks({
           </li>
         ))}
       </ul>
-      <button type="button" disabled={task.archived || task.status === 'done'} onClick={add}>
+      <button
+        type="button"
+        disabled={task.canEdit === false || task.archived || task.status === 'done'}
+        onClick={add}
+      >
         Add subtask
       </button>
     </section>
@@ -650,6 +764,7 @@ function Discussion({
     [editing, setEditing] = useState<number | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
+  const [mentions, setMentions] = useState<Mention[]>([])
   const refresh = useCallback(async () => {
     const where = { task: { equals: task.id } }
     const [c, a] = await Promise.all([
@@ -658,6 +773,11 @@ function Discussion({
     ])
     setComments(c)
     setActivity(a)
+    const comment = new URLSearchParams(location.search).get('comment')
+    if (comment)
+      requestAnimationFrame(() =>
+        document.getElementById(`task-comment-${comment}`)?.scrollIntoView({ block: 'center' }),
+      )
   }, [api, task])
   useEffect(() => {
     void refresh().catch((e) => setError(e.message))
@@ -670,6 +790,7 @@ function Discussion({
       await refresh()
       await onChange?.()
       setBody('')
+      setMentions([])
       setEditing(null)
     } catch (e) {
       setError((e as Error).message)
@@ -682,14 +803,14 @@ function Discussion({
       <h3>Comments</h3>
       {error && <p role="alert">{error}</p>}
       {comments.map((c) => (
-        <article key={c.id}>
+        <article key={c.id} id={`task-comment-${c.id}`} tabIndex={-1}>
           <small>
-            {person(c.author)} ·{' '}
+            {c.authorLabel ?? person(c.author)} ·{' '}
             <time dateTime={c.createdAt}>{new Date(c.createdAt).toLocaleString()}</time>
             {c.createdAt !== c.updatedAt ? ' · edited' : ''}
           </small>
           <p>
-            <SafeText text={c.body} />
+            <SafeText text={c.body} mentions={c.mentionLabels} />
           </p>
           {!c.moderated && (c.author === userID || admin) && (
             <button
@@ -697,6 +818,7 @@ function Discussion({
               onClick={() => {
                 setEditing(c.id)
                 setBody(c.body)
+                setMentions(c.mentions ?? [])
               }}
             >
               Edit comment
@@ -717,20 +839,26 @@ function Discussion({
           )}
         </article>
       ))}
-      <label>
-        {editing ? 'Edit comment' : 'Add comment'}
-        <textarea value={body} maxLength={20000} onChange={(e) => setBody(e.target.value)} />
-      </label>
+      <MentionInput
+        api={api}
+        taskID={task.id}
+        label={editing ? 'Edit comment' : 'Add comment'}
+        value={body}
+        onChange={setBody}
+        mentions={mentions}
+        onMentions={setMentions}
+        disabled={task.canComment === false || busy}
+      />
       <button
         type="button"
-        disabled={busy || !body.trim()}
+        disabled={task.canComment === false || busy || !body.trim()}
         onClick={() =>
           void run(() =>
             reviewAPI(
               api,
               `review-comments${editing ? `/${editing}` : ''}`,
               editing ? 'PATCH' : 'POST',
-              { task: task.id, body: body.trim() },
+              { task: task.id, body, mentions },
             ),
           )
         }
@@ -755,7 +883,7 @@ function Discussion({
             <li key={a.id}>
               <SafeText text={a.message} />
               <small>
-                {person(a.actor)} · {new Date(a.createdAt).toLocaleString()}
+                {a.actorLabel ?? person(a.actor)} · {new Date(a.createdAt).toLocaleString()}
               </small>
             </li>
           ))}

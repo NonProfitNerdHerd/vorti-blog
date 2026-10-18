@@ -77,6 +77,16 @@ export interface Config {
     'review-tasks': ReviewTask;
     'review-comments': ReviewComment;
     'review-activity': ReviewActivity;
+    'task-boards': TaskBoard;
+    'task-board-memberships': TaskBoardMembership;
+    'task-sections': TaskSection;
+    'task-placements': TaskPlacement;
+    'task-followers': TaskFollower;
+    'task-board-preferences': TaskBoardPreference;
+    'task-sharing-requests': TaskSharingRequest;
+    'task-notifications': TaskNotification;
+    'task-board-activity': TaskBoardActivity;
+    'task-notification-events': TaskNotificationEvent;
     'post-types': PostType;
     'saved-views': SavedView;
     'event-series': EventSery;
@@ -109,6 +119,11 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    'task-boards': {
+      memberships: 'task-board-memberships';
+      directMemberships: 'task-board-memberships';
+      preferences: 'task-board-preferences';
+    };
     'design-block-types': {
       designs: 'design-block-designs';
     };
@@ -124,6 +139,16 @@ export interface Config {
     'review-tasks': ReviewTasksSelect<false> | ReviewTasksSelect<true>;
     'review-comments': ReviewCommentsSelect<false> | ReviewCommentsSelect<true>;
     'review-activity': ReviewActivitySelect<false> | ReviewActivitySelect<true>;
+    'task-boards': TaskBoardsSelect<false> | TaskBoardsSelect<true>;
+    'task-board-memberships': TaskBoardMembershipsSelect<false> | TaskBoardMembershipsSelect<true>;
+    'task-sections': TaskSectionsSelect<false> | TaskSectionsSelect<true>;
+    'task-placements': TaskPlacementsSelect<false> | TaskPlacementsSelect<true>;
+    'task-followers': TaskFollowersSelect<false> | TaskFollowersSelect<true>;
+    'task-board-preferences': TaskBoardPreferencesSelect<false> | TaskBoardPreferencesSelect<true>;
+    'task-sharing-requests': TaskSharingRequestsSelect<false> | TaskSharingRequestsSelect<true>;
+    'task-notifications': TaskNotificationsSelect<false> | TaskNotificationsSelect<true>;
+    'task-board-activity': TaskBoardActivitySelect<false> | TaskBoardActivitySelect<true>;
+    'task-notification-events': TaskNotificationEventsSelect<false> | TaskNotificationEventsSelect<true>;
     'post-types': PostTypesSelect<false> | PostTypesSelect<true>;
     'saved-views': SavedViewsSelect<false> | SavedViewsSelect<true>;
     'event-series': EventSeriesSelect<false> | EventSeriesSelect<true>;
@@ -797,8 +822,21 @@ export interface ReviewTask {
   id: number;
   title: string;
   description?: string | null;
-  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
-  documentID: string;
+  mentions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  boards?: (number | TaskBoard)[] | null;
+  personal?: boolean | null;
+  expectedUpdatedAt?: string | null;
+  initialBoard?: number | null;
+  documentType?: ('posts' | 'pages' | 'design-templates' | 'site-templates' | 'none') | null;
+  documentID?: string | null;
   documentDeleted?: boolean | null;
   documentTitle?: string | null;
   region?: ('document' | 'header' | 'footer') | null;
@@ -814,16 +852,85 @@ export interface ReviewTask {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-boards".
+ */
+export interface TaskBoard {
+  id: number;
+  name: string;
+  description?: string | null;
+  owner: number | User;
+  visibility: 'private' | 'team';
+  archived?: boolean | null;
+  memberships?: {
+    docs?: (number | TaskBoardMembership)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  preferences?: {
+    docs?: (number | TaskBoardPreference)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  directMemberships?: {
+    docs?: (number | TaskBoardMembership)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  expectedUpdatedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-memberships".
+ */
+export interface TaskBoardMembership {
+  id: number;
+  board: number | TaskBoard;
+  user: number | User;
+  role: 'editor' | 'commenter' | 'viewer';
+  key: string;
+  editUser?: (number | null) | User;
+  commentUser?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-preferences".
+ */
+export interface TaskBoardPreference {
+  id: number;
+  board: number | TaskBoard;
+  user: number | User;
+  key: string;
+  favorite?: boolean | null;
+  favoriteUser?: (number | null) | User;
+  view?: ('list' | 'board' | 'calendar') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "review-comments".
  */
 export interface ReviewComment {
   id: number;
   task: number | ReviewTask;
-  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
-  documentID: string;
+  documentType?: ('posts' | 'pages' | 'design-templates' | 'site-templates' | 'none') | null;
+  documentID?: string | null;
   documentDeleted?: boolean | null;
   author?: (number | null) | User;
   body: string;
+  mentions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   moderated?: boolean | null;
   updatedAt: string;
   createdAt: string;
@@ -835,11 +942,123 @@ export interface ReviewComment {
 export interface ReviewActivity {
   id: number;
   task: number | ReviewTask;
-  documentType: 'posts' | 'pages' | 'design-templates' | 'site-templates';
-  documentID: string;
+  documentType?: ('posts' | 'pages' | 'design-templates' | 'site-templates' | 'none') | null;
+  documentID?: string | null;
   documentDeleted?: boolean | null;
   actor?: (number | null) | User;
   message: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-sections".
+ */
+export interface TaskSection {
+  id: number;
+  board: number | TaskBoard;
+  name: string;
+  position?: number | null;
+  archived?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-placements".
+ */
+export interface TaskPlacement {
+  id: number;
+  task: number | ReviewTask;
+  board: number | TaskBoard;
+  section?: (number | null) | TaskSection;
+  position?: number | null;
+  key: string;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-followers".
+ */
+export interface TaskFollower {
+  id: number;
+  task: number | ReviewTask;
+  user: number | User;
+  key: string;
+  following?: boolean | null;
+  muted?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-sharing-requests".
+ */
+export interface TaskSharingRequest {
+  id: number;
+  task: number | ReviewTask;
+  destination: number | TaskBoard;
+  requester: number | User;
+  approvers?: (number | User)[] | null;
+  approved?: (number | User)[] | null;
+  fingerprint: string;
+  state: 'pending' | 'approved' | 'rejected' | 'stale';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-notifications".
+ */
+export interface TaskNotification {
+  id: number;
+  recipient: number | User;
+  task?: (number | null) | ReviewTask;
+  board?: (number | null) | TaskBoard;
+  comment?: (number | null) | ReviewComment;
+  request?: (number | null) | TaskSharingRequest;
+  kind: 'mention' | 'assignment' | 'invitation' | 'comment' | 'approval';
+  message: string;
+  key: string;
+  read?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-activity".
+ */
+export interface TaskBoardActivity {
+  id: number;
+  board: number | TaskBoard;
+  actor?: (number | null) | User;
+  message: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-notification-events".
+ */
+export interface TaskNotificationEvent {
+  id: number;
+  key: string;
+  task?: (number | null) | ReviewTask;
+  actor?: (number | null) | User;
+  comment?: (number | null) | ReviewComment;
+  deliveries:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  delivered?: boolean | null;
+  attempts?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1733,6 +1952,46 @@ export interface PayloadLockedDocument {
         value: number | ReviewActivity;
       } | null)
     | ({
+        relationTo: 'task-boards';
+        value: number | TaskBoard;
+      } | null)
+    | ({
+        relationTo: 'task-board-memberships';
+        value: number | TaskBoardMembership;
+      } | null)
+    | ({
+        relationTo: 'task-sections';
+        value: number | TaskSection;
+      } | null)
+    | ({
+        relationTo: 'task-placements';
+        value: number | TaskPlacement;
+      } | null)
+    | ({
+        relationTo: 'task-followers';
+        value: number | TaskFollower;
+      } | null)
+    | ({
+        relationTo: 'task-board-preferences';
+        value: number | TaskBoardPreference;
+      } | null)
+    | ({
+        relationTo: 'task-sharing-requests';
+        value: number | TaskSharingRequest;
+      } | null)
+    | ({
+        relationTo: 'task-notifications';
+        value: number | TaskNotification;
+      } | null)
+    | ({
+        relationTo: 'task-board-activity';
+        value: number | TaskBoardActivity;
+      } | null)
+    | ({
+        relationTo: 'task-notification-events';
+        value: number | TaskNotificationEvent;
+      } | null)
+    | ({
         relationTo: 'post-types';
         value: number | PostType;
       } | null)
@@ -2054,6 +2313,11 @@ export interface UsersSelect<T extends boolean = true> {
 export interface ReviewTasksSelect<T extends boolean = true> {
   title?: T;
   description?: T;
+  mentions?: T;
+  boards?: T;
+  personal?: T;
+  expectedUpdatedAt?: T;
+  initialBoard?: T;
   documentType?: T;
   documentID?: T;
   documentDeleted?: T;
@@ -2080,6 +2344,7 @@ export interface ReviewCommentsSelect<T extends boolean = true> {
   documentDeleted?: T;
   author?: T;
   body?: T;
+  mentions?: T;
   moderated?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -2095,6 +2360,148 @@ export interface ReviewActivitySelect<T extends boolean = true> {
   documentDeleted?: T;
   actor?: T;
   message?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-boards_select".
+ */
+export interface TaskBoardsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  owner?: T;
+  visibility?: T;
+  archived?: T;
+  memberships?: T;
+  preferences?: T;
+  directMemberships?: T;
+  expectedUpdatedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-memberships_select".
+ */
+export interface TaskBoardMembershipsSelect<T extends boolean = true> {
+  board?: T;
+  user?: T;
+  role?: T;
+  key?: T;
+  editUser?: T;
+  commentUser?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-sections_select".
+ */
+export interface TaskSectionsSelect<T extends boolean = true> {
+  board?: T;
+  name?: T;
+  position?: T;
+  archived?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-placements_select".
+ */
+export interface TaskPlacementsSelect<T extends boolean = true> {
+  task?: T;
+  board?: T;
+  section?: T;
+  position?: T;
+  key?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-followers_select".
+ */
+export interface TaskFollowersSelect<T extends boolean = true> {
+  task?: T;
+  user?: T;
+  key?: T;
+  following?: T;
+  muted?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-preferences_select".
+ */
+export interface TaskBoardPreferencesSelect<T extends boolean = true> {
+  board?: T;
+  user?: T;
+  key?: T;
+  favorite?: T;
+  favoriteUser?: T;
+  view?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-sharing-requests_select".
+ */
+export interface TaskSharingRequestsSelect<T extends boolean = true> {
+  task?: T;
+  destination?: T;
+  requester?: T;
+  approvers?: T;
+  approved?: T;
+  fingerprint?: T;
+  state?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-notifications_select".
+ */
+export interface TaskNotificationsSelect<T extends boolean = true> {
+  recipient?: T;
+  task?: T;
+  board?: T;
+  comment?: T;
+  request?: T;
+  kind?: T;
+  message?: T;
+  key?: T;
+  read?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-board-activity_select".
+ */
+export interface TaskBoardActivitySelect<T extends boolean = true> {
+  board?: T;
+  actor?: T;
+  message?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-notification-events_select".
+ */
+export interface TaskNotificationEventsSelect<T extends boolean = true> {
+  key?: T;
+  task?: T;
+  actor?: T;
+  comment?: T;
+  deliveries?: T;
+  delivered?: T;
+  attempts?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3028,6 +3435,16 @@ export interface TaskCreateCollectionExport {
       | 'review-tasks'
       | 'review-comments'
       | 'review-activity'
+      | 'task-boards'
+      | 'task-board-memberships'
+      | 'task-sections'
+      | 'task-placements'
+      | 'task-followers'
+      | 'task-board-preferences'
+      | 'task-sharing-requests'
+      | 'task-notifications'
+      | 'task-board-activity'
+      | 'task-notification-events'
       | 'post-types'
       | 'saved-views'
       | 'event-series'

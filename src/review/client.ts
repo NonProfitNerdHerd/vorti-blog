@@ -2,8 +2,8 @@ export type Task = {
   id: number
   title: string
   description?: string
-  documentType: string
-  documentID: string
+  documentType?: string | null
+  documentID?: string | null
   documentTitle?: string
   documentDeleted?: boolean
   region?: string
@@ -11,9 +11,17 @@ export type Task = {
   status: string
   priority: string
   assignee?: number
+  assigneeLabel?: string
   creator?: number
   dueDate?: string
   archived?: boolean
+  boards?: number[]
+  personal?: boolean
+  updatedAt?: string
+  canEdit?: boolean
+  canComment?: boolean
+  documentRestricted?: boolean
+  mentions?: import('./mentions').Mention[]
 }
 export const statuses = {
   open: 'Open',

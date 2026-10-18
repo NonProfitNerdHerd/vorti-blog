@@ -32,6 +32,8 @@ import { canManageDesign, isDesignManager } from './access/design'
 import { heroBoardRegistration } from '@design-system/payload-design-core/hero-board/registration'
 import { ReviewTasks, ReviewComments, ReviewActivity } from './review/collections'
 import { documentReview } from './review/plugin'
+import { workspaceCollections } from './review/workspace-collections'
+import { TaskNotificationEvents } from './review/notifications'
 import { PostTypes, SavedViews, EventSeries } from './content-framework/collections'
 import { contentTypes } from './content-framework/plugin'
 import { publishedType } from './content-framework/collections'
@@ -110,7 +112,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, PostTypes, SavedViews, EventSeries],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, TaskNotificationEvents, PostTypes, SavedViews, EventSeries],
   globals: [Navigation, SiteSettings, SystemSettings],
   editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
   secret: process.env.PAYLOAD_SECRET || '',
