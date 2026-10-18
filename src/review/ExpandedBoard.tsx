@@ -815,6 +815,19 @@ export function ExpandedBoard({
               </option>
             ))}
           </select>
+          {kind !== 'board' && (
+            <label className="workspace-subtask-toggle">
+              <input
+                type="checkbox"
+                checked={showChildren}
+                onChange={(event) => {
+                  setShowChildren(event.target.checked)
+                  url('subtasks', String(event.target.checked))
+                }}
+              />
+              Include subtasks
+            </label>
+          )}
           <button type="button" onClick={() => setShowColumns((value) => !value)}>
             Columns
           </button>
@@ -1485,6 +1498,13 @@ function CalendarView({
                   <button key={task.id} type="button" onClick={() => onSelect(task)}>
                     {task.parent ? '↳ ' : ''}
                     {task.title}
+                    {task.parent && (
+                      <small>
+                        Subtask of{' '}
+                        {tasks.find((parent) => parent.id === task.parent)?.title ??
+                          `Task #${task.parent}`}
+                      </small>
+                    )}
                   </button>
                 ))}
             </section>
@@ -1498,6 +1518,14 @@ function CalendarView({
           <div className="task-workspace-toolbar" key={task.id}>
             <button type="button" onClick={() => onSelect(task)}>
               {task.title}
+              {task.parent && (
+                <small>
+                  {' '}
+                  · Subtask of{' '}
+                  {tasks.find((parent) => parent.id === task.parent)?.title ??
+                    `Task #${task.parent}`}
+                </small>
+              )}
             </button>
             {canEdit && task.canEdit && (
               <input
@@ -1601,6 +1629,13 @@ function TimelineView({
                     {task.parent ? '↳ ' : ''}
                     {task.title}
                   </button>
+                  {task.parent && (
+                    <small>
+                      Subtask of{' '}
+                      {tasks.find((parent) => parent.id === task.parent)?.title ??
+                        `Task #${task.parent}`}
+                    </small>
+                  )}
                   {canEdit && task.canEdit && (
                     <div>
                       <input

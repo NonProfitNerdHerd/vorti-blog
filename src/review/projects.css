@@ -862,3 +862,20 @@
   width: 100%;
   accent-color: #7052db;
 }
+
+.review-tasks .workspace-subtask-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.review-tasks .workspace-subtask-toggle input {
+  width: auto;
+}
+.workspace-calendar button small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.75em;
+  opacity: 0.8;
+}
