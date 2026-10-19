@@ -61,7 +61,7 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
   await page.getByRole('dialog').getByRole('button', { name: 'teal', exact: true }).click()
   await expect(color).toHaveCSS('background-color', 'rgb(15, 118, 110)')
   const title = `Inline ${Date.now()}`,
-    input = page.getByLabel('Add task in Unsectioned', { exact: true })
+    input = page.getByLabel('Add task in Open', { exact: true })
   await input.fill(title)
   await page.route(
     '**/api/review-tasks?depth=0',
@@ -94,7 +94,6 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
   await expect(input).toHaveValue('')
   await page.getByRole('button', { name: 'Filter board tasks' }).click()
   await filters.getByLabel('Filter status', { exact: true }).selectOption('open')
-  await filters.getByLabel('Group tasks', { exact: true }).selectOption('status')
   await filters.getByRole('button', { name: 'Close board filters' }).click()
   await expect(page).toHaveURL(/boardStatus=open/)
   const grouped = page.getByLabel('Add task in In progress', { exact: true })
@@ -109,7 +108,7 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
   await expect(page.getByRole('button', { name: 'Hidden grouped task', exact: true })).toHaveCount(
     0,
   )
-  await page.getByRole('button', { name: 'Open task', exact: true }).click()
+  await page.getByRole('button', { name: 'View task', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('button', { name: 'Close dialog' }).click()
   await page.getByRole('button', { name: 'Filter board tasks' }).click()

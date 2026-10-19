@@ -30,16 +30,7 @@ test('project hierarchy, every board view, rich page, messages, protected files 
     dueDate: '2026-10-20T12:00:00.000Z',
   })
   await create('review-tasks', { title: 'Confirm appointment', parent: task.id })
-  for (const kind of [
-    'timeline',
-    'gantt',
-    'dashboard',
-    'page',
-    'messages',
-    'embed',
-    'workload',
-    'timesheets',
-  ])
+  for (const kind of ['gantt', 'dashboard', 'page', 'messages', 'embed', 'workload', 'timesheets'])
     await create('task-views', {
       board: board.id,
       name: kind[0].toUpperCase() + kind.slice(1),

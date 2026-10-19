@@ -6,6 +6,7 @@ import { reviewAPI, type Task } from './client'
 import { taskDocumentLink } from './links'
 import { parseLocalTime } from './workspace-dates'
 import { workspaceDialog } from './WorkspaceDialogs'
+import { taskFeedback } from './WorkspaceFeedback'
 
 export type FieldDefinition = {
   id: number
@@ -597,6 +598,7 @@ export function WorkspaceTaskDetails({
                       value,
                       expectedUpdatedAt: task.updatedAt,
                     })
+                    taskFeedback(task, 'updated')
                     await load()
                     onChange()
                   }}

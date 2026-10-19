@@ -40,7 +40,7 @@ export async function initializeBoardDefaults(req: PayloadRequest, board: number
       WHERE system_key='estimated-hours' ON CONFLICT(key) DO NOTHING`,
       )
       .bind(board, board),
-    ...['overview', 'list', 'board', 'calendar', 'files'].map((kind, position) =>
+    ...['overview', 'list', 'board', 'gantt', 'calendar', 'files'].map((kind, position) =>
       db
         .prepare(
           `INSERT INTO task_views(board_id,name,kind,position,default_view)
@@ -49,7 +49,7 @@ export async function initializeBoardDefaults(req: PayloadRequest, board: number
         )
         .bind(
           board,
-          kind[0].toUpperCase() + kind.slice(1),
+          kind === 'gantt' ? 'Timeline' : kind[0].toUpperCase() + kind.slice(1),
           kind,
           position,
           kind === 'list' ? 1 : 0,

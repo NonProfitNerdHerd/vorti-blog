@@ -8,7 +8,7 @@ type InputField = {
   name: string
   label: string
   value?: string
-  type?: 'text' | 'number' | 'date' | 'datetime-local' | 'textarea' | 'weekdays'
+  type?: 'text' | 'number' | 'date' | 'datetime-local' | 'textarea' | 'weekdays' | 'color'
   required?: boolean
   min?: number
   max?: number

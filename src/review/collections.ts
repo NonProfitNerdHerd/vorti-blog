@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { validateFieldValue } from './workspace-fields'
 import { userIdentity } from '@design-system/payload-design-core'
 import { APIError, type CollectionConfig, type PayloadRequest, type Where } from 'payload'
 import {
@@ -90,7 +91,7 @@ async function identityLabels({
 }) {
   if (overrideAccess) return doc
   const mentions: import('./mentions').Mention[] = Array.isArray(doc.mentions) ? doc.mentions : []
-  const fields = ['author', 'actor', 'assignee']
+  const fields = ['author', 'actor', 'assignee', 'creator']
   const requested = [
     ...new Set([
       ...fields.map((field) => relationID(doc[field])).filter(Boolean),
@@ -178,6 +179,7 @@ export const ReviewTasks: CollectionConfig = {
     { name: 'dueDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
     { name: 'startDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
     { name: 'milestone', type: 'checkbox', defaultValue: false },
+    { name: 'completedAt', type: 'date', index: true, admin: { readOnly: true } },
     {
       name: 'creator',
       type: 'relationship',
@@ -208,6 +210,12 @@ export const ReviewTasks: CollectionConfig = {
         data.documentDeleted = originalDoc?.documentDeleted ?? false
         if (typeof data.title === 'string') data.title = data.title.trim()
         const next = { ...originalDoc, ...data }
+        data.completedAt =
+          next.status === 'done'
+            ? originalDoc?.status === 'done'
+              ? (originalDoc.completedAt ?? null)
+              : new Date().toISOString()
+            : null
         if (data.initialSelect && (operation !== 'create' || !data.initialBoard || next.parent))
           fail('Initial select values require a new parent task and destination board.')
         if (
@@ -240,9 +248,8 @@ export const ReviewTasks: CollectionConfig = {
           if (data.initialBoard) {
             await requireBoard(req, data.initialBoard, 'edit')
             if (data.initialSelect) {
-              const selected = data.initialSelect as { field?: number; value?: string }
-              if (!Number.isSafeInteger(selected.field) || typeof selected.value !== 'string')
-                fail('Choose a valid initial select option.')
+              const selected = data.initialSelect as { field?: number; value?: unknown }
+              if (!Number.isSafeInteger(selected.field)) fail('Choose a valid initial field.')
               const attached = await req.payload.count({
                 collection: 'task-board-fields',
                 req,
@@ -261,16 +268,9 @@ export const ReviewTasks: CollectionConfig = {
                 overrideAccess: true,
                 depth: 0,
               })
-              const config = definition.configuration as {
-                options?: { id: string; retired?: boolean }[]
-              }
-              if (
-                !attached.totalDocs ||
-                definition.archived ||
-                definition.kind !== 'single-select' ||
-                !config?.options?.some((option) => option.id === selected.value && !option.retired)
-              )
-                fail('Choose an active single-select option attached to this board.')
+              if (!attached.totalDocs || definition.archived)
+                fail('Choose an active field attached to this board.')
+              selected.value = await validateFieldValue(req, definition, selected.value)
               req.context.reviewCreationScope = true
               ;(req.context as Record<symbol, unknown>)[creationSelect] = selected
             }
@@ -408,7 +408,7 @@ export const ReviewTasks: CollectionConfig = {
         const section = (req.context as Record<symbol, unknown>)[creationSection] as
           number | undefined
         const selected = (req.context as Record<symbol, unknown>)[creationSelect] as
-          { field: number; value: string } | undefined
+          { field: number; value: unknown } | undefined
         delete (req.context as Record<symbol, unknown>)[creationSelect]
         delete (req.context as Record<symbol, unknown>)[creationSection]
         delete req.context.reviewCreationScope

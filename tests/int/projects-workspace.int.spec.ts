@@ -169,7 +169,7 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
       where: { board: { equals: board } },
     })
     expect(views.docs.map((view) => view.kind).sort()).toEqual(
-      ['overview', 'list', 'board', 'calendar', 'files'].sort(),
+      ['overview', 'list', 'board', 'gantt', 'calendar', 'files'].sort(),
     )
     await expect(
       payload.create({

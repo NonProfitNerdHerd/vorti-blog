@@ -91,6 +91,7 @@ describe('per-user starter workspace', () => {
       'board',
       'calendar',
       'files',
+      'gantt',
       'list',
       'overview',
     ])
@@ -182,7 +183,7 @@ describe('per-user starter workspace', () => {
           where: { board: { equals: before.boards[0].id } },
         })
       ).totalDocs,
-    ).toBe(5)
+    ).toBe(6)
   })
   it('does not recreate archived or renamed starter records, or removed views', async () => {
     const { projects, boards } = await records()
@@ -229,7 +230,7 @@ describe('per-user starter workspace', () => {
           where: { board: { equals: boards[0].id } },
         })
       ).totalDocs,
-    ).toBe(4)
+    ).toBe(5)
   })
   it('ignores client-authored initialization fields and scopes the endpoint to its signed-in account', async () => {
     await payload.update({

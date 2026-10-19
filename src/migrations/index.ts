@@ -1,28 +1,29 @@
-import * as migration_20250929_111647 from './20250929_111647'
-import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation'
-import * as migration_20260916_210118_cms_content_management from './20260916_210118_cms_content_management'
-import * as migration_20260917_163401_design_system_stage1 from './20260917_163401_design_system_stage1'
-import * as migration_20260917_165910_design_system_stage2 from './20260917_165910_design_system_stage2'
-import * as migration_20260918_135802_design_system_stage3 from './20260918_135802_design_system_stage3'
-import * as migration_20260919_214810_template_layout_tree from './20260919_214810_template_layout_tree'
-import * as migration_20260920_203815_template_custom_fields from './20260920_203815_template_custom_fields'
-import * as migration_20260923_213430_site_template_foundation from './20260923_213430_site_template_foundation'
-import * as migration_20260929_163022_responsive_page_templates from './20260929_163022_responsive_page_templates'
-import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace'
-import * as migration_20261011_233000_document_review from './20261011_233000_document_review'
-import * as migration_20261012_040000_post_types_views from './20261012_040000_post_types_views'
-import * as migration_20261012_200651_forms_module from './20261012_200651_forms_module'
-import * as migration_20261012_220000_forms_payments from './20261012_220000_forms_payments'
-import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_forms_cms_actions'
-import * as migration_20261017_195736_system_settings from './20261017_195736_system_settings'
-import * as migration_20261018_001622 from './20261018_001622'
-import * as migration_20261018_180337_usernames from './20261018_180337_usernames'
-import * as migration_20261018_193401_tasks_workspace from './20261018_193401_tasks_workspace'
-import * as migration_20261018_194411_workspace_preferences from './20261018_194411_workspace_preferences'
-import * as migration_20261018_220320_projects_workspace from './20261018_220320_projects_workspace'
-import * as migration_20261018_224500_projects_audience_revisions from './20261018_224500_projects_audience_revisions'
-import * as migration_20261019_145037_starter_workspace from './20261019_145037_starter_workspace'
-import * as migration_20261019_160802_compact_workspace from './20261019_160802_compact_workspace'
+import * as migration_20250929_111647 from './20250929_111647';
+import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
+import * as migration_20260916_210118_cms_content_management from './20260916_210118_cms_content_management';
+import * as migration_20260917_163401_design_system_stage1 from './20260917_163401_design_system_stage1';
+import * as migration_20260917_165910_design_system_stage2 from './20260917_165910_design_system_stage2';
+import * as migration_20260918_135802_design_system_stage3 from './20260918_135802_design_system_stage3';
+import * as migration_20260919_214810_template_layout_tree from './20260919_214810_template_layout_tree';
+import * as migration_20260920_203815_template_custom_fields from './20260920_203815_template_custom_fields';
+import * as migration_20260923_213430_site_template_foundation from './20260923_213430_site_template_foundation';
+import * as migration_20260929_163022_responsive_page_templates from './20260929_163022_responsive_page_templates';
+import * as migration_20261002_200000_content_workspace from './20261002_200000_content_workspace';
+import * as migration_20261011_233000_document_review from './20261011_233000_document_review';
+import * as migration_20261012_040000_post_types_views from './20261012_040000_post_types_views';
+import * as migration_20261012_200651_forms_module from './20261012_200651_forms_module';
+import * as migration_20261012_220000_forms_payments from './20261012_220000_forms_payments';
+import * as migration_20261013_000807_forms_cms_actions from './20261013_000807_forms_cms_actions';
+import * as migration_20261017_195736_system_settings from './20261017_195736_system_settings';
+import * as migration_20261018_001622 from './20261018_001622';
+import * as migration_20261018_180337_usernames from './20261018_180337_usernames';
+import * as migration_20261018_193401_tasks_workspace from './20261018_193401_tasks_workspace';
+import * as migration_20261018_194411_workspace_preferences from './20261018_194411_workspace_preferences';
+import * as migration_20261018_220320_projects_workspace from './20261018_220320_projects_workspace';
+import * as migration_20261018_224500_projects_audience_revisions from './20261018_224500_projects_audience_revisions';
+import * as migration_20261019_145037_starter_workspace from './20261019_145037_starter_workspace';
+import * as migration_20261019_160802_compact_workspace from './20261019_160802_compact_workspace';
+import * as migration_20261019_173505_board_refinement from './20261019_173505_board_refinement';
 
 export const migrations = [
   {
@@ -150,4 +151,9 @@ export const migrations = [
     down: migration_20261019_160802_compact_workspace.down,
     name: '20261019_160802_compact_workspace',
   },
-]
+  {
+    up: migration_20261019_173505_board_refinement.up,
+    down: migration_20261019_173505_board_refinement.down,
+    name: '20261019_173505_board_refinement'
+  },
+];

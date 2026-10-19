@@ -1,4 +1,5 @@
 'use client'
+import { WorkspaceFeedback } from '@/review/WorkspaceFeedback'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { NavContext, useNav, useConfig, toast, useWindowInfo, useAuth } from '@payloadcms/ui'
@@ -85,6 +86,7 @@ export function AdminPolicyClient({
   return (
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
       <CategoriesEnabledProvider value={categoriesEnabled}>
+        <WorkspaceFeedback />
         {!categoriesEnabled && <style>{'.collections__card-list > li:has(> #card-categories) { display: none; }'}</style>}
         {denied ? (
           <main>

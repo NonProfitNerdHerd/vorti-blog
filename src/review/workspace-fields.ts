@@ -2,6 +2,7 @@ import type { PayloadRequest } from 'payload'
 import { relationID } from './documents'
 import { reject, requireTask, workspaceDB } from './workspace-access'
 import { workspaceFormula, workspaceReferences } from './workspace-formula'
+import { nativeFormulaFields, nativeFormulaValue } from './formula-inputs'
 
 export type Definition = {
   id: number
@@ -107,6 +108,10 @@ export async function validateFieldDefinition(
         reject((error as Error).message, 400)
       }
       for (const reference of references!) {
+        if (reference.startsWith('n')) {
+          if (!(reference in nativeFormulaFields)) reject('Unknown native formula field.', 400)
+          continue
+        }
         const targetID = Number(reference.slice(1))
         if (targetID === definition.id) reject('A formula cannot refer to itself.', 400)
         const target =
@@ -160,6 +165,12 @@ export async function validateFieldValue(
   previous?: unknown,
 ) {
   const config = (definition.configuration ?? {}) as FieldConfig
+  if (
+    !['text', 'number', 'date', 'single-select', 'multi-select', 'people', 'reference'].includes(
+      definition.kind,
+    )
+  )
+    reject('This field is computed or uses its own timer controls.', 400)
   if (value === null || value === undefined) return null
   if (definition.archived) reject('This field is archived.', 409)
   if (definition.kind === 'text') {
@@ -310,6 +321,13 @@ export async function taskFields(
       else if (definition.kind === 'formula') {
         const answers: Record<string, unknown> = {}
         for (const reference of workspaceReferences(config.expression ?? '')) {
+          if (reference.startsWith('n')) {
+            answers[reference] = nativeFormulaValue(
+              task as unknown as Record<string, unknown>,
+              reference,
+            )
+            continue
+          }
           const input = await evaluate(Number(reference.slice(1)), new Set(active))
           if (input.error) throw new Error('Unavailable input')
           answers[reference] = input.value
@@ -362,8 +380,17 @@ export async function taskFields(
         }
         result = { value }
       }
-    } catch {
-      result = { value: null, error: 'Unavailable input or invalid calculation' }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      result = {
+        value: null,
+        error:
+          /^(This operation|This collection|Use count|count requires|join requires|Formula (collection|result))/.test(
+            message,
+          )
+            ? message
+            : 'Unavailable input or invalid calculation',
+      }
     }
     results.set(id, result)
     return result

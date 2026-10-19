@@ -13,6 +13,7 @@ import {
 } from './workspace-access'
 import { taskFields, validateFieldValue, fieldEvaluation } from './workspace-fields'
 import { workspaceFormula, workspaceReferences } from './workspace-formula'
+import { nativeFormulaValue } from './formula-inputs'
 import { mutateTime, timeSummary } from './workspace-time'
 import { fileList } from './workspace-files'
 import { requireProject } from './project-access'
@@ -248,11 +249,12 @@ export const workspaceEndpoints: Endpoint[] = [
     method: 'post',
     handler: async (req) => {
       const body = (await req.json!()) as { task: number; expression: string }
-      await requireTask(req, body.task)
+      const task = await requireTask(req, body.task)
       const fields = await taskFields(req, body.task),
         values: Record<string, unknown> = {}
       try {
         for (const reference of workspaceReferences(body.expression)) {
+          if (reference.startsWith('n')) { values[reference] = nativeFormulaValue(task as unknown as Record<string,unknown>, reference); continue }
           const result = fields.find((field) => `f${field.definition.id}` === reference)
           if (!result || result.error) reject('A formula input is unavailable.', 400)
           values[reference] = result.value

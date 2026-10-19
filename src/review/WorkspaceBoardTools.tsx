@@ -9,6 +9,7 @@ import { MentionInput } from './MentionInput'
 import type { Mention } from './mentions'
 import type { FieldDefinition } from './WorkspaceTaskDetails'
 import { ReferencePicker } from './WorkspaceTaskDetails'
+import { nativeFormulaFields } from './formula-inputs'
 import { workspaceDialog } from './WorkspaceDialogs'
 
 const kinds = [
@@ -45,25 +46,43 @@ export function FieldManager({
   board,
   onClose,
   onSaved,
+  initialField,
+  suggestedName = '',
+  onAdded,
 }: {
   api: string
   board: number
   onClose: () => void
   onSaved: () => Promise<void>
+  initialField?: FieldDefinition
+  suggestedName?: string
+  onAdded?: (field: FieldDefinition) => void
 }) {
+  const [stage, setStage] = useState<'choose' | 'library' | 'configure'>(
+    initialField || suggestedName ? 'configure' : 'choose',
+  )
+  const [formulaSearch, setFormulaSearch] = useState('')
+  const [pendingAttach, setPendingAttach] = useState(false)
   const [library, setLibrary] = useState<FieldDefinition[]>([]),
     [attached, setAttached] = useState<any[]>([]),
-    [name, setName] = useState(''),
-    [kind, setKind] = useState('text'),
+    [name, setName] = useState(initialField?.name ?? suggestedName),
+    [kind, setKind] = useState(initialField?.kind ?? (suggestedName ? 'single-select' : 'text')),
     [options, setOptions] = useState<
       { id: string; label: string; color: string; retired?: boolean }[]
-    >([]),
-    [expression, setExpression] = useState(''),
-    [reference, setReference] = useState(''),
-    [property, setProperty] = useState('title'),
-    [precision, setPrecision] = useState(2),
-    [prefix, setPrefix] = useState(''),
-    [editing, setEditing] = useState<FieldDefinition>(),
+    >(
+      (initialField?.configuration?.options ?? []).map((option) => ({
+        ...option,
+        color: option.color ?? '#2563eb',
+      })),
+    ),
+    [expression, setExpression] = useState(initialField?.configuration?.expression ?? ''),
+    [reference, setReference] = useState(
+      String((initialField?.configuration as any)?.referenceField ?? ''),
+    ),
+    [property, setProperty] = useState((initialField?.configuration as any)?.property ?? 'title'),
+    [precision, setPrecision] = useState(initialField?.configuration?.precision ?? 2),
+    [prefix, setPrefix] = useState(initialField?.configuration?.prefix ?? ''),
+    [editing, setEditing] = useState<FieldDefinition | undefined>(initialField),
     [search, setSearch] = useState(''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
@@ -101,291 +120,467 @@ export function FieldManager({
           information in task values. Shared task values update everywhere this field is used.
         </p>
         {error && <p role="alert">{error}</p>}
-        <label>
-          Find a field
-          <input value={search} onChange={(e) => setSearch(e.target.value)} />
-        </label>
-        <ul className="workspace-library">
-          {library
-            .filter((field) => field.name.toLowerCase().includes(search.toLowerCase()))
-            .map((field) => {
-              const placement = attached.find((item) => item.field === field.id)
-              return (
-                <li key={field.id}>
-                  <span>
-                    {field.name}{' '}
-                    <small>
-                      {field.kind} · [f{field.id}]{field.archived ? ' · Archived' : ''}
-                    </small>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy || (!placement && field.archived)}
-                    onClick={() =>
-                      void run(async () => {
-                        if (placement)
-                          await reviewAPI(api, `task-board-fields/${placement.id}`, 'DELETE')
-                        else
-                          await reviewAPI(api, 'task-board-fields', 'POST', {
-                            board,
-                            field: field.id,
-                            position: attached.length,
-                          })
-                      })
-                    }
-                  >
-                    {placement ? 'Remove column' : 'Add column'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        await reviewAPI(api, `task-field-definitions/${field.id}`, 'PATCH', {
-                          archived: !field.archived,
-                          expectedUpdatedAt: field.updatedAt,
-                        })
-                      })
-                    }
-                  >
-                    {field.archived ? 'Restore' : 'Archive'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(field)
-                      setName(field.name)
-                      setKind(field.kind)
-                      setOptions(
-                        (field.configuration?.options ?? []).map((option) => ({
-                          ...option,
-                          color: option.color ?? '#8b5cf6',
-                        })),
-                      )
-                      setExpression(field.configuration?.expression ?? '')
-                      setPrecision(field.configuration?.precision ?? 2)
-                      setPrefix(field.configuration?.prefix ?? '')
-                      setReference(String((field.configuration as any)?.referenceField ?? ''))
-                      setProperty((field.configuration as any)?.property ?? 'title')
-                    }}
-                  >
-                    Edit definition
-                  </button>
-                </li>
-              )
-            })}
-        </ul>
-        <h3>{editing ? 'Edit reusable definition' : 'Create reusable field'}</h3>
-        <label>
-          Name
-          <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          Type
-          <select value={kind} onChange={(e) => setKind(e.target.value)}>
-            {kinds.map((kind) => (
-              <option key={kind}>{kind}</option>
-            ))}
-          </select>
-        </label>
-        {['single-select', 'multi-select'].includes(kind) && (
-          <fieldset>
-            <legend>Options</legend>
-            {options.map((option, index) => (
-              <div className="task-workspace-toolbar" key={option.id}>
-                <input
-                  aria-label={`Option ${index + 1}`}
-                  value={option.label}
-                  onChange={(e) =>
-                    setOptions((values) =>
-                      values.map((value, i) =>
-                        i === index ? { ...value, label: e.target.value } : value,
-                      ),
-                    )
-                  }
-                />
-                <input
-                  aria-label={`Option ${index + 1} color`}
-                  type="color"
-                  value={option.color}
-                  onChange={(e) =>
-                    setOptions((values) =>
-                      values.map((value, i) =>
-                        i === index ? { ...value, color: e.target.value } : value,
-                      ),
-                    )
-                  }
-                />
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={!!option.retired}
-                    onChange={(e) =>
-                      setOptions((values) =>
-                        values.map((value, i) =>
-                          i === index ? { ...value, retired: e.target.checked } : value,
-                        ),
-                      )
-                    }
-                  />
-                  Retired
-                </label>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                setOptions((values) => [
-                  ...values,
-                  { id: crypto.randomUUID(), label: 'New option', color: '#8b5cf6' },
-                ])
-              }
-            >
-              Add option
-            </button>
-          </fieldset>
-        )}
-        {kind === 'number' && (
-          <label>
-            Decimal places
-            <input
-              type="number"
-              min={0}
-              max={6}
-              value={precision}
-              onChange={(e) => setPrecision(Number(e.target.value))}
-            />
-          </label>
-        )}
-        {kind === 'id' && (
-          <label>
-            Display prefix
-            <input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
-          </label>
-        )}
-        {kind === 'formula' && (
+        {stage === 'choose' && (
           <>
-            <label>
-              Expression
-              <textarea
-                value={expression}
-                onChange={(e) => setExpression(e.target.value)}
-                placeholder="[f12] * 2"
-              />
-            </label>
-            <p>
-              Use field IDs above. Functions: sum, min, max, round, abs, if, concat, lower, upper,
-              length, days, adddays, hours. Strings use double quotes. days takes a start and end
-              date; hours converts seconds.
-            </p>
-            <FormulaPreview api={api} expression={expression} />
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  import('./workspace-formula').then(({ workspaceReferences }) => {
-                    try {
-                      workspaceReferences(expression)
-                      setError('Expression syntax is valid. Results appear on each task.')
-                    } catch (e) {
-                      setError((e as Error).message)
+            <h3>Add a column</h3>
+            <div className="workspace-field-types">
+              {kinds.map((type) => (
+                <button
+                  type="button"
+                  key={type}
+                  onClick={() => {
+                    setKind(type)
+                    setStage('configure')
+                  }}
+                >
+                  <strong>
+                    {type
+                      .split('-')
+                      .map((word) => word[0].toUpperCase() + word.slice(1))
+                      .join(' ')}
+                  </strong>
+                  <small>
+                    {
+                      (
+                        {
+                          'single-select': 'Choose one colored option',
+                          'multi-select': 'Choose several colored options',
+                          formula: 'Calculate from task fields',
+                          people: 'Select people without granting access',
+                          date: 'Calendar date',
+                          'time-tracking': 'Record work sessions',
+                          reference: 'Link authorized records',
+                          lookup: 'Read a direct referenced property',
+                          timer: 'Personal countdown',
+                          id: 'Stable task identifier',
+                          text: 'Write a text value',
+                          number: 'Store a numeric value',
+                        } as Record<string, string>
+                      )[type]
                     }
-                  })
-                } catch (e) {
-                  setError((e as Error).message)
-                }
-              }}
-            >
-              Validate expression
+                  </small>
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setStage('library')}>
+              Use existing field
             </button>
           </>
         )}
-        {kind === 'lookup' && (
-          <>
-            <label>
-              Reference field
-              <select value={reference} onChange={(e) => setReference(e.target.value)}>
-                <option value="">Choose…</option>
-                {library
-                  .filter((field) => field.kind === 'reference')
-                  .map((field) => (
-                    <option key={field.id} value={field.id}>
-                      {field.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label>
-              Direct property
-              <select value={property} onChange={(e) => setProperty(e.target.value)}>
-                {[
-                  'title',
-                  'name',
-                  'description',
-                  'status',
-                  'priority',
-                  'dueDate',
-                  'startDate',
-                  'milestone',
-                  'archived',
-                  'slug',
-                  'excerpt',
-                ].map((property) => (
-                  <option key={property}>{property}</option>
-                ))}
-              </select>
-            </label>
-            <p>Restricted references display as unavailable. Lookup chains are not supported.</p>
-          </>
-        )}
-        <button
-          type="button"
-          className="task-primary"
-          disabled={busy || !name.trim()}
-          onClick={() =>
-            void run(async () => {
-              const result = await reviewAPI<any>(
-                api,
-                `task-field-definitions${editing ? `/${editing.id}` : ''}`,
-                editing ? 'PATCH' : 'POST',
-                {
-                  name,
-                  kind,
-                  configuration: {
-                    options: ['single-select', 'multi-select'].includes(kind) ? options : undefined,
-                    expression: kind === 'formula' ? expression : undefined,
-                    referenceField: kind === 'lookup' ? Number(reference) : undefined,
-                    property: kind === 'lookup' ? property : undefined,
-                    precision,
-                    prefix,
-                  },
-                  ...(editing ? { expectedUpdatedAt: editing.updatedAt } : {}),
-                },
-              )
-              if (!editing)
-                await reviewAPI(api, 'task-board-fields', 'POST', {
-                  board,
-                  field: result.doc.id,
-                  position: attached.length,
-                })
-              setEditing(undefined)
-              setName('')
-              setOptions([])
-            })
-          }
-        >
-          {busy ? 'Saving…' : editing ? 'Save definition' : 'Create and add field'}
-        </button>
-        {editing && (
+        {stage !== 'choose' && (
           <button
             type="button"
             onClick={() => {
-              setEditing(undefined)
-              setName('')
+              if (!name || confirm('Discard the field draft?')) {
+                setName('')
+                setEditing(undefined)
+                setStage('choose')
+              }
             }}
           >
-            Cancel edit
+            ← Field types
           </button>
+        )}
+        {stage === 'library' && (
+          <>
+            <label>
+              Find a field
+              <input value={search} onChange={(e) => setSearch(e.target.value)} />
+            </label>
+            <ul className="workspace-library">
+              {library
+                .filter((field) => field.name.toLowerCase().includes(search.toLowerCase()))
+                .map((field) => {
+                  const placement = attached.find((item) => item.field === field.id)
+                  return (
+                    <li key={field.id}>
+                      <span>
+                        {field.name}{' '}
+                        <small>
+                          {field.kind} · [f{field.id}]{field.archived ? ' · Archived' : ''}
+                        </small>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy || (!placement && field.archived)}
+                        onClick={() =>
+                          void run(async () => {
+                            if (placement)
+                              await reviewAPI(api, `task-board-fields/${placement.id}`, 'DELETE')
+                            else
+                              await reviewAPI(api, 'task-board-fields', 'POST', {
+                                board,
+                                field: field.id,
+                                position: attached.length,
+                              })
+                            if (!placement) onAdded?.(field)
+                          })
+                        }
+                      >
+                        {placement ? 'Remove column' : 'Add column'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            await reviewAPI(api, `task-field-definitions/${field.id}`, 'PATCH', {
+                              archived: !field.archived,
+                              expectedUpdatedAt: field.updatedAt,
+                            })
+                          })
+                        }
+                      >
+                        {field.archived ? 'Restore' : 'Archive'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStage('configure')
+                          setEditing(field)
+                          setName(field.name)
+                          setKind(field.kind)
+                          setOptions(
+                            (field.configuration?.options ?? []).map((option) => ({
+                              ...option,
+                              color: option.color ?? '#8b5cf6',
+                            })),
+                          )
+                          setExpression(field.configuration?.expression ?? '')
+                          setPrecision(field.configuration?.precision ?? 2)
+                          setPrefix(field.configuration?.prefix ?? '')
+                          setReference(String((field.configuration as any)?.referenceField ?? ''))
+                          setProperty((field.configuration as any)?.property ?? 'title')
+                        }}
+                      >
+                        Edit definition
+                      </button>
+                    </li>
+                  )
+                })}
+            </ul>
+          </>
+        )}
+        {stage === 'configure' && (
+          <>
+            <h3>{editing ? 'Edit reusable definition' : 'Create reusable field'}</h3>
+            <label>
+              Name
+              <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label>
+              Type
+              <select value={kind} onChange={(e) => setKind(e.target.value)}>
+                {kinds.map((kind) => (
+                  <option key={kind}>{kind}</option>
+                ))}
+              </select>
+            </label>
+            {['single-select', 'multi-select'].includes(kind) && (
+              <fieldset>
+                <legend>Options</legend>
+                {options.map((option, index) => (
+                  <div className="task-workspace-toolbar" key={option.id}>
+                    <input
+                      aria-label={`Option ${index + 1}`}
+                      value={option.label}
+                      onChange={(e) =>
+                        setOptions((values) =>
+                          values.map((value, i) =>
+                            i === index ? { ...value, label: e.target.value } : value,
+                          ),
+                        )
+                      }
+                    />
+                    <input
+                      aria-label={`Option ${index + 1} color`}
+                      type="color"
+                      value={option.color}
+                      onChange={(e) =>
+                        setOptions((values) =>
+                          values.map((value, i) =>
+                            i === index ? { ...value, color: e.target.value } : value,
+                          ),
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Move option ${index + 1} up`}
+                      disabled={index === 0}
+                      onClick={() =>
+                        setOptions((values) => {
+                          const copy = [...values]
+                          ;[copy[index - 1], copy[index]] = [copy[index], copy[index - 1]]
+                          return copy
+                        })
+                      }
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move option ${index + 1} down`}
+                      disabled={index === options.length - 1}
+                      onClick={() =>
+                        setOptions((values) => {
+                          const copy = [...values]
+                          ;[copy[index + 1], copy[index]] = [copy[index], copy[index + 1]]
+                          return copy
+                        })
+                      }
+                    >
+                      ↓
+                    </button>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!option.retired}
+                        onChange={(e) =>
+                          setOptions((values) =>
+                            values.map((value, i) =>
+                              i === index ? { ...value, retired: e.target.checked } : value,
+                            ),
+                          )
+                        }
+                      />
+                      Retired
+                    </label>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOptions((values) => [
+                      ...values,
+                      { id: crypto.randomUUID(), label: 'New option', color: '#8b5cf6' },
+                    ])
+                  }
+                >
+                  Add option
+                </button>
+              </fieldset>
+            )}
+            {kind === 'number' && (
+              <label>
+                Decimal places
+                <input
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={precision}
+                  onChange={(e) => setPrecision(Number(e.target.value))}
+                />
+              </label>
+            )}
+            {kind === 'id' && (
+              <label>
+                Display prefix
+                <input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
+              </label>
+            )}
+            {kind === 'formula' && (
+              <>
+                <label>
+                  Expression
+                  <textarea
+                    value={expression}
+                    onChange={(e) => setExpression(e.target.value)}
+                    placeholder="[f12] * 2"
+                  />
+                </label>
+                <label>
+                  Find formula input
+                  <input
+                    value={formulaSearch}
+                    onChange={(event) => setFormulaSearch(event.target.value)}
+                  />
+                </label>
+                <div className="workspace-formula-inputs" aria-label="Formula inputs">
+                  {[
+                    ...Object.entries(nativeFormulaFields).map(([id, name]) => ({ id, name })),
+                    ...library
+                      .filter(
+                        (field) =>
+                          attached.some((item) => item.field === field.id) &&
+                          field.id !== editing?.id,
+                      )
+                      .map((field) => ({ id: 'f' + field.id, name: field.name })),
+                  ]
+                    .filter((field) =>
+                      field.name.toLowerCase().includes(formulaSearch.toLowerCase()),
+                    )
+                    .map((field) => (
+                      <button
+                        type="button"
+                        key={field.id}
+                        onClick={() => setExpression((value) => value + '[' + field.id + ']')}
+                      >
+                        {field.name}
+                      </button>
+                    ))}
+                </div>
+                <div className="workspace-formula-inputs" aria-label="Formula functions">
+                  {[
+                    '+',
+                    '-',
+                    '*',
+                    '/',
+                    '==',
+                    '>',
+                    '<',
+                    'if',
+                    'sum',
+                    'round',
+                    'concat',
+                    'days',
+                    'adddays',
+                    'hours',
+                    'count',
+                    'join',
+                  ].map((token) => (
+                    <button
+                      type="button"
+                      key={token}
+                      onClick={() =>
+                        setExpression(
+                          (value) => value + (/^[a-z]/.test(token) ? token + '(' : token),
+                        )
+                      }
+                    >
+                      {token}
+                    </button>
+                  ))}
+                </div>
+                <p>
+                  Use field IDs above. Functions: sum, min, max, round, abs, if, concat, lower,
+                  upper, length, days, adddays, hours, count, join. Use count or join for multiple
+                  values. Strings use double quotes. days takes a start and end date; hours converts
+                  seconds.
+                </p>
+                <FormulaPreview api={api} expression={expression} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      import('./workspace-formula').then(({ workspaceReferences }) => {
+                        try {
+                          workspaceReferences(expression)
+                          setError('Expression syntax is valid. Results appear on each task.')
+                        } catch (e) {
+                          setError((e as Error).message)
+                        }
+                      })
+                    } catch (e) {
+                      setError((e as Error).message)
+                    }
+                  }}
+                >
+                  Validate expression
+                </button>
+              </>
+            )}
+            {kind === 'lookup' && (
+              <>
+                <label>
+                  Reference field
+                  <select value={reference} onChange={(e) => setReference(e.target.value)}>
+                    <option value="">Choose…</option>
+                    {library
+                      .filter((field) => field.kind === 'reference')
+                      .map((field) => (
+                        <option key={field.id} value={field.id}>
+                          {field.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Direct property
+                  <select value={property} onChange={(e) => setProperty(e.target.value)}>
+                    {[
+                      'title',
+                      'name',
+                      'description',
+                      'status',
+                      'priority',
+                      'dueDate',
+                      'startDate',
+                      'milestone',
+                      'archived',
+                      'slug',
+                      'excerpt',
+                    ].map((property) => (
+                      <option key={property}>{property}</option>
+                    ))}
+                  </select>
+                </label>
+                <p>
+                  Restricted references display as unavailable. Lookup chains are not supported.
+                </p>
+              </>
+            )}
+            <button
+              type="button"
+              className="task-primary"
+              disabled={busy || !name.trim()}
+              onClick={() =>
+                void run(async () => {
+                  const result = await reviewAPI<any>(
+                    api,
+                    `task-field-definitions${editing ? `/${editing.id}` : ''}`,
+                    editing ? 'PATCH' : 'POST',
+                    {
+                      name,
+                      kind,
+                      configuration: {
+                        options: ['single-select', 'multi-select'].includes(kind)
+                          ? options
+                          : undefined,
+                        expression: kind === 'formula' ? expression : undefined,
+                        referenceField: kind === 'lookup' ? Number(reference) : undefined,
+                        property: kind === 'lookup' ? property : undefined,
+                        precision,
+                        prefix,
+                      },
+                      ...(editing ? { expectedUpdatedAt: editing.updatedAt } : {}),
+                    },
+                  )
+                  if (!editing || pendingAttach) {
+                    setEditing(result.doc)
+                    setPendingAttach(true)
+                    const existing = await reviewAll(api, 'task-board-fields', {
+                      and: [{ board: { equals: board } }, { field: { equals: result.doc.id } }],
+                    })
+                    if (!existing.length)
+                      await reviewAPI(api, 'task-board-fields', 'POST', {
+                        board,
+                        field: result.doc.id,
+                        position: attached.length,
+                      })
+                    setPendingAttach(false)
+                  }
+                  setEditing(undefined)
+                  setName('')
+                  setOptions([])
+                  onAdded?.(result.doc)
+                })
+              }
+            >
+              {busy ? 'Saving…' : editing ? 'Save definition' : 'Create and add field'}
+            </button>
+            {editing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(undefined)
+                  setName('')
+                }}
+              >
+                Cancel edit
+              </button>
+            )}
+          </>
         )}
       </div>
     </EditorDialog>

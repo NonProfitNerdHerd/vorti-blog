@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2, Settings2, RefreshCw, SlidersHorizontal } from './WorkspaceIcon'
+import { nativeGroups, groupValues, editableGroup, groupFieldValue } from './board-grouping'
+import { taskFeedback } from './WorkspaceFeedback'
+import { WorkspaceMenu } from './WorkspaceMenu'
+import { BoardCalendar, calendarAnchor, calendarModeValue } from './BoardCalendar'
 import { BoardIcon } from './BoardIcon'
 import { InlineTaskEntry } from './InlineTaskEntry'
 import { WorkspaceFilterPanel } from './WorkspaceFilterPanel'
@@ -92,7 +96,7 @@ export function ExpandedBoard({
     [search, setSearch] = useState(''),
     [status, setStatus] = useState(''),
     [assignee, setAssignee] = useState(''),
-    [group, setGroup] = useState('section'),
+    [group, setGroup] = useState('status'),
     [sort, setSort] = useState('position'),
     [expanded, setExpanded] = useState<number[]>([]),
     [collapsed, setCollapsed] = useState<string[]>([]),
@@ -102,7 +106,9 @@ export function ExpandedBoard({
     [baseline, setBaseline] = useState<any>(),
     [baselines, setBaselines] = useState<any[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [createdNotice, setCreatedNotice] = useState<Task | null>(null)
+  const groupAfterField = useRef(false)
+  const [editField, setEditField] = useState<FieldDefinition>()
+  const [suggestedFieldName, setSuggestedFieldName] = useState('')
   const [settings, setSettings] = useState(false),
     [fieldManager, setFieldManager] = useState(false),
     [viewManager, setViewManager] = useState(false),
@@ -280,11 +286,11 @@ export function ExpandedBoard({
     setSearch(params.get('boardSearch') ?? '')
     setStatus(params.get('boardStatus') ?? '')
     setAssignee(params.get('boardAssignee') ?? '')
-    setGroup(params.get('group') ?? 'section')
+    setGroup(params.get('group') ?? 'status')
     setSort(params.get('boardSort') ?? 'position')
     setShowChildren(params.get('subtasks') !== 'false')
-    setAnchor(params.get('calendarDate') ?? today())
-    setCalendarMode(params.get('calendarRange') ?? 'month')
+    setAnchor(calendarAnchor(params.get('calendarDate')))
+    setCalendarMode(calendarModeValue(params.get('calendarRange')))
     void load()
   }, [load, refreshKey])
   useEffect(() => {
@@ -308,10 +314,10 @@ export function ExpandedBoard({
     setSearch(params.get('boardSearch') ?? saved.boardSearch ?? '')
     setStatus(params.get('boardStatus') ?? saved.boardStatus ?? '')
     setAssignee(params.get('boardAssignee') ?? saved.boardAssignee ?? '')
-    setGroup(params.get('group') ?? saved.group ?? 'section')
+    setGroup(params.get('group') ?? saved.group ?? 'status')
     setSort(params.get('boardSort') ?? saved.boardSort ?? 'position')
-    setAnchor(params.get('calendarDate') || saved.calendarDate || today())
-    setCalendarMode(params.get('calendarRange') ?? saved.calendarRange ?? 'month')
+    setAnchor(calendarAnchor(params.get('calendarDate')))
+    setCalendarMode(calendarModeValue(params.get('calendarRange')))
     setShowChildren((params.get('subtasks') ?? saved.subtasks) !== 'false')
   }, [viewID, preference?.id])
   const requestedView = routeParams.get('boardView'),
@@ -405,11 +411,12 @@ export function ExpandedBoard({
       setError(e.message),
     )
   }
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, updatedTask?: Task) => {
     setBusy(true)
     setError('')
     try {
       await action()
+      if (updatedTask) taskFeedback(updatedTask, 'updated')
       await load()
       window.dispatchEvent(new Event('vorti-tasks-changed'))
     } catch (e) {
@@ -419,12 +426,13 @@ export function ExpandedBoard({
     }
   }
   const patch = (task: Task, data: object) =>
-    run(() =>
-      reviewAPI(api, `review-tasks/${task.id}`, 'PATCH', {
+    run(async () => {
+      const saved = await reviewAPI<{ doc: Task }>(api, `review-tasks/${task.id}`, 'PATCH', {
         ...data,
         expectedUpdatedAt: task.updatedAt,
-      }),
-    )
+      })
+      taskFeedback(saved.doc, 'updated')
+    })
   const filtered = useMemo(
     () =>
       tasks.filter(
@@ -442,34 +450,58 @@ export function ExpandedBoard({
         (filtered.includes(task) || filtered.some((child) => child.parent === task.id)),
     ),
     fieldGroup = fields.find((field) => `field:${field.id}` === group)
+  const sectionFor = (task: WorkTask) =>
+    String(placements.find((p) => p.task === (task.parent ?? task.id))?.section ?? '')
+  const taskGroups = (task: WorkTask) => groupValues(task, group, sectionFor(task), project)
+  const found = new Map<string, string>()
+  for (const task of roots) for (const value of taskGroups(task)) found.set(value.key, value.label)
   const groups =
-    group === 'status'
-      ? Object.entries(statuses).map(([key, name]) => ({ key, name }))
-      : group === 'assignee'
-        ? [
-            { key: '', name: 'Unassigned' },
-            ...people.map((person) => ({ key: String(person.id), name: person.label })),
-          ]
-        : fieldGroup
-          ? (fieldGroup.configuration?.options ?? [])
-              .filter((option) => !option.retired)
-              .map((option) => ({ key: option.id, name: option.label }))
-              .concat([{ key: '', name: 'No value' }])
-          : [
-              { key: '', name: 'Unsectioned' },
-              ...sections.map((section) => ({ key: String(section.id), name: section.name })),
-            ]
-  const groupFor = (task: WorkTask) =>
-    group === 'status'
-      ? task.status
-      : group === 'assignee'
-        ? String(task.assignee ?? '')
-        : fieldGroup
-          ? String(task.fields.find((field) => field.definition.id === fieldGroup.id)?.value ?? '')
-          : String(
-              placements.find((placement) => placement.task === (task.parent ?? task.id))
-                ?.section ?? '',
-            )
+    group === 'section'
+      ? [
+          { key: '', name: 'Unsectioned' },
+          ...sections.map((section) => ({ key: String(section.id), name: section.name })),
+        ]
+      : group === 'project'
+        ? [{ key: project ? String(project.id) : '', name: project?.name ?? 'Unavailable project' }]
+        : group === 'status'
+          ? Object.entries(statuses).map(([key, name]) => ({ key, name }))
+          : group === 'priority'
+            ? ['low', 'normal', 'high', 'urgent'].map((key) => ({ key, name: key }))
+            : fieldGroup?.configuration?.options
+              ? [
+                  ...fieldGroup.configuration.options
+                    .filter((option) => !option.retired || found.has(option.id))
+                    .map((option) => ({ key: option.id, name: option.label })),
+                  { key: '', name: 'No value' },
+                  ...(found.has('!unavailable')
+                    ? [{ key: '!unavailable', name: 'Unavailable' }]
+                    : []),
+                ]
+              : [...found]
+                  .map(([key, name]) => ({
+                    key,
+                    name:
+                      group === 'assignee' || fieldGroup?.kind === 'people'
+                        ? (people.find((person) => String(person.id) === key)?.label ?? name)
+                        : name,
+                  }))
+                  .sort((a, b) => (!a.key ? 1 : !b.key ? -1 : a.name.localeCompare(b.name)))
+  if (!groups.length)
+    groups.push({
+      key: '',
+      name:
+        group === 'assignee'
+          ? 'Unassigned'
+          : group === 'completedAt'
+            ? 'No completion date'
+            : group.endsWith('At') || group.endsWith('Date')
+              ? 'No date'
+              : 'No value',
+    })
+  const groupFor = (task: WorkTask) => taskGroups(task)[0]?.key ?? ''
+  const inGroup = (task: WorkTask, key: string) =>
+    taskGroups(task).some((value) => value.key === key)
+  const movable = editableGroup(group, fieldGroup)
   const sorted = (items: WorkTask[]) =>
     [...items].sort((a, b) =>
       sort === 'title'
@@ -481,27 +513,40 @@ export function ExpandedBoard({
             : (placements.find((p) => p.task === a.id)?.position ?? 0) -
               (placements.find((p) => p.task === b.id)?.position ?? 0),
     )
-  const move = async (task: WorkTask, key: string) => {
+  const move = async (task: WorkTask, key: string, source?: string) => {
+    if (!movable || key === '!unavailable') return
+    if (group === 'priority') return patch(task, { priority: key })
+    if (group === 'startDate' || group === 'dueDate')
+      return patch(task, { [group]: key ? key + 'T12:00:00.000Z' : null })
     if (group === 'status') return patch(task, { status: key })
     if (group === 'assignee') return patch(task, { assignee: key ? Number(key) : null })
     if (fieldGroup)
-      return run(() =>
-        reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
-          action: 'field',
-          field: fieldGroup.id,
-          value: key || null,
-          expectedUpdatedAt: task.updatedAt,
-        }),
+      return run(
+        () =>
+          reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
+            action: 'field',
+            field: fieldGroup.id,
+            value: groupFieldValue(
+              fieldGroup,
+              key,
+              task.fields.find((item) => item.definition.id === fieldGroup.id)?.value,
+              source,
+            ),
+            expectedUpdatedAt: task.updatedAt,
+          }),
+        task,
       )
     const placement = placements.find((placement) => placement.task === (task.parent ?? task.id))
-    return run(() =>
-      reviewAPI(api, `review-tasks/${task.parent ?? task.id}/workspace`, 'POST', {
-        action: 'move',
-        board: Number(id),
-        section: key ? Number(key) : null,
-        position: Date.now(),
-        expectedUpdatedAt: placement?.updatedAt,
-      }),
+    return run(
+      () =>
+        reviewAPI(api, `review-tasks/${task.parent ?? task.id}/workspace`, 'POST', {
+          action: 'move',
+          board: Number(id),
+          section: key ? Number(key) : null,
+          position: Date.now(),
+          expectedUpdatedAt: placement?.updatedAt,
+        }),
+      task,
     )
   }
   const nativeColumns = [
@@ -537,6 +582,10 @@ export function ExpandedBoard({
     if (key === 'priority')
       return (
         <select
+          style={{
+            backgroundColor: `color-mix(in srgb, ${board?.presentation?.priorityColors?.[task.priority] ?? ({ low: '#15803d', normal: '#2563eb', high: '#c2410c', urgent: '#dc2626' } as Record<string, string>)[task.priority]} 18%, var(--theme-bg))`,
+            borderLeft: `4px solid ${board?.presentation?.priorityColors?.[task.priority] ?? ({ low: '#15803d', normal: '#2563eb', high: '#c2410c', urgent: '#dc2626' } as Record<string, string>)[task.priority]}`,
+          }}
           aria-label={`Priority for ${task.title}`}
           disabled={!canEdit || !task.canEdit || busy}
           value={task.priority}
@@ -549,24 +598,39 @@ export function ExpandedBoard({
       )
     if (key === 'assignee')
       return (
-        <select
-          aria-label={`Assignee for ${task.title}`}
-          disabled={!canEdit || !task.canEdit || busy}
-          value={task.assignee ?? ''}
-          onChange={(e) =>
-            void patch(task, { assignee: e.target.value ? Number(e.target.value) : null })
-          }
-        >
-          <option value="">Unassigned</option>
-          {task.assignee && !people.some((person) => person.id === task.assignee) && (
-            <option value={task.assignee}>{task.assigneeLabel ?? 'Assigned user'}</option>
-          )}
-          {people.map((person) => (
-            <option value={person.id} key={person.id}>
-              {person.label}
-            </option>
-          ))}
-        </select>
+        <div className="workspace-assignee-cell">
+          <span
+            className={task.assignee ? 'workspace-user-initials' : 'workspace-user-unassigned'}
+            aria-hidden="true"
+          >
+            {task.assignee
+              ? (task.assigneeLabel ?? 'User')
+                  .split(/[\s@._-]+/)
+                  .slice(0, 2)
+                  .map((word) => word[0])
+                  .join('')
+                  .toUpperCase()
+              : '◯'}
+          </span>
+          <select
+            aria-label={`Assignee for ${task.title}`}
+            disabled={!canEdit || !task.canEdit || busy}
+            value={task.assignee ?? ''}
+            onChange={(e) =>
+              void patch(task, { assignee: e.target.value ? Number(e.target.value) : null })
+            }
+          >
+            <option value="">Unassigned</option>
+            {task.assignee && !people.some((person) => person.id === task.assignee) && (
+              <option value={task.assignee}>{task.assigneeLabel ?? 'Assigned user'}</option>
+            )}
+            {people.map((person) => (
+              <option value={person.id} key={person.id}>
+                {person.label}
+              </option>
+            ))}
+          </select>
+        </div>
       )
     if (key === 'dueDate')
       return (
@@ -594,17 +658,83 @@ export function ExpandedBoard({
             expectedUpdatedAt: task.updatedAt,
           })
           await load()
+          taskFeedback(task, 'updated')
         }}
       />
     ) : (
       <span>—</span>
     )
   }
+  const sectionDialog = async (action: 'add' | 'rename' | 'duplicate', section?: Section) => {
+    await workspaceDialog({
+      title:
+        action === 'rename'
+          ? 'Rename section'
+          : action === 'duplicate'
+            ? 'Duplicate section'
+            : 'Add section',
+      fields: [
+        {
+          name: 'name',
+          label: 'Section name',
+          required: true,
+          value: section ? section.name + (action === 'duplicate' ? ' copy' : '') : '',
+        },
+      ],
+      saveLabel: 'Save section',
+      onSave: async (values) => {
+        const nextPosition = section
+          ? sections
+              .filter((item) => item.position > section.position)
+              .sort((a, b) => a.position - b.position)[0]?.position
+          : undefined
+        await reviewAPI(
+          api,
+          'task-sections' + (action === 'rename' && section ? '/' + section.id : ''),
+          action === 'rename' ? 'PATCH' : 'POST',
+          {
+            board: Number(id),
+            name: values.name,
+            position: section
+              ? nextPosition == null
+                ? section.position + 1
+                : (section.position + nextPosition) / 2
+              : Math.max(-1, ...sections.map((item) => item.position)) + 1,
+            ...(action === 'rename' && section ? { expectedUpdatedAt: section.updatedAt } : {}),
+          },
+        )
+        setGroup('section')
+        url('group', 'section')
+        await load()
+      },
+    })
+  }
+  const priorityDialog = async () => {
+    const colors = board?.presentation?.priorityColors ?? {}
+    await workspaceDialog({
+      title: 'Priority colors',
+      description: 'These colors are shared by everyone on this board.',
+      fields: ['low', 'normal', 'high', 'urgent'].map((name, index) => ({
+        name,
+        label: name,
+        type: 'color' as const,
+        value: colors[name] ?? ['#15803d', '#2563eb', '#c2410c', '#dc2626'][index],
+      })),
+      saveLabel: 'Save colors',
+      onSave: async (values) => {
+        await reviewAPI(api, `task-boards/${id}`, 'PATCH', {
+          presentation: { ...board?.presentation, priorityColors: values },
+          expectedUpdatedAt: board?.updatedAt,
+        })
+        await load()
+      },
+    })
+  }
   const resetFilters = () => {
     setSearch('')
     setStatus('')
     setAssignee('')
-    setGroup('section')
+    setGroup('status')
     setSort('position')
     setShowChildren(true)
     const next = new URL(location.href)
@@ -612,7 +742,7 @@ export function ExpandedBoard({
       boardSearch: '',
       boardStatus: '',
       boardAssignee: '',
-      group: 'section',
+      group: 'status',
       boardSort: 'position',
       subtasks: 'true',
     }))
@@ -626,7 +756,7 @@ export function ExpandedBoard({
           boardSearch: '',
           boardStatus: '',
           boardAssignee: '',
-          group: 'section',
+          group: 'status',
           boardSort: 'position',
           subtasks: 'true',
         },
@@ -652,12 +782,31 @@ export function ExpandedBoard({
               : assignee && assignee !== 'unassigned'
                 ? Number(assignee)
                 : null,
-          ...(fieldGroup && grouping
-            ? { initialSelect: { field: fieldGroup.id, value: grouping } }
+          ...(group === 'priority' ? { priority: grouping } : {}),
+          ...(['startDate', 'dueDate'].includes(group) && grouping
+            ? { [group]: grouping + 'T12:00:00.000Z' }
+            : {}),
+          ...(fieldGroup &&
+          editableGroup(group, fieldGroup) &&
+          grouping &&
+          grouping !== '!unavailable'
+            ? {
+                initialSelect: {
+                  field: fieldGroup.id,
+                  value: groupFieldValue(fieldGroup, grouping),
+                },
+              }
             : {}),
         }
     const result = await reviewAPI<{ doc: Task }>(api, 'review-tasks', 'POST', data)
-    setCreatedNotice(result.doc)
+    const hidden =
+      (!!search && !result.doc.title.toLowerCase().includes(search.toLowerCase())) ||
+      (!!status && result.doc.status !== status) ||
+      (!!assignee &&
+        (assignee === 'unassigned'
+          ? !!result.doc.assignee
+          : String(result.doc.assignee) !== assignee))
+    taskFeedback(result.doc, 'created', hidden ? () => onSelect(result.doc) : undefined)
     await load()
     window.dispatchEvent(new Event('vorti-tasks-changed'))
   }
@@ -736,6 +885,71 @@ export function ExpandedBoard({
           </div>
         </div>
         <div className="task-workspace-toolbar">
+          {['list', 'board', 'timeline', 'gantt'].includes(kind) && (
+            <WorkspaceMenu label="Group tasks" trigger="☷ Group">
+              <div className="workspace-group-options">
+                {Object.entries(nativeGroups).map(([key, label]) => (
+                  <button
+                    type="button"
+                    key={key}
+                    aria-pressed={group === key}
+                    onClick={(event) => {
+                      setGroup(key)
+                      url('group', key)
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {fields.map((field) => (
+                  <button
+                    type="button"
+                    key={field.id}
+                    aria-pressed={group === 'field:' + field.id}
+                    onClick={(event) => {
+                      setGroup('field:' + field.id)
+                      url('group', 'field:' + field.id)
+                    }}
+                  >
+                    {field.name}
+                  </button>
+                ))}
+                {isOwner &&
+                  ['Effort', 'Category']
+                    .filter(
+                      (name) =>
+                        !fields.some((field) => field.name.toLowerCase() === name.toLowerCase()),
+                    )
+                    .map((name) => (
+                      <button
+                        type="button"
+                        key={name}
+                        onClick={() => {
+                          groupAfterField.current = true
+                          setSuggestedFieldName(name)
+                          setEditField(undefined)
+                          setFieldManager(true)
+                        }}
+                      >
+                        ＋ Add {name}
+                      </button>
+                    ))}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      groupAfterField.current = true
+                      setSuggestedFieldName('')
+                      setEditField(undefined)
+                      setFieldManager(true)
+                    }}
+                  >
+                    ＋ Add custom field
+                  </button>
+                )}
+              </div>
+            </WorkspaceMenu>
+          )}
           <button
             data-board-filter-trigger
             type="button"
@@ -750,8 +964,8 @@ export function ExpandedBoard({
             {(search ||
               status ||
               assignee ||
-              group !== 'section' ||
-              sort !== 'position' ||
+              (['list', 'board', 'timeline', 'gantt'].includes(kind) &&
+                (group !== 'status' || sort !== 'position')) ||
               !showChildren) && (
               <span className="workspace-filter-dot" aria-label="Filters active" />
             )}
@@ -837,21 +1051,6 @@ export function ExpandedBoard({
           ＋ Add task
         </button>
       )}
-      {createdNotice && (
-        <p role="status">
-          Task created.{' '}
-          <button type="button" onClick={() => onSelect(createdNotice)}>
-            Open task
-          </button>
-          <button
-            type="button"
-            aria-label="Dismiss task confirmation"
-            onClick={() => setCreatedNotice(null)}
-          >
-            ×
-          </button>
-        </p>
-      )}
       {filtersOpen && (
         <WorkspaceFilterPanel close={() => setFiltersOpen(false)}>
           <div className="workspace-board-toolbar">
@@ -895,25 +1094,6 @@ export function ExpandedBoard({
                   {person.label}
                 </option>
               ))}
-            </select>
-            <select
-              aria-label="Group tasks"
-              value={group}
-              onChange={(e) => {
-                setGroup(e.target.value)
-                url('group', e.target.value)
-              }}
-            >
-              <option value="section">Sections</option>
-              <option value="status">Status</option>
-              <option value="assignee">Assignee</option>
-              {fields
-                .filter((field) => field.kind === 'single-select')
-                .map((field) => (
-                  <option key={field.id} value={`field:${field.id}`}>
-                    {field.name}
-                  </option>
-                ))}
             </select>
             <select
               aria-label="Sort tasks"
@@ -1035,7 +1215,26 @@ export function ExpandedBoard({
                 <th scope="col">Task</th>
                 {columns.map((column) => (
                   <th scope="col" key={column.key}>
+                    {column.key === 'assignee' ? '◉ ' : ''}
                     {column.name}
+                    {((column.key === 'priority' && isOwner) ||
+                      (column.key.startsWith('field:') && isOwner)) && (
+                      <button
+                        type="button"
+                        className="workspace-column-menu"
+                        aria-label={`Configure ${column.name}`}
+                        onClick={() => {
+                          if (column.key === 'priority') void priorityDialog()
+                          else {
+                            setEditField(fields.find((field) => 'field:' + field.id === column.key))
+                            groupAfterField.current = false
+                            setFieldManager(true)
+                          }
+                        }}
+                      >
+                        •••
+                      </button>
+                    )}
                   </th>
                 ))}
                 <th scope="col">
@@ -1043,7 +1242,12 @@ export function ExpandedBoard({
                     <button
                       type="button"
                       aria-label="Add field"
-                      onClick={() => setFieldManager(true)}
+                      onClick={() => {
+                        setEditField(undefined)
+                        setSuggestedFieldName('')
+                        groupAfterField.current = false
+                        setFieldManager(true)
+                      }}
                     >
                       ＋
                     </button>
@@ -1056,6 +1260,61 @@ export function ExpandedBoard({
                 <BoardSectionRows
                   key={grouping.key}
                   name={grouping.name}
+                  menu={
+                    <WorkspaceMenu label={`Options for ${grouping.name}`}>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setCollapsed(groups.map((item) => item.key))}
+                        >
+                          Collapse all groups
+                        </button>
+                        <button type="button" onClick={() => setCollapsed([])}>
+                          Expand all groups
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpanded(roots.map((task) => task.id))}
+                        >
+                          Expand subtasks
+                        </button>
+                        <button type="button" onClick={() => setExpanded([])}>
+                          Collapse subtasks
+                        </button>
+                        {canEdit && (
+                          <button type="button" onClick={() => void sectionDialog('add')}>
+                            Add section
+                          </button>
+                        )}
+                        {canEdit && group === 'section' && grouping.key && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void sectionDialog(
+                                  'rename',
+                                  sections.find((item) => String(item.id) === grouping.key),
+                                )
+                              }
+                            >
+                              Rename section
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void sectionDialog(
+                                  'duplicate',
+                                  sections.find((item) => String(item.id) === grouping.key),
+                                )
+                              }
+                            >
+                              Duplicate section
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </WorkspaceMenu>
+                  }
                   columnCount={columns.length + 2}
                   collapsed={collapsed.includes(grouping.key)}
                   toggle={() =>
@@ -1066,7 +1325,7 @@ export function ExpandedBoard({
                     )
                   }
                 >
-                  {sorted(roots.filter((task) => groupFor(task) === grouping.key)).map((task) => (
+                  {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
                     <TaskRows
                       key={task.id}
                       parent={row(task)}
@@ -1122,18 +1381,22 @@ export function ExpandedBoard({
                 const task = tasks.find(
                   (task) => String(task.id) === event.dataTransfer.getData('text/plain'),
                 )
-                if (task && canEdit) void move(task, grouping.key)
+                if (task && canEdit && movable)
+                  void move(task, grouping.key, event.dataTransfer.getData('group'))
               }}
             >
               <h3>
                 {grouping.name}
-                <small>{roots.filter((task) => groupFor(task) === grouping.key).length}</small>
+                <small>{roots.filter((task) => inGroup(task, grouping.key)).length}</small>
               </h3>
-              {sorted(roots.filter((task) => groupFor(task) === grouping.key)).map((task) => (
+              {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
                 <article
                   key={task.id}
-                  draggable={canEdit && task.canEdit}
-                  onDragStart={(event) => event.dataTransfer.setData('text/plain', String(task.id))}
+                  draggable={canEdit && task.canEdit && movable}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', String(task.id))
+                    event.dataTransfer.setData('group', grouping.key)
+                  }}
                 >
                   <button
                     type="button"
@@ -1160,8 +1423,9 @@ export function ExpandedBoard({
                   {canEdit && task.canEdit && (
                     <select
                       aria-label={`Move ${task.title} to`}
-                      value={groupFor(task)}
-                      onChange={(event) => void move(task, event.target.value)}
+                      value={grouping.key}
+                      disabled={!movable || busy}
+                      onChange={(event) => void move(task, event.target.value, grouping.key)}
                     >
                       {groups.map((group) => (
                         <option key={group.key} value={group.key}>
@@ -1177,7 +1441,8 @@ export function ExpandedBoard({
         </div>
       )}
       {kind === 'calendar' && (
-        <CalendarView
+        <BoardCalendar
+          priorityColors={board?.presentation?.priorityColors}
           tasks={filtered.filter((task) => showChildren || !task.parent)}
           anchor={anchor}
           mode={calendarMode}
@@ -1202,7 +1467,7 @@ export function ExpandedBoard({
           groupLabel={(task) =>
             groups.find((item) => item.key === groupFor(task))?.name ?? 'Unsectioned'
           }
-          gantt={kind === 'gantt'}
+          gantt={true}
           onSelect={onSelect}
           patch={patch}
           canEdit={canEdit}
@@ -1383,6 +1648,8 @@ export function ExpandedBoard({
                     position: sections.length,
                   })
                   setSectionName('')
+                  setGroup('section')
+                  url('group', 'section')
                 })
               }
             >
@@ -1450,6 +1717,15 @@ export function ExpandedBoard({
       )}
       {fieldManager && (
         <FieldManager
+          suggestedName={suggestedFieldName}
+          initialField={editField}
+          onAdded={(field) => {
+            if (groupAfterField.current) {
+              setGroup('field:' + field.id)
+              url('group', 'field:' + field.id)
+            }
+            setFieldManager(false)
+          }}
           api={api}
           board={Number(id)}
           onClose={() => setFieldManager(false)}
@@ -1479,12 +1755,14 @@ export function ExpandedBoard({
 function BoardSectionRows({
   name,
   columnCount,
+  menu,
   collapsed,
   toggle,
   children,
 }: {
   name: string
   columnCount: number
+  menu: React.ReactNode
   collapsed: boolean
   toggle: () => void
   children: React.ReactNode
@@ -1493,9 +1771,23 @@ function BoardSectionRows({
     <>
       <tr className="workspace-section-row">
         <th scope="rowgroup" colSpan={columnCount}>
-          <button type="button" aria-expanded={!collapsed} onClick={toggle}>
-            {collapsed ? '▸' : '▾'} {name}
+          <button
+            type="button"
+            className="workspace-group-title"
+            aria-expanded={!collapsed}
+            onClick={toggle}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d={collapsed ? 'm9 5 7 7-7 7' : 'm5 9 7 7 7-7'}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+            </svg>
+            <span>{name}</span>
           </button>
+          {menu}
         </th>
       </tr>
       {!collapsed && children}
@@ -1559,115 +1851,6 @@ function BoardActivity({ api, board }: { api: string; board: string }) {
           </li>
         ))}
       </ul>
-    </section>
-  )
-}
-function CalendarView({
-  tasks,
-  anchor,
-  mode,
-  onAnchor,
-  onMode,
-  onSelect,
-  patch,
-  canEdit,
-}: {
-  tasks: WorkTask[]
-  anchor: string
-  mode: string
-  onAnchor: (value: string) => void
-  onMode: (value: string) => void
-  onSelect: (task: Task) => void
-  patch: (task: Task, data: object) => Promise<void>
-  canEdit: boolean
-}) {
-  const chosen = new Date(anchor + 'T12:00:00'),
-    first =
-      mode === 'week'
-        ? new Date(
-            chosen.getFullYear(),
-            chosen.getMonth(),
-            chosen.getDate() - ((chosen.getDay() + 6) % 7),
-          )
-        : new Date(chosen.getFullYear(), chosen.getMonth(), 1),
-    start =
-      mode === 'week'
-        ? localTaskDay(first)
-        : localTaskDay(
-            new Date(
-              first.getFullYear(),
-              first.getMonth(),
-              first.getDate() - ((first.getDay() + 6) % 7),
-            ),
-          ),
-    days = Array.from({ length: mode === 'week' ? 7 : 42 }, (_, index) => nextTaskDay(start, index))
-  return (
-    <section>
-      <div className="task-workspace-toolbar">
-        <input
-          aria-label="Calendar date"
-          type="date"
-          value={anchor}
-          onChange={(e) => onAnchor(e.target.value || today())}
-        />
-        <select aria-label="Calendar range" value={mode} onChange={(e) => onMode(e.target.value)}>
-          <option value="month">Month</option>
-          <option value="week">Week</option>
-        </select>
-      </div>
-      <div className="workspace-calendar-scroll">
-        <div className="workspace-calendar">
-          {days.map((date) => (
-            <section key={date} aria-label={date}>
-              <h4>{date}</h4>
-              {tasks
-                .filter((task) => day(task.dueDate) === date)
-                .map((task) => (
-                  <button key={task.id} type="button" onClick={() => onSelect(task)}>
-                    {task.parent ? '↳ ' : ''}
-                    {task.title}
-                    {task.parent && (
-                      <small>
-                        Subtask of{' '}
-                        {tasks.find((parent) => parent.id === task.parent)?.title ??
-                          `Task #${task.parent}`}
-                      </small>
-                    )}
-                  </button>
-                ))}
-            </section>
-          ))}
-        </div>
-      </div>
-      <h3>Undated tasks</h3>
-      {tasks
-        .filter((task) => !task.dueDate)
-        .map((task) => (
-          <div className="task-workspace-toolbar" key={task.id}>
-            <button type="button" onClick={() => onSelect(task)}>
-              {task.title}
-              {task.parent && (
-                <small>
-                  {' '}
-                  · Subtask of{' '}
-                  {tasks.find((parent) => parent.id === task.parent)?.title ??
-                    `Task #${task.parent}`}
-                </small>
-              )}
-            </button>
-            {canEdit && task.canEdit && (
-              <input
-                type="date"
-                aria-label={`Schedule ${task.title}`}
-                onChange={(e) =>
-                  void patch(task, {
-                    dueDate: e.target.value ? `${e.target.value}T12:00:00.000Z` : null,
-                  })
-                }
-              />
-            )}
-          </div>
-        ))}
     </section>
   )
 }

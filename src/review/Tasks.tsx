@@ -16,6 +16,7 @@ import { WorkspaceInbox } from './WorkspaceInbox'
 import { WorkspaceTaskDetails, WorkspaceFiles } from './WorkspaceTaskDetails'
 import { WorkspaceProjects } from './WorkspaceProjects'
 import { WorkspaceHome } from './WorkspaceHome'
+import { taskFeedback } from './WorkspaceFeedback'
 import { useSearchParams } from 'next/navigation'
 import './workspace.css'
 
@@ -390,6 +391,7 @@ export function Tasks({
                       selected ? 'PATCH' : 'POST',
                       data,
                     )
+                    taskFeedback(result.doc, selected ? 'updated' : 'created')
                     setSelected(result.doc)
                     const url = new URL(location.href)
                     url.searchParams.set('task', String(result.doc.id))

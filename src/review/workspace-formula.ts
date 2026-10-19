@@ -1,6 +1,7 @@
 import { calculate } from '@design-system/payload-design-core/forms'
 
-type Value = string | number | boolean | null
+type Primitive = string | number | boolean | null
+type Value = Primitive | Primitive[]
 type Node =
   | { kind: 'literal'; value: Value }
   | { kind: 'field'; id: string }
@@ -20,6 +21,8 @@ const priorities: Record<string, number> = {
   '%': 3,
 }
 const arity: Record<string, [number, number]> = {
+  count: [1, 1],
+  join: [1, 2],
   sum: [1, 100],
   min: [1, 100],
   max: [1, 100],
@@ -38,7 +41,7 @@ export function parseWorkspaceFormula(source: string) {
   if (!source || source.length > 2000)
     throw new Error('Enter an expression of at most 2,000 characters.')
   const pattern =
-    /\s*(\[f\d+\]|\d+(?:\.\d+)?|"(?:[^"\\]|\\["\\nrt])*"|[a-z]+|==|!=|>=|<=|[+\-*/%(),<>])/gy
+    /\s*(\[(?:f\d+|n[a-zA-Z]+)\]|\d+(?:\.\d+)?|"(?:[^"\\]|\\["\\nrt])*"|[a-z]+|==|!=|>=|<=|[+\-*/%(),<>])/gy
   const tokens: string[] = []
   let position = 0
   while (position < source.trimEnd().length) {
@@ -119,6 +122,16 @@ export function workspaceFormula(source: string, values: Record<string, unknown>
     if (node.kind === 'literal') return node.value
     if (node.kind === 'field') {
       const value = values[node.id]
+      if (Array.isArray(value)) {
+        if (value.length > 1000) throw new Error('Formula collection is too large.')
+        return value.map((item) => {
+          if (item && typeof item === 'object' && typeof item.label === 'string')
+            return item.label as string
+          if (item === null || ['string', 'number', 'boolean'].includes(typeof item))
+            return item as Primitive
+          throw new Error('This collection requires supported scalar values.')
+        })
+      }
       if (
         value === undefined ||
         value === null ||
@@ -130,6 +143,10 @@ export function workspaceFormula(source: string, values: Record<string, unknown>
     if (node.kind === 'op') {
       const a = evaluate(node.a),
         b = evaluate(node.b)
+      if (Array.isArray(a) || Array.isArray(b))
+        throw new Error(
+          'This operation requires numbers or scalar values; use count or join for collections.',
+        )
       if (node.op === '==') return a === b
       if (node.op === '!=') return a !== b
       return calculate(`[a]${node.op}[b]`, { a: number(a), b: number(b) })
@@ -137,6 +154,16 @@ export function workspaceFormula(source: string, values: Record<string, unknown>
     if (node.name === 'if')
       return evaluate(node.args[0]) ? evaluate(node.args[1]) : evaluate(node.args[2])
     const args = node.args.map(evaluate)
+    if (node.name === 'count') {
+      if (!Array.isArray(args[0])) throw new Error('count requires a collection.')
+      return args[0].length
+    }
+    if (node.name === 'join') {
+      if (!Array.isArray(args[0])) throw new Error('join requires a collection.')
+      return args[0].join(String(args[1] ?? ', ')).slice(0, 10000)
+    }
+    if (args.some(Array.isArray))
+      throw new Error('Use count or join to convert a collection first.')
     if (node.name === 'concat') return args.map(String).join('').slice(0, 10000)
     if (node.name === 'lower') return String(args[0]).toLowerCase()
     if (node.name === 'upper') return String(args[0]).toUpperCase()

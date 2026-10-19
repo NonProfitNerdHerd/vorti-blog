@@ -74,6 +74,26 @@ export const TaskBoards: CollectionConfig = {
     starterKeyField,
     { name: 'name', type: 'text', required: true, maxLength: 120 },
     { name: 'description', type: 'textarea', maxLength: 10000 },
+    {
+      name: 'presentation',
+      type: 'json',
+      admin: { hidden: true },
+      validate: (value: unknown) => {
+        if (value == null) return true
+        if (typeof value !== 'object' || Array.isArray(value)) return 'Invalid board presentation.'
+        const colors = (value as { priorityColors?: unknown }).priorityColors
+        if (colors == null) return true
+        if (typeof colors !== 'object' || Array.isArray(colors)) return 'Invalid priority colors.'
+        return (
+          Object.entries(colors).every(
+            ([key, color]) =>
+              ['low', 'normal', 'high', 'urgent'].includes(key) &&
+              typeof color === 'string' &&
+              /^#[0-9a-f]{6}$/i.test(color),
+          ) || 'Choose a valid priority and hex color.'
+        )
+      },
+    },
     relation('project', 'task-projects', false),
     { name: 'inheritProject', type: 'checkbox', defaultValue: false, index: true },
     {

@@ -13,6 +13,7 @@ export type Task = {
   assignee?: number
   assigneeLabel?: string
   creator?: number
+  creatorLabel?: string
   dueDate?: string
   startDate?: string
   milestone?: boolean
@@ -20,6 +21,8 @@ export type Task = {
   boards?: number[]
   personal?: boolean
   updatedAt?: string
+  createdAt?: string
+  completedAt?: string | null
   canEdit?: boolean
   canComment?: boolean
   documentRestricted?: boolean

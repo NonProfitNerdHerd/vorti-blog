@@ -898,6 +898,7 @@ export interface ReviewTask {
   dueDate?: string | null;
   startDate?: string | null;
   milestone?: boolean | null;
+  completedAt?: string | null;
   creator?: (number | null) | User;
   archived?: boolean | null;
   updatedAt: string;
@@ -912,6 +913,15 @@ export interface TaskBoard {
   starterKey?: string | null;
   name: string;
   description?: string | null;
+  presentation?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   project?: (number | null) | TaskProject;
   inheritProject?: boolean | null;
   membershipRevision?: number | null;
@@ -2866,6 +2876,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   dueDate?: T;
   startDate?: T;
   milestone?: T;
+  completedAt?: T;
   creator?: T;
   archived?: T;
   updatedAt?: T;
@@ -2910,6 +2921,7 @@ export interface TaskBoardsSelect<T extends boolean = true> {
   starterKey?: T;
   name?: T;
   description?: T;
+  presentation?: T;
   project?: T;
   inheritProject?: T;
   membershipRevision?: T;

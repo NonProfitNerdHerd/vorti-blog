@@ -23,8 +23,8 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await page.locator('.task-board-directory').getByRole('link', { name, exact: true }).click()
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'List', exact: true }).click()
-  await page.getByLabel('Add task in Unsectioned', { exact: true }).fill('Prepare launch')
-  await page.getByLabel('Add task in Unsectioned', { exact: true }).press('Enter')
+  await page.getByLabel('Add task in Open', { exact: true }).fill('Prepare launch')
+  await page.getByLabel('Add task in Open', { exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Prepare launch', exact: true }).click()
   await dialog.getByLabel('Description', { exact: true }).fill('Coordinate @workspace-')
   await expect(dialog.getByRole('option', { name: /@workspace-admin/ })).toBeVisible()
@@ -45,7 +45,7 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await page.getByText('Manage sections', { exact: true }).click()
   await page.getByLabel('New section', { exact: true }).fill('Publishing')
   await page.getByRole('button', { name: 'Add section', exact: true }).click()
-  await expect(page.getByRole('button', { name: '▾ Publishing', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Publishing', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Board', exact: true }).click()
   const card = page
     .locator('.workspace-kanban article')
@@ -60,7 +60,7 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   ).toBeVisible()
   await page.getByRole('button', { name: 'Calendar', exact: true }).click()
   const undated = page
-    .locator('.task-workspace-toolbar')
+    .locator('.workspace-calendar-table tbody tr')
     .filter({ has: page.getByRole('button', { name: 'Prepare launch', exact: true }) })
   await undated.getByLabel('Schedule Prepare launch', { exact: true }).fill('2026-10-20')
   await page.getByLabel('Calendar date', { exact: true }).fill('2026-10-20')
