@@ -1,5 +1,6 @@
 import { initializeBoardDefaults, starterKeyField, protectStarterFields } from './workspace-starter'
 import { workspaceReq } from './workspace-access'
+import { boardColors } from './board-colors'
 import { userIdentity } from '@design-system/payload-design-core'
 import {
   type CollectionConfig,
@@ -464,6 +465,12 @@ export const TaskBoardPreferences: CollectionConfig = {
     relation('user', 'users'),
     { name: 'key', type: 'text', unique: true, required: true },
     { name: 'favorite', type: 'checkbox', defaultValue: false },
+    {
+      name: 'iconColor',
+      type: 'select',
+      options: Object.keys(boardColors),
+      admin: { description: 'Your personal board icon color.' },
+    },
     { ...relation('favoriteUser', 'users', false), admin: hidden },
     {
       name: 'view',

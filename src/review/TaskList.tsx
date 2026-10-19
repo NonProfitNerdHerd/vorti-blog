@@ -2,7 +2,7 @@
 import { Tasks } from './Tasks'
 import './tasks.css'
 import Link from 'next/link'
-import { useAuth, useConfig } from '@payloadcms/ui'
+import { useAuth, useConfig, useStepNav } from '@payloadcms/ui'
 import { useSearchParams } from 'next/navigation'
 import { InboxBadge } from './WorkspaceInbox'
 import { ProjectNavigator } from './WorkspaceProjects'
@@ -56,6 +56,22 @@ function StarterWorkspace({ api, admin, active }: { api: string; admin: string; 
   )
 }
 export function TaskList() {
+  const { setStepNav } = useStepNav()
+  useEffect(() => {
+    setStepNav([
+      {
+        label: (
+          <span className="workspace-app-title">
+            <span role="heading" aria-level={1}>
+              Tasks
+            </span>
+            <span>Your work, connected</span>
+          </span>
+        ),
+      },
+    ])
+    return () => setStepNav([])
+  }, [setStepNav])
   const { user } = useAuth()
   const {
     config: {
@@ -67,13 +83,6 @@ export function TaskList() {
   const base = `${admin}/collections/review-tasks`
   return (
     <main className="review-global review-workspace">
-      <header className="task-dashboard-heading">
-        <div>
-          <p>Your work, connected</p>
-          <h1>Tasks</h1>
-        </div>
-        <span>Keep your site’s next steps in view.</span>
-      </header>
       <nav className="task-workspace-tabs" aria-label="Tasks workspace">
         {[
           { key: 'mine', label: 'My tasks', href: `${base}?taskView=assigned` },

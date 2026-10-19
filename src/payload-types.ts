@@ -876,6 +876,15 @@ export interface ReviewTask {
   personal?: boolean | null;
   expectedUpdatedAt?: string | null;
   initialBoard?: number | null;
+  initialSelect?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   initialSection?: number | null;
   documentType?: ('posts' | 'pages' | 'design-templates' | 'site-templates' | 'none') | null;
   documentID?: string | null;
@@ -1020,6 +1029,10 @@ export interface TaskBoardPreference {
   user: number | User;
   key: string;
   favorite?: boolean | null;
+  /**
+   * Your personal board icon color.
+   */
+  iconColor?: ('blue' | 'violet' | 'pink' | 'red' | 'orange' | 'amber' | 'green' | 'teal') | null;
   favoriteUser?: (number | null) | User;
   view?:
     | (
@@ -2839,6 +2852,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   personal?: T;
   expectedUpdatedAt?: T;
   initialBoard?: T;
+  initialSelect?: T;
   initialSection?: T;
   documentType?: T;
   documentID?: T;
@@ -2972,6 +2986,7 @@ export interface TaskBoardPreferencesSelect<T extends boolean = true> {
   user?: T;
   key?: T;
   favorite?: T;
+  iconColor?: T;
   favoriteUser?: T;
   view?: T;
   viewInstance?: T;

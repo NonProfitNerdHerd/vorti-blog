@@ -2,6 +2,9 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote project navigation, settings, and paginated directories. */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Home, Inbox, CheckSquare, ChevronRight, ChevronDown, Plus } from './WorkspaceIcon'
+import { BoardIcon } from './BoardIcon'
+import { InboxBadge } from './WorkspaceInbox'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { query, reviewAll, reviewAPI } from './client'
@@ -61,75 +64,116 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
   return (
     <>
       <aside className="workspace-project-tree" aria-label="Projects and boards">
-        <Link href={`${base(admin)}?workspace=projects`}>Projects</Link>
+        <nav className="workspace-local-menu" aria-label="Workspace menu">
+          <Link
+            href={`${base(admin)}?workspace=home`}
+            aria-current={params.get('workspace') === 'home' ? 'page' : undefined}
+          >
+            <Home size={17} aria-hidden="true" />
+            Home
+          </Link>
+          <Link
+            href={`${base(admin)}?workspace=inbox`}
+            aria-current={params.get('workspace') === 'inbox' ? 'page' : undefined}
+          >
+            <Inbox size={17} aria-hidden="true" />
+            Inbox <InboxBadge api={api} />
+          </Link>
+          <Link
+            href={`${base(admin)}?taskView=assigned`}
+            aria-current={
+              params.get('taskView') === 'assigned' && !params.get('workspace') ? 'page' : undefined
+            }
+          >
+            <CheckSquare size={17} aria-hidden="true" />
+            My Tasks
+          </Link>
+        </nav>
         {error && (
           <button type="button" onClick={() => void load()}>
             Reload projects
           </button>
         )}
-        {projects.map((project) => {
-          const preference = prefs.find((pref) => pref.project === project.id)
-          return (
-            <div className="workspace-project-group" key={project.id}>
-              <div className="workspace-project-row">
-                <button
-                  type="button"
-                  className="workspace-project-caret"
-                  aria-label={`${preference?.expanded === false ? 'Expand' : 'Collapse'} ${project.name}`}
-                  aria-expanded={preference?.expanded !== false}
-                  aria-controls={`workspace-project-${project.id}`}
-                  disabled={savingPreference === project.id}
-                  onClick={() => {
-                    setSavingPreference(project.id)
-                    void reviewAPI(
-                      api,
-                      `task-project-preferences${preference ? `/${preference.id}` : ''}`,
-                      preference ? 'PATCH' : 'POST',
-                      { project: project.id, expanded: preference?.expanded === false },
-                    )
-                      .then(load)
-                      .catch((e) => setError(e.message))
-                      .finally(() => setSavingPreference(null))
-                  }}
-                >
-                  <span aria-hidden="true">{preference?.expanded === false ? '▸' : '▾'}</span>
-                </button>
-                <Link
-                  href={`${base(admin)}?workspace=projects&project=${project.id}`}
-                  aria-current={params.get('project') === String(project.id) ? 'page' : undefined}
-                >
-                  {project.name}
-                </Link>
-                <button
-                  type="button"
-                  className="workspace-project-add"
-                  aria-label={`Create project beside ${project.name}`}
-                  title="Create project"
-                  onClick={() => setCreating(true)}
-                >
-                  <span aria-hidden="true">+</span>
-                </button>
-              </div>
-              <div
-                id={`workspace-project-${project.id}`}
-                className="workspace-project-boards"
-                hidden={preference?.expanded === false}
-              >
-                {boards
-                  .filter((board) => board.project === project.id)
-                  .map((board) => (
-                    <Link
-                      key={board.id}
-                      href={`${base(admin)}?workspace=boards&board=${board.id}`}
-                      aria-current={params.get('board') === String(board.id) ? 'page' : undefined}
-                    >
-                      {board.name}
-                    </Link>
-                  ))}
-              </div>
-            </div>
+        {[...projects]
+          .sort(
+            (a, b) =>
+              Number(b.name === 'Work') - Number(a.name === 'Work') ||
+              a.name.localeCompare(b.name) ||
+              a.id - b.id,
           )
-        })}
+          .map((project) => {
+            const preference = prefs.find((pref) => pref.project === project.id)
+            return (
+              <div className="workspace-project-group" key={project.id}>
+                <div className="workspace-project-row">
+                  <button
+                    type="button"
+                    className="workspace-project-caret"
+                    aria-label={`${preference?.expanded === false ? 'Expand' : 'Collapse'} ${project.name}`}
+                    aria-expanded={preference?.expanded !== false}
+                    aria-controls={`workspace-project-${project.id}`}
+                    disabled={savingPreference === project.id}
+                    onClick={() => {
+                      setSavingPreference(project.id)
+                      void reviewAPI(
+                        api,
+                        `task-project-preferences${preference ? `/${preference.id}` : ''}`,
+                        preference ? 'PATCH' : 'POST',
+                        { project: project.id, expanded: preference?.expanded === false },
+                      )
+                        .then(load)
+                        .catch((e) => setError(e.message))
+                        .finally(() => setSavingPreference(null))
+                    }}
+                  >
+                    <span aria-hidden="true">
+                      {preference?.expanded === false ? (
+                        <ChevronRight size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </span>
+                  </button>
+                  <Link
+                    href={`${base(admin)}?workspace=projects&project=${project.id}`}
+                    aria-current={params.get('project') === String(project.id) ? 'page' : undefined}
+                  >
+                    {project.name}
+                  </Link>
+                  <button
+                    type="button"
+                    className="workspace-project-add"
+                    aria-label={`Create project beside ${project.name}`}
+                    title="Create project"
+                    onClick={() => setCreating(true)}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <div
+                  id={`workspace-project-${project.id}`}
+                  className="workspace-project-boards"
+                  hidden={preference?.expanded === false}
+                >
+                  {boards
+                    .filter((board) => board.project === project.id)
+                    .map((board) => (
+                      <div className="workspace-board-nav-row" key={board.id}>
+                        <BoardIcon api={api} board={board.id} name={board.name} />
+                        <Link
+                          href={`${base(admin)}?workspace=boards&board=${board.id}`}
+                          aria-current={
+                            params.get('board') === String(board.id) ? 'page' : undefined
+                          }
+                        >
+                          {board.name}
+                        </Link>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )
+          })}
         {!projects.length && (
           <button type="button" className="task-primary" onClick={() => setCreating(true)}>
             Add project

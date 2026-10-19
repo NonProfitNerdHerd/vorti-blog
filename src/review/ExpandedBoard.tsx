@@ -2,7 +2,10 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Board URL state and authorized remote records are synchronized here. */
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { Share2, Settings2, RefreshCw, SlidersHorizontal } from './WorkspaceIcon'
+import { BoardIcon } from './BoardIcon'
+import { InlineTaskEntry } from './InlineTaskEntry'
+import { WorkspaceFilterPanel } from './WorkspaceFilterPanel'
 import { useAuth } from '@payloadcms/ui'
 import { query, reviewAll, reviewAPI, statuses, type Task } from './client'
 import { BoardSettings, type Board } from './WorkspaceBoards'
@@ -98,6 +101,8 @@ export function ExpandedBoard({
     [calendarMode, setCalendarMode] = useState('month'),
     [baseline, setBaseline] = useState<any>(),
     [baselines, setBaselines] = useState<any[]>([])
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [createdNotice, setCreatedNotice] = useState<Task | null>(null)
   const [settings, setSettings] = useState(false),
     [fieldManager, setFieldManager] = useState(false),
     [viewManager, setViewManager] = useState(false),
@@ -447,6 +452,7 @@ export function ExpandedBoard({
           ]
         : fieldGroup
           ? (fieldGroup.configuration?.options ?? [])
+              .filter((option) => !option.retired)
               .map((option) => ({ key: option.id, name: option.label }))
               .concat([{ key: '', name: 'No value' }])
           : [
@@ -594,6 +600,67 @@ export function ExpandedBoard({
       <span>—</span>
     )
   }
+  const resetFilters = () => {
+    setSearch('')
+    setStatus('')
+    setAssignee('')
+    setGroup('section')
+    setSort('position')
+    setShowChildren(true)
+    const next = new URL(location.href)
+    for (const [key, value] of Object.entries({
+      boardSearch: '',
+      boardStatus: '',
+      boardAssignee: '',
+      group: 'section',
+      boardSort: 'position',
+      subtasks: 'true',
+    }))
+      next.searchParams.set(key, value)
+    history.replaceState(null, '', next)
+    void savePreference({
+      viewSettings: {
+        ...preference?.viewSettings,
+        [viewID]: {
+          ...preference?.viewSettings?.[viewID],
+          boardSearch: '',
+          boardStatus: '',
+          boardAssignee: '',
+          group: 'section',
+          boardSort: 'position',
+          subtasks: 'true',
+        },
+      },
+    }).catch((error) => setError(error.message))
+  }
+  const createInline = async (title: string, grouping: string, parent?: WorkTask) => {
+    if (!canEdit || (parent && !parent.canEdit))
+      throw new Error('This board is read-only or your permissions have changed.')
+    const data: Record<string, unknown> = parent
+      ? { title, parent: parent.id, status: 'open', assignee: null, priority: 'normal' }
+      : {
+          title,
+          initialBoard: Number(id),
+          initialSection: group === 'section' && grouping ? Number(grouping) : undefined,
+          status: group === 'status' ? grouping : status || 'open',
+          priority: 'normal',
+          assignee:
+            group === 'assignee'
+              ? grouping
+                ? Number(grouping)
+                : null
+              : assignee && assignee !== 'unassigned'
+                ? Number(assignee)
+                : null,
+          ...(fieldGroup && grouping
+            ? { initialSelect: { field: fieldGroup.id, value: grouping } }
+            : {}),
+        }
+    const result = await reviewAPI<{ doc: Task }>(api, 'review-tasks', 'POST', data)
+    setCreatedNotice(result.doc)
+    await load()
+    window.dispatchEvent(new Event('vorti-tasks-changed'))
+  }
   const row = (task: WorkTask, child = false) => (
     <tr key={task.id} className={child ? 'workspace-subtask-row' : ''}>
       <td>
@@ -635,7 +702,7 @@ export function ExpandedBoard({
         <td key={column.key}>{renderCell(task, column.key)}</td>
       ))}
       <td>
-        {!child && canEdit && (
+        {!child && canEdit && kind !== 'list' && (
           <button
             type="button"
             aria-label={`Add subtask to ${task.title}`}
@@ -652,12 +719,8 @@ export function ExpandedBoard({
     <section className="workspace-board">
       <header className="workspace-board-heading">
         <div>
-          <Link
-            href={`${admin}/collections/review-tasks?workspace=projects${board?.project ? `&project=${board.project}` : ''}`}
-          >
-            {project?.name ?? 'Projects'}
-          </Link>
           <div className="workspace-board-title">
+            <BoardIcon api={api} board={Number(id)} name={board?.name ?? 'Board'} />
             <h2>{board?.name ?? 'Board'}</h2>
             <button
               type="button"
@@ -673,18 +736,57 @@ export function ExpandedBoard({
           </div>
         </div>
         <div className="task-workspace-toolbar">
+          <button
+            data-board-filter-trigger
+            type="button"
+            className="workspace-icon-control"
+            aria-label="Filter board tasks"
+            title="Filters and view options"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal size={19} aria-hidden="true" />
+            {(search ||
+              status ||
+              assignee ||
+              group !== 'section' ||
+              sort !== 'position' ||
+              !showChildren) && (
+              <span className="workspace-filter-dot" aria-label="Filters active" />
+            )}
+          </button>
           {isOwner && (
             <>
-              <button className="task-primary" type="button" onClick={() => setSharing(true)}>
-                Share
+              <button
+                className="workspace-icon-control"
+                type="button"
+                aria-label="Share board"
+                title="Share"
+                onClick={() => setSharing(true)}
+              >
+                <Share2 size={19} aria-hidden="true" />
               </button>
-              <button type="button" onClick={() => setSettings(true)}>
-                Board settings
+              <button
+                className="workspace-icon-control"
+                type="button"
+                aria-label="Board settings"
+                title="Board settings"
+                onClick={() => setSettings(true)}
+              >
+                <Settings2 size={19} aria-hidden="true" />
               </button>
             </>
           )}
-          <button type="button" disabled={loading} onClick={() => void load()}>
-            Refresh
+          <button
+            className="workspace-icon-control"
+            type="button"
+            aria-label="Refresh board"
+            title="Refresh"
+            disabled={loading}
+            onClick={() => void load()}
+          >
+            <RefreshCw size={19} aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -725,177 +827,198 @@ export function ExpandedBoard({
       {(board?.archived || project?.archived) && (
         <p role="status">This board is read-only while it or its project is archived.</p>
       )}
-      {['list', 'board', 'calendar', 'timeline', 'gantt'].includes(kind) && (
-        <div className="workspace-board-toolbar">
-          {canEdit && (
-            <button
-              type="button"
-              aria-label="Add task"
-              className="task-primary"
-              onClick={() => onCreate()}
-            >
-              ＋ Add task
-            </button>
-          )}
-          <input
-            aria-label="Search board tasks"
-            placeholder="Search tasks…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              url('boardSearch', e.target.value)
-            }}
-          />
-          <select
-            aria-label="Filter status"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value)
-              url('boardStatus', e.target.value)
-            }}
-          >
-            <option value="">All statuses</option>
-            {Object.entries(statuses).map(([key, label]) => (
-              <option value={key} key={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Filter assignee"
-            value={assignee}
-            onChange={(e) => {
-              setAssignee(e.target.value)
-              url('boardAssignee', e.target.value)
-            }}
-          >
-            <option value="">All assignees</option>
-            <option value="unassigned">Unassigned</option>
-            {people.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Group tasks"
-            value={group}
-            onChange={(e) => {
-              setGroup(e.target.value)
-              url('group', e.target.value)
-            }}
-          >
-            <option value="section">Sections</option>
-            <option value="status">Status</option>
-            <option value="assignee">Assignee</option>
-            {fields
-              .filter((field) => field.kind === 'single-select')
-              .map((field) => (
-                <option key={field.id} value={`field:${field.id}`}>
-                  {field.name}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="Sort tasks"
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value)
-              url('boardSort', e.target.value)
-            }}
-          >
-            {[
-              ['position', 'Board order'],
-              ['title', 'Task name'],
-              ['dueDate', 'Due date'],
-              ['-updatedAt', 'Last updated'],
-            ].map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-          {kind !== 'board' && (
-            <label className="workspace-subtask-toggle">
-              <input
-                type="checkbox"
-                checked={showChildren}
-                onChange={(event) => {
-                  setShowChildren(event.target.checked)
-                  url('subtasks', String(event.target.checked))
-                }}
-              />
-              Include subtasks
-            </label>
-          )}
-          <button type="button" onClick={() => setShowColumns((value) => !value)}>
-            Columns
-          </button>
-        </div>
+      {kind !== 'list' && ['board', 'calendar', 'timeline', 'gantt'].includes(kind) && canEdit && (
+        <button
+          className="task-primary"
+          type="button"
+          aria-label="Add task"
+          onClick={() => onCreate()}
+        >
+          ＋ Add task
+        </button>
       )}
-      {showColumns && (
-        <fieldset className="workspace-column-settings">
-          <legend>Your columns</legend>
-          {nativeColumns.map((column, index) => (
-            <label key={column.key}>
-              <input
-                type="checkbox"
-                checked={columnSettings[column.key]?.visible !== false}
-                onChange={(e) =>
-                  setColumnSettings((values) => ({
-                    ...values,
-                    [column.key]: { ...values[column.key], visible: e.target.checked },
-                  }))
-                }
-              />
-              {column.name}
-              <input
-                aria-label={`${column.name} width`}
-                type="number"
-                min={100}
-                max={500}
-                value={columnSettings[column.key]?.width ?? 160}
-                onChange={(e) =>
-                  setColumnSettings((values) => ({
-                    ...values,
-                    [column.key]: {
-                      ...values[column.key],
-                      width: Math.max(100, Math.min(500, Number(e.target.value))),
-                    },
-                  }))
-                }
-              />
-              <input
-                aria-label={`${column.name} order`}
-                type="number"
-                min={0}
-                max={nativeColumns.length}
-                value={columnSettings[column.key]?.order ?? index}
-                onChange={(e) =>
-                  setColumnSettings((values) => ({
-                    ...values,
-                    [column.key]: { ...values[column.key], order: Number(e.target.value) },
-                  }))
-                }
-              />
-            </label>
-          ))}
+      {createdNotice && (
+        <p role="status">
+          Task created.{' '}
+          <button type="button" onClick={() => onSelect(createdNotice)}>
+            Open task
+          </button>
           <button
             type="button"
-            onClick={() =>
-              void savePreference({
-                viewSettings: {
-                  ...preference?.viewSettings,
-                  [viewID]: { ...preference?.viewSettings?.[viewID], columns: columnSettings },
-                },
-              })
-                .then(() => setShowColumns(false))
-                .catch((e) => setError(e.message))
-            }
+            aria-label="Dismiss task confirmation"
+            onClick={() => setCreatedNotice(null)}
           >
-            Save my columns
+            ×
           </button>
-        </fieldset>
+        </p>
+      )}
+      {filtersOpen && (
+        <WorkspaceFilterPanel close={() => setFiltersOpen(false)}>
+          <div className="workspace-board-toolbar">
+            {' '}
+            <input
+              aria-label="Search board tasks"
+              placeholder="Search tasks…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                url('boardSearch', e.target.value)
+              }}
+            />
+            <select
+              aria-label="Filter status"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value)
+                url('boardStatus', e.target.value)
+              }}
+            >
+              <option value="">All statuses</option>
+              {Object.entries(statuses).map(([key, label]) => (
+                <option value={key} key={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter assignee"
+              value={assignee}
+              onChange={(e) => {
+                setAssignee(e.target.value)
+                url('boardAssignee', e.target.value)
+              }}
+            >
+              <option value="">All assignees</option>
+              <option value="unassigned">Unassigned</option>
+              {people.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Group tasks"
+              value={group}
+              onChange={(e) => {
+                setGroup(e.target.value)
+                url('group', e.target.value)
+              }}
+            >
+              <option value="section">Sections</option>
+              <option value="status">Status</option>
+              <option value="assignee">Assignee</option>
+              {fields
+                .filter((field) => field.kind === 'single-select')
+                .map((field) => (
+                  <option key={field.id} value={`field:${field.id}`}>
+                    {field.name}
+                  </option>
+                ))}
+            </select>
+            <select
+              aria-label="Sort tasks"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value)
+                url('boardSort', e.target.value)
+              }}
+            >
+              {[
+                ['position', 'Board order'],
+                ['title', 'Task name'],
+                ['dueDate', 'Due date'],
+                ['-updatedAt', 'Last updated'],
+              ].map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            {kind !== 'board' && (
+              <label className="workspace-subtask-toggle">
+                <input
+                  type="checkbox"
+                  checked={showChildren}
+                  onChange={(event) => {
+                    setShowChildren(event.target.checked)
+                    url('subtasks', String(event.target.checked))
+                  }}
+                />
+                Include subtasks
+              </label>
+            )}
+            <button type="button" onClick={() => setShowColumns((value) => !value)}>
+              Columns
+            </button>
+          </div>
+          <button type="button" onClick={resetFilters}>
+            Reset filters and view
+          </button>
+          {showColumns && (
+            <fieldset className="workspace-column-settings">
+              <legend>Your columns</legend>
+              {nativeColumns.map((column, index) => (
+                <label key={column.key}>
+                  <input
+                    type="checkbox"
+                    checked={columnSettings[column.key]?.visible !== false}
+                    onChange={(e) =>
+                      setColumnSettings((values) => ({
+                        ...values,
+                        [column.key]: { ...values[column.key], visible: e.target.checked },
+                      }))
+                    }
+                  />
+                  {column.name}
+                  <input
+                    aria-label={`${column.name} width`}
+                    type="number"
+                    min={100}
+                    max={500}
+                    value={columnSettings[column.key]?.width ?? 160}
+                    onChange={(e) =>
+                      setColumnSettings((values) => ({
+                        ...values,
+                        [column.key]: {
+                          ...values[column.key],
+                          width: Math.max(100, Math.min(500, Number(e.target.value))),
+                        },
+                      }))
+                    }
+                  />
+                  <input
+                    aria-label={`${column.name} order`}
+                    type="number"
+                    min={0}
+                    max={nativeColumns.length}
+                    value={columnSettings[column.key]?.order ?? index}
+                    onChange={(e) =>
+                      setColumnSettings((values) => ({
+                        ...values,
+                        [column.key]: { ...values[column.key], order: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  void savePreference({
+                    viewSettings: {
+                      ...preference?.viewSettings,
+                      [viewID]: { ...preference?.viewSettings?.[viewID], columns: columnSettings },
+                    },
+                  })
+                    .then(() => setShowColumns(false))
+                    .catch((e) => setError(e.message))
+                }
+              >
+                Save my columns
+              </button>
+            </fieldset>
+          )}
+        </WorkspaceFilterPanel>
       )}
       {kind === 'list' && (
         <div className="workspace-table-scroll">
@@ -952,6 +1075,20 @@ export function ExpandedBoard({
                           ? filtered
                               .filter((child) => child.parent === task.id)
                               .map((child) => row(child, true))
+                              .concat(
+                                canEdit && task.canEdit
+                                  ? [
+                                      <tr key={`create-child-${task.id}`}>
+                                        <td colSpan={columns.length + 2}>
+                                          <InlineTaskEntry
+                                            label={`Add subtask to ${task.title}`}
+                                            create={(title) => createInline(title, '', task)}
+                                          />
+                                        </td>
+                                      </tr>,
+                                    ]
+                                  : [],
+                              )
                           : []
                       }
                     />
@@ -959,19 +1096,10 @@ export function ExpandedBoard({
                   {canEdit && (
                     <tr>
                       <td colSpan={columns.length + 2}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onCreate(
-                              undefined,
-                              group === 'section' && grouping.key
-                                ? Number(grouping.key)
-                                : undefined,
-                            )
-                          }
-                        >
-                          ＋ Add task
-                        </button>
+                        <InlineTaskEntry
+                          label={`Add task in ${grouping.name}`}
+                          create={(title) => createInline(title, grouping.key)}
+                        />
                       </td>
                     </tr>
                   )}

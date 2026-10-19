@@ -13,6 +13,7 @@ export default defineConfig({
     'task-workspace.e2e.spec.ts',
     'projects-workspace.e2e.spec.ts',
     'workspace-starter.e2e.spec.ts',
+    'compact-workspace.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 300000,

@@ -1,3 +1,4 @@
+import { up as compact, down as compactDown } from '@/migrations/20261019_160802_compact_workspace'
 import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import { up as review } from '@/migrations/20261011_233000_document_review'
@@ -28,6 +29,14 @@ describe('Projects additive production migration', () => {
       await up({ db } as never)
       await revisions({ db } as never)
       await starter({ db } as never)
+      const preferencesBefore = database
+        .prepare('SELECT * FROM task_board_preferences ORDER BY id')
+        .all()
+      await compact({ db } as never)
+      expect(database.prepare('SELECT * FROM task_board_preferences ORDER BY id').all()).toEqual(
+        preferencesBefore.map((row) => ({ ...row, icon_color: null as string | null })),
+      )
+      await expect(compactDown({ db } as never)).rejects.toThrow('recovery point')
       expect(database.prepare('SELECT workspace_initialized FROM users WHERE id=1').get()).toEqual({
         workspace_initialized: 0,
       })

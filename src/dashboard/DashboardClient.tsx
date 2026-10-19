@@ -1,4 +1,5 @@
 'use client'
+import { loadPersonalTasks } from '@/review/personal-tasks'
 import { userIdentity } from '@design-system/payload-design-core/content'
 /* eslint-disable react-hooks/set-state-in-effect -- Each request lifecycle synchronizes loading and remote result state. */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -270,31 +271,7 @@ function MyTasks({
     const timer = window.setInterval(() => setToday(localTaskDay()), 60000)
     return () => clearInterval(timer)
   }, [])
-  const load = useCallback(async () => {
-    const filters = taskPresetFilters('assigned', userID)
-    const where = taskFiltersWhere(filters, today)
-    const counts = await Promise.all(
-      ['', 'overdue', 'soon'].map((due) =>
-        reviewAPI<{ totalDocs: number }>(
-          api,
-          `review-tasks/count?${new URLSearchParams({ where: JSON.stringify(taskFiltersWhere({ ...filters, due: due as '' | 'overdue' | 'soon' }, today)) })}`,
-        ),
-      ),
-    )
-    const dated = await reviewAPI<Page<Task>>(
-      api,
-      `review-tasks?${query({ and: [where, { dueDate: { exists: true } }] }, { limit: '5', sort: 'dueDate,-updatedAt' })}`,
-    )
-    let docs = dated.docs
-    if (docs.length < 5) {
-      const undated = await reviewAPI<Page<Task>>(
-        api,
-        `review-tasks?${query({ and: [where, { dueDate: { exists: false } }] }, { limit: String(5 - docs.length) })}`,
-      )
-      docs = [...docs, ...undated.docs]
-    }
-    return { docs, counts: counts.map((count) => count.totalDocs) }
-  }, [api, userID, today])
+  const load = useCallback(() => loadPersonalTasks(api, userID, today), [api, userID, today])
   const widget = useWidget(load, refresh)
   return (
     <section className="vp-dashboard__panel" aria-labelledby="my-tasks-heading">

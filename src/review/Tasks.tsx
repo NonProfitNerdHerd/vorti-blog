@@ -15,6 +15,7 @@ import { WorkspaceBoards } from './WorkspaceBoards'
 import { WorkspaceInbox } from './WorkspaceInbox'
 import { WorkspaceTaskDetails, WorkspaceFiles } from './WorkspaceTaskDetails'
 import { WorkspaceProjects } from './WorkspaceProjects'
+import { WorkspaceHome } from './WorkspaceHome'
 import { useSearchParams } from 'next/navigation'
 import './workspace.css'
 
@@ -552,7 +553,8 @@ export function Tasks({
         !renderList &&
         workspace !== 'boards' &&
         workspace !== 'inbox' &&
-        workspace !== 'projects' && (
+        workspace !== 'projects' &&
+        workspace !== 'home' && (
           <button
             className="task-primary"
             type="button"
@@ -581,6 +583,13 @@ export function Tasks({
             setTaskTab('default')
             setCreating(true)
           }}
+          refreshKey={dashboardVersion}
+        />
+      ) : !owner && !renderList && workspace === 'home' ? (
+        <WorkspaceHome
+          api={api}
+          admin={admin}
+          onSelect={selectTask}
           refreshKey={dashboardVersion}
         />
       ) : !owner && !renderList && workspace === 'projects' ? (
