@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { initializeStarterWorkspace } from './workspace-starter'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { relationID } from './documents'
 import {
@@ -75,6 +76,14 @@ async function dependencies(req: PayloadRequest, taskID: number) {
   return docs
 }
 export const workspaceEndpoints: Endpoint[] = [
+  {
+    path: '/task-workspace/initialize',
+    method: 'post',
+    handler: async (req) => {
+      await initializeStarterWorkspace(req)
+      return Response.json({ initialized: true })
+    },
+  },
   {
     path: '/task-workspace/people',
     method: 'get',

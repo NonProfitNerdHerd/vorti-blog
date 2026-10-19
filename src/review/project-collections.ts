@@ -1,3 +1,4 @@
+import { starterKeyField, protectStarterFields } from './workspace-starter'
 import type { CollectionConfig, Field, PayloadRequest } from 'payload'
 import { isAdministrator, relationID } from './documents'
 import {
@@ -135,6 +136,7 @@ export const TaskProjects: CollectionConfig = {
     delete: never,
   },
   fields: [
+    starterKeyField,
     { name: 'name', type: 'text', required: true, maxLength: 120 },
     { name: 'description', type: 'textarea', maxLength: 10000 },
     rel('owner', 'users', false),
@@ -193,6 +195,7 @@ export const TaskProjects: CollectionConfig = {
     beforeChange: [
       async ({ data, originalDoc, req }) => {
         if (!req.user) reject('Sign in.', 401)
+        protectStarterFields(data, req)
         await ensureWorkspaceRevisions(workspaceDB(req))
         delete data.membershipRevision
         if (!originalDoc?.id) data.owner = req.user!.id

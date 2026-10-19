@@ -573,6 +573,7 @@ export interface Tag {
  */
 export interface User {
   id: number;
+  workspaceInitialized?: boolean | null;
   /**
    * Used across the platform, including previous posts and linked items. Leave unchanged to retain legacy attribution.
    */
@@ -899,6 +900,7 @@ export interface ReviewTask {
  */
 export interface TaskBoard {
   id: number;
+  starterKey?: string | null;
   name: string;
   description?: string | null;
   project?: (number | null) | TaskProject;
@@ -932,6 +934,7 @@ export interface TaskBoard {
  */
 export interface TaskProject {
   id: number;
+  starterKey?: string | null;
   name: string;
   description?: string | null;
   owner?: (number | null) | User;
@@ -2790,6 +2793,7 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  workspaceInitialized?: T;
   attributionPreference?: T;
   attributionLabel?: T;
   role?: T;
@@ -2889,6 +2893,7 @@ export interface ReviewActivitySelect<T extends boolean = true> {
  * via the `definition` "task-boards_select".
  */
 export interface TaskBoardsSelect<T extends boolean = true> {
+  starterKey?: T;
   name?: T;
   description?: T;
   project?: T;
@@ -3025,6 +3030,7 @@ export interface TaskBoardActivitySelect<T extends boolean = true> {
  * via the `definition` "task-projects_select".
  */
 export interface TaskProjectsSelect<T extends boolean = true> {
+  starterKey?: T;
   name?: T;
   description?: T;
   owner?: T;

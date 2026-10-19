@@ -9,7 +9,11 @@ process.env.E2E_TEST_PERSIST_PATH = persist
 process.env.PAYLOAD_SECRET = 'local-workspace-browser-only'
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: ['task-workspace.e2e.spec.ts', 'projects-workspace.e2e.spec.ts'],
+  testMatch: [
+    'task-workspace.e2e.spec.ts',
+    'projects-workspace.e2e.spec.ts',
+    'workspace-starter.e2e.spec.ts',
+  ],
   workers: 1,
   timeout: 300000,
   expect: { timeout: 60000 },

@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { slugify } from '../fields/slug'
 import { prepareUserIdentity } from '../lib/user-attribution'
 import { revalidatePath } from 'next/cache'
+import { protectStarterFields } from '../review/workspace-starter'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -27,9 +28,19 @@ export const Users: CollectionConfig = {
     delete: ({ req }) => req.user?.role === 'administrator',
   },
   hooks: {
-    beforeValidate: [prepareUserIdentity],
+    beforeValidate: [
+      ({ data, req }) => {
+        protectStarterFields(data, req)
+        return data
+      },
+      prepareUserIdentity,
+    ],
     // Never accept a client-authored derived label, even when validation is bypassed.
     beforeChange: [
+      ({ data, req }) => {
+        protectStarterFields(data, req)
+        return data
+      },
       ({ data, originalDoc, operation, req, context, collection }) =>
         prepareUserIdentity({ data, originalDoc, operation, req, context, collection }),
     ],
@@ -57,6 +68,13 @@ export const Users: CollectionConfig = {
     ],
   },
   fields: [
+    {
+      name: 'workspaceInitialized',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { hidden: true },
+      access: { read: () => false, create: () => false, update: () => false },
+    },
     {
       name: 'username',
       type: 'text',

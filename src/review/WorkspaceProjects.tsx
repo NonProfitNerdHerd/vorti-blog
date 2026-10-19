@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote project navigation, settings, and paginated directories. */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { query, reviewAll, reviewAPI } from './client'
 import { BoardSettings } from './WorkspaceBoards'
@@ -20,6 +21,10 @@ export type Project = {
 }
 const base = (admin: string) => `${admin}/collections/review-tasks`
 export function ProjectNavigator({ api, admin }: { api: string; admin: string }) {
+  const router = useRouter(),
+    params = useSearchParams()
+  const [creating, setCreating] = useState(false)
+  const [savingPreference, setSavingPreference] = useState<number | null>(null)
   const [projects, setProjects] = useState<Project[]>([]),
     [boards, setBoards] = useState<any[]>([]),
     [prefs, setPrefs] = useState<any[]>([]),
@@ -54,55 +59,97 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
     }
   }, [load])
   return (
-    <aside className="workspace-project-tree" aria-label="Projects and boards">
-      <Link href={`${base(admin)}?workspace=projects`}>Projects</Link>
-      {error && (
-        <button type="button" onClick={() => void load()}>
-          Reload projects
-        </button>
-      )}
-      {projects.map((project) => {
-        const preference = prefs.find((pref) => pref.project === project.id)
-        return (
-          <details
-            key={project.id}
-            open={preference?.expanded !== false}
-            onToggle={(event) => {
-              if (event.currentTarget.open === (preference?.expanded !== false)) return
-              void reviewAPI(
-                api,
-                `task-project-preferences${preference ? `/${preference.id}` : ''}`,
-                preference ? 'PATCH' : 'POST',
-                { project: project.id, expanded: event.currentTarget.open },
-              )
-                .then(load)
-                .catch((e) => setError(e.message))
-            }}
-          >
-            <summary>{project.name}</summary>
-            <Link href={`${base(admin)}?workspace=projects&project=${project.id}`}>
-              Project overview
-            </Link>
-            {boards
-              .filter((board) => board.project === project.id)
-              .map((board) => (
-                <Link
-                  key={board.id}
-                  href={`${base(admin)}?workspace=boards&board=${board.id}`}
-                  aria-current={
-                    typeof location !== 'undefined' &&
-                    new URLSearchParams(location.search).get('board') === String(board.id)
-                      ? 'page'
-                      : undefined
-                  }
+    <>
+      <aside className="workspace-project-tree" aria-label="Projects and boards">
+        <Link href={`${base(admin)}?workspace=projects`}>Projects</Link>
+        {error && (
+          <button type="button" onClick={() => void load()}>
+            Reload projects
+          </button>
+        )}
+        {projects.map((project) => {
+          const preference = prefs.find((pref) => pref.project === project.id)
+          return (
+            <div className="workspace-project-group" key={project.id}>
+              <div className="workspace-project-row">
+                <button
+                  type="button"
+                  className="workspace-project-caret"
+                  aria-label={`${preference?.expanded === false ? 'Expand' : 'Collapse'} ${project.name}`}
+                  aria-expanded={preference?.expanded !== false}
+                  aria-controls={`workspace-project-${project.id}`}
+                  disabled={savingPreference === project.id}
+                  onClick={() => {
+                    setSavingPreference(project.id)
+                    void reviewAPI(
+                      api,
+                      `task-project-preferences${preference ? `/${preference.id}` : ''}`,
+                      preference ? 'PATCH' : 'POST',
+                      { project: project.id, expanded: preference?.expanded === false },
+                    )
+                      .then(load)
+                      .catch((e) => setError(e.message))
+                      .finally(() => setSavingPreference(null))
+                  }}
                 >
-                  {board.name}
+                  <span aria-hidden="true">{preference?.expanded === false ? '▸' : '▾'}</span>
+                </button>
+                <Link
+                  href={`${base(admin)}?workspace=projects&project=${project.id}`}
+                  aria-current={params.get('project') === String(project.id) ? 'page' : undefined}
+                >
+                  {project.name}
                 </Link>
-              ))}
-          </details>
-        )
-      })}
-    </aside>
+                <button
+                  type="button"
+                  className="workspace-project-add"
+                  aria-label={`Create project beside ${project.name}`}
+                  title="Create project"
+                  onClick={() => setCreating(true)}
+                >
+                  <span aria-hidden="true">+</span>
+                </button>
+              </div>
+              <div
+                id={`workspace-project-${project.id}`}
+                className="workspace-project-boards"
+                hidden={preference?.expanded === false}
+              >
+                {boards
+                  .filter((board) => board.project === project.id)
+                  .map((board) => (
+                    <Link
+                      key={board.id}
+                      href={`${base(admin)}?workspace=boards&board=${board.id}`}
+                      aria-current={params.get('board') === String(board.id) ? 'page' : undefined}
+                    >
+                      {board.name}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          )
+        })}
+        {!projects.length && (
+          <button type="button" className="task-primary" onClick={() => setCreating(true)}>
+            Add project
+          </button>
+        )}
+        {error && <p role="alert">{error}</p>}
+      </aside>
+      {creating && (
+        <ProjectSettings
+          api={api}
+          onClose={() => setCreating(false)}
+          onSaved={(project) => {
+            setCreating(false)
+            void load()
+            window.dispatchEvent(new Event('vorti-tasks-changed'))
+            router.push(`${base(admin)}?workspace=projects&project=${project.id}`)
+          }}
+        />
+      )}
+    </>
   )
 }
 export function WorkspaceProjects({
@@ -390,7 +437,7 @@ function ProjectSettings({
   api: string
   project?: Project
   onClose: () => void
-  onSaved: () => void
+  onSaved: (project: Project) => void
 }) {
   const [name, setName] = useState(project?.name ?? ''),
     [description, setDescription] = useState(project?.description ?? ''),
@@ -493,7 +540,7 @@ function ProjectSettings({
           disabled={busy || !name.trim()}
           onClick={() =>
             void run(async () => {
-              await reviewAPI(
+              const saved = await reviewAPI<{ doc: Project }>(
                 api,
                 `task-projects${project ? `/${project.id}` : ''}`,
                 project ? 'PATCH' : 'POST',
@@ -505,7 +552,7 @@ function ProjectSettings({
                   ...(project ? { owner: owner[0], expectedUpdatedAt: project.updatedAt } : {}),
                 },
               )
-              onSaved()
+              onSaved(saved.doc)
             })
           }
         >

@@ -21,6 +21,7 @@ import * as migration_20261018_193401_tasks_workspace from './20261018_193401_ta
 import * as migration_20261018_194411_workspace_preferences from './20261018_194411_workspace_preferences';
 import * as migration_20261018_220320_projects_workspace from './20261018_220320_projects_workspace';
 import * as migration_20261018_224500_projects_audience_revisions from './20261018_224500_projects_audience_revisions';
+import * as migration_20261019_145037_starter_workspace from './20261019_145037_starter_workspace';
 
 export const migrations = [
   {
@@ -136,6 +137,11 @@ export const migrations = [
   {
     up: migration_20261018_224500_projects_audience_revisions.up,
     down: migration_20261018_224500_projects_audience_revisions.down,
-    name: '20261018_224500_projects_audience_revisions'
+    name: '20261018_224500_projects_audience_revisions',
+  },
+  {
+    up: migration_20261019_145037_starter_workspace.up,
+    down: migration_20261019_145037_starter_workspace.down,
+    name: '20261019_145037_starter_workspace'
   },
 ];

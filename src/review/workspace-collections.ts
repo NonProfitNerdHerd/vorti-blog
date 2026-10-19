@@ -1,3 +1,4 @@
+import { initializeBoardDefaults, starterKeyField, protectStarterFields } from './workspace-starter'
 import { workspaceReq } from './workspace-access'
 import { userIdentity } from '@design-system/payload-design-core'
 import {
@@ -69,6 +70,7 @@ export const TaskBoards: CollectionConfig = {
     delete: denied,
   },
   fields: [
+    starterKeyField,
     { name: 'name', type: 'text', required: true, maxLength: 120 },
     { name: 'description', type: 'textarea', maxLength: 10000 },
     relation('project', 'task-projects', false),
@@ -119,11 +121,17 @@ export const TaskBoards: CollectionConfig = {
     beforeValidate: [
       async ({ data, originalDoc, req, operation }) => {
         if (!req.user) reject('Sign in to create a board.')
+        protectStarterFields(data, req)
         await ensureWorkspaceRevisions(workspaceDB(req))
         delete data?.membershipRevision
         if (operation === 'create') data!.owner = req.user.id
         if (operation === 'create') {
-          if (data?.project) await requireProject(req, data.project, 'edit')
+          if (data?.project)
+            await requireProject(
+              req,
+              data.project,
+              internalWorkspace(req) && data.starterKey ? 'owner' : 'edit',
+            )
           else {
             const existing = await req.payload.find({
               collection: 'task-projects',
@@ -176,52 +184,7 @@ export const TaskBoards: CollectionConfig = {
       async ({ doc, previousDoc, req, operation }) => {
         if (operation === 'create') {
           await boardAudit(req, String(doc.id), 'Board created')
-          const estimates = await req.payload.find({
-            collection: 'task-field-definitions',
-            req,
-            overrideAccess: true,
-            depth: 0,
-            limit: 1,
-            where: { systemKey: { equals: 'estimated-hours' } },
-          })
-          const estimate =
-            estimates.docs[0] ??
-            (await req.payload.create({
-              collection: 'task-field-definitions',
-              req: workspaceReq(req),
-              overrideAccess: true,
-              data: {
-                name: 'Estimated hours',
-                kind: 'number',
-                systemKey: 'estimated-hours',
-                configuration: { precision: 2 },
-              },
-            }))
-          await req.payload.create({
-            collection: 'task-board-fields',
-            req: workspaceReq(req),
-            overrideAccess: true,
-            data: { board: doc.id, field: estimate.id, position: 0 },
-          })
-          for (const [position, kind] of [
-            'overview',
-            'list',
-            'board',
-            'calendar',
-            'files',
-          ].entries())
-            await req.payload.create({
-              collection: 'task-views',
-              req: workspaceReq(req),
-              overrideAccess: true,
-              data: {
-                board: doc.id,
-                name: kind[0].toUpperCase() + kind.slice(1),
-                kind: kind as 'list',
-                position,
-                defaultView: kind === 'list',
-              },
-            })
+          await initializeBoardDefaults(req, doc.id)
         } else
           for (const field of ['name', 'visibility', 'owner', 'archived'])
             if (relationID(doc[field]) !== relationID(previousDoc?.[field]))

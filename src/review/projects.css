@@ -27,16 +27,43 @@
   text-decoration: none;
   color: var(--theme-text);
 }
-.workspace-project-tree details {
+.workspace-project-group {
   margin-top: 12px;
 }
-.workspace-project-tree summary {
-  font-weight: 600;
-  cursor: pointer;
-  padding: 8px;
+.workspace-project-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
 }
-.workspace-project-tree details > a {
-  margin: 2px 8px;
+.workspace-project-row > a {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 8px 4px;
+  font-weight: 600;
+}
+.review-global.review-workspace .workspace-project-row > button[type='button'] {
+  flex: 0 0 28px;
+  height: 32px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theme-text);
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+.review-global.review-workspace .workspace-project-row > button[type='button']:hover {
+  background: var(--theme-elevation-100);
+}
+.workspace-project-tree :is(a, button):focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: -2px;
+}
+.workspace-project-boards > a {
+  margin: 2px 8px 2px 26px;
   font-size: 0.88rem;
 }
 .workspace-project-tree a[aria-current],
@@ -139,11 +166,14 @@
 }
 .workspace-board .task-primary,
 .workspace-settings .task-primary,
-.workspace-projects .task-primary {
+.workspace-projects .task-primary,
+.review-global.review-workspace .workspace-project-tree > .task-primary {
   background: #7052db;
   color: white;
   border-color: #7052db;
   box-shadow: 0 2px 5px #00000012;
+  border-radius: 7px;
+  padding: 8px 12px;
 }
 .workspace-board .task-primary:hover,
 .workspace-settings .task-primary:hover {
@@ -678,7 +708,7 @@
     max-height: 200px;
     margin-bottom: 16px;
   }
-  .workspace-project-tree details > a {
+  .workspace-project-boards > a {
     display: inline-block;
   }
   .workspace-board-heading {

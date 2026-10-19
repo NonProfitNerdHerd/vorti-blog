@@ -5,6 +5,7 @@ import { up as boards } from '@/migrations/20261018_193401_tasks_workspace'
 import { up as preferences } from '@/migrations/20261018_194411_workspace_preferences'
 import { up, down } from '@/migrations/20261018_220320_projects_workspace'
 import { up as revisions } from '@/migrations/20261018_224500_projects_audience_revisions'
+import { up as starter, down as starterDown } from '@/migrations/20261019_145037_starter_workspace'
 
 describe('Projects additive production migration', () => {
   it('preserves historical records, board audiences, and preferred views', async () => {
@@ -26,6 +27,18 @@ describe('Projects additive production migration', () => {
         .all()
       await up({ db } as never)
       await revisions({ db } as never)
+      await starter({ db } as never)
+      expect(database.prepare('SELECT workspace_initialized FROM users WHERE id=1').get()).toEqual({
+        workspace_initialized: 0,
+      })
+      expect(
+        database
+          .prepare('SELECT count(*) AS total FROM task_projects WHERE starter_key IS NOT NULL')
+          .get(),
+      ).toEqual({ total: 0 })
+      await expect(starterDown({ db } as never)).rejects.toThrow(
+        'preserves starter initialization history',
+      )
       const revision = () =>
         (
           database

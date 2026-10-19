@@ -6,6 +6,55 @@ import { useAuth, useConfig } from '@payloadcms/ui'
 import { useSearchParams } from 'next/navigation'
 import { InboxBadge } from './WorkspaceInbox'
 import { ProjectNavigator } from './WorkspaceProjects'
+import { useEffect, useState } from 'react'
+import { reviewAPI } from './client'
+
+function StarterWorkspace({ api, admin, active }: { api: string; admin: string; active: string }) {
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    void reviewAPI(api, 'task-workspace/initialize', 'POST')
+      .then(() => {
+        if (!cancelled) setState('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setState('error')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api, attempt])
+  if (state !== 'ready')
+    return (
+      <div role={state === 'error' ? 'alert' : 'status'}>
+        {state === 'error' ? (
+          <>
+            Could not prepare your workspace.{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setState('loading')
+                setAttempt((value) => value + 1)
+              }}
+            >
+              Try again
+            </button>
+          </>
+        ) : (
+          'Preparing your workspace…'
+        )}
+      </div>
+    )
+  return (
+    <div className="workspace-shell">
+      <ProjectNavigator api={api} admin={admin} />
+      <div className="workspace-main">
+        <Tasks key={active} />
+      </div>
+    </div>
+  )
+}
 export function TaskList() {
   const { user } = useAuth()
   const {
@@ -29,7 +78,6 @@ export function TaskList() {
         {[
           { key: 'mine', label: 'My tasks', href: `${base}?taskView=assigned` },
           { key: 'all', label: 'All tasks', href: base },
-          { key: 'projects', label: 'Projects', href: `${base}?workspace=projects` },
           { key: 'boards', label: 'Boards', href: `${base}?workspace=boards` },
           { key: 'inbox', label: 'Inbox', href: `${base}?workspace=inbox` },
         ].map((tab) => (
@@ -49,7 +97,7 @@ export function TaskList() {
           Your existing account and task access stay the same.
         </p>
       )}
-      <div className="workspace-shell"><ProjectNavigator api={api} admin={admin}/><div className="workspace-main"><Tasks key={active} /></div></div>
+      {user && <StarterWorkspace key={user.id} api={api} admin={admin} active={active} />}
     </main>
   )
 }
