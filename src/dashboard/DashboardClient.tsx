@@ -11,6 +11,8 @@ import { query, reviewAPI, statuses, type Task } from '../review/client'
 import { localTaskDay, taskFiltersWhere, taskPresetFilters } from '../review/dashboard-model'
 import '../review/tasks.css'
 import './dashboard.css'
+import { BoardIcon } from '../review/BoardIcon'
+import { activeProjects, activeBoards } from './workspace-model'
 
 type Content = {
   id: number
@@ -329,6 +331,156 @@ function MyTasks({
   )
 }
 const published: Where = { _status: { equals: 'published' } }
+type WorkspaceRecord = {
+  id: number
+  name: string
+  updatedAt: string
+  ownerLabel?: string
+  project?: number
+}
+function ProjectsPanel({ api, admin, refresh }: { api: string; admin: string; refresh: number }) {
+  const load = useCallback(
+    () =>
+      reviewAPI<Page<WorkspaceRecord>>(
+        api,
+        `task-projects?${query(activeProjects, { limit: '6', sort: '-updatedAt,-id' })}`,
+      ),
+    [api],
+  )
+  const widget = useWidget(load, refresh)
+  const base = `${admin}/collections/review-tasks?workspace=projects`
+  return (
+    <section className="vp-dashboard__panel" aria-labelledby="projects-heading">
+      <div className="vp-dashboard__panel-heading">
+        <h2 id="projects-heading">Projects</h2>
+        <Link href={base}>All projects</Link>
+      </div>
+      <State {...widget} />
+      {!widget.loading && !widget.error && (
+        <>
+          {!widget.data?.docs.length && (
+            <p className="vp-dashboard__muted">No active projects to show yet.</p>
+          )}
+          <ul className="vp-dashboard__rows">
+            {widget.data?.docs.map((project) => (
+              <li key={project.id}>
+                <div>
+                  <Link className="vp-dashboard__title" href={`${base}&project=${project.id}`}>
+                    {project.name}
+                  </Link>
+                  <small>
+                    {project.ownerLabel ? `Owner: ${project.ownerLabel} · ` : ''}
+                    <time dateTime={project.updatedAt}>
+                      {new Date(project.updatedAt).toLocaleString()}
+                    </time>
+                  </small>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+function BoardsPanel({
+  api,
+  admin,
+  refresh,
+  userID,
+}: {
+  api: string
+  admin: string
+  refresh: number
+  userID: string
+}) {
+  const [tab, setTab] = useState('recent')
+  const load = useCallback(async () => {
+    const result = await reviewAPI<Page<WorkspaceRecord>>(
+      api,
+      `task-boards?${query(tab === 'favorites' ? { and: [activeBoards, { 'preferences.favoriteUser': { equals: userID } }] } : activeBoards, { limit: '6', sort: '-updatedAt,-id' })}`,
+    )
+    const ids = [
+      ...new Set(
+        result.docs
+          .map((board) => board.project)
+          .filter((id): id is number => typeof id === 'number'),
+      ),
+    ]
+    const parents = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return await reviewAPI<WorkspaceRecord>(api, `task-projects/${id}?depth=0`)
+        } catch (error) {
+          if ([403, 404].includes((error as { status?: number }).status ?? 0)) return null
+          throw error
+        }
+      }),
+    )
+    return {
+      docs: result.docs,
+      projects: new Map(
+        parents
+          .filter((project): project is WorkspaceRecord => !!project)
+          .map((project) => [project.id, project.name]),
+      ),
+    }
+  }, [api, tab, userID])
+  const widget = useWidget(load, refresh)
+  const base = `${admin}/collections/review-tasks?workspace=boards`
+  return (
+    <section className="vp-dashboard__panel" aria-labelledby="boards-heading">
+      <div className="vp-dashboard__panel-heading">
+        <h2 id="boards-heading">Boards</h2>
+        <div className="vp-dashboard__tabs" aria-label="Board lists">
+          {['recent', 'favorites'].map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={tab === value}
+              onClick={() => setTab(value)}
+            >
+              {value === 'recent' ? 'Recent' : 'Favorites'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <State {...widget} />
+      {!widget.loading && !widget.error && (
+        <>
+          {!widget.data?.docs.length && (
+            <p className="vp-dashboard__muted">
+              {tab === 'favorites'
+                ? 'No favorite boards yet. Favorite a board in Tasks to see it here.'
+                : 'No active boards to show yet.'}
+            </p>
+          )}
+          <ul className="vp-dashboard__rows">
+            {widget.data?.docs.map((board) => (
+              <li key={board.id}>
+                <BoardIcon api={api} board={board.id} name={board.name} />
+                <div className="vp-dashboard__board-details">
+                  <Link className="vp-dashboard__title" href={`${base}&board=${board.id}`}>
+                    {board.name}
+                  </Link>
+                  <small>
+                    {board.project && widget.data.projects.get(board.project)
+                      ? `${widget.data.projects.get(board.project)} · `
+                      : ''}
+                    <time dateTime={board.updatedAt}>
+                      {new Date(board.updatedAt).toLocaleString()}
+                    </time>
+                  </small>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <Link href={base}>All boards</Link>
+        </>
+      )}
+    </section>
+  )
+}
 export function DashboardClient({ collections }: { collections: string[] }) {
   const {
     config: {
@@ -336,6 +488,8 @@ export function DashboardClient({ collections }: { collections: string[] }) {
     },
   } = useConfig()
   const { user, permissions } = useAuth()
+  const canProjects = !!user && !!permissions?.collections?.['task-projects']?.read
+  const canBoards = !!user && !!permissions?.collections?.['task-boards']?.read
   const [refresh, setRefresh] = useState(0)
   const refreshAll = useCallback(async () => {
     setRefresh((value) => value + 1)
@@ -346,9 +500,13 @@ export function DashboardClient({ collections }: { collections: string[] }) {
     }
     window.addEventListener('focus', focus)
     document.addEventListener('visibilitychange', focus)
+    window.addEventListener('vorti-tasks-changed', focus)
+    window.addEventListener('vorti-board-colors-changed', focus)
     return () => {
       window.removeEventListener('focus', focus)
       document.removeEventListener('visibilitychange', focus)
+      window.removeEventListener('vorti-tasks-changed', focus)
+      window.removeEventListener('vorti-board-colors-changed', focus)
     }
   }, [refreshAll])
   const userID = String(user?.id ?? '')
@@ -414,7 +572,35 @@ export function DashboardClient({ collections }: { collections: string[] }) {
             icon="☑"
           />
         )}
+        {canProjects && (
+          <SummaryTile
+            api={api}
+            collection="task-projects"
+            label="Active projects"
+            where={activeProjects}
+            href={`${admin}/collections/review-tasks?workspace=projects`}
+            refresh={refresh}
+            icon="▱"
+          />
+        )}
+        {canBoards && (
+          <SummaryTile
+            api={api}
+            collection="task-boards"
+            label="Active boards"
+            where={activeBoards}
+            href={`${admin}/collections/review-tasks?workspace=boards`}
+            refresh={refresh}
+            icon="▤"
+          />
+        )}
       </div>
+      {(canProjects || canBoards) && (
+        <div className="vp-dashboard__columns vp-dashboard__workspace">
+          {canProjects && <ProjectsPanel api={api} admin={admin} refresh={refresh} />}
+          {canBoards && <BoardsPanel api={api} admin={admin} refresh={refresh} userID={userID} />}
+        </div>
+      )}
       <div className="vp-dashboard__columns">
         <RecentContent api={api} admin={admin} collections={collections} refresh={refresh} />
         {collections.includes('review-tasks') && (

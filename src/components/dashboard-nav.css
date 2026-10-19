@@ -21,3 +21,41 @@
   outline-offset: 4px;
   border-radius: 3px;
 }
+
+/* One spacing system for native groups and the Tasks parent/link group. */
+.nav .nav-group {
+  margin-bottom: 12px;
+}
+.nav .nav-group__toggle,
+.nav .vorti-nav-parent-link,
+.nav .vorti-dashboard-link {
+  box-sizing: border-box;
+  padding: 8px;
+  margin: 0;
+  min-height: 36px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  align-items: center;
+  border-radius: 5px;
+}
+.nav .vorti-dashboard-link {
+  margin-bottom: 12px;
+}
+.nav .task-nav-children {
+  display: block;
+  padding: 0;
+}
+.nav .nav-group__content .nav__link,
+.nav .task-nav-children .nav__link {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 6px 14px;
+  min-height: 32px;
+  margin: 0;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  border-radius: 5px;
+}

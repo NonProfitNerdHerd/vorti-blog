@@ -6,7 +6,7 @@ import type { Navigation, SiteSetting } from '@/payload-types'
 
 export const fallbackPublicSiteData = {
   navigation: { id: 0, primary: [], footer: [] } as Navigation,
-  siteSettings: { id: 0, siteName: 'Vorti Blog' } as SiteSetting,
+  siteSettings: { id: 0, siteName: 'VortiCause' } as SiteSetting,
 }
 
 export const getPublicSiteData = cache(async () => {

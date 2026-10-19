@@ -80,7 +80,7 @@
 }
 .vp-dashboard__summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -90,6 +90,22 @@
   border: 1px solid var(--theme-elevation-150);
   border-radius: 14px;
   min-width: 0;
+}
+.vp-dashboard__workspace {
+  margin-bottom: 20px;
+}
+.vp-dashboard__board-details {
+  flex: 1;
+  min-width: 0;
+}
+.vp-dashboard .workspace-board-icon {
+  padding: 5px;
+  color: #fff;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  flex-shrink: 0;
 }
 .vp-dashboard__tile {
   padding: 18px;

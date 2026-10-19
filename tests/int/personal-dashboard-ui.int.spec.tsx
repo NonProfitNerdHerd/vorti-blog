@@ -8,7 +8,12 @@ const { select, auth } = vi.hoisted(() => ({
   select: vi.fn(),
   auth: {
     user: { id: 7, displayName: 'Alex Smith' },
-    permissions: { collections: { posts: { create: true }, pages: { create: false } } },
+    permissions: {
+      collections: { posts: { create: true }, pages: { create: false } } as Record<
+        string,
+        { create?: boolean; read?: boolean }
+      >,
+    },
   },
 }))
 vi.mock('@payloadcms/ui', () => ({
@@ -19,6 +24,9 @@ vi.mock('@/review/Tasks', () => ({
   Tasks: ({ renderList }: { renderList: (props: object) => unknown }) =>
     renderList({ onSelect: select, refreshKey: 0 }),
 }))
+vi.mock('@/review/BoardIcon', () => ({
+  BoardIcon: ({ name }: { name: string }) => <span aria-label={`Board icon for ${name}`} />,
+}))
 vi.mock('@/review/client', async () => ({
   ...(await vi.importActual<typeof import('@/review/client')>('@/review/client')),
   reviewAPI: vi.fn(),
@@ -26,6 +34,8 @@ vi.mock('@/review/client', async () => ({
 const network = vi.mocked(reviewAPI)
 const collections = ['posts', 'pages', 'review-tasks']
 beforeEach(() => {
+  delete auth.permissions.collections['task-projects']
+  delete auth.permissions.collections['task-boards']
   select.mockReset()
   network.mockReset()
   network.mockImplementation(async (_api, url) => {
@@ -60,6 +70,80 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 describe('Personal Dashboard widgets', () => {
+  it('shows hidden workspace collections through read permissions, full counts, favorites, and protected project labels', async () => {
+    auth.permissions.collections['task-projects'] = { read: true }
+    auth.permissions.collections['task-boards'] = { read: true }
+    network.mockImplementation(async (_api, url) => {
+      if (url.startsWith('task-projects/count')) return { totalDocs: 37 } as never
+      if (url.startsWith('task-boards/count')) return { totalDocs: 52 } as never
+      if (url.startsWith('task-projects/99'))
+        throw Object.assign(new Error('Forbidden'), { status: 403 })
+      if (url.startsWith('task-projects?'))
+        return {
+          docs: [{ id: 1, name: 'Work', ownerLabel: 'Alex', updatedAt: '2026-10-19T10:00:00Z' }],
+        } as never
+      if (url.startsWith('task-boards?'))
+        return {
+          docs: [
+            {
+              id: 2,
+              name: url.includes('favoriteUser') ? 'Favorite board' : 'Recent board',
+              project: 99,
+              updatedAt: '2026-10-19T10:00:00Z',
+            },
+          ],
+        } as never
+      return url.includes('/count?') ? ({ totalDocs: 0 } as never) : ({ docs: [] } as never)
+    })
+    render(<DashboardClient collections={[]} />)
+    expect((await screen.findByRole('link', { name: /Active projects/ })).textContent).toContain(
+      '37',
+    )
+    expect((await screen.findByRole('link', { name: /Active boards/ })).textContent).toContain('52')
+    expect(
+      (await screen.findByRole('link', { name: 'Recent board' })).getAttribute('href'),
+    ).toContain('workspace=boards&board=2')
+    expect(screen.getByRole('link', { name: 'Work' }).getAttribute('href')).toContain(
+      'workspace=projects&project=1',
+    )
+    expect(screen.queryByText('Forbidden')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }))
+    await screen.findByRole('link', { name: 'Favorite board' })
+    const list = network.mock.calls.find(
+      ([, url]) => url.startsWith('task-boards?') && url.includes('favoriteUser'),
+    )!
+    const params = new URLSearchParams(list[1].split('?')[1])
+    expect(params.get('limit')).toBe('6')
+    expect(params.get('sort')).toBe('-updatedAt,-id')
+    expect(params.get('where')).toContain('project.archived')
+    expect(params.get('where')).toContain('"equals":"7"')
+  })
+  it('keeps project failures independent and removes stale board names after revoked access', async () => {
+    auth.permissions.collections['task-projects'] = { read: true }
+    auth.permissions.collections['task-boards'] = { read: true }
+    let revoked = false
+    network.mockImplementation(async (_api, url) => {
+      if (url.startsWith('task-projects?')) throw new Error('Provider failure')
+      if (url.startsWith('task-boards?')) {
+        if (revoked) throw Object.assign(new Error('Forbidden'), { status: 403 })
+        return {
+          docs: [{ id: 2, name: 'Private work', updatedAt: '2026-10-19T10:00:00Z' }],
+        } as never
+      }
+      return url.includes('/count?') ? ({ totalDocs: 0 } as never) : ({ docs: [] } as never)
+    })
+    render(<DashboardClient collections={[]} />)
+    await screen.findByRole('link', { name: 'Private work' })
+    expect(within(screen.getByRole('region', { name: 'Projects' })).getByRole('alert')).toBeTruthy()
+    revoked = true
+    fireEvent.focus(window)
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Private work' })).toBeNull())
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Boards' })).getByRole('alert'),
+      ).toBeTruthy(),
+    )
+  })
   it('uses full native counts, mixed draft ordering and permission-aware create links', async () => {
     render(<DashboardClient collections={collections} />)
     await screen.findByRole('link', { name: 'Newer page' })

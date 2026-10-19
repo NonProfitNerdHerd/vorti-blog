@@ -77,6 +77,8 @@ import { SettingsHubLink as SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f } f
 import { SystemSettingsTable as SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68 } from '../../../components/SystemSettingsTable'
 import { SettingsHub as SettingsHub_cd94f594cada3901a15a9f15dbaa2349 } from '../../../components/SettingsHub'
 import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from '../../../components/SiteDesignNav'
+import { VortiCauseIcon as VortiCauseIcon_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
+import { VortiCauseLogo as VortiCauseLogo_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
 import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../../../components/AdminPolicy'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
@@ -164,6 +166,8 @@ export const importMap = {
   "./components/SystemSettingsTable#SystemSettingsTable": SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68,
   "./components/SettingsHub#SettingsHub": SettingsHub_cd94f594cada3901a15a9f15dbaa2349,
   "./components/SiteDesignNav#SiteDesignNav": SiteDesignNav_146389be3746eb1a45b524567d6e0718,
+  "./components/VortiCauseBrand#VortiCauseIcon": VortiCauseIcon_1d8591b2262f4b853f28e425d5019b65,
+  "./components/VortiCauseBrand#VortiCauseLogo": VortiCauseLogo_1d8591b2262f4b853f28e425d5019b65,
   "./components/AdminPolicy#AdminPolicy": AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,

@@ -92,7 +92,9 @@ const cloudflare =
 export default buildConfig({
   admin: {
     user: Users.slug,
+    meta: { titleSuffix: ' | VortiCause', icons: { icon: '/vorticause-icon.svg', shortcut: '/vorticause-icon.svg' }, applicationName: 'VortiCause', description: 'VortiCause content and collaboration workspace.', openGraph: { siteName: 'VortiCause', title: 'VortiCause', description: 'Content. Collaboration. Community.', images: [{ url: '/vorticause-social.svg', width: 1200, height: 630, alt: 'VortiCause' }] } },
     components: {
+      graphics: { Icon: './components/VortiCauseBrand#VortiCauseIcon', Logo: './components/VortiCauseBrand#VortiCauseLogo' },
       Nav: './components/SiteDesignNav#SiteDesignNav',
       providers: ['./components/AdminPolicy#AdminPolicy'],
       views: { dashboard: { Component: './dashboard/Dashboard#Dashboard' } },

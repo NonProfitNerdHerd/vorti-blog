@@ -1,167 +1,99 @@
-# Payload Cloudflare Template
+# VortiCause
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/payloadcms/payload/tree/3.x/templates/with-cloudflare-d1)
+**An open-source, headless content management and collaboration platform with a WordPress-like authoring experience.**
 
-**This can only be deployed on Paid Workers right now due to size limits.** This template comes configured with the bare minimum to get started on anything you need.
+VortiCause brings publishing and the work behind it into one platform. Authors get a visual editor, familiar content management, and reusable templates. Developers get structured content and APIs for headless delivery. Organizations get projects, boards, tasks, forms, and event calendars alongside their website.
 
-## Quick start
+## Available today
 
-This template can be deployed directly to Cloudflare Workers by clicking the button to take you to the setup screen.
+- Posts, pages, reusable content types, visual block editing, templates, responsive design, drafts, previews, and publishing controls.
+- Site identity, reading, privacy, typography, categories, and role-based tag settings.
+- Projects and boards with List, Kanban, Calendar, Timeline, and additional workspace views; shared tasks, subtasks, comments, mentions, and an in-app Inbox.
+- Private/team-wide collaboration, inherited project permissions, private-board exceptions, protected attachments, time tracking, and audited time corrections.
+- Event content with timezone-aware schedules, recurrence, and calendar/listing presentations. Events remain part of the existing content-type system.
+- Forms, submissions, embedding, and workflow/automation foundations.
+- A personalized Dashboard with publishing summaries, personal tasks, accessible projects, and recent/favorite boards.
 
-From there you can connect your code to a git provider such Github or Gitlab, name your Workers, D1 Database and R2 Bucket as well as attach any additional environment variables or services you need.
+Capabilities depend on configuration and permissions. See the application and tests for the behavior supported by each module.
 
-## Quick Start - local setup
+## Where we are going
 
-To spin up this template locally, follow these steps:
+VortiCause is growing into an integrated platform for public websites and organizational work. Planned areas include donor CRM and fundraising workflows inspired by tools such as CiviCRM and Kindful, broader automation packages, and intranet/extranet experiences. These are roadmap goals, not claims that complete CRM or portal products ship today.
 
-### Clone
+Open source and easy hosting are central goals. The current deployment targets Cloudflare; simpler installation, clearer operational tooling, and more hosting options are ongoing work.
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. Cloudflare will connect your app to a git provider such as Github and you can access your code from there.
+## Development setup
 
-### Local Development
+Clone [this repository](https://github.com/NonProfitNerdHerd/vorti-blog), install a supported Node.js version from `package.json` (Node 22 is used for release verification), and enable Corepack:
 
-## How it works
-
-Out of the box, using [`Wrangler`](https://developers.cloudflare.com/workers/wrangler/) will automatically create local bindings for you to connect to the remote services and it can even create a local mock of the services you're using with Cloudflare.
-
-We've pre-configured Payload for you with the following:
-
-### Collections
-
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
-
-- #### Users (Authentication)
-
-  Users are auth-enabled collections that have access to the admin panel.
-
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
-
-- #### Media
-
-  This is the uploads enabled collection.
-
-### Image Storage (R2)
-
-Images will be served from an R2 bucket which you can then further configure to use a CDN to serve for your frontend directly.
-
-### D1 Database
-
-The Worker will have direct access to a D1 SQLite database which Wrangler can connect locally to, just note that you won't have a connection string as you would typically with other providers.
-
-You can enable read replicas by adding `readReplicas: 'first-primary'` in the DB adapter and then enabling it on your D1 Cloudflare dashboard. Read more about this feature on [our docs](https://payloadcms.com/docs/database/sqlite#d1-read-replicas).
-
-## Working with Cloudflare
-
-Firstly, after installing dependencies locally you need to authenticate with Wrangler by running:
-
-```bash
-pnpm wrangler login
+```sh
+corepack enable
+pnpm install
 ```
 
-This will take you to Cloudflare to login and then you can use the Wrangler CLI locally for anything, use `pnpm wrangler help` to see all available options.
+Copy `.env.example` to a local `.env` and configure a strong `PAYLOAD_SECRET`. Keep secrets out of source control. Set `NEXT_PUBLIC_SITE_URL` to your site's public origin. Set `CONTENT_WORKSPACE_ENABLED=true` to enable the visual post/page editor.
 
-Wrangler is pretty smart so it will automatically bind your services for local development just by running `pnpm dev`.
+Build the shared design package when working from source:
 
-## Deployments
-
-### Content workspace preview
-
-The Gutenberg-style workspace is opt-in. Set `CONTENT_WORKSPACE_ENABLED=true`
-in the preview build and Worker environment to enable it for Posts and Pages.
-Leave it unset for the existing document form. The new `contentLayout` field is
-always registered so disabling the interface never removes stored layouts.
-
-The workspace uses Payload's existing document form and controls. Freeform
-documents support nested blocks and responsive styling. Selecting a template
-locks structure and presentation; only its declared fields are editable. The
-gear tab contains document settings and plugin-provided metadata. Template
-authors use the shared builder with a gear tab for template properties and fields.
-
-All block editors share the left sidebar: List View is the default, Outline
-shows headings and word/reading-time counts, and the + control opens a searchable
-block grid. Canvas inserters use the same grid with an explicit insertion point.
-Header/Footer content is edited through the Site Template tabs only. The
-`SidebarAdapter` and sidebar components exported from the design package's
-`/admin` entry point let future collections (including Events) reuse this UI
-without changing their stored content format. Navigation-only rich-text rows
-select their owning block; they are not independently movable blocks.
-
-Run `pnpm test:editor` for the isolated browser acceptance suite. It seeds only
-`.wrangler/content-workspace-test`, uses the local bindings in
-`wrangler.test.jsonc`, and starts the app on port 3100. Set
-`PLAYWRIGHT_CHANNEL=msedge` to use an installed Edge browser, or install the
-Playwright Chromium browser. `EDITOR_TEST_REUSE=true` can reuse an already
-running **local editor test server** with these same settings.
-
-Before enabling the workspace on a remote environment, apply the additive
-`20261002_200000_content_workspace` migration (including the draft/version
-tables), build the design package, generate Payload's import map and types,
-and deploy the app with the flag enabled. Run the editor acceptance suite and
-the design-package regression suite before promoting the build. Application
-rollback should disable the flag and retain the added columns; the migration's
-`down` operation deletes block content and is not a routine rollback step.
-
-The shared renderer continues to render saved freeform layouts even when the
-workspace UI is disabled. Existing rich text is preserved as one editable
-block until the new layout is saved. Changing templates preserves inactive
-content; template design overrides are rejected while the workspace is enabled.
-No Payload or Next.js dependency files are patched. Run these compatibility
-tests when upgrading either dependency.
-
-When you're ready to deploy, first make sure you have created your migrations:
-
-```bash
-pnpm payload migrate:create
+```sh
+pnpm --filter @design-system/payload-design-core build
 ```
 
-Then run the following command:
+The checked-in `wrangler.jsonc` identifies the existing production resources. For local work, use isolated bindings and persistence rather than these remote resources. The test configurations and seed helpers provide isolated examples:
 
-```bash
-pnpm run deploy
+```sh
+pnpm exec playwright test --config playwright.workspace.config.ts
+pnpm test:editor
 ```
 
-This will spin up Wrangler in `production` mode, run any created migrations, build the app and then deploy the bundle up to Cloudflare.
+The workspace browser suite seeds its own local database. The editor suite uses `wrangler.test.jsonc`. Set `PLAYWRIGHT_CHANNEL=msedge` if you use Edge instead of Chrome. To run development against a prepared isolated database, set `DESIGN_CORE_TEST_PERSIST_PATH` to that database's persistence directory before `pnpm dev`; this disables automatic schema pushing for that prepared database.
 
-That's it! You can if you wish move these steps into your CI pipeline as well.
+New installations should create their initial administrator, apply the tracked migrations with that account identified by `DESIGN_ADMIN_EMAIL`, and configure their own identity in Admin → Settings. The guarded content-framework setup script can initialize the default content types; demonstration content is optional. See `scripts/setup-content-framework.ts` for its required configuration.
 
-## Enabling logs
+## Architecture and licensing
 
-By default logs are not enabled for your API, we've made this decision because it does run against your quota so we've left it opt-in. But you can easily enable logs in one click in the Cloudflare panel, [see docs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs).
+The application uses Next.js, React, a shared design package, and Payload's underlying content/authentication APIs. VortiCause owns its product experience and application modules. Dependency package names, framework configuration keys, and generated technical identifiers retain their compatibility names; they are not customer-facing product branding.
 
-### Logger Configuration
+The root package declares the MIT license. Third-party dependencies retain their own licenses and notices, including notices bundled with the Forms runtime.
 
-This template includes a custom console-based logger compatible with Cloudflare Workers. Payload's default logger uses `pino-pretty`, which relies on Node.js APIs not available in Workers and would cause `fs.write is not implemented` errors.
+Customer site titles, logos, and icons are separate from VortiCause's admin identity. Product branding changes do not overwrite those saved settings.
 
-The custom logger in `payload.config.ts`:
+## Testing and builds
 
-- Routes logs through `console.*` methods which Workers handles correctly
-- Outputs JSON-formatted logs for Cloudflare observability
-- Only active in production (development uses the default `pino-pretty` for better DX)
+```sh
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm test:int
+pnpm exec playwright test --config playwright.workspace.config.ts
+pnpm test:editor
+pnpm build
+```
 
-You can control the log level via the `PAYLOAD_LOG_LEVEL` environment variable (e.g., `debug`, `info`, `warn`, `error`).
+Database integration suites need isolated persistence. Use a separate local database per schema-pushing process. Generate types and component imports after changing schemas or registered admin components:
 
-### Diagnostic Channel Errors
+```sh
+pnpm generate:types
+pnpm generate:importmap
+```
 
-If you see "Failed to publish diagnostic channel message" errors in your observability logs, these typically come from the `undici` HTTP client library. The template includes `skipSafeFetch: true` in the Media collection to use native fetch instead of undici for file uploads, which helps reduce these errors.
+## Cloudflare hosting and releases
 
-Cloudflare Workers runs in an [isolated environment that cannot access private IP ranges](https://developers.cloudflare.com/workers-vpc/examples/route-across-private-services/) by default, providing built-in SSRF protection. This makes `skipSafeFetch` safe to use.
+The supported production target uses a Paid Workers plan for the current bundle, D1 for data, and two R2 buckets: `R2` for public media and `WORKSPACE_FILES` for protected workspace uploads. Private workspace files must remain outside public bucket routes. Check [Cloudflare's current limits](https://developers.cloudflare.com/workers/platform/limits/) when choosing a plan.
 
-## Known issues
+Configure bindings and resource identifiers for your own deployment; do not deploy a clone against this repository's production IDs. Configure `PAYLOAD_SECRET` as a Worker secret, preserve the `forms-worker.ts` entry point, and retain the scheduled trigger required by Forms processing. The OpenNext build supplies `.open-next/assets`.
 
-### Image resizing
+For a production release:
 
-Workers do not support `sharp`, so image resizing features are not available. The Media collection has `crop` and `focalPoint` disabled for this reason, and options like `imageSizes` will not work.
+1. Run appropriate tests, lint, typechecks, affected package builds, and the production build/dry-run. Commit and push the reviewed source.
+2. Record the active Worker version and a [D1 Time Travel recovery bookmark](https://developers.cloudflare.com/d1/reference/time-travel/).
+3. Review and apply pending tracked migrations. Production migration commands require `DESIGN_PRODUCTION_MIGRATE=YES` and `DESIGN_ADMIN_EMAIL`; releases without schema changes do not need a migration.
+4. Deploy with `DESIGN_PRODUCTION_DEPLOY=YES pnpm deploy:app`. To deploy an already tested OpenNext artifact, use `DESIGN_PRODUCTION_DEPLOY=YES pnpm exec opennextjs-cloudflare deploy` after the repository's deployment-intent check.
+5. Verify the live build ID, public/admin routes, asset delivery, and role-specific behavior. Remove temporary verification records and confirm historical data is intact.
 
-### GraphQL
+Cloudflare resource names and deployed URLs can differ from the VortiCause product name. Renaming the product does not rename existing Workers, databases, buckets, or authentication cookies.
 
-We are currently waiting on some issues with GraphQL to be [fixed upstream in Workers](https://github.com/cloudflare/workerd/issues/5175) so full support for GraphQL is not currently guaranteed when deployed.
+Production logging uses the application's JSON console logger. `PAYLOAD_LOG_LEVEL` controls verbosity. Worker observability and any mail/analytics provider connections require their own configuration.
 
-### Worker size limits
+## Contributing
 
-We currently recommend deploying this template to the Paid Workers plan due to bundle [size limits](https://developers.cloudflare.com/workers/platform/limits/#worker-size) of 3mb. We're actively trying to reduce our bundle footprint over time to better meet this metric.
-
-This also applies to your own code, in the case of importing a lot of libraries you may find yourself limited by the bundle.
-
-## Questions
-
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+Use repository issues and pull requests for defects and proposals. Keep feature documentation honest about implemented behavior, preserve user data and access boundaries, and add meaningful verification for behavioral changes. Easier setup and hosting are welcome areas for contributions.

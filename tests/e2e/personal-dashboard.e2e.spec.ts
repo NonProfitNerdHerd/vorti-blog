@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { localTaskDay, nextTaskDay } from '../../src/review/dashboard-model'
+test.use({ actionTimeout: 20000 })
 
 async function create(request: APIRequestContext, collection: string, data: object) {
   const response = await request.post(`/api/${collection}`, { data })
@@ -93,7 +94,7 @@ test('navigation order, administrator links, responsive Dashboard and keyboard f
   const nav = page.locator('.nav__wrap')
   const labels = await nav
     .locator(
-      ':scope > .vorti-dashboard-link, :scope > .vorti-nav-parent-link, :scope > .nav-group > button',
+      ':scope > .vorti-dashboard-link, :scope > .vorticause-task-nav > .vorti-nav-parent-link, :scope > .nav-group > button',
     )
     .allTextContents()
   expect(labels.map((label) => label.trim()).slice(0, 4)).toEqual([

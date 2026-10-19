@@ -72,7 +72,7 @@ export async function getSiteSettings(): Promise<SiteSetting> {
 }
 
 export function contentMetadata(doc: Page | Post, site: SiteSetting): Metadata {
-  const title = doc.meta?.title || `${doc.title} | ${site.siteName || 'Vorti Blog'}`
+  const title = doc.meta?.title || `${doc.title} | ${site.siteName || 'VortiCause'}`
   const description = doc.meta?.description || ('excerpt' in doc ? doc.excerpt : null) || site.defaultSeoDescription || site.siteDescription || undefined
   const image = mediaURL(doc.meta?.image) || mediaURL(site.defaultSocialImage)
   return { title, description, openGraph: { title, description, images: image ? [{ url: image }] : undefined } }

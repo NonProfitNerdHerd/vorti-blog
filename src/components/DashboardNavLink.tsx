@@ -59,7 +59,7 @@ export function PolicyNav({
       <DashboardNavLink admin={admin} />
       <DefaultNavClient {...props} groups={primary} />
       {tasks && (
-        <div>
+        <div className="vorticause-task-nav nav-group">
           <Link
             className="vorti-nav-parent-link"
             id="nav-review-tasks"
@@ -71,11 +71,19 @@ export function PolicyNav({
             Tasks
           </Link>
           <nav className="task-nav-children" aria-label="Tasks navigation">
-            <Link href={`${taskURL}?taskView=assigned`}>My tasks</Link>
-            <Link href={taskURL}>All tasks</Link>
-            <Link href={`${taskURL}?workspace=projects`}>Projects</Link>
-            <Link href={`${taskURL}?workspace=boards`}>Boards</Link>
-            <Link href={`${taskURL}?workspace=inbox`}>
+            <Link className="nav__link" href={`${taskURL}?taskView=assigned`}>
+              My tasks
+            </Link>
+            <Link className="nav__link" href={taskURL}>
+              All tasks
+            </Link>
+            <Link className="nav__link" href={`${taskURL}?workspace=projects`}>
+              Projects
+            </Link>
+            <Link className="nav__link" href={`${taskURL}?workspace=boards`}>
+              Boards
+            </Link>
+            <Link className="nav__link" href={`${taskURL}?workspace=inbox`}>
               Inbox <InboxBadge api={api} />
             </Link>
           </nav>

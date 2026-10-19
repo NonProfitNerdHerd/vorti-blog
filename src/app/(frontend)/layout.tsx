@@ -13,10 +13,10 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata(): Promise<Metadata> {
   const { siteSettings } = await getPublicSiteDataSafe()
   return {
-    icons: mediaURL(siteSettings.favicon) ? { icon: mediaURL(siteSettings.favicon)! } : undefined,
+    icons: { icon: mediaURL(siteSettings.favicon) || '/vorticause-icon.svg' },
     robots: siteSettings.discourageSearchIndexing ? { index: false, follow: false } : undefined,
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://vorti-blog.ike-j-rebout.workers.dev'),
-    title: siteSettings.defaultSeoTitle || siteSettings.siteName || 'Vorti Blog',
+    title: siteSettings.defaultSeoTitle || siteSettings.siteName || 'VortiCause',
     description: siteSettings.defaultSeoDescription || siteSettings.siteDescription || undefined,
   }
 }

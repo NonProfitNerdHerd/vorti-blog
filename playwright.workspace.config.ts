@@ -17,6 +17,8 @@ export default defineConfig({
     'board-refinement.e2e.spec.ts',
     'board-overview.e2e.spec.ts',
     'compact-columns.e2e.spec.ts',
+    'vorticause.e2e.spec.ts',
+    'personal-dashboard.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 300000,

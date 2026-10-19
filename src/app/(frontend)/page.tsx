@@ -18,7 +18,7 @@ export default async function HomePage() {
   return (
     <div className="container">
       <section className="intro">
-        <h1>{site.siteName || 'Vorti Blog'}</h1>
+        <h1>{site.siteName || 'VortiCause'}</h1>
         {site.siteTagline && <p>{site.siteTagline}</p>}
         {site.siteDescription && <p>{site.siteDescription}</p>}
         <Link className="button" href={postsPath(site)}>Explore all posts</Link>
