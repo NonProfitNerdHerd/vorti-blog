@@ -2,13 +2,7 @@ import type { Endpoint, PayloadRequest, Where } from 'payload'
 import { constantEqual } from '../forms/security'
 import { taskSearchTerms } from './client'
 import { relationID } from './documents'
-import {
-  boardRole,
-  reject,
-  requireBoard,
-  requireTask,
-  taskWhere,
-} from './workspace-access'
+import { boardRole, reject, requireBoard, requireTask, taskWhere } from './workspace-access'
 
 const limit = 25 * 1024 * 1024
 const allowed: Record<string, string> = {
@@ -49,7 +43,10 @@ export async function fileList(
   scope: { task?: number; board?: number; comment?: number },
   page = 1,
   search = '',
+  attachment?: number,
 ) {
+  if (attachment !== undefined && (!Number.isSafeInteger(attachment) || attachment < 1))
+    reject('Choose a valid attachment.', 400)
   if (scope.task) await requireTask(req, scope.task)
   else await requireBoard(req, scope.board)
   if (scope.comment) {
@@ -90,6 +87,7 @@ export async function fileList(
         { state: { equals: 'ready' } },
         { or: [{ comment: { exists: false } }, { 'comment.moderated': { not_equals: true } }] },
         ...(scope.comment ? [{ comment: { equals: scope.comment } }] : []),
+        ...(attachment ? [{ id: { equals: attachment } }] : []),
         ...taskSearchTerms(search).map((term) => ({ filename: { contains: term } })),
       ],
     },
@@ -144,6 +142,7 @@ export function workspaceFileEndpoints(storage: R2Bucket): Endpoint[] {
             },
             Math.max(1, Number(params.get('page') ?? 1)),
             params.get('search') ?? '',
+            params.has('attachment') ? Number(params.get('attachment')) : undefined,
           ),
         )
       },

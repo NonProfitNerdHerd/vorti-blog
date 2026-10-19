@@ -1120,3 +1120,280 @@
   width: 160px;
   max-width: 160px;
 }
+.review-global.review-workspace .workspace-about-heading {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin: 8px 0 12px;
+}
+.review-global.review-workspace .workspace-about-heading h3 {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 20px;
+}
+.workspace-board-progress {
+  flex: 1;
+  min-width: 0;
+}
+.workspace-board-progress > span {
+  font-size: 12px;
+  color: var(--theme-elevation-600);
+}
+.workspace-progress-track {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--theme-elevation-150);
+  margin: 5px 0;
+}
+.workspace-progress-track > span {
+  height: 100%;
+}
+.workspace-progress-done {
+  background: #16874b;
+}
+.workspace-progress-overdue {
+  background: #dc3545;
+}
+.workspace-progress-upcoming {
+  background: #e3b52e;
+}
+.workspace-progress-remaining {
+  background: var(--theme-elevation-300);
+}
+.workspace-progress-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 11px;
+}
+.workspace-progress-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.workspace-progress-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.review-global.review-workspace button.workspace-description-display[type='button'],
+.review-global.review-workspace .workspace-description-display {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 0;
+  margin: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: inherit;
+  font-size: 14px;
+}
+.review-global.review-workspace button.workspace-description-display[type='button']:hover {
+  background: var(--theme-elevation-50);
+  border-color: var(--theme-elevation-150);
+}
+.workspace-inline-description textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+}
+.workspace-inline-description > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.workspace-inline-description label {
+  font-size: 12px;
+}
+.review-global.review-workspace .workspace-board-dates {
+  font-size: 12px;
+  color: var(--theme-elevation-600);
+  margin: 7px 0 15px;
+}
+.review-global.review-workspace .workspace-description-notice {
+  color: #16874b;
+  font-size: 12px;
+}
+.review-global.review-workspace .workspace-overview {
+  padding-top: 0;
+}
+.workspace-board-activity {
+  margin-top: 20px;
+}
+.workspace-board-activity > header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.workspace-board-activity h3 {
+  margin: 0;
+}
+.workspace-activity-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12px;
+}
+.review-global.review-workspace .workspace-activity-pagination label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.review-global.review-workspace .workspace-activity-pagination select {
+  width: 75px;
+  min-width: 75px;
+  margin: 0;
+}
+.workspace-board-activity table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.workspace-board-activity th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--theme-elevation-600);
+}
+.workspace-board-activity td,
+.workspace-board-activity th {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+}
+.workspace-board-activity td:last-child {
+  white-space: nowrap;
+  font-size: 12px;
+}
+.review-global.review-workspace button.workspace-activity-link[type='button'] {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 14px;
+  text-align: left;
+  color: inherit;
+  border-radius: 2px;
+}
+.review-global.review-workspace button.workspace-activity-link[type='button']:hover {
+  text-decoration: underline;
+  color: var(--theme-success-600);
+}
+.workspace-board-activity tbody tr:hover {
+  background: var(--theme-elevation-50);
+}
+.workspace-person-avatar {
+  position: relative;
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #dbe9ff;
+  color: #193f7b;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.workspace-person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.workspace-person-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: var(--theme-elevation-900);
+  color: var(--theme-elevation-0);
+  white-space: nowrap;
+  z-index: 2;
+  font-size: 12px;
+}
+.workspace-person-avatar:hover .workspace-person-tooltip,
+.workspace-person-avatar:focus .workspace-person-tooltip {
+  display: block;
+}
+.workspace-person-avatar:focus-visible {
+  outline: 2px solid #7657ff;
+  outline-offset: 3px;
+}
+.workspace-access-owner,
+.workspace-access-avatars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.workspace-access-people h3 {
+  margin: 14px 0 10px;
+}
+.workspace-access-hint {
+  font-size: 12px;
+  color: var(--theme-elevation-600);
+}
+.workspace-access-people details {
+  margin: 18px 0;
+}
+.workspace-access-people summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.workspace-access-invite {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.workspace-access-invite > label {
+  flex: 1;
+  min-width: 150px;
+}
+.workspace-access-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+.workspace-access-member > span {
+  flex: 1;
+}
+.workspace-access-member select {
+  max-width: 150px;
+}
+.workspace-permission-settings {
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 18px;
+}
+@media (max-width: 640px) {
+  .review-global.review-workspace .workspace-about-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .workspace-board-activity table {
+    min-width: 640px;
+  }
+  .workspace-activity-pagination {
+    gap: 5px;
+  }
+}

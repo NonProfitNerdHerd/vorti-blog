@@ -309,6 +309,7 @@ export function Tasks({
             url.searchParams.delete('task')
             url.searchParams.delete('comment')
             url.searchParams.delete('taskTab')
+            url.searchParams.delete('attachment')
             history.replaceState(null, '', url)
             setSelected(null)
             setCreating(false)

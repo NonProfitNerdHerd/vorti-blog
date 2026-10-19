@@ -11,6 +11,7 @@ import type { FieldDefinition } from './WorkspaceTaskDetails'
 import { ReferencePicker } from './WorkspaceTaskDetails'
 import { nativeFormulaFields } from './formula-inputs'
 import { workspaceDialog } from './WorkspaceDialogs'
+import { PersonAvatar, personName, type AccessPerson } from './BoardOverview'
 
 const kinds = [
   'single-select',
@@ -1160,80 +1161,299 @@ export function ProjectBoardSharing({
       .catch((e) => setError(e.message))
   }, [api])
   return (
-    <EditorDialog open title="Project and board access" onClose={onClose}>
+    <EditorDialog open title="Board permissions" onClose={onClose}>
       <div className="workspace-settings">
         <p>
-          Inherited boards use project roles. Private boards retain separate members. Administrators
-          retain oversight.
+          {board.inheritProject
+            ? 'Project members inherit access.'
+            : 'This board has its own membership.'}{' '}
+          Administrators retain oversight.
         </p>
-        <label>
-          Project
-          <select
-            value={project}
-            onChange={(e) => {
-              setProject(e.target.value)
-              setPreview(undefined)
-            }}
-          >
-            <option value="">Choose…</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={inherit}
-            onChange={(e) => {
-              setInherit(e.target.checked)
-              setPreview(undefined)
-            }}
-          />{' '}
-          Inherit project membership
-        </label>
-        {error && <p role="alert">{error}</p>}
-        {preview && (
-          <p>
-            {preview.warning} {preview.taskCount} parent tasks affected; {preview.approvalsRequired}{' '}
-            owner approvals.
-          </p>
+        <BoardAccessPeople api={api} board={board} onSaved={onSaved} />
+        {board.workspaceRole !== 'owner' && <p>Only owners can change board permissions.</p>}
+        {board.workspaceRole === 'owner' && (
+          <fieldset disabled={busy} className="workspace-permission-settings">
+            <legend>Project access</legend>
+            <label>
+              Project
+              <select
+                value={project}
+                onChange={(e) => {
+                  setProject(e.target.value)
+                  setPreview(undefined)
+                }}
+              >
+                <option value="">Choose…</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={inherit}
+                onChange={(e) => {
+                  setInherit(e.target.checked)
+                  setPreview(undefined)
+                }}
+              />{' '}
+              Inherit project membership
+            </label>
+            {error && <p role="alert">{error}</p>}
+            {preview && (
+              <p>
+                {preview.warning} {preview.taskCount} parent tasks affected;{' '}
+                {preview.approvalsRequired} owner approvals.
+              </p>
+            )}
+            <button
+              type="button"
+              className="task-primary"
+              disabled={busy || !project}
+              onClick={async () => {
+                setBusy(true)
+                try {
+                  const result = await reviewAPI<any>(
+                    api,
+                    'task-workspace/project-sharing',
+                    'POST',
+                    {
+                      action: preview ? 'request' : 'preview',
+                      board: board.id,
+                      project: Number(project),
+                      inheritProject: inherit,
+                      confirm: !!preview,
+                    },
+                  )
+                  if (!preview) setPreview(result)
+                  else {
+                    setError(
+                      result.pending
+                        ? 'Sharing request sent. Owners must approve before access changes.'
+                        : 'Board access updated.',
+                    )
+                    await onSaved()
+                  }
+                } catch (e) {
+                  setError((e as Error).message)
+                } finally {
+                  setBusy(false)
+                }
+              }}
+            >
+              {preview ? 'Confirm audience change' : 'Preview audience change'}
+            </button>
+          </fieldset>
         )}
-        <button
-          type="button"
-          className="task-primary"
-          disabled={busy || !project}
-          onClick={async () => {
-            setBusy(true)
-            try {
-              const result = await reviewAPI<any>(api, 'task-workspace/project-sharing', 'POST', {
-                action: preview ? 'request' : 'preview',
-                board: board.id,
-                project: Number(project),
-                inheritProject: inherit,
-                confirm: !!preview,
-              })
-              if (!preview) setPreview(result)
-              else {
-                setError(
-                  result.pending
-                    ? 'Sharing request sent. Owners must approve before access changes.'
-                    : 'Board access updated.',
-                )
-                await onSaved()
-              }
-            } catch (e) {
-              setError((e as Error).message)
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          {preview ? 'Confirm audience change' : 'Preview audience change'}
-        </button>
       </div>
     </EditorDialog>
+  )
+}
+
+function BoardAccessPeople({
+  api,
+  board,
+  onSaved,
+}: {
+  api: string
+  board: any
+  onSaved: () => Promise<void>
+}) {
+  const [people, setPeople] = useState<AccessPerson[]>([]),
+    [members, setMembers] = useState<any[]>([]),
+    [candidates, setCandidates] = useState<AccessPerson[]>([]),
+    [search, setSearch] = useState(''),
+    [person, setPerson] = useState(''),
+    [role, setRole] = useState('viewer'),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('')
+  const owner = people.find((person) => person.id === board.owner)
+  const editable = board.workspaceRole === 'owner'
+  const load = useCallback(async () => {
+    const [access, direct] = await Promise.all([
+      reviewAPI<{ docs: AccessPerson[] }>(api, `task-workspace/boards/${board.id}/people`),
+      reviewAll<any>(api, 'task-board-memberships', { board: { equals: board.id } }),
+    ])
+    setPeople(access.docs)
+    setMembers(direct)
+  }, [api, board.id])
+  useEffect(() => {
+    const refresh = (): void =>
+      void load().catch((error) => {
+        setPeople([])
+        setMembers([])
+        setError(error.message)
+      })
+    refresh()
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
+  }, [load, board.inheritProject, board.project, board.membershipRevision])
+  useEffect(() => {
+    if (!editable) return
+    let active = true
+    const timer = setTimeout(
+      () =>
+        void reviewAPI<{ docs: AccessPerson[] }>(
+          api,
+          `task-boards/people?search=${encodeURIComponent(search)}`,
+        )
+          .then((data) => {
+            if (active) setCandidates(data.docs)
+          })
+          .catch((error) => {
+            if (active) setError(error.message)
+          }),
+      200,
+    )
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [api, editable, search])
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true)
+    setError('')
+    try {
+      await action()
+      await load()
+      await onSaved()
+    } catch (error) {
+      setError((error as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="workspace-access-people">
+      <h3>Owner</h3>
+      <div className="workspace-access-owner">
+        {owner && <PersonAvatar person={owner} />}
+        <strong>{owner ? personName(owner) : board.ownerLabel || 'Board owner'}</strong>
+      </div>
+      <h3>People with access ({people.length})</h3>
+      <div className="workspace-access-avatars">
+        {people.map((person) => (
+          <PersonAvatar key={person.id} person={person} />
+        ))}
+      </div>
+      <p className="workspace-access-hint">
+        Hover or focus an avatar to see their username. Mentions do not grant access.
+      </p>
+      {error && (
+        <p role="alert">
+          {error}{' '}
+          <button
+            type="button"
+            onClick={() => void load().catch((error) => setError(error.message))}
+          >
+            Retry permissions
+          </button>
+        </p>
+      )}
+      {editable && (
+        <details>
+          <summary>Manage board members</summary>
+          <p>
+            {board.inheritProject
+              ? 'Project access is inherited. Board membership can grant a higher role; removing it does not remove inherited project access.'
+              : 'Private board access is limited to these members and administrators.'}
+          </p>
+          <label>
+            Find a person
+            <input value={search} onChange={(event) => setSearch(event.target.value)} />
+          </label>
+          <div className="workspace-access-invite">
+            <label>
+              Person
+              <select value={person} onChange={(event) => setPerson(event.target.value)}>
+                <option value="">Choose a person</option>
+                {candidates
+                  .filter(
+                    (item) =>
+                      item.id !== board.owner && !members.some((member) => member.user === item.id),
+                  )
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {personName(item)}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Role
+              <select value={role} onChange={(event) => setRole(event.target.value)}>
+                {['viewer', 'commenter', 'editor'].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="task-primary"
+              disabled={busy || !person}
+              onClick={() => {
+                if (
+                  confirm(
+                    'Grant this person access to this board, its shared tasks, files, and discussion?',
+                  )
+                )
+                  void run(async () => {
+                    await reviewAPI(api, 'task-board-memberships', 'POST', {
+                      board: board.id,
+                      user: Number(person),
+                      role,
+                    })
+                    setPerson('')
+                  })
+              }}
+            >
+              Add member
+            </button>
+          </div>
+          {members.map((member) => (
+            <div className="workspace-access-member" key={member.id}>
+              <span>
+                {people.find((person) => person.id === member.user)
+                  ? personName(people.find((person) => person.id === member.user)!)
+                  : member.userLabel || `User #${member.user}`}
+              </span>
+              <select
+                aria-label={`Board role for user ${member.user}`}
+                disabled={busy}
+                value={member.role}
+                onChange={(event) =>
+                  void run(() =>
+                    reviewAPI(api, `task-board-memberships/${member.id}`, 'PATCH', {
+                      role: event.target.value,
+                    }),
+                  )
+                }
+              >
+                {['viewer', 'commenter', 'editor'].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    confirm(
+                      'Remove this person’s direct board access? Inherited project access remains.',
+                    )
+                  )
+                    void run(() => reviewAPI(api, `task-board-memberships/${member.id}`, 'DELETE'))
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </details>
+      )}
+    </section>
   )
 }

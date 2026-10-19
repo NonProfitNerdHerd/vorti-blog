@@ -2,12 +2,13 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Board URL state and authorized remote records are synchronized here. */
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Share2, Settings2, RefreshCw, SlidersHorizontal } from './WorkspaceIcon'
+import { Share2, Settings2, RefreshCw, SlidersHorizontal, Lock } from './WorkspaceIcon'
 import { nativeGroups, groupValues, editableGroup, groupFieldValue } from './board-grouping'
 import { taskFeedback } from './WorkspaceFeedback'
 import { WorkspaceMenu } from './WorkspaceMenu'
 import { BoardCalendar, calendarAnchor, calendarModeValue } from './BoardCalendar'
 import { BoardIcon } from './BoardIcon'
+import { BoardAbout, BoardActivity } from './BoardOverview'
 import { InlineTaskEntry } from './InlineTaskEntry'
 import { WorkspaceFilterPanel } from './WorkspaceFilterPanel'
 import { useAuth } from '@payloadcms/ui'
@@ -106,7 +107,11 @@ export function ExpandedBoard({
     [baseline, setBaseline] = useState<any>(),
     [baselines, setBaselines] = useState<any[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [activityRefresh, setActivityRefresh] = useState(0)
   const groupAfterField = useRef(false)
+  const descriptionDirty = useCallback((dirty: boolean) => {
+    pageDirty.current = dirty
+  }, [])
   const [editField, setEditField] = useState<FieldDefinition>()
   const [suggestedFieldName, setSuggestedFieldName] = useState('')
   const [settings, setSettings] = useState(false),
@@ -249,6 +254,7 @@ export function ExpandedBoard({
       })
       if (unique.length !== latestTotal)
         setError('This board changed while loading. Refresh to calculate complete totals.')
+      setActivityRefresh((value) => value + 1)
     } catch (e) {
       if (sequence !== loadSequence.current) return
       setError((e as Error).message)
@@ -993,6 +999,15 @@ export function ExpandedBoard({
             </>
           )}
           <button
+            type="button"
+            className="workspace-icon-control"
+            aria-label="Board permissions"
+            title="Board permissions"
+            onClick={() => setSharing(true)}
+          >
+            <Lock size={19} />
+          </button>
+          <button
             className="workspace-icon-control"
             type="button"
             aria-label="Refresh board"
@@ -1033,7 +1048,7 @@ export function ExpandedBoard({
           </button>
         </p>
       )}
-      {loading && (
+      {loading && !board && (
         <p className="workspace-loading" role="status">
           Updating board…
         </p>
@@ -1523,50 +1538,35 @@ export function ExpandedBoard({
       )}
       {kind === 'overview' && (
         <section className="workspace-overview">
-          <h3>About this board</h3>
-          <p>{board?.description || 'Add a description in Board settings.'}</p>
-          <p>
-            {board?.inheritProject
-              ? 'Project members inherit access.'
-              : 'This board has its own membership.'}{' '}
-            Administrators retain oversight.
-          </p>
-          <p>Owner: {board?.ownerLabel ?? `#${board?.owner}`}</p>
-          <details>
-            <summary>People with access ({people.length})</summary>
-            <ul className="workspace-overview-members">
-              {people.map((person) => (
-                <li key={person.id}>{person.label}</li>
-              ))}
-            </ul>
-          </details>
-          {summary?.complete && (
-            <>
-              <p>
-                First start:{' '}
-                {tasks
-                  .map((task) => day(task.startDate))
-                  .filter(Boolean)
-                  .sort()[0] || 'Not scheduled'}{' '}
-                · Latest deadline:{' '}
-                {tasks
-                  .map((task) => day(task.dueDate))
-                  .filter(Boolean)
-                  .sort()
-                  .at(-1) || 'Not scheduled'}
-              </p>
-              <label>
-                Completion: {tasks.filter((task) => task.status === 'done').length} of{' '}
-                {tasks.length} tasks{' '}
-                <progress
-                  max={Math.max(tasks.length, 1)}
-                  value={tasks.filter((task) => task.status === 'done').length}
-                />
-              </label>
-            </>
+          {board && (
+            <BoardAbout
+              key={id}
+              api={api}
+              board={board}
+              tasks={tasks}
+              complete={!!summary?.complete}
+              editable={isOwner && canEdit}
+              onSaved={load}
+              onDirty={descriptionDirty}
+            />
           )}
           <BoardMetrics summary={summary} />
-          <BoardActivity api={api} board={id} />
+          <BoardActivity
+            key={id}
+            api={api}
+            board={id}
+            refreshKey={`${refreshKey}:${activityRefresh}`}
+            onSelect={onSelect}
+            onBoardActivity={(item) => {
+              if (item.source === 'file') {
+                window.open(
+                  `${api}/task-workspace/files/${item.attachment}/content`,
+                  '_blank',
+                  'noopener,noreferrer',
+                )
+              } else setSharing(true)
+            }}
+          />
         </section>
       )}
       {kind === 'dashboard' && (
@@ -1827,31 +1827,6 @@ function BoardMetrics({ summary }: { summary: any }) {
         </article>
       ))}
     </div>
-  )
-}
-function BoardActivity({ api, board }: { api: string; board: string }) {
-  const [activity, setActivity] = useState<any[]>([]),
-    [error, setError] = useState('')
-  useEffect(() => {
-    void reviewAPI<any>(
-      api,
-      `task-board-activity?${query({ board: { equals: board } }, { limit: '10' })}`,
-    )
-      .then((data) => setActivity(data.docs))
-      .catch((e) => setError(e.message))
-  }, [api, board])
-  return (
-    <section>
-      <h3>Recent activity</h3>
-      {error && <p role="alert">{error}</p>}
-      <ul>
-        {activity.map((item) => (
-          <li key={item.id}>
-            {item.message} <small>{new Date(item.createdAt).toLocaleString()}</small>
-          </li>
-        ))}
-      </ul>
-    </section>
   )
 }
 function TimelineView({

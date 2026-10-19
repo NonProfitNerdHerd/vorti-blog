@@ -19,6 +19,7 @@ import { fileList } from './workspace-files'
 import { requireProject } from './project-access'
 import { taskSearchTerms } from './client'
 import { userIdentity } from '@design-system/payload-design-core'
+import { boardActivity, boardPeople } from './board-overview-service'
 
 export async function boardTasks(req: PayloadRequest, board: number) {
   await requireBoard(req, board)
@@ -77,6 +78,23 @@ async function dependencies(req: PayloadRequest, taskID: number) {
   return docs
 }
 export const workspaceEndpoints: Endpoint[] = [
+  {
+    path: '/task-workspace/boards/:id/activity',
+    method: 'get',
+    handler: async (req) =>
+      Response.json(
+        await boardActivity(req, String(req.routeParams?.id), new URL(req.url!).searchParams),
+        { headers: { 'Cache-Control': 'no-store' } },
+      ),
+  },
+  {
+    path: '/task-workspace/boards/:id/people',
+    method: 'get',
+    handler: async (req) =>
+      Response.json(await boardPeople(req, String(req.routeParams?.id)), {
+        headers: { 'Cache-Control': 'no-store' },
+      }),
+  },
   {
     path: '/task-workspace/initialize',
     method: 'post',
@@ -254,7 +272,13 @@ export const workspaceEndpoints: Endpoint[] = [
         values: Record<string, unknown> = {}
       try {
         for (const reference of workspaceReferences(body.expression)) {
-          if (reference.startsWith('n')) { values[reference] = nativeFormulaValue(task as unknown as Record<string,unknown>, reference); continue }
+          if (reference.startsWith('n')) {
+            values[reference] = nativeFormulaValue(
+              task as unknown as Record<string, unknown>,
+              reference,
+            )
+            continue
+          }
           const result = fields.find((field) => `f${field.definition.id}` === reference)
           if (!result || result.error) reject('A formula input is unavailable.', 400)
           values[reference] = result.value

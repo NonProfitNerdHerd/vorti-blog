@@ -15,6 +15,7 @@ const paths = {
   RefreshCw: 'M20 7a9 9 0 0 0-15-2L2 8 M2 3v5h5 M4 17a9 9 0 0 0 15 2l3-3 M22 21v-5h-5',
   SlidersHorizontal: 'M3 6h4 M11 6h10 M3 12h10 M17 12h4 M3 18h4 M11 18h10 M7 3v6 M17 9v6 M7 15v6',
   X: 'm6 6 12 12 M6 18 18 6',
+  Lock: 'M5 10h14v11H5Z M8 10V6a4 4 0 0 1 8 0v4',
 }
 function icon(name: keyof typeof paths) {
   return function Icon({ size = 20, ...props }: Props) {
@@ -48,4 +49,5 @@ export const Home = icon('Home'),
   Settings2 = icon('Settings2'),
   RefreshCw = icon('RefreshCw'),
   SlidersHorizontal = icon('SlidersHorizontal'),
-  X = icon('X')
+  X = icon('X'),
+  Lock = icon('Lock')

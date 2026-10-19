@@ -49,13 +49,19 @@ export function WorkspaceFiles({
     [page, setPage] = useState(1),
     [pages, setPages] = useState(1),
     [search, setSearch] = useState(''),
+    [focusedAttachment, setFocusedAttachment] = useState(
+      () =>
+        new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get(
+          'attachment',
+        ) || '',
+    ),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
   const load = useCallback(async () => {
     try {
       const data = await reviewAPI<any>(
         api,
-        `task-workspace/files?${task ? `task=${task}` : `board=${board}`}&page=${page}${comment ? `&comment=${comment}` : ''}&search=${encodeURIComponent(search)}`,
+        `task-workspace/files?${task ? `task=${task}` : `board=${board}`}&page=${page}${comment ? `&comment=${comment}` : ''}&search=${encodeURIComponent(search)}${focusedAttachment ? `&attachment=${encodeURIComponent(focusedAttachment)}` : ''}`,
       )
       setFiles(data.docs)
       setPages(data.totalPages)
@@ -64,7 +70,7 @@ export function WorkspaceFiles({
       setError((e as Error).message)
       if ([403, 404].includes((e as { status?: number }).status ?? 0)) setFiles([])
     }
-  }, [api, task, board, page, comment, search])
+  }, [api, task, board, page, comment, search, focusedAttachment])
   useEffect(() => {
     onBusy?.(busy)
     return () => onBusy?.(false)
@@ -119,6 +125,23 @@ export function WorkspaceFiles({
         )}
       </header>
       <p>Private files, up to 25 MiB each. Linked documents keep their own access rules.</p>
+      {focusedAttachment && (
+        <p>
+          Showing the selected attachment.{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setFocusedAttachment('')
+              setPage(1)
+              const url = new URL(location.href)
+              url.searchParams.delete('attachment')
+              history.replaceState(null, '', url)
+            }}
+          >
+            Show all attachments
+          </button>
+        </p>
+      )}
       <label>
         Find a file
         <input

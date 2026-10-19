@@ -207,7 +207,7 @@ export const TaskBoards: CollectionConfig = {
           await boardAudit(req, String(doc.id), 'Board created')
           await initializeBoardDefaults(req, doc.id)
         } else
-          for (const field of ['name', 'visibility', 'owner', 'archived'])
+          for (const field of ['name', 'description', 'visibility', 'owner', 'archived'])
             if (relationID(doc[field]) !== relationID(previousDoc?.[field]))
               await boardAudit(req, String(doc.id), `Board ${field} changed`)
       },
