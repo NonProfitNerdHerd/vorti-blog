@@ -98,6 +98,7 @@ export interface Config {
     'task-dependencies': TaskDependency;
     'task-attachments': TaskAttachment;
     'task-time-entries': TaskTimeEntry;
+    'task-time-audit': TaskTimeAudit;
     'task-countdowns': TaskCountdown;
     'task-capacities': TaskCapacity;
     'task-board-messages': TaskBoardMessage;
@@ -183,6 +184,7 @@ export interface Config {
     'task-dependencies': TaskDependenciesSelect<false> | TaskDependenciesSelect<true>;
     'task-attachments': TaskAttachmentsSelect<false> | TaskAttachmentsSelect<true>;
     'task-time-entries': TaskTimeEntriesSelect<false> | TaskTimeEntriesSelect<true>;
+    'task-time-audit': TaskTimeAuditSelect<false> | TaskTimeAuditSelect<true>;
     'task-countdowns': TaskCountdownsSelect<false> | TaskCountdownsSelect<true>;
     'task-capacities': TaskCapacitiesSelect<false> | TaskCapacitiesSelect<true>;
     'task-board-messages': TaskBoardMessagesSelect<false> | TaskBoardMessagesSelect<true>;
@@ -895,6 +897,7 @@ export interface ReviewTask {
   status: 'open' | 'in-progress' | 'ready-for-review' | 'done';
   priority: 'low' | 'normal' | 'high' | 'urgent';
   assignee?: (number | null) | User;
+  collaborators?: (number | User)[] | null;
   dueDate?: string | null;
   startDate?: string | null;
   milestone?: boolean | null;
@@ -1460,6 +1463,41 @@ export interface TaskTimeEntry {
     | null;
   activeUserKey?: string | null;
   expectedUpdatedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-time-audit".
+ */
+export interface TaskTimeAudit {
+  id: number;
+  task: number | ReviewTask;
+  entry: number | TaskTimeEntry;
+  actor: number | User;
+  entryUser: number | User;
+  action: string;
+  reason?: string | null;
+  beforeValue?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  afterValue?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  operationKey: string;
+  fingerprint: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -2511,6 +2549,10 @@ export interface PayloadLockedDocument {
         value: number | TaskTimeEntry;
       } | null)
     | ({
+        relationTo: 'task-time-audit';
+        value: number | TaskTimeAudit;
+      } | null)
+    | ({
         relationTo: 'task-countdowns';
         value: number | TaskCountdown;
       } | null)
@@ -2873,6 +2915,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   status?: T;
   priority?: T;
   assignee?: T;
+  collaborators?: T;
   dueDate?: T;
   startDate?: T;
   milestone?: T;
@@ -3225,6 +3268,24 @@ export interface TaskTimeEntriesSelect<T extends boolean = true> {
   history?: T;
   activeUserKey?: T;
   expectedUpdatedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "task-time-audit_select".
+ */
+export interface TaskTimeAuditSelect<T extends boolean = true> {
+  task?: T;
+  entry?: T;
+  actor?: T;
+  entryUser?: T;
+  action?: T;
+  reason?: T;
+  beforeValue?: T;
+  afterValue?: T;
+  operationKey?: T;
+  fingerprint?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4273,6 +4334,7 @@ export interface TaskCreateCollectionExport {
       | 'task-dependencies'
       | 'task-attachments'
       | 'task-time-entries'
+      | 'task-time-audit'
       | 'task-countdowns'
       | 'task-capacities'
       | 'task-board-messages'

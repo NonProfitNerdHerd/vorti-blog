@@ -12,6 +12,9 @@ export type Task = {
   priority: string
   assignee?: number
   assigneeLabel?: string
+  assigneePerson?: { id: number; label: string; username?: string; avatar?: string }
+  collaborators?: number[]
+  collaboratorPeople?: { id: number; label: string; username?: string; avatar?: string }[]
   creator?: number
   creatorLabel?: string
   dueDate?: string
@@ -66,9 +69,14 @@ export async function reviewAPI<T>(
   })
   const data = (await response.json()) as T & { errors?: { message?: string }[]; error?: string }
   if (!response.ok)
-    throw Object.assign(new Error(
-      data.errors?.[0]?.message || data.error || 'Could not save review changes. Please try again.',
-    ),{status:response.status})
+    throw Object.assign(
+      new Error(
+        data.errors?.[0]?.message ||
+          data.error ||
+          'Could not save review changes. Please try again.',
+      ),
+      { status: response.status },
+    )
   return data
 }
 export const query = (where: object, extra: Record<string, string> = {}) =>

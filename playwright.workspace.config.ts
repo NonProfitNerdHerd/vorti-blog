@@ -16,6 +16,7 @@ export default defineConfig({
     'compact-workspace.e2e.spec.ts',
     'board-refinement.e2e.spec.ts',
     'board-overview.e2e.spec.ts',
+    'compact-columns.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 300000,

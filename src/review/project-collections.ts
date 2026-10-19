@@ -619,6 +619,27 @@ export const TaskTimeEntries: CollectionConfig = {
     revision,
   ],
 }
+export const TaskTimeAudit: CollectionConfig = {
+  slug: 'task-time-audit',
+  admin: hidden,
+  access: { read: never, create: never, update: never, delete: never },
+  fields: [
+    rel('task', 'review-tasks'),
+    rel('entry', 'task-time-entries'),
+    rel('actor', 'users'),
+    rel('entryUser', 'users'),
+    { name: 'action', type: 'text', required: true },
+    { name: 'reason', type: 'text' },
+    { name: 'beforeValue', type: 'json' },
+    { name: 'afterValue', type: 'json' },
+    { name: 'operationKey', type: 'text', unique: true, required: true },
+    { name: 'fingerprint', type: 'text', required: true },
+  ],
+  hooks: {
+    beforeChange: [() => reject('Time audit records are generated only by the time service.')],
+    beforeDelete: [() => reject('Time audit records cannot be deleted.')],
+  },
+}
 export const TaskCountdowns: CollectionConfig = {
   slug: 'task-countdowns',
   admin: hidden,
@@ -857,6 +878,7 @@ export const projectCollections = [
   TaskDependencies,
   TaskAttachments,
   TaskTimeEntries,
+  TaskTimeAudit,
   TaskCountdowns,
   TaskCapacities,
   TaskBoardMessages,

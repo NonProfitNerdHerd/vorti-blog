@@ -24,6 +24,7 @@ import * as migration_20261018_224500_projects_audience_revisions from './202610
 import * as migration_20261019_145037_starter_workspace from './20261019_145037_starter_workspace';
 import * as migration_20261019_160802_compact_workspace from './20261019_160802_compact_workspace';
 import * as migration_20261019_173505_board_refinement from './20261019_173505_board_refinement';
+import * as migration_20261019_193700_compact_columns_time from './20261019_193700_compact_columns_time';
 
 export const migrations = [
   {
@@ -154,6 +155,11 @@ export const migrations = [
   {
     up: migration_20261019_173505_board_refinement.up,
     down: migration_20261019_173505_board_refinement.down,
-    name: '20261019_173505_board_refinement'
+    name: '20261019_173505_board_refinement',
+  },
+  {
+    up: migration_20261019_193700_compact_columns_time.up,
+    down: migration_20261019_193700_compact_columns_time.down,
+    name: '20261019_193700_compact_columns_time'
   },
 ];

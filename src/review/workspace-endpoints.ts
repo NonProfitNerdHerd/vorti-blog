@@ -14,7 +14,7 @@ import {
 import { taskFields, validateFieldValue, fieldEvaluation } from './workspace-fields'
 import { workspaceFormula, workspaceReferences } from './workspace-formula'
 import { nativeFormulaValue } from './formula-inputs'
-import { mutateTime, timeSummary } from './workspace-time'
+import { mutateTime, timeSummary, timeAudit, activeWork } from './workspace-time'
 import { fileList } from './workspace-files'
 import { requireProject } from './project-access'
 import { taskSearchTerms } from './client'
@@ -79,6 +79,46 @@ async function dependencies(req: PayloadRequest, taskID: number) {
 }
 export const workspaceEndpoints: Endpoint[] = [
   {
+    path: '/task-workspace/boards/:id/time',
+    method: 'get',
+    handler: async (req) => {
+      const board = Number(req.routeParams?.id)
+      await requireBoard(req, board)
+      const ids = (new URL(req.url!).searchParams.get('ids') ?? '')
+        .split(',')
+        .filter(Boolean)
+        .map(Number)
+      if (ids.length > 40 || ids.some((id) => !Number.isSafeInteger(id) || id < 1))
+        reject('Choose up to 40 tasks.', 400)
+      const tasks = ids.length
+        ? await req.payload.find({
+            collection: 'review-tasks',
+            req,
+            overrideAccess: true,
+            depth: 0,
+            limit: 40,
+            select: { title: true },
+            where: { and: [{ id: { in: ids } }, { boards: { equals: board } }] },
+          })
+        : { docs: [] as {id:number}[] }
+      const totals: Record<string, number> = {}
+      for (const task of tasks.docs) totals[task.id] = 0
+      if (tasks.docs.length) {
+        const rows = await workspaceDB(req)
+          .prepare(
+            `SELECT task_id,coalesce(sum(CASE WHEN ended_at IS NOT NULL THEN seconds ELSE max(0,cast((julianday(?) - julianday(started_at))*86400 AS INTEGER)) END),0) seconds FROM task_time_entries WHERE task_id IN (${tasks.docs.map(() => '?').join(',')}) GROUP BY task_id`,
+          )
+          .bind(new Date().toISOString(), ...tasks.docs.map((task) => task.id))
+          .all<{ task_id: number; seconds: number }>()
+        for (const row of rows.results) totals[row.task_id] = row.seconds
+      }
+      return Response.json(
+        { totals, activeTimer: await activeWork(req), asOf: new Date().toISOString() },
+        { headers: { 'Cache-Control': 'no-store' } },
+      )
+    },
+  },
+  {
     path: '/task-workspace/boards/:id/activity',
     method: 'get',
     handler: async (req) =>
@@ -133,10 +173,18 @@ export const workspaceEndpoints: Endpoint[] = [
         week = params.get('week') ?? undefined
       if (week && !/^\d{4}-\d{2}-\d{2}$/.test(week)) reject('Choose a valid week.', 400)
       return Response.json(
-        await timeSummary(req, Number(req.routeParams?.id), false, {
-          week,
-          page: Math.max(1, Number(params.get('page') ?? 1)),
-        }),
+        params.get('tab') === 'history'
+          ? await timeAudit(
+              req,
+              Number(req.routeParams?.id),
+              Math.max(1, Number(params.get('page') ?? 1)),
+              50,
+            )
+          : await timeSummary(req, Number(req.routeParams?.id), false, {
+              week,
+              page: Math.max(1, Number(params.get('page') ?? 1)),
+              limit: params.get('limit') === '50' ? 50 : 100,
+            }),
       )
     },
   },

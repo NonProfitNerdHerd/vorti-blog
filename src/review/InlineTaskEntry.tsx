@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 export function InlineTaskEntry({
   label,
   create,
+  subtask = false,
 }: {
   label: string
   create: (title: string) => Promise<void>
+  subtask?: boolean
 }) {
   const [title, setTitle] = useState(''),
     [error, setError] = useState(''),
@@ -38,11 +40,14 @@ export function InlineTaskEntry({
     }
   }, [])
   return (
-    <div className="workspace-inline-entry">
+    <div
+      className={`workspace-inline-entry${subtask ? ' workspace-inline-subtask' : ''}`}
+      onClick={() => input.current?.focus()}
+    >
       <input
         ref={input}
         aria-label={label}
-        placeholder={`＋ ${label}`}
+        placeholder={subtask ? '＋ Add subtask' : '＋ Add task'}
         maxLength={240}
         value={title}
         disabled={busy}

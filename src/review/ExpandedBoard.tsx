@@ -8,11 +8,20 @@ import { taskFeedback } from './WorkspaceFeedback'
 import { WorkspaceMenu } from './WorkspaceMenu'
 import { BoardCalendar, calendarAnchor, calendarModeValue } from './BoardCalendar'
 import { BoardIcon } from './BoardIcon'
+import { TaskAssignees } from './TaskPeople'
+import {
+  parseColumnFilters,
+  matchesColumn,
+  compareColumns,
+  type ColumnFilter,
+} from './board-columns'
+import { ColumnFilterDialog } from './ColumnFilterDialog'
+import { WorkTimeProvider, TimeTrackingCell, TaskTimeLog } from './TimeTracking'
 import { BoardAbout, BoardActivity } from './BoardOverview'
 import { InlineTaskEntry } from './InlineTaskEntry'
 import { WorkspaceFilterPanel } from './WorkspaceFilterPanel'
 import { useAuth } from '@payloadcms/ui'
-import { query, reviewAll, reviewAPI, statuses, type Task } from './client'
+import { reviewAll, reviewAPI, statuses, type Task } from './client'
 import { BoardSettings, type Board } from './WorkspaceBoards'
 import {
   WorkspaceFiles,
@@ -29,13 +38,7 @@ import {
   ProjectBoardSharing,
 } from './WorkspaceBoardTools'
 import { localTaskDay, nextTaskDay } from './dashboard-model'
-import {
-  siteCalendarDay,
-  siteWeek,
-  secondsInWindow,
-  localTimeInput,
-  parseLocalTime,
-} from './workspace-dates'
+import { siteCalendarDay, siteWeek, secondsInWindow } from './workspace-dates'
 import { workspaceDialog } from './WorkspaceDialogs'
 import './projects.css'
 
@@ -108,6 +111,10 @@ export function ExpandedBoard({
     [baselines, setBaselines] = useState<any[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [activityRefresh, setActivityRefresh] = useState(0)
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilter>>({}),
+    [filterColumn, setFilterColumn] = useState<string>(),
+    [dragColumn, setDragColumn] = useState(''),
+    [dropColumn, setDropColumn] = useState('')
   const groupAfterField = useRef(false)
   const descriptionDirty = useCallback((dirty: boolean) => {
     pageDirty.current = dirty
@@ -146,7 +153,7 @@ export function ExpandedBoard({
         ),
         reviewAll<any>(api, 'task-board-preferences', { board: { equals: id } }),
         reviewAll<any>(api, 'task-board-fields', { board: { equals: id } }, 'position'),
-        reviewAPI<any>(api, `review-tasks/assignees?board=${id}`),
+        reviewAPI<any>(api, `task-workspace/boards/${id}/people`),
         reviewAll<any>(api, 'task-baselines', { board: { equals: id } }),
       ])
       if (sequence !== loadSequence.current) return
@@ -322,6 +329,7 @@ export function ExpandedBoard({
     setAssignee(params.get('boardAssignee') ?? saved.boardAssignee ?? '')
     setGroup(params.get('group') ?? saved.group ?? 'status')
     setSort(params.get('boardSort') ?? saved.boardSort ?? 'position')
+    setColumnFilters(parseColumnFilters(params.get('columnFilters') ?? saved.columnFilters))
     setAnchor(calendarAnchor(params.get('calendarDate')))
     setCalendarMode(calendarModeValue(params.get('calendarRange')))
     setShowChildren((params.get('subtasks') ?? saved.subtasks) !== 'false')
@@ -364,6 +372,7 @@ export function ExpandedBoard({
         calendarRange: calendarMode,
         subtasks: String(showChildren),
         columns: columnSettings,
+        columnFilters: JSON.stringify(columnFilters),
         [key]: value,
       }
       saveTimer.current = setTimeout(() => {
@@ -446,9 +455,10 @@ export function ExpandedBoard({
           (!search || task.title.toLowerCase().includes(search.toLowerCase())) &&
           (!status || task.status === status) &&
           (!assignee ||
-            (assignee === 'unassigned' ? !task.assignee : String(task.assignee) === assignee)),
+            (assignee === 'unassigned' ? !task.assignee : String(task.assignee) === assignee)) &&
+          Object.entries(columnFilters).every(([key, value]) => matchesColumn(task, key, value)),
       ),
-    [tasks, search, status, assignee],
+    [tasks, search, status, assignee, columnFilters],
   )
   const roots = tasks.filter(
       (task) =>
@@ -510,14 +520,16 @@ export function ExpandedBoard({
   const movable = editableGroup(group, fieldGroup)
   const sorted = (items: WorkTask[]) =>
     [...items].sort((a, b) =>
-      sort === 'title'
-        ? a.title.localeCompare(b.title)
-        : sort === 'dueDate'
-          ? (day(a.dueDate) || '9999').localeCompare(day(b.dueDate) || '9999')
-          : sort === '-updatedAt'
-            ? (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
-            : (placements.find((p) => p.task === a.id)?.position ?? 0) -
-              (placements.find((p) => p.task === b.id)?.position ?? 0),
+      sort.startsWith('column:')
+        ? compareColumns(a, b, sort.slice(7, sort.lastIndexOf(':')), sort.endsWith(':desc'))
+        : sort === 'title'
+          ? a.title.localeCompare(b.title)
+          : sort === 'dueDate'
+            ? (day(a.dueDate) || '9999').localeCompare(day(b.dueDate) || '9999')
+            : sort === '-updatedAt'
+              ? (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+              : (placements.find((p) => p.task === a.id)?.position ?? 0) -
+                (placements.find((p) => p.task === b.id)?.position ?? 0),
     )
   const move = async (task: WorkTask, key: string, source?: string) => {
     if (!movable || key === '!unavailable') return
@@ -569,11 +581,237 @@ export function ExpandedBoard({
         (columnSettings[a.key]?.order ?? nativeColumns.indexOf(a)) -
         (columnSettings[b.key]?.order ?? nativeColumns.indexOf(b)),
     )
+  const saveColumns = async (next: Record<string, any>) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    setColumnSettings(next)
+    await savePreference({
+      viewSettings: {
+        ...preference?.viewSettings,
+        [viewID]: {
+          ...preference?.viewSettings?.[viewID],
+          boardSearch: search,
+          boardStatus: status,
+          boardAssignee: assignee,
+          group,
+          boardSort: sort,
+          subtasks: String(showChildren),
+          columnFilters: JSON.stringify(columnFilters),
+          columns: next,
+        },
+      },
+    })
+  }
+  const moveColumn = async (key: string, target: string, after = false) => {
+    const all = [...nativeColumns]
+      .sort(
+        (a, b) =>
+          (columnSettings[a.key]?.order ?? nativeColumns.indexOf(a)) -
+          (columnSettings[b.key]?.order ?? nativeColumns.indexOf(b)),
+      )
+      .map((column) => column.key)
+    const without = all.filter((item) => item !== key),
+      index = without.indexOf(target) + (after ? 1 : 0)
+    without.splice(Math.max(0, index), 0, key)
+    await saveColumns(
+      Object.fromEntries(
+        without.map((key, index) => [key, { ...columnSettings[key], order: index }]),
+      ),
+    )
+  }
+  const columnName = (key: string) =>
+    key === 'title' ? 'Task' : (nativeColumns.find((column) => column.key === key)?.name ?? 'Field')
+  const applyColumnFilter = async (key: string, value?: ColumnFilter) => {
+    const next = { ...columnFilters }
+    delete next[key]
+    let nextStatus = status,
+      nextAssignee = assignee,
+      nextSearch = search
+    if (key === 'status') {
+      nextStatus = ''
+      if (value?.operator === 'eq') nextStatus = value.value
+      else if (value) next[key] = value
+    } else if (key === 'assignee') {
+      nextAssignee = ''
+      if (value?.operator === 'eq') nextAssignee = value.value
+      else if (value?.operator === 'empty') nextAssignee = 'unassigned'
+      else if (value) next[key] = value
+    } else if (key === 'title') {
+      nextSearch = ''
+      if (value?.operator === 'contains') nextSearch = value.value
+      else if (value) next[key] = value
+    } else if (value) next[key] = value
+    setStatus(nextStatus)
+    setAssignee(nextAssignee)
+    setSearch(nextSearch)
+    setColumnFilters(next)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    const current = new URL(location.href)
+    for (const [key, value] of Object.entries({
+      boardStatus: nextStatus,
+      boardAssignee: nextAssignee,
+      boardSearch: nextSearch,
+      columnFilters: JSON.stringify(next),
+    }))
+      current.searchParams.set(key, value)
+    history.replaceState(null, '', current)
+    await savePreference({
+      viewSettings: {
+        ...preference?.viewSettings,
+        [viewID]: {
+          ...preference?.viewSettings?.[viewID],
+          boardStatus: nextStatus,
+          boardAssignee: nextAssignee,
+          boardSearch: nextSearch,
+          columnFilters: JSON.stringify(next),
+          columns: columnSettings,
+          group,
+          boardSort: sort,
+          subtasks: String(showChildren),
+        },
+      },
+    })
+  }
+  const columnMenu = (key: string) => {
+    const index = columns.findIndex((column) => column.key === key),
+      definition = fields.find((field) => `field:${field.id}` === key)
+    return (
+      <WorkspaceMenu
+        label={`Column options for ${columnName(key)}`}
+        trigger={
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        }
+      >
+        <div>
+          {isOwner && (key === 'status' || key === 'priority' || definition) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (key === 'status' || key === 'priority') void priorityDialog(key)
+                else {
+                  setEditField(definition)
+                  groupAfterField.current = false
+                  setFieldManager(true)
+                }
+              }}
+            >
+              Edit field
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              void workspaceDialog({
+                title: `${columnName(key)} access and permissions`,
+                description: `All task readers can view this field. ${definition && ['formula', 'lookup', 'id', 'time-tracking', 'timer'].includes(definition.kind) ? 'Computed values and timers use their protected services.' : 'Task editors can edit its values.'} Board owners choose shared columns and native field colors. Shared custom definitions are controlled by their creator until reused under another owner, then by administrators. Moving or hiding columns only changes your own view.`,
+                fields: [],
+                saveLabel: 'Close',
+                onSave: async () => {},
+              })
+            }
+          >
+            Field access and permissions
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSort(`column:${key}:asc`)
+              url('boardSort', `column:${key}:asc`)
+            }}
+          >
+            Sort ascending
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSort(`column:${key}:desc`)
+              url('boardSort', `column:${key}:desc`)
+            }}
+          >
+            Sort descending
+          </button>
+          <button type="button" onClick={() => setFilterColumn(key)}>
+            Filter
+          </button>
+          {key !== 'title' && (
+            <button
+              type="button"
+              onClick={() => {
+                setGroup(key)
+                url('group', key)
+              }}
+            >
+              Group
+            </button>
+          )}
+          {isOwner && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditField(undefined)
+                setSuggestedFieldName('')
+                groupAfterField.current = false
+                setFieldManager(true)
+              }}
+            >
+              Add column
+            </button>
+          )}
+          {key !== 'title' && (
+            <>
+              <button
+                type="button"
+                disabled={index <= 0}
+                onClick={() =>
+                  void moveColumn(key, columns[index - 1].key).catch((error) =>
+                    setError(error.message),
+                  )
+                }
+              >
+                Move column left
+              </button>
+              <button
+                type="button"
+                disabled={index < 0 || index >= columns.length - 1}
+                onClick={() =>
+                  void moveColumn(key, columns[index + 1].key, true).catch((error) =>
+                    setError(error.message),
+                  )
+                }
+              >
+                Move column right
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void saveColumns({
+                    ...columnSettings,
+                    [key]: { ...columnSettings[key], visible: false },
+                  }).catch((error) => setError(error.message))
+                }
+              >
+                Hide column
+              </button>
+            </>
+          )}
+        </div>
+      </WorkspaceMenu>
+    )
+  }
   const renderCell = (task: WorkTask, key: string) => {
     if (key === 'status')
       return (
         <select
           aria-label={`Status for ${task.title}`}
+          style={
+            board?.presentation?.statusColors?.[task.status]
+              ? {
+                  backgroundColor: `color-mix(in srgb, ${board.presentation.statusColors[task.status]} 18%, var(--theme-bg))`,
+                  borderLeft: `4px solid ${board.presentation.statusColors[task.status]}`,
+                }
+              : undefined
+          }
           disabled={!canEdit || !task.canEdit || busy}
           value={task.status}
           onChange={(e) => void patch(task, { status: e.target.value })}
@@ -604,39 +842,19 @@ export function ExpandedBoard({
       )
     if (key === 'assignee')
       return (
-        <div className="workspace-assignee-cell">
-          <span
-            className={task.assignee ? 'workspace-user-initials' : 'workspace-user-unassigned'}
-            aria-hidden="true"
-          >
-            {task.assignee
-              ? (task.assigneeLabel ?? 'User')
-                  .split(/[\s@._-]+/)
-                  .slice(0, 2)
-                  .map((word) => word[0])
-                  .join('')
-                  .toUpperCase()
-              : '◯'}
-          </span>
-          <select
-            aria-label={`Assignee for ${task.title}`}
-            disabled={!canEdit || !task.canEdit || busy}
-            value={task.assignee ?? ''}
-            onChange={(e) =>
-              void patch(task, { assignee: e.target.value ? Number(e.target.value) : null })
-            }
-          >
-            <option value="">Unassigned</option>
-            {task.assignee && !people.some((person) => person.id === task.assignee) && (
-              <option value={task.assignee}>{task.assigneeLabel ?? 'Assigned user'}</option>
-            )}
-            {people.map((person) => (
-              <option value={person.id} key={person.id}>
-                {person.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <TaskAssignees
+          task={task}
+          people={people}
+          disabled={!canEdit || !task.canEdit || busy}
+          onSave={async (data) => {
+            await reviewAPI(api, `review-tasks/${task.id}`, 'PATCH', {
+              ...data,
+              expectedUpdatedAt: task.updatedAt,
+            })
+            await load()
+            taskFeedback(task, 'updated')
+          }}
+        />
       )
     if (key === 'dueDate')
       return (
@@ -651,6 +869,8 @@ export function ExpandedBoard({
         />
       )
     const result = task.fields.find((field) => `field:${field.definition.id}` === key)
+    if (result?.definition.kind === 'time-tracking')
+      return <TimeTrackingCell task={task} fallback={Number(result.value ?? 0)} />
     return result ? (
       <WorkspaceFieldValue
         api={api}
@@ -715,21 +935,24 @@ export function ExpandedBoard({
       },
     })
   }
-  const priorityDialog = async () => {
-    const colors = board?.presentation?.priorityColors ?? {}
+  const priorityDialog = async (kind: 'priority' | 'status' = 'priority') => {
+    const property = kind === 'status' ? 'statusColors' : 'priorityColors',
+      colors = board?.presentation?.[property] ?? {}
     await workspaceDialog({
-      title: 'Priority colors',
+      title: kind === 'status' ? 'Status colors' : 'Priority colors',
       description: 'These colors are shared by everyone on this board.',
-      fields: ['low', 'normal', 'high', 'urgent'].map((name, index) => ({
-        name,
-        label: name,
-        type: 'color' as const,
-        value: colors[name] ?? ['#15803d', '#2563eb', '#c2410c', '#dc2626'][index],
-      })),
+      fields: (kind === 'status' ? Object.keys(statuses) : ['low', 'normal', 'high', 'urgent']).map(
+        (name, index) => ({
+          name,
+          label: kind === 'status' ? statuses[name as keyof typeof statuses] : name,
+          type: 'color' as const,
+          value: colors[name] ?? ['#15803d', '#2563eb', '#c2410c', '#dc2626'][index],
+        }),
+      ),
       saveLabel: 'Save colors',
       onSave: async (values) => {
         await reviewAPI(api, `task-boards/${id}`, 'PATCH', {
-          presentation: { ...board?.presentation, priorityColors: values },
+          presentation: { ...board?.presentation, [property]: values },
           expectedUpdatedAt: board?.updatedAt,
         })
         await load()
@@ -743,6 +966,7 @@ export function ExpandedBoard({
     setGroup('status')
     setSort('position')
     setShowChildren(true)
+    setColumnFilters({})
     const next = new URL(location.href)
     for (const [key, value] of Object.entries({
       boardSearch: '',
@@ -751,6 +975,7 @@ export function ExpandedBoard({
       group: 'status',
       boardSort: 'position',
       subtasks: 'true',
+      columnFilters: '{}',
     }))
       next.searchParams.set(key, value)
     history.replaceState(null, '', next)
@@ -765,6 +990,7 @@ export function ExpandedBoard({
           group: 'status',
           boardSort: 'position',
           subtasks: 'true',
+          columnFilters: '{}',
         },
       },
     }).catch((error) => setError(error.message))
@@ -871,885 +1097,991 @@ export function ExpandedBoard({
   )
   if (!board && loading) return <p role="status">Loading board…</p>
   return (
-    <section className="workspace-board">
-      <header className="workspace-board-heading">
-        <div>
-          <div className="workspace-board-title">
-            <BoardIcon api={api} board={Number(id)} name={board?.name ?? 'Board'} />
-            <h2>{board?.name ?? 'Board'}</h2>
-            <button
-              type="button"
-              aria-label="Toggle favorite"
-              onClick={() =>
-                void savePreference({ favorite: !preference?.favorite }).catch((e) =>
-                  setError(e.message),
-                )
-              }
-            >
-              {preference?.favorite ? '★' : '☆'}
-            </button>
-          </div>
-        </div>
-        <div className="task-workspace-toolbar">
-          {['list', 'board', 'timeline', 'gantt'].includes(kind) && (
-            <WorkspaceMenu label="Group tasks" trigger="☷ Group">
-              <div className="workspace-group-options">
-                {Object.entries(nativeGroups).map(([key, label]) => (
-                  <button
-                    type="button"
-                    key={key}
-                    aria-pressed={group === key}
-                    onClick={(event) => {
-                      setGroup(key)
-                      url('group', key)
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-                {fields.map((field) => (
-                  <button
-                    type="button"
-                    key={field.id}
-                    aria-pressed={group === 'field:' + field.id}
-                    onClick={(event) => {
-                      setGroup('field:' + field.id)
-                      url('group', 'field:' + field.id)
-                    }}
-                  >
-                    {field.name}
-                  </button>
-                ))}
-                {isOwner &&
-                  ['Effort', 'Category']
-                    .filter(
-                      (name) =>
-                        !fields.some((field) => field.name.toLowerCase() === name.toLowerCase()),
-                    )
-                    .map((name) => (
-                      <button
-                        type="button"
-                        key={name}
-                        onClick={() => {
-                          groupAfterField.current = true
-                          setSuggestedFieldName(name)
-                          setEditField(undefined)
-                          setFieldManager(true)
-                        }}
-                      >
-                        ＋ Add {name}
-                      </button>
-                    ))}
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      groupAfterField.current = true
-                      setSuggestedFieldName('')
-                      setEditField(undefined)
-                      setFieldManager(true)
-                    }}
-                  >
-                    ＋ Add custom field
-                  </button>
-                )}
-              </div>
-            </WorkspaceMenu>
-          )}
-          <button
-            data-board-filter-trigger
-            type="button"
-            className="workspace-icon-control"
-            aria-label="Filter board tasks"
-            title="Filters and view options"
-            aria-haspopup="dialog"
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen(true)}
-          >
-            <SlidersHorizontal size={19} aria-hidden="true" />
-            {(search ||
-              status ||
-              assignee ||
-              (['list', 'board', 'timeline', 'gantt'].includes(kind) &&
-                (group !== 'status' || sort !== 'position')) ||
-              !showChildren) && (
-              <span className="workspace-filter-dot" aria-label="Filters active" />
-            )}
-          </button>
-          {isOwner && (
-            <>
-              <button
-                className="workspace-icon-control"
-                type="button"
-                aria-label="Share board"
-                title="Share"
-                onClick={() => setSharing(true)}
-              >
-                <Share2 size={19} aria-hidden="true" />
-              </button>
-              <button
-                className="workspace-icon-control"
-                type="button"
-                aria-label="Board settings"
-                title="Board settings"
-                onClick={() => setSettings(true)}
-              >
-                <Settings2 size={19} aria-hidden="true" />
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            className="workspace-icon-control"
-            aria-label="Board permissions"
-            title="Board permissions"
-            onClick={() => setSharing(true)}
-          >
-            <Lock size={19} />
-          </button>
-          <button
-            className="workspace-icon-control"
-            type="button"
-            aria-label="Refresh board"
-            title="Refresh"
-            disabled={loading}
-            onClick={() => void load()}
-          >
-            <RefreshCw size={19} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-      <nav className="workspace-view-tabs" aria-label="Board views">
-        {views.map((view) => (
-          <button
-            key={view.id}
-            type="button"
-            aria-current={String(view.id) === viewID ? 'page' : undefined}
-            onClick={() => selectView(view)}
-          >
-            {view.name}
-          </button>
-        ))}
-        {isOwner && (
-          <button
-            type="button"
-            aria-label="Add or customize board views"
-            onClick={() => setViewManager(true)}
-          >
-            ＋
-          </button>
-        )}
-      </nav>
-      {error && (
-        <p role="alert">
-          {error}{' '}
-          <button type="button" onClick={() => void load()}>
-            Reload
-          </button>
-        </p>
-      )}
-      {loading && !board && (
-        <p className="workspace-loading" role="status">
-          Updating board…
-        </p>
-      )}
-      {(board?.archived || project?.archived) && (
-        <p role="status">This board is read-only while it or its project is archived.</p>
-      )}
-      {kind !== 'list' && ['board', 'calendar', 'timeline', 'gantt'].includes(kind) && canEdit && (
-        <button
-          className="task-primary"
-          type="button"
-          aria-label="Add task"
-          onClick={() => onCreate()}
-        >
-          ＋ Add task
-        </button>
-      )}
-      {filtersOpen && (
-        <WorkspaceFilterPanel close={() => setFiltersOpen(false)}>
-          <div className="workspace-board-toolbar">
-            {' '}
-            <input
-              aria-label="Search board tasks"
-              placeholder="Search tasks…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                url('boardSearch', e.target.value)
-              }}
-            />
-            <select
-              aria-label="Filter status"
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value)
-                url('boardStatus', e.target.value)
-              }}
-            >
-              <option value="">All statuses</option>
-              {Object.entries(statuses).map(([key, label]) => (
-                <option value={key} key={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter assignee"
-              value={assignee}
-              onChange={(e) => {
-                setAssignee(e.target.value)
-                url('boardAssignee', e.target.value)
-              }}
-            >
-              <option value="">All assignees</option>
-              <option value="unassigned">Unassigned</option>
-              {people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.label}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Sort tasks"
-              value={sort}
-              onChange={(e) => {
-                setSort(e.target.value)
-                url('boardSort', e.target.value)
-              }}
-            >
-              {[
-                ['position', 'Board order'],
-                ['title', 'Task name'],
-                ['dueDate', 'Due date'],
-                ['-updatedAt', 'Last updated'],
-              ].map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {kind !== 'board' && (
-              <label className="workspace-subtask-toggle">
-                <input
-                  type="checkbox"
-                  checked={showChildren}
-                  onChange={(event) => {
-                    setShowChildren(event.target.checked)
-                    url('subtasks', String(event.target.checked))
-                  }}
-                />
-                Include subtasks
-              </label>
-            )}
-            <button type="button" onClick={() => setShowColumns((value) => !value)}>
-              Columns
-            </button>
-          </div>
-          <button type="button" onClick={resetFilters}>
-            Reset filters and view
-          </button>
-          {showColumns && (
-            <fieldset className="workspace-column-settings">
-              <legend>Your columns</legend>
-              {nativeColumns.map((column, index) => (
-                <label key={column.key}>
-                  <input
-                    type="checkbox"
-                    checked={columnSettings[column.key]?.visible !== false}
-                    onChange={(e) =>
-                      setColumnSettings((values) => ({
-                        ...values,
-                        [column.key]: { ...values[column.key], visible: e.target.checked },
-                      }))
-                    }
-                  />
-                  {column.name}
-                  <input
-                    aria-label={`${column.name} width`}
-                    type="number"
-                    min={100}
-                    max={500}
-                    value={columnSettings[column.key]?.width ?? 160}
-                    onChange={(e) =>
-                      setColumnSettings((values) => ({
-                        ...values,
-                        [column.key]: {
-                          ...values[column.key],
-                          width: Math.max(100, Math.min(500, Number(e.target.value))),
-                        },
-                      }))
-                    }
-                  />
-                  <input
-                    aria-label={`${column.name} order`}
-                    type="number"
-                    min={0}
-                    max={nativeColumns.length}
-                    value={columnSettings[column.key]?.order ?? index}
-                    onChange={(e) =>
-                      setColumnSettings((values) => ({
-                        ...values,
-                        [column.key]: { ...values[column.key], order: Number(e.target.value) },
-                      }))
-                    }
-                  />
-                </label>
-              ))}
+    <WorkTimeProvider api={api} board={id} tasks={tasks} onChanged={load}>
+      <section className="workspace-board">
+        <header className="workspace-board-heading">
+          <div>
+            <div className="workspace-board-title">
+              <BoardIcon api={api} board={Number(id)} name={board?.name ?? 'Board'} />
+              <h2>{board?.name ?? 'Board'}</h2>
               <button
                 type="button"
+                aria-label="Toggle favorite"
                 onClick={() =>
-                  void savePreference({
-                    viewSettings: {
-                      ...preference?.viewSettings,
-                      [viewID]: { ...preference?.viewSettings?.[viewID], columns: columnSettings },
-                    },
-                  })
-                    .then(() => setShowColumns(false))
-                    .catch((e) => setError(e.message))
-                }
-              >
-                Save my columns
-              </button>
-            </fieldset>
-          )}
-        </WorkspaceFilterPanel>
-      )}
-      {kind === 'list' && (
-        <div className="workspace-table-scroll">
-          <table className="workspace-task-table">
-            <colgroup>
-              <col style={{ minWidth: 340, width: 400 }} />
-              {columns.map((column) => (
-                <col key={column.key} style={{ width: columnSettings[column.key]?.width ?? 160 }} />
-              ))}
-              <col style={{ width: 55 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th scope="col">Task</th>
-                {columns.map((column) => (
-                  <th scope="col" key={column.key}>
-                    {column.key === 'assignee' ? '◉ ' : ''}
-                    {column.name}
-                    {((column.key === 'priority' && isOwner) ||
-                      (column.key.startsWith('field:') && isOwner)) && (
-                      <button
-                        type="button"
-                        className="workspace-column-menu"
-                        aria-label={`Configure ${column.name}`}
-                        onClick={() => {
-                          if (column.key === 'priority') void priorityDialog()
-                          else {
-                            setEditField(fields.find((field) => 'field:' + field.id === column.key))
-                            groupAfterField.current = false
-                            setFieldManager(true)
-                          }
-                        }}
-                      >
-                        •••
-                      </button>
-                    )}
-                  </th>
-                ))}
-                <th scope="col">
-                  {isOwner && (
-                    <button
-                      type="button"
-                      aria-label="Add field"
-                      onClick={() => {
-                        setEditField(undefined)
-                        setSuggestedFieldName('')
-                        groupAfterField.current = false
-                        setFieldManager(true)
-                      }}
-                    >
-                      ＋
-                    </button>
-                  )}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((grouping) => (
-                <BoardSectionRows
-                  key={grouping.key}
-                  name={grouping.name}
-                  menu={
-                    <WorkspaceMenu label={`Options for ${grouping.name}`}>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setCollapsed(groups.map((item) => item.key))}
-                        >
-                          Collapse all groups
-                        </button>
-                        <button type="button" onClick={() => setCollapsed([])}>
-                          Expand all groups
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setExpanded(roots.map((task) => task.id))}
-                        >
-                          Expand subtasks
-                        </button>
-                        <button type="button" onClick={() => setExpanded([])}>
-                          Collapse subtasks
-                        </button>
-                        {canEdit && (
-                          <button type="button" onClick={() => void sectionDialog('add')}>
-                            Add section
-                          </button>
-                        )}
-                        {canEdit && group === 'section' && grouping.key && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void sectionDialog(
-                                  'rename',
-                                  sections.find((item) => String(item.id) === grouping.key),
-                                )
-                              }
-                            >
-                              Rename section
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void sectionDialog(
-                                  'duplicate',
-                                  sections.find((item) => String(item.id) === grouping.key),
-                                )
-                              }
-                            >
-                              Duplicate section
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </WorkspaceMenu>
-                  }
-                  columnCount={columns.length + 2}
-                  collapsed={collapsed.includes(grouping.key)}
-                  toggle={() =>
-                    setCollapsed((values) =>
-                      values.includes(grouping.key)
-                        ? values.filter((value) => value !== grouping.key)
-                        : [...values, grouping.key],
-                    )
-                  }
-                >
-                  {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
-                    <TaskRows
-                      key={task.id}
-                      parent={row(task)}
-                      childrenRows={
-                        showChildren && expanded.includes(task.id)
-                          ? filtered
-                              .filter((child) => child.parent === task.id)
-                              .map((child) => row(child, true))
-                              .concat(
-                                canEdit && task.canEdit
-                                  ? [
-                                      <tr key={`create-child-${task.id}`}>
-                                        <td colSpan={columns.length + 2}>
-                                          <InlineTaskEntry
-                                            label={`Add subtask to ${task.title}`}
-                                            create={(title) => createInline(title, '', task)}
-                                          />
-                                        </td>
-                                      </tr>,
-                                    ]
-                                  : [],
-                              )
-                          : []
-                      }
-                    />
-                  ))}
-                  {canEdit && (
-                    <tr>
-                      <td colSpan={columns.length + 2}>
-                        <InlineTaskEntry
-                          label={`Add task in ${grouping.name}`}
-                          create={(title) => createInline(title, grouping.key)}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </BoardSectionRows>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {kind === 'board' && (
-        <div className="workspace-kanban">
-          {groups.map((grouping) => (
-            <section
-              key={grouping.key}
-              onDragOver={(event) => {
-                if (canEdit) event.preventDefault()
-              }}
-              onDrop={(event) => {
-                event.preventDefault()
-                const task = tasks.find(
-                  (task) => String(task.id) === event.dataTransfer.getData('text/plain'),
-                )
-                if (task && canEdit && movable)
-                  void move(task, grouping.key, event.dataTransfer.getData('group'))
-              }}
-            >
-              <h3>
-                {grouping.name}
-                <small>{roots.filter((task) => inGroup(task, grouping.key)).length}</small>
-              </h3>
-              {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
-                <article
-                  key={task.id}
-                  draggable={canEdit && task.canEdit && movable}
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData('text/plain', String(task.id))
-                    event.dataTransfer.setData('group', grouping.key)
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="workspace-task-title"
-                    onClick={() => onSelect(task)}
-                  >
-                    {task.title}
-                  </button>
-                  <div>
-                    <span className={`workspace-status status-${task.status}`}>
-                      {statuses[task.status as keyof typeof statuses]}
-                    </span>
-                    <small>
-                      {task.assigneeLabel ?? 'Unassigned'} · {day(task.dueDate) || 'No date'}
-                    </small>
-                  </div>
-                  <small>
-                    {
-                      tasks.filter((child) => child.parent === task.id && child.status === 'done')
-                        .length
-                    }
-                    /{tasks.filter((child) => child.parent === task.id).length} subtasks
-                  </small>
-                  {canEdit && task.canEdit && (
-                    <select
-                      aria-label={`Move ${task.title} to`}
-                      value={grouping.key}
-                      disabled={!movable || busy}
-                      onChange={(event) => void move(task, event.target.value, grouping.key)}
-                    >
-                      {groups.map((group) => (
-                        <option key={group.key} value={group.key}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </article>
-              ))}
-            </section>
-          ))}
-        </div>
-      )}
-      {kind === 'calendar' && (
-        <BoardCalendar
-          priorityColors={board?.presentation?.priorityColors}
-          tasks={filtered.filter((task) => showChildren || !task.parent)}
-          anchor={anchor}
-          mode={calendarMode}
-          onAnchor={(value) => {
-            setAnchor(value)
-            url('calendarDate', value)
-          }}
-          onMode={(value) => {
-            setCalendarMode(value)
-            url('calendarRange', value)
-          }}
-          onSelect={onSelect}
-          patch={patch}
-          canEdit={canEdit}
-        />
-      )}
-      {['timeline', 'gantt'].includes(kind) && (
-        <TimelineView
-          tasks={sorted(filtered.filter((task) => showChildren || !task.parent)).sort((a, b) =>
-            groupFor(a).localeCompare(groupFor(b)),
-          )}
-          groupLabel={(task) =>
-            groups.find((item) => item.key === groupFor(task))?.name ?? 'Unsectioned'
-          }
-          gantt={true}
-          onSelect={onSelect}
-          patch={patch}
-          canEdit={canEdit}
-          baseline={baseline}
-          toolbar={
-            <>
-              {isOwner && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    void workspaceDialog({
-                      title: 'Save scheduling baseline',
-                      description:
-                        'Keep a date snapshot for comparison. It will continue to follow task permissions.',
-                      fields: [{ name: 'name', label: 'Baseline name', required: true }],
-                      saveLabel: 'Save baseline',
-                      onSave: async (values) => {
-                        await reviewAPI(api, `task-workspace/boards/${id}/baseline`, 'POST', {
-                          name: values.name,
-                        })
-                        await load()
-                      },
-                    })
-                  }
-                >
-                  Save baseline
-                </button>
-              )}
-              <select
-                aria-label="Compare baseline"
-                value={baseline?.id ?? ''}
-                onChange={(event) => {
-                  if (!event.target.value) {
-                    setBaseline(undefined)
-                    return
-                  }
-                  void reviewAPI(api, `task-workspace/boards/${id}/baselines/${event.target.value}`)
-                    .then(setBaseline)
-                    .catch((e) => setError(e.message))
-                }}
-              >
-                <option value="">No baseline comparison</option>
-                {baselines.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          }
-        />
-      )}
-      {kind === 'overview' && (
-        <section className="workspace-overview">
-          {board && (
-            <BoardAbout
-              key={id}
-              api={api}
-              board={board}
-              tasks={tasks}
-              complete={!!summary?.complete}
-              editable={isOwner && canEdit}
-              onSaved={load}
-              onDirty={descriptionDirty}
-            />
-          )}
-          <BoardMetrics summary={summary} />
-          <BoardActivity
-            key={id}
-            api={api}
-            board={id}
-            refreshKey={`${refreshKey}:${activityRefresh}`}
-            onSelect={onSelect}
-            onBoardActivity={(item) => {
-              if (item.source === 'file') {
-                window.open(
-                  `${api}/task-workspace/files/${item.attachment}/content`,
-                  '_blank',
-                  'noopener,noreferrer',
-                )
-              } else setSharing(true)
-            }}
-          />
-        </section>
-      )}
-      {kind === 'dashboard' && (
-        <>
-          <BoardMetrics summary={summary} />
-          <div className="workspace-dashboard-grid">
-            <section>
-              <h3>By status</h3>
-              {Object.entries(summary?.complete ? summary.counts : {}).map(([key, count]) => (
-                <div className="workspace-metric-row" key={key}>
-                  <span>{statuses[key as keyof typeof statuses]}</span>
-                  <meter min={0} max={tasks.length || 1} value={Number(count)} />
-                  <strong>{String(count)}</strong>
-                </div>
-              ))}
-            </section>
-            <section>
-              <h3>By assignee</h3>
-              {Object.entries(summary?.complete ? summary.assignees : {}).map(
-                ([key, value]: any) => (
-                  <p key={key}>
-                    {people.find((person) => String(person.id) === key)?.label ??
-                      (key === 'unassigned' ? 'Unassigned' : 'Assigned user')}
-                    : {value.tasks} tasks · {(value.seconds / 3600).toFixed(2)} hours
-                  </p>
-                ),
-              )}
-            </section>
-          </div>
-        </>
-      )}
-      {kind === 'files' && (
-        <WorkspaceFiles api={api} board={Number(id)} linked={tasks} canUpload={canEdit} />
-      )}
-      {kind === 'page' && view && (
-        <BoardPage key={view.id} api={api} view={view} board={Number(id)} canEdit={canEdit} />
-      )}
-      {kind === 'messages' && (
-        <BoardMessages
-          api={api}
-          board={Number(id)}
-          canComment={board?.workspaceRole !== 'viewer' && !board?.archived && !project?.archived}
-        />
-      )}
-      {kind === 'embed' && view && (
-        <EmbedView api={api} board={Number(id)} view={view} owner={isOwner} onSaved={load} />
-      )}
-      {kind === 'workload' && (
-        <WorkloadView api={api} tasks={tasks} people={people} canEdit={canEdit} onChange={load} />
-      )}
-      {kind === 'timesheets' && (
-        <TimesheetView
-          api={api}
-          tasks={tasks}
-          people={people}
-          onSelect={onSelect}
-          onChange={load}
-          timezone={summary?.timezone ?? 'UTC'}
-          ready={!loading}
-        />
-      )}
-      {['list', 'board'].includes(kind) && canEdit && (
-        <details className="workspace-section-settings">
-          <summary>Manage sections</summary>
-          <div className="workspace-add-section">
-            <label>
-              New section
-              <input value={sectionName} onChange={(event) => setSectionName(event.target.value)} />
-            </label>
-            <button
-              type="button"
-              aria-label="Add section"
-              disabled={busy || !sectionName.trim() || !canEdit}
-              onClick={() =>
-                void run(async () => {
-                  await reviewAPI(api, 'task-sections', 'POST', {
-                    board: Number(id),
-                    name: sectionName,
-                    position: sections.length,
-                  })
-                  setSectionName('')
-                  setGroup('section')
-                  url('group', 'section')
-                })
-              }
-            >
-              ＋ Add section
-            </button>
-          </div>
-          {sections.map((section, index) => (
-            <div className="task-workspace-toolbar" key={section.id}>
-              <input
-                aria-label={`Section ${section.name}`}
-                defaultValue={section.name}
-                onBlur={(event) => {
-                  if (event.target.value.trim() && event.target.value !== section.name)
-                    void run(() =>
-                      reviewAPI(api, `task-sections/${section.id}`, 'PATCH', {
-                        name: event.target.value.trim(),
-                        expectedUpdatedAt: section.updatedAt,
-                      }),
-                    )
-                }}
-              />
-              <button
-                type="button"
-                disabled={busy || index === 0}
-                onClick={() =>
-                  void run(() =>
-                    reviewAPI(api, `task-sections/${section.id}`, 'PATCH', {
-                      position: sections[index - 1].position - 1,
-                      expectedUpdatedAt: section.updatedAt,
-                    }),
+                  void savePreference({ favorite: !preference?.favorite }).catch((e) =>
+                    setError(e.message),
                   )
                 }
               >
-                Move up
+                {preference?.favorite ? '★' : '☆'}
               </button>
+            </div>
+          </div>
+          <div className="task-workspace-toolbar">
+            {['list', 'board', 'timeline', 'gantt'].includes(kind) && (
+              <WorkspaceMenu label="Group tasks" trigger="☷ Group">
+                <div className="workspace-group-options">
+                  {Object.entries(nativeGroups).map(([key, label]) => (
+                    <button
+                      type="button"
+                      key={key}
+                      aria-pressed={group === key}
+                      onClick={(event) => {
+                        setGroup(key)
+                        url('group', key)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {fields.map((field) => (
+                    <button
+                      type="button"
+                      key={field.id}
+                      aria-pressed={group === 'field:' + field.id}
+                      onClick={(event) => {
+                        setGroup('field:' + field.id)
+                        url('group', 'field:' + field.id)
+                      }}
+                    >
+                      {field.name}
+                    </button>
+                  ))}
+                  {isOwner &&
+                    ['Effort', 'Category']
+                      .filter(
+                        (name) =>
+                          !fields.some((field) => field.name.toLowerCase() === name.toLowerCase()),
+                      )
+                      .map((name) => (
+                        <button
+                          type="button"
+                          key={name}
+                          onClick={() => {
+                            groupAfterField.current = true
+                            setSuggestedFieldName(name)
+                            setEditField(undefined)
+                            setFieldManager(true)
+                          }}
+                        >
+                          ＋ Add {name}
+                        </button>
+                      ))}
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        groupAfterField.current = true
+                        setSuggestedFieldName('')
+                        setEditField(undefined)
+                        setFieldManager(true)
+                      }}
+                    >
+                      ＋ Add custom field
+                    </button>
+                  )}
+                </div>
+              </WorkspaceMenu>
+            )}
+            <button
+              data-board-filter-trigger
+              type="button"
+              className="workspace-icon-control"
+              aria-label="Filter board tasks"
+              title="Filters and view options"
+              aria-haspopup="dialog"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen(true)}
+            >
+              <SlidersHorizontal size={19} aria-hidden="true" />
+              {(search ||
+                status ||
+                assignee ||
+                Object.keys(columnFilters).length > 0 ||
+                (['list', 'board', 'timeline', 'gantt'].includes(kind) &&
+                  (group !== 'status' || sort !== 'position')) ||
+                !showChildren) && (
+                <span className="workspace-filter-dot" aria-label="Filters active" />
+              )}
+            </button>
+            {isOwner && (
+              <>
+                <button
+                  className="workspace-icon-control"
+                  type="button"
+                  aria-label="Share board"
+                  title="Share"
+                  onClick={() => setSharing(true)}
+                >
+                  <Share2 size={19} aria-hidden="true" />
+                </button>
+                <button
+                  className="workspace-icon-control"
+                  type="button"
+                  aria-label="Board settings"
+                  title="Board settings"
+                  onClick={() => setSettings(true)}
+                >
+                  <Settings2 size={19} aria-hidden="true" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="workspace-icon-control"
+              aria-label="Board permissions"
+              title="Board permissions"
+              onClick={() => setSharing(true)}
+            >
+              <Lock size={19} />
+            </button>
+            <button
+              className="workspace-icon-control"
+              type="button"
+              aria-label="Refresh board"
+              title="Refresh"
+              disabled={loading}
+              onClick={() => void load()}
+            >
+              <RefreshCw size={19} aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+        <nav className="workspace-view-tabs" aria-label="Board views">
+          {views.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              aria-current={String(view.id) === viewID ? 'page' : undefined}
+              onClick={() => selectView(view)}
+            >
+              {view.name}
+            </button>
+          ))}
+          {isOwner && (
+            <button
+              type="button"
+              aria-label="Add or customize board views"
+              onClick={() => setViewManager(true)}
+            >
+              ＋
+            </button>
+          )}
+        </nav>
+        {error && (
+          <p role="alert">
+            {error}{' '}
+            <button type="button" onClick={() => void load()}>
+              Reload
+            </button>
+          </p>
+        )}
+        {loading && !board && (
+          <p className="workspace-loading" role="status">
+            Updating board…
+          </p>
+        )}
+        {(board?.archived || project?.archived) && (
+          <p role="status">This board is read-only while it or its project is archived.</p>
+        )}
+        {kind !== 'list' &&
+          ['board', 'calendar', 'timeline', 'gantt'].includes(kind) &&
+          canEdit && (
+            <button
+              className="task-primary"
+              type="button"
+              aria-label="Add task"
+              onClick={() => onCreate()}
+            >
+              ＋ Add task
+            </button>
+          )}
+        {filtersOpen && (
+          <WorkspaceFilterPanel close={() => setFiltersOpen(false)}>
+            <div className="workspace-board-toolbar">
+              {' '}
+              <input
+                aria-label="Search board tasks"
+                placeholder="Search tasks…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  url('boardSearch', e.target.value)
+                }}
+              />
+              <select
+                aria-label="Filter status"
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value)
+                  url('boardStatus', e.target.value)
+                }}
+              >
+                <option value="">All statuses</option>
+                {Object.entries(statuses).map(([key, label]) => (
+                  <option value={key} key={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Filter assignee"
+                value={assignee}
+                onChange={(e) => {
+                  setAssignee(e.target.value)
+                  url('boardAssignee', e.target.value)
+                }}
+              >
+                <option value="">All assignees</option>
+                <option value="unassigned">Unassigned</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.label}
+                  </option>
+                ))}
+              </select>
+              {Object.entries(columnFilters).map(([key, value]) => (
+                <button type="button" key={key} onClick={() => setFilterColumn(key)}>
+                  {columnName(key)}: {value.operator} {value.value}
+                </button>
+              ))}
+              <select
+                aria-label="Sort tasks"
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value)
+                  url('boardSort', e.target.value)
+                }}
+              >
+                {[
+                  ['position', 'Board order'],
+                  ['title', 'Task name'],
+                  ['dueDate', 'Due date'],
+                  ['-updatedAt', 'Last updated'],
+                  ...[{ key: 'title', name: 'Task' }, ...nativeColumns].flatMap((column) => [
+                    ['column:${column.key}:asc', column.name + ' ascending'],
+                    ['column:${column.key}:desc', column.name + ' descending'],
+                  ]),
+                ].map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {kind !== 'board' && (
+                <label className="workspace-subtask-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showChildren}
+                    onChange={(event) => {
+                      setShowChildren(event.target.checked)
+                      url('subtasks', String(event.target.checked))
+                    }}
+                  />
+                  Include subtasks
+                </label>
+              )}
+              <button type="button" onClick={() => setShowColumns((value) => !value)}>
+                Columns
+              </button>
+            </div>
+            <button type="button" onClick={resetFilters}>
+              Reset filters and view
+            </button>
+            {showColumns && (
+              <fieldset className="workspace-column-settings">
+                <legend>Your columns</legend>
+                {nativeColumns.map((column, index) => (
+                  <label key={column.key}>
+                    <input
+                      type="checkbox"
+                      checked={columnSettings[column.key]?.visible !== false}
+                      onChange={(e) =>
+                        setColumnSettings((values) => ({
+                          ...values,
+                          [column.key]: { ...values[column.key], visible: e.target.checked },
+                        }))
+                      }
+                    />
+                    {column.name}
+                    <input
+                      aria-label={`${column.name} width`}
+                      type="number"
+                      min={100}
+                      max={500}
+                      value={columnSettings[column.key]?.width ?? 160}
+                      onChange={(e) =>
+                        setColumnSettings((values) => ({
+                          ...values,
+                          [column.key]: {
+                            ...values[column.key],
+                            width: Math.max(100, Math.min(500, Number(e.target.value))),
+                          },
+                        }))
+                      }
+                    />
+                    <input
+                      aria-label={`${column.name} order`}
+                      type="number"
+                      min={0}
+                      max={nativeColumns.length}
+                      value={columnSettings[column.key]?.order ?? index}
+                      onChange={(e) =>
+                        setColumnSettings((values) => ({
+                          ...values,
+                          [column.key]: { ...values[column.key], order: Number(e.target.value) },
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    void savePreference({
+                      viewSettings: {
+                        ...preference?.viewSettings,
+                        [viewID]: {
+                          ...preference?.viewSettings?.[viewID],
+                          columns: columnSettings,
+                        },
+                      },
+                    })
+                      .then(() => setShowColumns(false))
+                      .catch((e) => setError(e.message))
+                  }
+                >
+                  Save my columns
+                </button>
+              </fieldset>
+            )}
+          </WorkspaceFilterPanel>
+        )}
+        {kind === 'list' && (
+          <div className="workspace-table-scroll">
+            <table
+              className="workspace-task-table"
+              onClick={(event) => {
+                const row = (event.target as Element).closest('tr')
+                row?.querySelector<HTMLInputElement>('.workspace-inline-entry input')?.focus()
+              }}
+            >
+              <colgroup>
+                <col style={{ minWidth: 340, width: 400 }} />
+                {columns.map((column) => (
+                  <col
+                    key={column.key}
+                    style={{ width: columnSettings[column.key]?.width ?? 160 }}
+                  />
+                ))}
+                <col style={{ width: 55 }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <div className="workspace-column-heading">
+                      <span>Task</span>
+                      {columnMenu('title')}
+                    </div>
+                  </th>
+                  {columns.map((column) => (
+                    <th
+                      key={column.key}
+                      scope="col"
+                      draggable
+                      onDragStart={(event) => {
+                        if ((event.target as Element).closest('button')) {
+                          event.preventDefault()
+                          return
+                        }
+                        setDragColumn(column.key)
+                        event.dataTransfer.setData('text/plain', column.key)
+                        event.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onDragEnd={() => {
+                        setDragColumn('')
+                        setDropColumn('')
+                      }}
+                      onDragOver={(event) => {
+                        if (!dragColumn || dragColumn === column.key) return
+                        event.preventDefault()
+                        const bounds = event.currentTarget.getBoundingClientRect()
+                        setDropColumn(
+                          `${column.key}|${event.clientX > bounds.left + bounds.width / 2 ? 'after' : 'before'}`,
+                        )
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault()
+                        if (dragColumn && dragColumn !== column.key)
+                          void moveColumn(
+                            dragColumn,
+                            column.key,
+                            dropColumn.endsWith('|after'),
+                          ).catch((error) => setError(error.message))
+                        setDragColumn('')
+                        setDropColumn('')
+                      }}
+                      className={
+                        dropColumn.startsWith(column.key + '|')
+                          ? `workspace-column-drop-${dropColumn.endsWith('|after') ? 'after' : 'before'}`
+                          : ''
+                      }
+                    >
+                      <div className="workspace-column-heading">
+                        <span>
+                          {column.key === 'assignee' ? '◉ ' : ''}
+                          {column.name}
+                        </span>
+                        {columnMenu(column.key)}
+                      </div>
+                    </th>
+                  ))}
+                  <th scope="col">
+                    {isOwner && (
+                      <button
+                        type="button"
+                        className="workspace-bare-control"
+                        aria-label="Add field"
+                        onClick={() => {
+                          setEditField(undefined)
+                          setSuggestedFieldName('')
+                          groupAfterField.current = false
+                          setFieldManager(true)
+                        }}
+                      >
+                        ＋
+                      </button>
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((grouping) => (
+                  <BoardSectionRows
+                    key={grouping.key}
+                    name={grouping.name}
+                    menu={
+                      <WorkspaceMenu label={`Options for ${grouping.name}`}>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setCollapsed(groups.map((item) => item.key))}
+                          >
+                            Collapse all groups
+                          </button>
+                          <button type="button" onClick={() => setCollapsed([])}>
+                            Expand all groups
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(roots.map((task) => task.id))}
+                          >
+                            Expand subtasks
+                          </button>
+                          <button type="button" onClick={() => setExpanded([])}>
+                            Collapse subtasks
+                          </button>
+                          {canEdit && (
+                            <button type="button" onClick={() => void sectionDialog('add')}>
+                              Add section
+                            </button>
+                          )}
+                          {canEdit && group === 'section' && grouping.key && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void sectionDialog(
+                                    'rename',
+                                    sections.find((item) => String(item.id) === grouping.key),
+                                  )
+                                }
+                              >
+                                Rename section
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void sectionDialog(
+                                    'duplicate',
+                                    sections.find((item) => String(item.id) === grouping.key),
+                                  )
+                                }
+                              >
+                                Duplicate section
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </WorkspaceMenu>
+                    }
+                    columnCount={columns.length + 2}
+                    collapsed={collapsed.includes(grouping.key)}
+                    toggle={() =>
+                      setCollapsed((values) =>
+                        values.includes(grouping.key)
+                          ? values.filter((value) => value !== grouping.key)
+                          : [...values, grouping.key],
+                      )
+                    }
+                  >
+                    {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
+                      <TaskRows
+                        key={task.id}
+                        parent={row(task)}
+                        childrenRows={
+                          showChildren && expanded.includes(task.id)
+                            ? filtered
+                                .filter((child) => child.parent === task.id)
+                                .map((child) => row(child, true))
+                                .concat(
+                                  canEdit && task.canEdit
+                                    ? [
+                                        <tr key={`create-child-${task.id}`}>
+                                          <td colSpan={columns.length + 2}>
+                                            <InlineTaskEntry
+                                              subtask
+                                              label={`Add subtask to ${task.title}`}
+                                              create={(title) => createInline(title, '', task)}
+                                            />
+                                          </td>
+                                        </tr>,
+                                      ]
+                                    : [],
+                                )
+                            : []
+                        }
+                      />
+                    ))}
+                    {canEdit && (
+                      <tr>
+                        <td colSpan={columns.length + 2}>
+                          <InlineTaskEntry
+                            label={`Add task in ${grouping.name}`}
+                            create={(title) => createInline(title, grouping.key)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </BoardSectionRows>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {kind === 'board' && (
+          <div className="workspace-kanban">
+            {groups.map((grouping) => (
+              <section
+                key={grouping.key}
+                onDragOver={(event) => {
+                  if (canEdit) event.preventDefault()
+                }}
+                onDrop={(event) => {
+                  event.preventDefault()
+                  const task = tasks.find(
+                    (task) => String(task.id) === event.dataTransfer.getData('text/plain'),
+                  )
+                  if (task && canEdit && movable)
+                    void move(task, grouping.key, event.dataTransfer.getData('group'))
+                }}
+              >
+                <h3>
+                  {grouping.name}
+                  <small>{roots.filter((task) => inGroup(task, grouping.key)).length}</small>
+                </h3>
+                {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
+                  <article
+                    key={task.id}
+                    draggable={canEdit && task.canEdit && movable}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('text/plain', String(task.id))
+                      event.dataTransfer.setData('group', grouping.key)
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="workspace-task-title"
+                      onClick={() => onSelect(task)}
+                    >
+                      {task.title}
+                    </button>
+                    <div>
+                      <span className={`workspace-status status-${task.status}`}>
+                        {statuses[task.status as keyof typeof statuses]}
+                      </span>
+                      <small>
+                        {task.assigneeLabel ?? 'Unassigned'} · {day(task.dueDate) || 'No date'}
+                      </small>
+                    </div>
+                    <small>
+                      {
+                        tasks.filter((child) => child.parent === task.id && child.status === 'done')
+                          .length
+                      }
+                      /{tasks.filter((child) => child.parent === task.id).length} subtasks
+                    </small>
+                    {canEdit && task.canEdit && (
+                      <select
+                        aria-label={`Move ${task.title} to`}
+                        value={grouping.key}
+                        disabled={!movable || busy}
+                        onChange={(event) => void move(task, event.target.value, grouping.key)}
+                      >
+                        {groups.map((group) => (
+                          <option key={group.key} value={group.key}>
+                            {group.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </article>
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+        {kind === 'calendar' && (
+          <BoardCalendar
+            priorityColors={board?.presentation?.priorityColors}
+            tasks={filtered.filter((task) => showChildren || !task.parent)}
+            anchor={anchor}
+            mode={calendarMode}
+            onAnchor={(value) => {
+              setAnchor(value)
+              url('calendarDate', value)
+            }}
+            onMode={(value) => {
+              setCalendarMode(value)
+              url('calendarRange', value)
+            }}
+            onSelect={onSelect}
+            patch={patch}
+            canEdit={canEdit}
+          />
+        )}
+        {['timeline', 'gantt'].includes(kind) && (
+          <TimelineView
+            tasks={sorted(filtered.filter((task) => showChildren || !task.parent)).sort((a, b) =>
+              groupFor(a).localeCompare(groupFor(b)),
+            )}
+            groupLabel={(task) =>
+              groups.find((item) => item.key === groupFor(task))?.name ?? 'Unsectioned'
+            }
+            gantt={true}
+            onSelect={onSelect}
+            patch={patch}
+            canEdit={canEdit}
+            baseline={baseline}
+            toolbar={
+              <>
+                {isOwner && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void workspaceDialog({
+                        title: 'Save scheduling baseline',
+                        description:
+                          'Keep a date snapshot for comparison. It will continue to follow task permissions.',
+                        fields: [{ name: 'name', label: 'Baseline name', required: true }],
+                        saveLabel: 'Save baseline',
+                        onSave: async (values) => {
+                          await reviewAPI(api, `task-workspace/boards/${id}/baseline`, 'POST', {
+                            name: values.name,
+                          })
+                          await load()
+                        },
+                      })
+                    }
+                  >
+                    Save baseline
+                  </button>
+                )}
+                <select
+                  aria-label="Compare baseline"
+                  value={baseline?.id ?? ''}
+                  onChange={(event) => {
+                    if (!event.target.value) {
+                      setBaseline(undefined)
+                      return
+                    }
+                    void reviewAPI(
+                      api,
+                      `task-workspace/boards/${id}/baselines/${event.target.value}`,
+                    )
+                      .then(setBaseline)
+                      .catch((e) => setError(e.message))
+                  }}
+                >
+                  <option value="">No baseline comparison</option>
+                  {baselines.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            }
+          />
+        )}
+        {kind === 'overview' && (
+          <section className="workspace-overview">
+            {board && (
+              <BoardAbout
+                key={id}
+                api={api}
+                board={board}
+                tasks={tasks}
+                complete={!!summary?.complete}
+                editable={isOwner && canEdit}
+                onSaved={load}
+                onDirty={descriptionDirty}
+              />
+            )}
+            <BoardMetrics summary={summary} />
+            <BoardActivity
+              key={id}
+              api={api}
+              board={id}
+              refreshKey={`${refreshKey}:${activityRefresh}`}
+              onSelect={onSelect}
+              onBoardActivity={(item) => {
+                if (item.source === 'file') {
+                  window.open(
+                    `${api}/task-workspace/files/${item.attachment}/content`,
+                    '_blank',
+                    'noopener,noreferrer',
+                  )
+                } else setSharing(true)
+              }}
+            />
+          </section>
+        )}
+        {kind === 'dashboard' && (
+          <>
+            <BoardMetrics summary={summary} />
+            <div className="workspace-dashboard-grid">
+              <section>
+                <h3>By status</h3>
+                {Object.entries(summary?.complete ? summary.counts : {}).map(([key, count]) => (
+                  <div className="workspace-metric-row" key={key}>
+                    <span>{statuses[key as keyof typeof statuses]}</span>
+                    <meter min={0} max={tasks.length || 1} value={Number(count)} />
+                    <strong>{String(count)}</strong>
+                  </div>
+                ))}
+              </section>
+              <section>
+                <h3>By assignee</h3>
+                {Object.entries(summary?.complete ? summary.assignees : {}).map(
+                  ([key, value]: any) => (
+                    <p key={key}>
+                      {people.find((person) => String(person.id) === key)?.label ??
+                        (key === 'unassigned' ? 'Unassigned' : 'Assigned user')}
+                      : {value.tasks} tasks · {(value.seconds / 3600).toFixed(2)} hours
+                    </p>
+                  ),
+                )}
+              </section>
+            </div>
+          </>
+        )}
+        {kind === 'files' && (
+          <WorkspaceFiles api={api} board={Number(id)} linked={tasks} canUpload={canEdit} />
+        )}
+        {kind === 'page' && view && (
+          <BoardPage key={view.id} api={api} view={view} board={Number(id)} canEdit={canEdit} />
+        )}
+        {kind === 'messages' && (
+          <BoardMessages
+            api={api}
+            board={Number(id)}
+            canComment={board?.workspaceRole !== 'viewer' && !board?.archived && !project?.archived}
+          />
+        )}
+        {kind === 'embed' && view && (
+          <EmbedView api={api} board={Number(id)} view={view} owner={isOwner} onSaved={load} />
+        )}
+        {kind === 'workload' && (
+          <WorkloadView api={api} tasks={tasks} people={people} canEdit={canEdit} onChange={load} />
+        )}
+        {kind === 'timesheets' && (
+          <TimesheetView
+            api={api}
+            tasks={tasks}
+            people={people}
+            onSelect={onSelect}
+            onChange={load}
+            timezone={summary?.timezone ?? 'UTC'}
+            ready={!loading}
+          />
+        )}
+        {['list', 'board'].includes(kind) && canEdit && (
+          <details className="workspace-section-settings">
+            <summary>Manage sections</summary>
+            <div className="workspace-add-section">
+              <label>
+                New section
+                <input
+                  value={sectionName}
+                  onChange={(event) => setSectionName(event.target.value)}
+                />
+              </label>
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (confirm('Archive this section? Tasks move to Unsectioned.'))
+                aria-label="Add section"
+                disabled={busy || !sectionName.trim() || !canEdit}
+                onClick={() =>
+                  void run(async () => {
+                    await reviewAPI(api, 'task-sections', 'POST', {
+                      board: Number(id),
+                      name: sectionName,
+                      position: sections.length,
+                    })
+                    setSectionName('')
+                    setGroup('section')
+                    url('group', 'section')
+                  })
+                }
+              >
+                ＋ Add section
+              </button>
+            </div>
+            {sections.map((section, index) => (
+              <div className="task-workspace-toolbar" key={section.id}>
+                <input
+                  aria-label={`Section ${section.name}`}
+                  defaultValue={section.name}
+                  onBlur={(event) => {
+                    if (event.target.value.trim() && event.target.value !== section.name)
+                      void run(() =>
+                        reviewAPI(api, `task-sections/${section.id}`, 'PATCH', {
+                          name: event.target.value.trim(),
+                          expectedUpdatedAt: section.updatedAt,
+                        }),
+                      )
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || index === 0}
+                  onClick={() =>
                     void run(() =>
                       reviewAPI(api, `task-sections/${section.id}`, 'PATCH', {
-                        archived: true,
+                        position: sections[index - 1].position - 1,
                         expectedUpdatedAt: section.updatedAt,
                       }),
                     )
-                }}
-              >
-                Archive section
-              </button>
-            </div>
-          ))}
-        </details>
-      )}
-      {settings && board && (
-        <BoardSettings
-          api={api}
-          board={board}
-          onClose={() => setSettings(false)}
-          onSaved={() => {
-            setSettings(false)
-            void load()
-          }}
-        />
-      )}
-      {fieldManager && (
-        <FieldManager
-          suggestedName={suggestedFieldName}
-          initialField={editField}
-          onAdded={(field) => {
-            if (groupAfterField.current) {
-              setGroup('field:' + field.id)
-              url('group', 'field:' + field.id)
+                  }
+                >
+                  Move up
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    if (confirm('Archive this section? Tasks move to Unsectioned.'))
+                      void run(() =>
+                        reviewAPI(api, `task-sections/${section.id}`, 'PATCH', {
+                          archived: true,
+                          expectedUpdatedAt: section.updatedAt,
+                        }),
+                      )
+                  }}
+                >
+                  Archive section
+                </button>
+              </div>
+            ))}
+          </details>
+        )}
+        {settings && board && (
+          <BoardSettings
+            api={api}
+            board={board}
+            onClose={() => setSettings(false)}
+            onSaved={() => {
+              setSettings(false)
+              void load()
+            }}
+          />
+        )}
+        {filterColumn && (
+          <ColumnFilterDialog
+            key={filterColumn}
+            name={columnName(filterColumn)}
+            kind={
+              filterColumn === 'dueDate'
+                ? 'date'
+                : (fields.find((field) => `field:${field.id}` === filterColumn)?.kind ?? 'text')
             }
-            setFieldManager(false)
-          }}
-          api={api}
-          board={Number(id)}
-          onClose={() => setFieldManager(false)}
-          onSaved={load}
-        />
-      )}{' '}
-      {viewManager && (
-        <ViewManager
-          api={api}
-          board={Number(id)}
-          views={views}
-          onClose={() => setViewManager(false)}
-          onSaved={load}
-        />
-      )}{' '}
-      {sharing && board && (
-        <ProjectBoardSharing
-          api={api}
-          board={board}
-          onClose={() => setSharing(false)}
-          onSaved={load}
-        />
-      )}
-    </section>
+            options={
+              filterColumn === 'status'
+                ? Object.entries(statuses).map(([value, label]) => ({ value, label }))
+                : filterColumn === 'priority'
+                  ? ['low', 'normal', 'high', 'urgent'].map((value) => ({ value, label: value }))
+                  : filterColumn === 'assignee' ||
+                      fields.find((field) => `field:${field.id}` === filterColumn)?.kind ===
+                        'people'
+                    ? people.map((person) => ({ value: String(person.id), label: person.label }))
+                    : (fields
+                        .find((field) => `field:${field.id}` === filterColumn)
+                        ?.configuration?.options?.map((option) => ({
+                          value: option.id,
+                          label: option.label,
+                        })) ?? [])
+            }
+            value={
+              columnFilters[filterColumn] ??
+              (filterColumn === 'status' && status
+                ? { operator: 'eq', value: status }
+                : filterColumn === 'assignee' && assignee
+                  ? { operator: assignee === 'unassigned' ? 'empty' : 'eq', value: assignee }
+                  : filterColumn === 'title' && search
+                    ? { operator: 'contains', value: search }
+                    : undefined)
+            }
+            onClose={() => setFilterColumn(undefined)}
+            onSave={(value) => applyColumnFilter(filterColumn, value)}
+          />
+        )}
+        {fieldManager && (
+          <FieldManager
+            suggestedName={suggestedFieldName}
+            initialField={editField}
+            onAdded={(field) => {
+              if (groupAfterField.current) {
+                setGroup('field:' + field.id)
+                url('group', 'field:' + field.id)
+              }
+              setFieldManager(false)
+            }}
+            api={api}
+            board={Number(id)}
+            onClose={() => setFieldManager(false)}
+            onSaved={load}
+          />
+        )}{' '}
+        {viewManager && (
+          <ViewManager
+            api={api}
+            board={Number(id)}
+            views={views}
+            onClose={() => setViewManager(false)}
+            onSaved={load}
+          />
+        )}{' '}
+        {sharing && board && (
+          <ProjectBoardSharing
+            api={api}
+            board={board}
+            onClose={() => setSharing(false)}
+            onSaved={load}
+          />
+        )}
+      </section>
+    </WorkTimeProvider>
   )
 }
 function BoardSectionRows({
@@ -2144,6 +2476,7 @@ function TimesheetView({
     [error, setError] = useState(''),
     [rows, setRows] = useState<any[]>([]),
     [loading, setLoading] = useState(false)
+  const [timeTask, setTimeTask] = useState<Task>()
   const version = tasks.map((task) => `${task.id}:${task.updatedAt}`).join(',')
   useEffect(() => {
     let current = true
@@ -2245,73 +2578,23 @@ function TimesheetView({
                 <td>{entry.endedAt ? (entry.weekSeconds / 3600).toFixed(2) : 'Running'}</td>
                 <td>{entry.note}</td>
                 <td>
-                  {entry.endedAt && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void workspaceDialog({
-                          title: 'Correct time entry',
-                          description:
-                            'Times are entered in your local timezone. Reports use the site timezone. Existing timestamps are preserved when unchanged.',
-                          fields: [
-                            {
-                              name: 'start',
-                              label: 'Started (your local time)',
-                              type: 'datetime-local',
-                              value: localTimeInput(entry.startedAt),
-                              required: true,
-                            },
-                            {
-                              name: 'end',
-                              label: 'Ended (your local time)',
-                              type: 'datetime-local',
-                              value: localTimeInput(entry.endedAt),
-                              required: true,
-                            },
-                            {
-                              name: 'note',
-                              label: 'Note',
-                              type: 'textarea',
-                              value: entry.note ?? '',
-                            },
-                            { name: 'reason', label: 'Audit reason', required: true },
-                          ],
-                          saveLabel: 'Save correction',
-                          onSave: async (values) => {
-                            await reviewAPI(
-                              api,
-                              `task-workspace/tasks/${entry.taskRecord.id}`,
-                              'POST',
-                              {
-                                action: 'save-time',
-                                entry: entry.id,
-                                startedAt:
-                                  values.start === localTimeInput(entry.startedAt)
-                                    ? entry.startedAt
-                                    : parseLocalTime(values.start),
-                                endedAt:
-                                  values.end === localTimeInput(entry.endedAt)
-                                    ? entry.endedAt
-                                    : parseLocalTime(values.end),
-                                note: values.note,
-                                reason: values.reason,
-                                expectedUpdatedAt: entry.updatedAt,
-                              },
-                            )
-                            onChange()
-                          },
-                        })
-                      }
-                    >
-                      Correct entry
-                    </button>
-                  )}
+                  <button type="button" onClick={() => setTimeTask(entry.taskRecord)}>
+                    View time log
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {timeTask && (
+        <TaskTimeLog
+          api={api}
+          task={timeTask}
+          onChanged={onChange}
+          onClose={() => setTimeTask(undefined)}
+        />
+      )}
       {!loading && !entries.length && <p>No accessible entries in this week.</p>}
     </section>
   )

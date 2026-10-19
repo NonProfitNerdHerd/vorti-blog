@@ -8,7 +8,7 @@ import { query, reviewAll, reviewAPI, taskSearchTerms, type Task } from './clien
 import { ExpandedBoard } from './ExpandedBoard'
 
 export type Board = {
-  presentation?: { priorityColors?: Record<string,string> }
+  presentation?: { priorityColors?: Record<string, string>; statusColors?: Record<string, string> }
   id: number
   name: string
   description?: string

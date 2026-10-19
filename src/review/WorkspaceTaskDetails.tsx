@@ -1,10 +1,10 @@
 'use client'
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote attachments, typed inputs, and task details. */
 import { useCallback, useEffect, useState } from 'react'
-import { useAuth, useConfig } from '@payloadcms/ui'
+import { useConfig } from '@payloadcms/ui'
 import { reviewAPI, type Task } from './client'
 import { taskDocumentLink } from './links'
-import { parseLocalTime } from './workspace-dates'
+import { WorkTimeProvider, TimeTrackingCell } from './TimeTracking'
 import { workspaceDialog } from './WorkspaceDialogs'
 import { taskFeedback } from './WorkspaceFeedback'
 
@@ -555,16 +555,11 @@ export function WorkspaceTaskDetails({
   task: Task
   onChange: () => void
 }) {
-  const { user } = useAuth(),
-    [data, setData] = useState<any>(),
+  const [data, setData] = useState<any>(),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [seconds, setSeconds] = useState(1500),
     [clock, setClock] = useState(() => Date.now()),
-    [manual, setManual] = useState(false),
-    [start, setStart] = useState(''),
-    [end, setEnd] = useState(''),
-    [note, setNote] = useState(''),
     [dependency, setDependency] = useState<any[]>([])
   const load = useCallback(async () => {
     try {
@@ -597,217 +592,125 @@ export function WorkspaceTaskDetails({
     }
   }
   return (
-    <section className="workspace-task-extra">
-      {error && (
-        <p role="alert">
-          {error} <button onClick={() => void load()}>Reload</button>
-        </p>
-      )}
-      {data?.fields?.length > 0 && (
-        <>
-          <h3>Custom fields</h3>
-          <div className="workspace-field-grid">
-            {data.fields.map((field: FieldResult) => (
-              <div className="workspace-property" key={field.definition.id}>
-                <span>{field.definition.name}</span>
-                <WorkspaceFieldValue
-                  api={api}
-                  result={field}
-                  disabled={task.canEdit === false || busy}
-                  onSave={async (value) => {
-                    await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
-                      action: 'field',
-                      field: field.definition.id,
-                      value,
-                      expectedUpdatedAt: task.updatedAt,
-                    })
-                    taskFeedback(task, 'updated')
-                    await load()
-                    onChange()
-                  }}
-                />
-                {field.definition.kind === 'timer' &&
-                  (() => {
-                    const timer = data.countdowns.find(
-                        (item: any) => item.field === field.definition.id,
-                      ),
-                      remaining = timer?.endsAt
-                        ? Math.max(0, Math.ceil((Date.parse(timer.endsAt) - clock) / 1000))
-                        : (timer?.remainingSeconds ?? seconds)
-                    return (
-                      <div>
-                        <output>
-                          {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
-                        </output>
-                        <input
-                          aria-label="Countdown minutes"
-                          type="number"
-                          min="0"
-                          max="10080"
-                          value={seconds / 60}
-                          onChange={(e) => setSeconds(Number(e.target.value) * 60)}
-                        />
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void run({
-                              action: 'countdown',
-                              field: field.definition.id,
-                              seconds: timer?.endsAt ? remaining : seconds,
-                              running: !timer?.endsAt,
-                            })
-                          }
-                        >
-                          {timer?.endsAt ? 'Pause' : 'Start countdown'}
-                        </button>
-                      </div>
-                    )
-                  })()}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      <h3>Dependencies</h3>
-      <ul>
-        {data?.dependencies?.map((item: any) => (
-          <li key={item.id}>
-            {item.unavailable ? 'Restricted task' : item.title}
-            {item.status === 'done' ? ' · Complete' : ''}
-            {task.canEdit && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void run({ action: 'remove-dependency', dependency: item.id })}
-              >
-                Remove
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {task.canEdit && (
-        <>
-          <ReferencePicker api={api} value={dependency} onChange={setDependency} />
-          <button
-            type="button"
-            disabled={
-              busy || dependency.length !== 1 || dependency[0]?.collection !== 'review-tasks'
-            }
-            onClick={() => void run({ action: 'dependency', predecessor: dependency[0].id })}
-          >
-            Add finish-to-start dependency
-          </button>
-        </>
-      )}
-      <h3>Tracked time</h3>
-      <p>{((data?.time?.seconds ?? 0) / 3600).toFixed(2)} hours recorded</p>
-      {data?.time?.entries?.map((entry: any) => (
-        <div className="workspace-time-entry" key={entry.id}>
-          <span>
-            {new Date(entry.startedAt).toLocaleString(undefined, {
-              timeZone: data?.time?.timezone ?? 'UTC',
-            })}{' '}
-            ·{' '}
-            {entry.endedAt
-              ? `${(entry.seconds / 3600).toFixed(2)} h`
-              : `Running ${Math.max(0, Math.floor((clock - Date.parse(entry.startedAt)) / 60000))} min`}
-          </span>
-          <small>{entry.note}</small>
-          {!entry.endedAt && entry.user === user?.id && (
+    <WorkTimeProvider
+      api={api}
+      tasks={[task]}
+      onChanged={async () => {
+        await load()
+        onChange()
+      }}
+    >
+      <section className="workspace-task-extra">
+        {error && (
+          <p role="alert">
+            {error} <button onClick={() => void load()}>Reload</button>
+          </p>
+        )}
+        {data?.fields?.length > 0 && (
+          <>
+            <h3>Custom fields</h3>
+            <div className="workspace-field-grid">
+              {data.fields.map((field: FieldResult) => (
+                <div className="workspace-property" key={field.definition.id}>
+                  <span>{field.definition.name}</span>
+                  {field.definition.kind === `time-tracking` ? (
+                    <TimeTrackingCell task={task} fallback={Number(field.value ?? 0)} />
+                  ) : (
+                    <WorkspaceFieldValue
+                      api={api}
+                      result={field}
+                      disabled={task.canEdit === false || busy}
+                      onSave={async (value) => {
+                        await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
+                          action: 'field',
+                          field: field.definition.id,
+                          value,
+                          expectedUpdatedAt: task.updatedAt,
+                        })
+                        taskFeedback(task, 'updated')
+                        await load()
+                        onChange()
+                      }}
+                    />
+                  )}
+                  {field.definition.kind === 'timer' &&
+                    (() => {
+                      const timer = data.countdowns.find(
+                          (item: any) => item.field === field.definition.id,
+                        ),
+                        remaining = timer?.endsAt
+                          ? Math.max(0, Math.ceil((Date.parse(timer.endsAt) - clock) / 1000))
+                          : (timer?.remainingSeconds ?? seconds)
+                      return (
+                        <div>
+                          <output>
+                            {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+                          </output>
+                          <input
+                            aria-label="Countdown minutes"
+                            type="number"
+                            min="0"
+                            max="10080"
+                            value={seconds / 60}
+                            onChange={(e) => setSeconds(Number(e.target.value) * 60)}
+                          />
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              void run({
+                                action: 'countdown',
+                                field: field.definition.id,
+                                seconds: timer?.endsAt ? remaining : seconds,
+                                running: !timer?.endsAt,
+                              })
+                            }
+                          >
+                            {timer?.endsAt ? 'Pause' : 'Start countdown'}
+                          </button>
+                        </div>
+                      )
+                    })()}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <h3>Dependencies</h3>
+        <ul>
+          {data?.dependencies?.map((item: any) => (
+            <li key={item.id}>
+              {item.unavailable ? 'Restricted task' : item.title}
+              {item.status === 'done' ? ' · Complete' : ''}
+              {task.canEdit && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void run({ action: 'remove-dependency', dependency: item.id })}
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+        {task.canEdit && (
+          <>
+            <ReferencePicker api={api} value={dependency} onChange={setDependency} />
             <button
               type="button"
-              disabled={busy}
-              onClick={() =>
-                void run({
-                  action: 'stop-time',
-                  entry: entry.id,
-                  expectedUpdatedAt: entry.updatedAt,
-                })
+              disabled={
+                busy || dependency.length !== 1 || dependency[0]?.collection !== 'review-tasks'
               }
+              onClick={() => void run({ action: 'dependency', predecessor: dependency[0].id })}
             >
-              Stop timer
+              Add finish-to-start dependency
             </button>
-          )}
-        </div>
-      ))}
-      {task.canEdit && (
-        <div className="task-workspace-toolbar">
-          <button type="button" disabled={busy} onClick={() => void run({ action: 'start-time' })}>
-            Start work timer
-          </button>
-          {data?.time?.activeTimer &&
-            !data.time.entries.some((entry: any) => entry.id === data.time.activeTimer.id) && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void workspaceDialog({
-                    title: 'Switch running timer?',
-                    description: 'Stop your current work session and start tracking this task.',
-                    fields: [],
-                    saveLabel: 'Switch timer',
-                    onSave: async () => {
-                      await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
-                        action: 'switch-time',
-                        expectedUpdatedAt: data.time.activeTimer.updatedAt,
-                      })
-                      await load()
-                      onChange()
-                    },
-                  })
-                }
-              >
-                Switch work timer here
-              </button>
-            )}
-          <button type="button" onClick={() => setManual((value) => !value)}>
-            Add time manually
-          </button>
-        </div>
-      )}
-      {manual && (
-        <div className="workspace-field-grid">
-          <label>
-            Started (your local time)
-            <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
-          </label>
-          <label>
-            Ended (your local time)
-            <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
-          </label>
-          <label>
-            Note
-            <input value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
-          <button
-            type="button"
-            disabled={busy || !start || !end}
-            onClick={async () => {
-              try {
-                if (
-                  await run({
-                    action: 'save-time',
-                    startedAt: parseLocalTime(start),
-                    endedAt: parseLocalTime(end),
-                    note,
-                  })
-                ) {
-                  setManual(false)
-                  setStart('')
-                  setEnd('')
-                  setNote('')
-                }
-              } catch (error) {
-                setError((error as Error).message)
-              }
-            }}
-          >
-            Save time entry
-          </button>
-        </div>
-      )}
-    </section>
+          </>
+        )}
+        <h3>Tracked time</h3>
+        <TimeTrackingCell task={task} fallback={data?.time?.seconds ?? 0} />
+      </section>
+    </WorkTimeProvider>
   )
 }

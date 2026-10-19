@@ -176,6 +176,7 @@ export const ReviewTasks: CollectionConfig = {
       options: ['low', 'normal', 'high', 'urgent'],
     },
     { name: 'assignee', type: 'relationship', relationTo: 'users', index: true },
+    { name: 'collaborators', type: 'relationship', relationTo: 'users', hasMany: true },
     { name: 'dueDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
     { name: 'startDate', type: 'date', admin: { date: { pickerAppearance: 'dayOnly' } } },
     { name: 'milestone', type: 'checkbox', defaultValue: false },
@@ -365,6 +366,35 @@ export const ReviewTasks: CollectionConfig = {
                   ))
           if (!allowed) fail('Assignee cannot review this document.')
         }
+        if ('collaborators' in data || 'assignee' in data) {
+          const selected = [...new Set(ids(next.collaborators))].filter(
+            (id) => id !== relationID(next.assignee),
+          )
+          if (selected.length > 30) fail('Choose up to 30 collaborators.')
+          for (const id of selected) {
+            const user = await req.payload.findByID({
+              collection: 'users',
+              id,
+              req,
+              overrideAccess: true,
+              depth: 0,
+            })
+            const scoped = { ...req, user } as PayloadRequest
+            const allowed = originalDoc?.id
+              ? await canTask(scoped, originalDoc.id)
+              : data.initialBoard
+                ? await canMention(scoped, null, { board: data.initialBoard })
+                : next.parent
+                  ? await canTask(scoped, next.parent)
+                  : next.personal
+                    ? String(user.id) === String(req.user?.id) ||
+                      String(user.id) === relationID(next.assignee) ||
+                      user.role === 'administrator'
+                    : linked && !!(await reviewDocument(scoped, next.documentType, next.documentID))
+            if (!allowed) fail('Collaborators must already have access to this task.')
+          }
+          data.collaborators = selected.map(Number)
+        }
         if (originalDoc?.id)
           data.mentions = await resolveMentions(
             req,
@@ -515,6 +545,39 @@ export const ReviewTasks: CollectionConfig = {
       identityLabels,
       async ({ doc, req, overrideAccess }) => {
         if (overrideAccess) return doc
+        const collaboratorPeople = []
+        for (const id of ids(doc.collaborators)) {
+          const user = await req.payload
+            .findByID({ collection: 'users', id, req, overrideAccess: true, depth: 1 })
+            .catch((): null => null)
+          if (user && (await canTask({ ...req, user } as PayloadRequest, doc.id)))
+            collaboratorPeople.push({
+              id: user.id,
+              label: userIdentity(user),
+              username: user.username,
+              avatar: typeof user.profilePhoto === 'object' ? user.profilePhoto?.url : null,
+            })
+        }
+        doc.collaborators = collaboratorPeople.map((person) => person.id)
+        doc.collaboratorPeople = collaboratorPeople
+        if (doc.assignee) {
+          const person = await req.payload
+            .findByID({
+              collection: 'users',
+              id: relationID(doc.assignee),
+              req,
+              overrideAccess: true,
+              depth: 1,
+            })
+            .catch((): null => null)
+          if (person)
+            doc.assigneePerson = {
+              id: person.id,
+              label: userIdentity(person),
+              username: person.username,
+              avatar: typeof person.profilePhoto === 'object' ? person.profilePhoto?.url : null,
+            }
+        }
         const canEdit = await canTask(req, doc.id, 'edit')
         const canComment = await canTask(req, doc.id, 'comment')
         const document =

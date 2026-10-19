@@ -1,4 +1,5 @@
 'use client'
+import { CollaboratorPicker } from './TaskPeople'
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote review records and reset pagination when filters change. */
 import { useAuth, useConfig } from '@payloadcms/ui'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
@@ -821,6 +822,7 @@ function TaskEditor({
     [priority, setPriority] = useState(task?.priority ?? 'normal')
   const [assignee, setAssignee] = useState(String(task?.assignee ?? '')),
     [date, setDate] = useState(task?.dueDate?.slice(0, 10) ?? '')
+  const [collaborators, setCollaborators] = useState<number[]>(task?.collaborators ?? [])
   const [startDate, setStartDate] = useState(task?.startDate?.slice(0, 10) ?? ''),
     [milestone, setMilestone] = useState(!!task?.milestone)
   const dirty =
@@ -831,7 +833,9 @@ function TaskEditor({
     assignee !== String(task?.assignee ?? '') ||
     date !== (task?.dueDate?.slice(0, 10) ?? '') ||
     startDate !== (task?.startDate?.slice(0, 10) ?? '') ||
-    milestone !== !!task?.milestone
+    milestone !== !!task?.milestone ||
+    JSON.stringify(collaborators.filter((id) => String(id) !== assignee)) !==
+      JSON.stringify((task?.collaborators ?? []).filter((id) => String(id) !== assignee))
   useEffect(() => {
     onDirty(dirty)
   }, [dirty, onDirty])
@@ -868,6 +872,7 @@ function TaskEditor({
               setStatus(task.status)
               setPriority(task.priority)
               setAssignee(String(task.assignee ?? ''))
+              setCollaborators(task.collaborators ?? [])
               setDate(task.dueDate?.slice(0, 10) ?? '')
               setStartDate(task.startDate?.slice(0, 10) ?? '')
               setMilestone(!!task.milestone)
@@ -923,6 +928,13 @@ function TaskEditor({
           ))}
         </select>
       </label>
+      <CollaboratorPicker
+        people={people}
+        value={collaborators}
+        primary={assignee ? Number(assignee) : undefined}
+        onChange={setCollaborators}
+        disabled={busy}
+      />
       <label>
         Priority
         <select
@@ -972,6 +984,7 @@ function TaskEditor({
             ...(editingRevision ? { expectedUpdatedAt: editingRevision } : {}),
             status,
             priority,
+            collaborators: collaborators.filter((id) => String(id) !== assignee),
             assignee: assignee ? Number(assignee) : null,
             dueDate: date ? `${date}T12:00:00.000Z` : null,
             startDate: startDate ? `${startDate}T12:00:00.000Z` : null,

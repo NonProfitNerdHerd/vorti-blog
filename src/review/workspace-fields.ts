@@ -1,6 +1,6 @@
 import type { PayloadRequest } from 'payload'
 import { relationID } from './documents'
-import { reject, requireTask, workspaceDB } from './workspace-access'
+import { reject, requireTask } from './workspace-access'
 import { workspaceFormula, workspaceReferences } from './workspace-formula'
 import { nativeFormulaFields, nativeFormulaValue } from './formula-inputs'
 
@@ -304,7 +304,7 @@ export async function taskFields(
   })
   for (const value of storedValues.docs)
     values.set(Number(relationID(value.field)), value.value ?? null)
-  let timeTotal: Promise<{ seconds: number } | null> | undefined
+  let timeTotal: Promise<number> | undefined
   const evaluate = async (
     id: number,
     active = new Set<number>(),
@@ -349,13 +349,8 @@ export async function taskFields(
             : (current?.remainingSeconds ?? 0),
         }
       } else if (definition.kind === 'time-tracking') {
-        timeTotal ??= workspaceDB(req)
-          .prepare(
-            'SELECT coalesce(sum(seconds),0) AS seconds FROM task_time_entries WHERE task_id=? AND ended_at IS NOT NULL',
-          )
-          .bind(taskID)
-          .first<{ seconds: number }>()
-        result = { value: (await timeTotal)?.seconds ?? 0 }
+        timeTotal ??= import('./workspace-time').then((module) => module.workTotal(req, taskID))
+        result = { value: await timeTotal }
       } else if (definition.kind === 'lookup') {
         const source = await evaluate(Number(config.referenceField), new Set(active))
         if (source.error || !Array.isArray(source.value)) throw new Error('Unavailable reference')

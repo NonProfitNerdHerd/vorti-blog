@@ -81,17 +81,24 @@ export const TaskBoards: CollectionConfig = {
       validate: (value: unknown) => {
         if (value == null) return true
         if (typeof value !== 'object' || Array.isArray(value)) return 'Invalid board presentation.'
-        const colors = (value as { priorityColors?: unknown }).priorityColors
-        if (colors == null) return true
-        if (typeof colors !== 'object' || Array.isArray(colors)) return 'Invalid priority colors.'
-        return (
-          Object.entries(colors).every(
-            ([key, color]) =>
-              ['low', 'normal', 'high', 'urgent'].includes(key) &&
-              typeof color === 'string' &&
-              /^#[0-9a-f]{6}$/i.test(color),
-          ) || 'Choose a valid priority and hex color.'
-        )
+        const settings = value as Record<string, unknown>
+        for (const [property, allowed] of Object.entries({
+          priorityColors: ['low', 'normal', 'high', 'urgent'],
+          statusColors: ['open', 'in-progress', 'ready-for-review', 'done'],
+        })) {
+          const colors = settings[property]
+          if (colors == null) continue
+          if (
+            typeof colors !== 'object' ||
+            Array.isArray(colors) ||
+            !Object.entries(colors).every(
+              ([key, color]) =>
+                allowed.includes(key) && typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color),
+            )
+          )
+            return 'Choose a valid field value and hex color.'
+        }
+        return true
       },
     },
     relation('project', 'task-projects', false),
