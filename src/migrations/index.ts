@@ -1,3 +1,4 @@
+import * as migration_20261020_213000_organization_foundation from './20261020_213000_organization_foundation';
 import * as migration_20261020_200500_content_publication_views from './20261020_200500_content_publication_views';
 import * as migration_20250929_111647 from './20250929_111647';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
@@ -182,4 +183,5 @@ export const migrations = [
     name: '20261020_183100_saved_view_content_cleanup'
   },
   { up: migration_20261020_200500_content_publication_views.up, down: migration_20261020_200500_content_publication_views.down, name: '20261020_200500_content_publication_views' },
+  { up: migration_20261020_213000_organization_foundation.up, down: migration_20261020_213000_organization_foundation.down, name: '20261020_213000_organization_foundation' },
 ];
