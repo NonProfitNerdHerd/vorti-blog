@@ -74,6 +74,7 @@ export interface Config {
     media: Media;
     'site-templates': SiteTemplate;
     users: User;
+    menus: Menu;
     'review-tasks': ReviewTask;
     'review-comments': ReviewComment;
     'review-activity': ReviewActivity;
@@ -160,6 +161,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'site-templates': SiteTemplatesSelect<false> | SiteTemplatesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    menus: MenusSelect<false> | MenusSelect<true>;
     'review-tasks': ReviewTasksSelect<false> | ReviewTasksSelect<true>;
     'review-comments': ReviewCommentsSelect<false> | ReviewCommentsSelect<true>;
     'review-activity': ReviewActivitySelect<false> | ReviewActivitySelect<true>;
@@ -856,6 +858,28 @@ export interface SiteTemplate {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "menus".
+ */
+export interface Menu {
+  id: number;
+  name: string;
+  items:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  revision?: number | null;
+  starterKey?: string | null;
+  expectedUpdatedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2453,6 +2477,10 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'menus';
+        value: number | Menu;
+      } | null)
+    | ({
         relationTo: 'review-tasks';
         value: number | ReviewTask;
       } | null)
@@ -2891,6 +2919,19 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "menus_select".
+ */
+export interface MenusSelect<T extends boolean = true> {
+  name?: T;
+  items?: T;
+  revision?: T;
+  starterKey?: T;
+  expectedUpdatedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4059,9 +4100,8 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
  */
 export interface Navigation {
   id: number;
-  /**
-   * Drag items to change their display order.
-   */
+  primaryMenu?: (number | null) | Menu;
+  footerMenu?: (number | null) | Menu;
   primary?:
     | {
         label: string;
@@ -4084,9 +4124,6 @@ export interface Navigation {
         id?: string | null;
       }[]
     | null;
-  /**
-   * Drag items to change their display order.
-   */
   footer?:
     | {
         label: string;
@@ -4109,6 +4146,7 @@ export interface Navigation {
         id?: string | null;
       }[]
     | null;
+  expectedUpdatedAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4183,6 +4221,8 @@ export interface SystemSetting {
  * via the `definition` "navigation_select".
  */
 export interface NavigationSelect<T extends boolean = true> {
+  primaryMenu?: T;
+  footerMenu?: T;
   primary?:
     | T
     | {
@@ -4227,6 +4267,7 @@ export interface NavigationSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  expectedUpdatedAt?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -4310,6 +4351,7 @@ export interface TaskCreateCollectionExport {
       | 'media'
       | 'site-templates'
       | 'users'
+      | 'menus'
       | 'review-tasks'
       | 'review-comments'
       | 'review-activity'

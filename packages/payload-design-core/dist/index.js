@@ -21,3 +21,4 @@ export * from './views/model.js';
 export * from './views/field-rules.js';
 export * from './views/schedule.js';
 export * from './identity.js';
+export * from './menus/model.js';

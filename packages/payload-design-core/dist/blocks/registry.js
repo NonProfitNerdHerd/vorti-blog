@@ -52,6 +52,21 @@ const queryFields = [
 ];
 const linkFields = [field('label', 'Label', 'text', 'Learn more'), field('url', 'URL', 'url')];
 const catalog = [
+    ['menu', 'Menu', 'list', 'Content', false, [
+            { ...field('depth', 'Displayed levels', 'number', 5), min: 1, max: 5, bindable: false },
+            field('orientation', 'Orientation', 'select', 'horizontal', ['horizontal', 'vertical']),
+            field('alignment', 'Alignment', 'select', 'start', ['start', 'center', 'end']),
+            field('gap', 'Item spacing', 'text', '1rem'),
+            field('mobile', 'Mobile navigation', 'select', 'collapse', ['collapse', 'expanded']),
+            field('label', 'Accessible navigation label', 'text', 'Navigation'),
+            field('submenuBackground', 'Submenu background', 'text', '#ffffff'),
+            field('submenuColor', 'Submenu text color', 'text', '#1a1a1a'),
+            field('submenuPadding', 'Submenu padding', 'text', '.5rem'),
+            field('submenuBorder', 'Submenu border', 'text', '1px solid #8884'),
+            field('submenuRadius', 'Submenu corner radius', 'text', '8px'),
+            field('hoverColor', 'Link hover color', 'text', '#4f46e5'),
+            field('activeColor', 'Active link color', 'text', '#4f46e5'),
+        ]],
     [
         'heading',
         'Heading',

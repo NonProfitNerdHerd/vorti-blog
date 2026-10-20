@@ -562,7 +562,7 @@ test.describe('Admin Panel', () => {
   test('can open navigation and site settings', async () => {
     await page.goto('http://localhost:3000/admin/globals/navigation')
     await expect(page).toHaveURL('http://localhost:3000/admin/globals/navigation')
-    await expect(page.getByText('Primary navigation')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Menus', exact: true })).toBeVisible()
 
     await page.goto('http://localhost:3000/admin/globals/site-settings')
     await expect(page).toHaveURL('http://localhost:3000/admin/globals/site-settings')

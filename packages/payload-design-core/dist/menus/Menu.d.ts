@@ -1,0 +1,23 @@
+import type { ResolvedMenu } from './model';
+import './menu.css';
+export declare function Menu({ menuID, initial, editing, depth, orientation, alignment, gap, submenuBackground, submenuColor, submenuPadding, submenuBorder, submenuRadius, hoverColor, activeColor, label, mobile, navigationID, className, open, }: {
+    menuID: string;
+    initial?: ResolvedMenu | null;
+    editing?: boolean;
+    depth?: number;
+    orientation?: string;
+    alignment?: string;
+    gap?: string;
+    submenuBackground?: string;
+    submenuColor?: string;
+    submenuPadding?: string;
+    submenuBorder?: string;
+    submenuRadius?: string;
+    hoverColor?: string;
+    activeColor?: string;
+    label?: string;
+    mobile?: string;
+    navigationID?: string;
+    className?: string;
+    open?: boolean;
+}): import("react/jsx-runtime").JSX.Element | null;

@@ -73,6 +73,7 @@ import { ExportPreview as ExportPreview_cdf7e044479f899a31f804427d568b36 } from 
 import { ExportSaveButton as ExportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportPreview as ImportPreview_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportSaveButton as ImportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
+import { MenuWorkspace as MenuWorkspace_6c0db9710895c6dc08eed1e5a9bee5b1 } from '../../../menus/MenuWorkspace'
 import { SettingsHubLink as SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f } from '../../../components/SettingsHubLink'
 import { SystemSettingsTable as SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68 } from '../../../components/SystemSettingsTable'
 import { SettingsHub as SettingsHub_cd94f594cada3901a15a9f15dbaa2349 } from '../../../components/SettingsHub'
@@ -162,6 +163,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportSaveButton": ExportSaveButton_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportPreview": ImportPreview_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportSaveButton": ImportSaveButton_cdf7e044479f899a31f804427d568b36,
+  "./menus/MenuWorkspace#MenuWorkspace": MenuWorkspace_6c0db9710895c6dc08eed1e5a9bee5b1,
   "./components/SettingsHubLink#SettingsHubLink": SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f,
   "./components/SystemSettingsTable#SystemSettingsTable": SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68,
   "./components/SettingsHub#SettingsHub": SettingsHub_cd94f594cada3901a15a9f15dbaa2349,

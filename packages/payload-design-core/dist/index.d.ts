@@ -28,3 +28,4 @@ export * from './views/model';
 export * from './views/field-rules';
 export * from './views/schedule';
 export * from './identity';
+export * from './menus/model';

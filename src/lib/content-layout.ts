@@ -1,4 +1,5 @@
 import { resolveBlocks } from '@design-system/payload-design-core/content'
+import { resolveMenu } from '../menus/server'
 import { queryBlockListing } from './block-listings'
 import { readCategoriesEnabled } from './system-settings'
 import type { Payload, PayloadRequest } from 'payload'
@@ -124,6 +125,7 @@ export async function resolveDocumentBlocks(
   return resolveBlocks(result, {
     categoriesEnabled,
     document,
+    menu: id => resolveMenu(payload, id),
     view: async id => queryView(payload,await readSavedView(payload,id,context),undefined,context),
     list: (props, page) => queryBlockListing(payload, props, page, context),
   })

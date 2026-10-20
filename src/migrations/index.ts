@@ -25,6 +25,7 @@ import * as migration_20261019_145037_starter_workspace from './20261019_145037_
 import * as migration_20261019_160802_compact_workspace from './20261019_160802_compact_workspace';
 import * as migration_20261019_173505_board_refinement from './20261019_173505_board_refinement';
 import * as migration_20261019_193700_compact_columns_time from './20261019_193700_compact_columns_time';
+import * as migration_20261020_170954_reusable_menus from './20261020_170954_reusable_menus';
 
 export const migrations = [
   {
@@ -160,6 +161,11 @@ export const migrations = [
   {
     up: migration_20261019_193700_compact_columns_time.up,
     down: migration_20261019_193700_compact_columns_time.down,
-    name: '20261019_193700_compact_columns_time'
+    name: '20261019_193700_compact_columns_time',
+  },
+  {
+    up: migration_20261020_170954_reusable_menus.up,
+    down: migration_20261020_170954_reusable_menus.down,
+    name: '20261020_170954_reusable_menus'
   },
 ];

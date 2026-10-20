@@ -8,6 +8,8 @@ import { Separator } from './Separator'
 import { blockItems } from './items'
 import { DynamicView } from '../views/DynamicView'
 import type { ViewResult } from '../views/model'
+import { Menu } from '../menus/Menu'
+import type { ResolvedMenu } from '../menus/model'
 const Listing = lazy(() => import('./Listing'))
 const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })))
 const ListingNavigation = lazy(() =>
@@ -40,6 +42,7 @@ export function CatalogRenderer({
   const props = node.props ?? {},
     text = (key: string, fallback = '') => String(props[key] ?? fallback)
   const definition = getBlockDefinition(node.kind)
+  if (node.kind === 'menu') return <Menu menuID={text('menuID')} initial={props.resolvedMenu as ResolvedMenu | null | undefined} editing={editing} depth={Math.max(1, Math.min(5, Number(props.depth) || 5))} orientation={text('orientation', 'horizontal')} alignment={text('alignment', 'start')} gap={text('gap', '1rem')} mobile={text('mobile', 'collapse')} label={text('label', 'Navigation')} submenuBackground={text('submenuBackground', '#ffffff')} submenuColor={text('submenuColor', '#1a1a1a')} submenuPadding={text('submenuPadding', '.5rem')} submenuBorder={text('submenuBorder', '1px solid #8884')} submenuRadius={text('submenuRadius', '8px')} hoverColor={text('hoverColor', '#4f46e5')} activeColor={text('activeColor', '#4f46e5')} />
   if (node.kind === 'form') return <Suspense fallback={<p>Loading form…</p>}><FormPlacement formID={text('formID')} editing={editing} /></Suspense>
   if(isViewPlacement(node.kind)) return !props.viewID && editing
     ? <div role="status"><strong>{definition?.label}</strong><p>Select this block to set up its content filters in the inspector, or choose an existing Saved View.</p></div>

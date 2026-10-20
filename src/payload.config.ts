@@ -23,6 +23,7 @@ import { Categories } from './collections/Categories'
 import { Tags } from './collections/Tags'
 import { SiteTemplates } from './collections/SiteTemplates'
 import { Navigation } from './globals/Navigation'
+import { Menus, menuRenderEndpoint, menuInvalidation } from './menus/collection'
 import { SiteSettings } from './globals/SiteSettings'
 import { SystemSettings } from './globals/SystemSettings'
 import { organizePageHierarchy } from './plugins/organizePageHierarchy'
@@ -118,9 +119,9 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, ...projectCollections, TaskProjectChanges, TaskNotificationEvents, PostTypes, SavedViews, EventSeries],
+  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, Menus, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, ...projectCollections, TaskProjectChanges, TaskNotificationEvents, PostTypes, SavedViews, EventSeries],
   globals: [Navigation, SiteSettings, SystemSettings],
-  endpoints: [...workspaceEndpoints, ...projectSharingEndpoints, ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES)],
+  endpoints: [menuRenderEndpoint, ...workspaceEndpoints, ...projectSharingEndpoints, ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES)],
   editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -129,6 +130,7 @@ export default buildConfig({
   db: sqliteD1Adapter({ binding: cloudflare.env.D1, ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { push: false } : {}) }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
+    menuInvalidation,
     designSystemPlugin({
       enabled: true,
       blockCreator: true,

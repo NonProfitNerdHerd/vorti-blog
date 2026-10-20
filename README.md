@@ -8,6 +8,7 @@ VortiCause brings publishing and the work behind it into one platform. Authors g
 
 - Posts, pages, reusable content types, visual block editing, templates, responsive design, drafts, previews, and publishing controls.
 - Site identity, reading, privacy, typography, categories, and role-based tag settings.
+- Reusable named menus with a visual hierarchy editor and independently styled Menu blocks across visual builders.
 - Projects and boards with List, Kanban, Calendar, Timeline, and additional workspace views; shared tasks, subtasks, comments, mentions, and an in-app Inbox.
 - Private/team-wide collaboration, inherited project permissions, private-board exceptions, protected attachments, time tracking, and audited time corrections.
 - Event content with timezone-aware schedules, recurrence, and calendar/listing presentations. Events remain part of the existing content-type system.

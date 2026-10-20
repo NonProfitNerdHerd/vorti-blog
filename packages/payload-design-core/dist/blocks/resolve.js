@@ -22,6 +22,8 @@ export async function resolveBlocks(source, context) {
             }
             if (node.children)
                 node.children = await resolve(node.children);
+            if (node.kind === 'menu')
+                node.props = { ...node.props, resolvedMenu: context.menu && node.props?.menuID ? await context.menu(String(node.props.menuID)) : null };
             if (isViewPlacement(node.kind) && context.view && node.props?.viewID) {
                 try {
                     node.props = { ...node.props, resolvedView: await context.view(String(node.props.viewID)) };

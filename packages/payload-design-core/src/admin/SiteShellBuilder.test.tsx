@@ -68,10 +68,10 @@ describe('SiteShellBuilder', () => {
     expect(payloadForm.fields.get('header.layout')!.setValue).toHaveBeenLastCalledWith(expect.arrayContaining([expect.objectContaining({ type: 'element', element: 'logo', props: expect.objectContaining({ source: 'siteSettings.logo' }) })]))
   })
 
-  it('stores Navigation source and inspector presentation controls', () => {
+  it('preserves editing of an existing legacy Navigation source', () => {
+    payloadForm.fields.set('header.layout', field([{ id: 'existing-menu', type: 'element', element: 'navigation', props: { menuSource: 'primary' } }]))
     render(<SiteShellBuilder region="header" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Add block' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Navigation Menu' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }))
     fireEvent.change(screen.getByLabelText('Menu Source'), { target: { value: 'footer' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Element' }))
     expect(payloadForm.fields.get('header.layout')!.setValue).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ element: 'navigation', props: expect.objectContaining({ menuSource: 'footer' }) })]))

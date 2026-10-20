@@ -17,6 +17,7 @@ export type BlockResolveContext = {
   now?: number
   preview?: boolean
   view?: (id: string) => Promise<unknown>
+  menu?: (id: string) => Promise<unknown>
   list?: (props: Record<string, unknown>, page: number) => Promise<ListingResult>
 }
 export async function resolveBlocks(
@@ -43,6 +44,7 @@ export async function resolveBlocks(
         node.props = { ...node.props, [key]: field === 'categories' && context.categoriesEnabled === false ? '' : readPublicDocumentField(context.document, field) }
       }
       if (node.children) node.children = await resolve(node.children)
+      if (node.kind === 'menu') node.props = { ...node.props, resolvedMenu: context.menu && node.props?.menuID ? await context.menu(String(node.props.menuID)) : null }
       if(isViewPlacement(node.kind)&&context.view&&node.props?.viewID) {
         try {node.props={...node.props,resolvedView:await context.view(String(node.props.viewID))}}
         catch {node.props={...node.props,resolvedView:undefined}}

@@ -508,6 +508,10 @@ export function UnifiedBlockInspector({
           renderPicker={renderDocumentPicker}
         />
       )}
+      {node.kind === 'menu' && showFields && <>
+        {renderDocumentPicker?.('menus', 'Menu', String(node.props?.menuID || ''), value => onChange({ props: { ...node.props, menuID: value.split(',').filter(Boolean).pop() || '' } }))}
+        <p>Manage links and hierarchy in <a href={`/admin/globals/navigation${node.props?.menuID ? `?menu=${encodeURIComponent(String(node.props.menuID))}` : ''}`} target="_blank" rel="noreferrer">Edit menu</a>. Saving there updates every placement.</p>
+      </>}
       {isViewPlacement(node.kind) &&
         showFields &&
         renderDocumentPicker?.(

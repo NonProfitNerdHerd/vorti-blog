@@ -81,19 +81,11 @@ describe('API', () => {
       slug: 'site-settings',
       data: { siteName: 'Vorti' },
     })
+    const menu = await payload.create({ collection: 'menus', data: { name: 'API navigation', items: [{ key: 'vortiquest', label: 'VortiQuest', kind: 'custom', url: 'https://vorti.quest' }] } })
+    const navigationBefore = await payload.findGlobal({ slug: 'navigation', depth: 0 })
     await payload.updateGlobal({
       slug: 'navigation',
-      data: {
-        primary: [
-          {
-            label: 'VortiQuest',
-            linkType: 'external',
-            url: 'https://vorti.quest',
-            enabled: true,
-          },
-        ],
-        footer: [],
-      },
+      data: { primaryMenu: menu.id, footerMenu: null, expectedUpdatedAt: navigationBefore.updatedAt },
     })
 
     const { navigation, siteSettings } = await getPublicSiteData()

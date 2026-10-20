@@ -32,7 +32,7 @@ export function DocumentPicker({
         const titleField =
           collection === 'post-types'
             ? 'singular'
-            : ['categories', 'tags', 'saved-views'].includes(collection)
+            : ['categories', 'tags', 'saved-views', 'menus'].includes(collection)
               ? 'name'
               : 'title'
         const params = new URLSearchParams({

@@ -1,4 +1,6 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
+mkdirSync(new URL('../dist/menus/', import.meta.url), { recursive: true })
+copyFileSync(new URL('../src/menus/menu.css', import.meta.url), new URL('../dist/menus/menu.css', import.meta.url))
 mkdirSync(new URL('../dist/forms/', import.meta.url), {recursive:true})
 for (const name of ['forms.css', 'builder.css', 'summary.css', 'graph.css']) copyFileSync(new URL(`../src/forms/${name}`, import.meta.url), new URL(`../dist/forms/${name}`, import.meta.url))
 mkdirSync(new URL('../dist/views/', import.meta.url), {recursive:true})

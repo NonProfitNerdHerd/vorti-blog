@@ -14,3 +14,5 @@ export { registerBlockIcon } from '../blocks/BlockGlyph.js';
 export * from '../site-format.js';
 export * from '../SiteFormatContext.js';
 export * from '../identity.js';
+export * from '../menus/model.js';
+export { Menu } from '../menus/Menu.js';

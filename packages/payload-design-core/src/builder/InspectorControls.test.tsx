@@ -32,6 +32,18 @@ it('selects a central form without exposing raw IDs or duplicating field setting
   expect(change).toHaveBeenCalledWith({ props: { formID: '13' } })
   expect(screen.queryByRole('textbox', { name: /^Form$/ })).toBeNull()
 })
+it('selects a named menu and exposes its existing shared editor rather than editing links inside the block', () => {
+  const change = vi.fn()
+  render(<UnifiedBlockInspector node={{ id: 'menu-block', kind: 'menu', props: {} }} onChange={change}
+    renderDocumentPicker={(collection, label, value, update) => <input aria-label={label} data-collection={collection} value={value} onChange={event => update(event.target.value)} />} />)
+  fireEvent.click(screen.getByRole('tab', { name: 'Layout' }))
+  const picker = screen.getByRole('textbox', { name: 'Menu' })
+  expect(picker.getAttribute('data-collection')).toBe('menus')
+  fireEvent.change(picker, { target: { value: '12' } })
+  expect(change).toHaveBeenCalledWith({ props: { menuID: '12' } })
+  expect(screen.getByRole('link', { name: 'Edit menu' }).getAttribute('href')).toBe('/admin/globals/navigation')
+  expect(screen.queryByRole('textbox', {name:'Navigation label'})).toBeNull()
+})
 it('dismisses only the inspector and leaves external dialogs in control of Escape', () => {
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList)
   const change = vi.fn()

@@ -34,7 +34,7 @@ describe('public Site Template resolution and rendering', () => {
   it('keeps routes usable when Site Settings or Navigation loading fails', async () => {
     const result = await resolveSiteShellFromLoaders(async () => { throw new Error('globals unavailable') }, async () => template)
     expect(result.kind).toBe('legacy')
-    expect(result.siteSettings.siteName).toBe('Vorti Blog')
+    expect(result.siteSettings.siteName).toBe('VortiCause')
     expect(result.navigation.primary).toEqual([])
     expect(renderToStaticMarkup(<SiteTemplateHeader template={template} siteSettings={settings} navigation={{ ...navigation, primary: [] }} header={template.header.layout as never} footer={template.footer.layout as never} />)).toContain('Rendered Site')
   })

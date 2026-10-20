@@ -7,6 +7,7 @@ import { BlockIcon } from './Icons.js';
 import { Separator } from './Separator.js';
 import { blockItems } from './items.js';
 import { DynamicView } from '../views/DynamicView.js';
+import { Menu } from '../menus/Menu.js';
 const Listing = lazy(() => import('./Listing'));
 const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })));
 const ListingNavigation = lazy(() => import('./Listing').then((module) => ({ default: module.ListingNavigation })));
@@ -26,6 +27,8 @@ export const blockIcons = {
 export function CatalogRenderer({ node, children, editing, viewport, }) {
     const props = node.props ?? {}, text = (key, fallback = '') => String(props[key] ?? fallback);
     const definition = getBlockDefinition(node.kind);
+    if (node.kind === 'menu')
+        return _jsx(Menu, { menuID: text('menuID'), initial: props.resolvedMenu, editing: editing, depth: Math.max(1, Math.min(5, Number(props.depth) || 5)), orientation: text('orientation', 'horizontal'), alignment: text('alignment', 'start'), gap: text('gap', '1rem'), mobile: text('mobile', 'collapse'), label: text('label', 'Navigation'), submenuBackground: text('submenuBackground', '#ffffff'), submenuColor: text('submenuColor', '#1a1a1a'), submenuPadding: text('submenuPadding', '.5rem'), submenuBorder: text('submenuBorder', '1px solid #8884'), submenuRadius: text('submenuRadius', '8px'), hoverColor: text('hoverColor', '#4f46e5'), activeColor: text('activeColor', '#4f46e5') });
     if (node.kind === 'form')
         return _jsx(Suspense, { fallback: _jsx("p", { children: "Loading form\u2026" }), children: _jsx(FormPlacement, { formID: text('formID'), editing: editing }) });
     if (isViewPlacement(node.kind))

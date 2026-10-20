@@ -42,7 +42,6 @@ const elementDescriptions = {
 const headerElements = [
     'logo',
     'siteName',
-    'navigation',
     'button',
     'search',
     'text',
@@ -55,7 +54,6 @@ const headerElements = [
 const footerElements = [
     'logo',
     'siteName',
-    'navigation',
     'button',
     'text',
     'richText',

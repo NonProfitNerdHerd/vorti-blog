@@ -72,7 +72,6 @@ const elementDescriptions: Record<SiteShellElementKind, [string, string]> = {
 const headerElements: SiteShellElementKind[] = [
   'logo',
   'siteName',
-  'navigation',
   'button',
   'search',
   'text',
@@ -85,7 +84,6 @@ const headerElements: SiteShellElementKind[] = [
 const footerElements: SiteShellElementKind[] = [
   'logo',
   'siteName',
-  'navigation',
   'button',
   'text',
   'richText',
