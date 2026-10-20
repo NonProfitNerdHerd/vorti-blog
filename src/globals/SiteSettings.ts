@@ -8,7 +8,7 @@ const social = (name: string, label: string): Field => ({ name, label, type: 'te
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
   label: 'Site Settings',
-  admin: { group: 'Site Design' },
+  admin: { group: 'Admin' },
   access: { read: () => true, update: canManageDesign },
   hooks: {
     beforeValidate: [validateSiteSettings],

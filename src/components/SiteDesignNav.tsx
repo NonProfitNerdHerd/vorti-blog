@@ -5,13 +5,7 @@ import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
 import type { NavPreferences, PayloadRequest, ServerProps } from 'payload'
 import { PREFERENCE_KEYS } from 'payload/shared'
 
-const order = [
-  'site-templates',
-  'navigation',
-  'site-settings',
-  'design-block-types',
-  'design-templates',
-]
+const order = ['design-templates', 'site-templates', 'navigation', 'design-block-types']
 
 /** Keep Payload's permission filtering, links, mobile toggle and persisted groups. */
 export async function SiteDesignNav({
@@ -34,7 +28,12 @@ export async function SiteDesignNav({
     i18n,
   )
   for (const group of groups) {
-    const groupOrder = group.label === 'Site Design' ? order : group.label === 'Forms' ? ['forms', 'form-submissions'] : undefined
+    const groupOrder =
+      group.label === 'Site Design'
+        ? order
+        : group.label === 'Forms'
+          ? ['forms', 'form-submissions']
+          : undefined
     if (groupOrder)
       group.entities.sort(
         (a, b) =>
@@ -58,15 +57,22 @@ export async function SiteDesignNav({
         },
       })
     : null
-  const navPreferences = (stored?.docs[0]?.value ?? {
-    groups: Object.fromEntries(
-      groups.map((group) => [group.label, { open: group.label === 'Content' }]),
-    ),
-  }) as NavPreferences
+  const saved = stored?.docs[0]?.value as NavPreferences | undefined
+  const navPreferences: NavPreferences = {
+    ...saved,
+    groups: {
+      ...Object.fromEntries(groups.map((group) => [group.label, { open: group.label === 'Content' }])),
+      ...saved?.groups,
+    },
+  }
   return (
     <NavWrapper baseClass="nav">
       <nav className="nav__wrap">
-        <PolicyNav admin={payload.config.routes.admin} groups={groups} navPreferences={navPreferences} />
+        <PolicyNav
+          admin={payload.config.routes.admin}
+          groups={groups}
+          navPreferences={navPreferences}
+        />
         <div className="nav__controls">
           <Logout />
         </div>

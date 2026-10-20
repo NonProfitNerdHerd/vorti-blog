@@ -26,8 +26,20 @@ describe('Posts and reusable starting templates', () => {
   it('rejects retired field bindings through direct template writes', async () => {
     await expect(payload.create({ collection: 'design-templates', req, data: { name: 'Invalid binding', allowedCollections: ['posts'], layout: [{ id: 'retired', type: 'field', fieldType: 'shortText', label: 'Retired', content: { source: 'postType', fieldId: 'retired' } }] } as never })).rejects.toThrow('supported field binding')
   })
+  it('rejects case-insensitive duplicate template names through native APIs', async () => {
+    await payload.create({ collection: 'design-templates', req, draft: true, data: { name: `Unique ${stamp}`, slug: `unique-${stamp}`, allowedCollections: ['posts'] } })
+    await expect(payload.create({ collection: 'design-templates', req, draft: true, data: { name: ` UNIQUE ${stamp} `, slug: `another-${stamp}`, allowedCollections: ['posts'] } })).rejects.toMatchObject({ data: { errors: expect.arrayContaining([expect.objectContaining({ path: 'name', message: 'A template with this name already exists.' })]) } })
+  })
+  it('records first publication for Pages without rewriting existing dates', async () => {
+    const page = await payload.create({ collection: 'pages', req, data: { title: 'Publication test', slug: `publication-${stamp}`, _status: 'draft' } })
+    expect(page.publishedAt).toBeFalsy()
+    const published = await payload.update({ collection: 'pages', req, id: page.id, data: { _status: 'published' } })
+    expect(published.publishedAt).toBeTruthy()
+    const edited = await payload.update({ collection: 'pages', req, id: page.id, data: { title: 'Unrelated edit' } })
+    expect(edited.publishedAt).toBe(published.publishedAt)
+  })
   it('freezes template fields and defaults and survives source edits/deletion', async () => {
-    const template = await payload.create({ collection: 'design-templates', req, data: { name: 'Starting layout', slug: `starting-${stamp}`, allowedCollections: ['posts'], status: 'published', _status: 'published', customFields: [{ id: 'intro', label: 'Intro', fieldType: 'shortText', defaultValue: 'Starting text' }], layout: [{ id: 'intro', type: 'field', fieldType: 'shortText', label: 'Intro', content: { source: 'customField', fieldId: 'intro' } }] } as never })
+    const template = await payload.create({ collection: 'design-templates', req, data: { name: `Starting layout ${stamp}`, slug: `starting-${stamp}`, allowedCollections: ['posts'], status: 'published', _status: 'published', customFields: [{ id: 'intro', label: 'Intro', fieldType: 'shortText', defaultValue: 'Starting text' }], layout: [{ id: 'intro', type: 'field', fieldType: 'shortText', label: 'Intro', content: { source: 'customField', fieldId: 'intro' } }] } as never })
     const post = await payload.create({ collection: 'posts', req, overrideAccess: false, draft: true, data: { title: 'From template', slug: `from-template-${stamp}`, designTemplate: template.id } })
     expect(post.templateSnapshot).toBeTruthy()
     expect(post.templateValues).toMatchObject({ intro: 'Starting text' })

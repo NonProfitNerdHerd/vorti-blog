@@ -21,6 +21,7 @@ export default defineConfig({
     'personal-dashboard.e2e.spec.ts',
     'menus.e2e.spec.ts',
     'post-templates.e2e.spec.ts',
+    'publication-views.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 300000,

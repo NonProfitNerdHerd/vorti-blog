@@ -59,3 +59,33 @@
   line-height: 20px;
   border-radius: 5px;
 }
+.nav .task-nav-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nav .task-nav-heading .vorti-nav-parent-link {
+  flex: 1;
+}
+.nav .task-nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 5px;
+}
+.nav .task-nav-toggle:hover {
+  background: #ffffff1f;
+}
+.nav .task-nav-toggle:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+.nav .task-nav-children[hidden] {
+  display: none;
+}

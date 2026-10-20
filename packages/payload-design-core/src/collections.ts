@@ -133,7 +133,7 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
       group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
     },
     hooks: {
-      beforeValidate: [({ data, originalDoc }) => {
+      beforeValidate: [async ({ data, originalDoc, req }) => {
         if (!data) return data
         const name = data.name ?? originalDoc?.name
         const allowed = data.allowedCollections ?? originalDoc?.allowedCollections
@@ -141,6 +141,11 @@ export function createDesignCollections(options: DesignCollectionsOptions): Coll
         if (typeof name !== 'string' || !name.trim()) errors.push({ path: 'name', message: 'Name is required.' })
         if (!Array.isArray(allowed) || !allowed.length) errors.push({ path: 'allowedCollections', message: 'Select at least one collection in Use With.' })
         if (errors.length) throw new ValidationError({ errors })
+        if (name.trim().toLowerCase() !== originalDoc?.name?.trim().toLowerCase()) {
+          const matches = await req.payload.find({ collection: slugs.templates as CollectionSlug, req, overrideAccess: true, depth: 0, limit: 100, where: { name: { like: name.trim() } } })
+          if (matches.docs.some(item => String(item.id) !== String(originalDoc?.id) && String((item as unknown as { name: string }).name).trim().toLowerCase() === name.trim().toLowerCase())) throw new ValidationError({ errors: [{ path: 'name', message: 'A template with this name already exists.' }] })
+        }
+        data.name = name.trim()
         if (!data.slug && !originalDoc?.slug && name) data.slug = String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
         if (data.status !== 'archived' && originalDoc?.status !== 'archived' && (data._status === 'published' || data._status === 'draft')) data.status = data._status
         return data

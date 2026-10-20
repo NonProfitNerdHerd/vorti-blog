@@ -670,6 +670,7 @@ export interface Page {
         id?: string | null;
       }[]
     | null;
+  publishedAt?: string | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -2763,6 +2764,7 @@ export interface PagesSelect<T extends boolean = true> {
         label?: T;
         id?: T;
       };
+  publishedAt?: T;
   meta?:
     | T
     | {

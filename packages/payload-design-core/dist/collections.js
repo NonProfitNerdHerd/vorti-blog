@@ -124,7 +124,7 @@ export function createDesignCollections(options) {
             group: 'Site Design', useAsTitle: 'name', hidden: hiddenFromEditor, defaultColumns: ['name', 'status', 'allowedCollections', 'updatedAt'],
         },
         hooks: {
-            beforeValidate: [({ data, originalDoc }) => {
+            beforeValidate: [async ({ data, originalDoc, req }) => {
                     if (!data)
                         return data;
                     const name = data.name ?? originalDoc?.name;
@@ -136,6 +136,12 @@ export function createDesignCollections(options) {
                         errors.push({ path: 'allowedCollections', message: 'Select at least one collection in Use With.' });
                     if (errors.length)
                         throw new ValidationError({ errors });
+                    if (name.trim().toLowerCase() !== originalDoc?.name?.trim().toLowerCase()) {
+                        const matches = await req.payload.find({ collection: slugs.templates, req, overrideAccess: true, depth: 0, limit: 100, where: { name: { like: name.trim() } } });
+                        if (matches.docs.some(item => String(item.id) !== String(originalDoc?.id) && String(item.name).trim().toLowerCase() === name.trim().toLowerCase()))
+                            throw new ValidationError({ errors: [{ path: 'name', message: 'A template with this name already exists.' }] });
+                    }
+                    data.name = name.trim();
                     if (!data.slug && !originalDoc?.slug && name)
                         data.slug = String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
                     if (data.status !== 'archived' && originalDoc?.status !== 'archived' && (data._status === 'published' || data._status === 'draft'))

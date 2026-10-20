@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { authenticated, publishedOrAuthenticated } from '../access/content'
 import { slugField } from '../fields/slug'
+import { publicationTimestamp } from './publicationTimestamp'
 import { categoriesEnabledForRequest, sameCategories } from '../lib/system-settings'
 import { ValidationError } from 'payload'
 
@@ -16,7 +17,12 @@ export const Posts: CollectionConfig = {
     group: 'Content',
     useAsTitle: 'title',
     defaultColumns: ['title', 'author', '_status', 'publishedAt', 'updatedAt'],
-    components: { edit: { beforeDocumentControls: ['./components/DocumentPreviewActions#DocumentPreviewActions'] } },
+    components: {
+      views: { list: { Component: './components/PublicationList#PublicationList' } },
+      edit: {
+        beforeDocumentControls: ['./components/DocumentPreviewActions#DocumentPreviewActions'],
+      },
+    },
   },
   access: {
     read: publishedOrAuthenticated,
@@ -25,12 +31,25 @@ export const Posts: CollectionConfig = {
     delete: authenticated,
   },
   versions: { drafts: true },
-  hooks: { beforeValidate: [async ({ data, originalDoc, req, operation }) => {
-    if (data && operation === 'create' && data.author == null && req.user) data.author = req.user.id
-    if (data && Object.hasOwn(data, 'categories') && !sameCategories(data.categories, originalDoc?.categories) && !await categoriesEnabledForRequest(req))
-      throw new ValidationError({ errors: [{ path: 'categories', message: 'Categories are disabled in Site Settings.' }] })
-    return data
-  }] },
+  hooks: {
+    beforeChange: [publicationTimestamp],
+    beforeValidate: [
+      async ({ data, originalDoc, req, operation }) => {
+        if (data && operation === 'create' && data.author == null && req.user)
+          data.author = req.user.id
+        if (
+          data &&
+          Object.hasOwn(data, 'categories') &&
+          !sameCategories(data.categories, originalDoc?.categories) &&
+          !(await categoriesEnabledForRequest(req))
+        )
+          throw new ValidationError({
+            errors: [{ path: 'categories', message: 'Categories are disabled in Site Settings.' }],
+          })
+        return data
+      },
+    ],
+  },
   fields: [
     {
       type: 'tabs',
@@ -44,7 +63,11 @@ export const Posts: CollectionConfig = {
               name: 'responsiveDesigns',
               type: 'json',
               defaultValue: {},
-              admin: { components: { Field: './components/ResponsiveDesignControls#ResponsiveDesignControls' } },
+              admin: {
+                components: {
+                  Field: './components/ResponsiveDesignControls#ResponsiveDesignControls',
+                },
+              },
             },
             { name: 'excerpt', type: 'textarea' },
           ],
@@ -58,31 +81,41 @@ export const Posts: CollectionConfig = {
             {
               name: 'content',
               type: 'richText',
-              validate: (value, { siblingData }) => (
-                (siblingData as { designTemplate?: unknown })?.designTemplate || hasRichTextContent(value)
+              validate: (value, { siblingData }) =>
+                (siblingData as { designTemplate?: unknown })?.designTemplate ||
+                hasRichTextContent(value)
                   ? true
-                  : 'Content is required when no Template is selected.'
-              ),
+                  : 'Content is required when no Template is selected.',
             },
           ],
         },
         {
           label: 'Featured Image',
-          fields: [
-            { name: 'featuredImage', type: 'upload', relationTo: 'media' },
-          ],
+          fields: [{ name: 'featuredImage', type: 'upload', relationTo: 'media' }],
         },
         {
           label: 'Organization',
           fields: [
-            { name: 'categories', type: 'relationship', relationTo: 'categories', hasMany: true, admin: { components: { Field: './components/CategoryField#CategoryField' } } },
+            {
+              name: 'categories',
+              type: 'relationship',
+              relationTo: 'categories',
+              hasMany: true,
+              admin: { components: { Field: './components/CategoryField#CategoryField' } },
+            },
             { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
           ],
         },
         {
           label: 'Publishing',
           fields: [
-            { name: 'author', type: 'relationship', relationTo: 'users', required: true, defaultValue: ({ user }) => user?.id },
+            {
+              name: 'author',
+              type: 'relationship',
+              relationTo: 'users',
+              required: true,
+              defaultValue: ({ user }) => user?.id,
+            },
             { name: 'publishedAt', type: 'date' },
             { name: 'featured', type: 'checkbox', defaultValue: false },
             { name: 'allowComments', type: 'checkbox', defaultValue: false },
