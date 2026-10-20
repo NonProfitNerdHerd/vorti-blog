@@ -2,7 +2,7 @@ import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
 import { PolicyNav } from './DashboardNavLink'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
-import type { NavPreferences, PayloadRequest, ServerProps } from 'payload'
+import type { NavPreferences, ServerProps } from 'payload'
 import { PREFERENCE_KEYS } from 'payload/shared'
 
 const order = ['design-templates', 'site-templates', 'navigation', 'design-block-types']
@@ -13,8 +13,8 @@ export async function SiteDesignNav({
   permissions,
   i18n,
   visibleEntities,
-  req,
-}: ServerProps & { req?: PayloadRequest }) {
+  user,
+}: ServerProps) {
   const groups = groupNavItems(
     [
       ...payload.config.collections
@@ -41,18 +41,19 @@ export async function SiteDesignNav({
           (groupOrder.indexOf(b.slug) < 0 ? groupOrder.length : groupOrder.indexOf(b.slug)),
       )
   }
-  const stored = req?.user?.collection
+  const stored = user
     ? await payload.find({
         collection: 'payload-preferences',
-        req,
+        user,
+        overrideAccess: false,
         depth: 0,
         limit: 1,
         pagination: false,
         where: {
           and: [
             { key: { equals: PREFERENCE_KEYS.NAV } },
-            { 'user.relationTo': { equals: req.user.collection } },
-            { 'user.value': { equals: req.user.id } },
+            { 'user.relationTo': { equals: user.collection || payload.config.admin.user } },
+            { 'user.value': { equals: user.id } },
           ],
         },
       })
