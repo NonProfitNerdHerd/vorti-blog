@@ -14,7 +14,7 @@ import { resourceCollection } from './resource-config'
 import { formAnalyticsEndpoints } from './analytics'
 import { formSurveyEndpoints } from './surveys'
 import { formPaymentEndpoints } from './payment-runtime'
-import { addCMSPostFields, authorizeCMSActions, cmsActionEndpoints, cmsCollections } from './cms-actions'
+import { addCMSPostFields, authorizeCMSActions, cmsCollections } from './cms-actions'
 import { formExportEndpoints } from './exports'
 import { formReceiptEndpoints } from './receipts'
 import { validateEntryReview, auditEntryReview } from './entry-workflow'
@@ -163,5 +163,5 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
       }] },
     },
   })({ ...config, collections: [...(config.collections || []).map(addCMSPostFields), ...cmsCollections, ...formCollections.map(collection => collection.slug === 'form-resources' ? resourceCollection(collection, platform) : collection)] })
-  return { ...enhanced, endpoints: [...enhanced.endpoints || [], ...formRuntimeEndpoints(platform), ...formActionEndpoints(platform), ...formFileEndpoints(platform), ...formAnalyticsEndpoints(platform), ...formSurveyEndpoints(platform), ...formExportEndpoints(platform), ...formReceiptEndpoints(platform), ...formPaymentEndpoints(platform), ...cmsActionEndpoints(platform)] }
+  return { ...enhanced, endpoints: [...enhanced.endpoints || [], ...formRuntimeEndpoints(platform), ...formActionEndpoints(platform), ...formFileEndpoints(platform), ...formAnalyticsEndpoints(platform), ...formSurveyEndpoints(platform), ...formExportEndpoints(platform), ...formReceiptEndpoints(platform), ...formPaymentEndpoints(platform)] }
 }

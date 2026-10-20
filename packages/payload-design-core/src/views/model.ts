@@ -87,13 +87,12 @@ export type Occurrence = {
   timezone: string
 }
 export type QueryRule = {
-  field: 'categories' | 'tags' | 'author' | 'featured' | 'postType'
+  field: 'categories' | 'tags' | 'author' | 'featured'
   operator: 'any' | 'all' | 'exclude'
   values: string[]
 }
 export type ViewQuery = {
   source: 'posts' | 'pages'
-  postTypes?: string[]
   match?: 'and' | 'or'
   rules?: QueryRule[]
   ids?: string[]
@@ -228,7 +227,7 @@ export const isViewPlacement = (kind: string) => kind === 'savedView' || !!viewF
 registerContentSource({
   key: 'posts',
   label: 'Posts',
-  fields: ['postType', 'categories', 'tags', 'author', 'featured'],
+  fields: ['categories', 'tags', 'author', 'featured'],
   capabilities: ['content', 'event'],
 })
 registerContentSource({ key: 'pages', label: 'Pages', fields: [], capabilities: ['content'] })
@@ -282,10 +281,6 @@ export const defaultView: ViewConfig = {
   search: true,
   filters: true,
 }
-export function documentURL(post: { slug?: string | null; postType?: unknown }) {
-  const type =
-    post.postType && typeof post.postType === 'object'
-      ? (post.postType as { prefix?: string })
-      : null
-  return `/${encodeURIComponent(type?.prefix || 'posts')}/${encodeURIComponent(post.slug || '__preview__')}`
+export function documentURL(post: { slug?: string | null }) {
+  return `/posts/${encodeURIComponent(post.slug || '__preview__')}`
 }

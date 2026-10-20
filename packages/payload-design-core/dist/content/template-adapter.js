@@ -8,11 +8,9 @@ export function readPath(source, path) {
 export function templateContentNodes(template, document, types, designs, includeUnplacedFields = false) {
     function fieldNode(field, path) {
         const bindingPath = path ??
-            (field.content?.source === 'postType'
-                ? `postTypeValues.${field.content.fieldId}`
-                : field.content?.source === 'document'
-                    ? field.content.field
-                    : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`);
+            (field.content?.source === 'document'
+                ? field.content.field
+                : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`);
         const value = field.content?.source === 'static' ? field.content.value : readPath(document, bindingPath);
         const kind = field.fieldType === 'relationship' && field.relationTo === 'saved-views'
             ? 'savedView'

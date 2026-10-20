@@ -20,17 +20,7 @@ export function DocumentPreviewActions() {
   const modified = useFormModified()
   const processing = useFormProcessing()
   const [published, setPublished] = useState<{ key: string; url: string } | null>(null)
-  const [typePrefix, setTypePrefix] = useState('posts')
-  const typeID = data?.postType && typeof data.postType === 'object' ? data.postType.id : data?.postType
-  useEffect(() => {
-    if (collectionSlug !== 'posts' || !typeID) return
-    const controller = new AbortController()
-    fetch(`${api}/post-types/${encodeURIComponent(String(typeID))}?depth=0&draft=false`, { signal: controller.signal, credentials: 'same-origin' })
-      .then(response => response.json() as Promise<{ prefix?: string }>)
-      .then(type => { if (type.prefix) setTypePrefix(type.prefix) }).catch(() => {})
-    return () => controller.abort()
-  }, [api, collectionSlug, typeID])
-  const prefix = collectionSlug === 'posts' ? `/${typePrefix}/` : '/'
+  const prefix = collectionSlug === 'posts' ? '/posts/' : '/'
   const publishedKey = `${collectionSlug}/${id}/${lastUpdateTime}`
   const publishedURL = hasPublishedDoc && published?.key === publishedKey ? published.url : null
 
@@ -39,7 +29,7 @@ export function DocumentPreviewActions() {
     const controller = new AbortController()
     // Read the published slug: a saved draft may already have a different slug.
     fetch(
-      `${api}/${collectionSlug}/${encodeURIComponent(String(id))}?draft=false&depth=1&select[slug]=true&select[_status]=true&select[postType]=true`,
+      `${api}/${collectionSlug}/${encodeURIComponent(String(id))}?draft=false&depth=1&select[slug]=true&select[_status]=true`,
       {
         credentials: 'same-origin',
         signal: controller.signal,

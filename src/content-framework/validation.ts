@@ -1,4 +1,3 @@
-import { ValidationError } from 'payload'
 import {
   validateSchedule,
   getView,
@@ -7,88 +6,15 @@ import {
   type TypeField,
   type ViewConfig,
   type EventSchedule,
-  validateRuleDefinitions,
   fieldDate,
 } from '@design-system/payload-design-core'
-export const fieldKinds = [
-  'text',
-  'textarea',
-  'richText',
-  'number',
-  'date',
-  'boolean',
-  'select',
-  'media',
-  'url',
-  'relationship',
-  'eventSchedule',
-] as const
-export const reservedPrefixes = [
-  'admin',
-  'api',
-  '_next',
-  'media',
-  'posts',
-  'favicon.ico',
-  'robots.txt',
-  'sitemap.xml',
-]
-export function validateFields(fields: TypeField[]) {
-  try {
-    assertFields(fields)
-  } catch (error) {
-    if (error instanceof ValidationError) throw error
-    throw new ValidationError({
-      errors: [
-        {
-          path: 'fieldDefinitions',
-          message: error instanceof Error ? error.message : 'Invalid field definitions',
-        },
-      ],
-    })
-  }
-}
-function assertFields(fields: TypeField[]) {
-  if (!Array.isArray(fields) || fields.length > 100)
-    throw new Error('A Post Type supports up to 100 fields')
-  const ids = new Set<string>()
-  for (const f of fields) {
-    if (!f || typeof f !== 'object' || typeof f.id !== 'string' || typeof f.label !== 'string')
-      throw new Error('Each field needs a text identifier and label')
-    if (
-      !/^[a-z][a-zA-Z0-9_]{0,63}$/.test(f.id) ||
-      ['__proto__', 'constructor', 'prototype'].includes(f.id) ||
-      ids.has(f.id)
-    )
-      throw new Error('Fields need unique, stable identifiers')
-    ids.add(f.id)
-    if (!f.label?.trim() || !fieldKinds.includes(f.kind))
-      throw new Error('Each field needs a label and supported kind')
-    if (
-      f.kind === 'relationship' &&
-      !['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].includes(f.relationTo || '')
-    )
-      throw new Error('Unsupported relationship collection')
-    if (f.kind === 'select' && (!f.options?.length || f.options.some((o) => typeof o !== 'string')))
-      throw new Error('Selection fields need options')
-  }
-  const issues = validateRuleDefinitions(fields)
-  if (issues.length)
-    throw new ValidationError({
-      errors: issues.map((issue) => ({ path: 'fieldDefinitions', message: issue.message })),
-    })
-  const defaults = Object.fromEntries(
-    fields.filter((f) => f.defaultValue !== undefined).map((f) => [f.id, f.defaultValue]),
-  )
-  validateValues(fields, defaults, false)
-}
 export function validateValues(
   fields: TypeField[],
   values: Record<string, unknown>,
   published: boolean,
 ) {
   if (!values || typeof values !== 'object' || Array.isArray(values))
-    throw new Error('Invalid Post Type values')
+    throw new Error('Invalid field values')
   for (const f of fields) {
     const value = values[f.id]
     if (value === undefined || value === null || value === '') {
@@ -172,7 +98,7 @@ export function validateView(config: ViewConfig) {
     throw new Error('Unsupported query filter')
   if (
     (config.query.rules?.length || 0) > 30 ||
-    [config.query.ids, config.query.excludeIDs, config.query.postTypes].some(
+    [config.query.ids, config.query.excludeIDs].some(
       (ids) =>
         ids !== undefined &&
         (!Array.isArray(ids) || ids.length > 100 || ids.some((id) => !/^\d+$/.test(String(id)))),

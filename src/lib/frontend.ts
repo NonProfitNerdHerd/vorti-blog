@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import config from '@/payload.config'
 import type { Page, Post, SiteSetting } from '@/payload-types'
 import { mediaURL } from './media'
-import { withPostType } from '@/content-framework/presentation'
+import { withPostAuthor } from '@/content-framework/presentation'
 import { publicAuthors } from './public-attribution'
 
 export { mediaURL } from './media'
@@ -28,9 +28,7 @@ export async function getPublishedPost(slug: string): Promise<Post | null> {
   })
   const doc = result.docs[0]
   if (!doc) return null
-  const typed = await withPostType(await payload(), doc as unknown as Record<string, unknown>)
-  const type = typed.postType as { prefix?: string } | undefined
-  if (type?.prefix && type.prefix !== 'posts') return null
+  const typed = await withPostAuthor(await payload(), doc as unknown as Record<string, unknown>)
   return typed as unknown as Post
 }
 

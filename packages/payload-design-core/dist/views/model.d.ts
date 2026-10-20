@@ -63,13 +63,12 @@ export type Occurrence = {
     timezone: string;
 };
 export type QueryRule = {
-    field: 'categories' | 'tags' | 'author' | 'featured' | 'postType';
+    field: 'categories' | 'tags' | 'author' | 'featured';
     operator: 'any' | 'all' | 'exclude';
     values: string[];
 };
 export type ViewQuery = {
     source: 'posts' | 'pages';
-    postTypes?: string[];
     match?: 'and' | 'or';
     rules?: QueryRule[];
     ids?: string[];
@@ -191,5 +190,4 @@ export declare const isViewPlacement: (kind: string) => boolean;
 export declare const defaultView: ViewConfig;
 export declare function documentURL(post: {
     slug?: string | null;
-    postType?: unknown;
 }): string;

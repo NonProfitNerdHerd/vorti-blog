@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from 'react'
 import type { JSONFieldClientComponent } from 'payload'
 import { makeID, wallTimeToInstant, zonedParts } from '@design-system/payload-design-core/forms'
 import type { ResourceSlot } from './resource-config'
-import { useCollectionEditorAccess } from '../content-framework/usePostTypeAccess'
+import { useCollectionEditorAccess } from '../content-framework/useCollectionEditorAccess'
 const subscribe = () => () => {}
 
 export const ResourceEditor: JSONFieldClientComponent = ({ path, readOnly }) => {

@@ -1016,10 +1016,10 @@ function NodeEditor({
   )
   const existingContent = node?.type === 'field' ? node.content : undefined
   const [contentSource, setContentSource] = useState<
-    'custom' | 'customField' | 'static' | 'document' | 'postType'
+    'custom' | 'customField' | 'static' | 'document'
   >(existingContent?.source ?? 'custom')
   const [customFieldID, setCustomFieldID] = useState(
-    existingContent?.source === 'customField' || existingContent?.source === 'postType'
+    existingContent?.source === 'customField'
       ? existingContent.fieldId
       : '',
   )
@@ -1030,35 +1030,6 @@ function NodeEditor({
         ? 'featuredImage'
         : 'title',
   )
-  const [typeBindingFields, setTypeBindingFields] = useState<Array<{ id: string; label: string }>>(
-    [],
-  )
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published', {
-      signal: controller.signal,
-    })
-      .then(
-        (r) =>
-          r.json() as Promise<{
-            docs?: Array<{
-              singular: string
-              fieldDefinitions?: Array<{ id: string; label: string; public?: boolean }>
-            }>
-          }>,
-      )
-      .then((data) =>
-        setTypeBindingFields(
-          (data.docs || []).flatMap((type) =>
-            (type.fieldDefinitions || [])
-              .filter((f) => f.public)
-              .map((f) => ({ id: f.id, label: `${type.singular}: ${f.label}` })),
-          ),
-        ),
-      )
-      .catch(() => {})
-    return () => controller.abort()
-  }, [])
   const [staticValue, setStaticValue] = useState(
     existingContent?.source === 'static'
       ? existingContent.value
@@ -1117,7 +1088,7 @@ function NodeEditor({
               }),
       } as TemplateLayoutNode
     } else if (kind === 'field') {
-      if ((contentSource === 'customField' || contentSource === 'postType') && !customFieldID)
+      if (contentSource === 'customField' && !customFieldID)
         return
       const content =
         contentSource === 'static'
@@ -1128,8 +1099,6 @@ function NodeEditor({
                 field: documentField,
                 preview: staticValue || undefined,
               }
-            : contentSource === 'postType'
-              ? { source: 'postType' as const, fieldId: customFieldID }
               : contentSource === 'customField'
                 ? {
                     source: 'customField' as const,
@@ -1301,8 +1270,7 @@ function NodeEditor({
                 onChange={(event) => setContentSource(event.target.value as typeof contentSource)}
               >
                 <option value="customField">Template custom field</option>
-                <option value="postType">Post Type field</option>
-                <option value="document">
+                  <option value="document">
                   {allowedCollections.includes('pages') && !allowedCollections.includes('posts')
                     ? 'Page'
                     : 'Post'}{' '}
@@ -1312,7 +1280,7 @@ function NodeEditor({
                 <option value="custom">Legacy canvas field</option>
               </select>
             </label>
-            {(contentSource === 'customField' || contentSource === 'postType') && (
+            {contentSource === 'customField' && (
               <label style={control}>
                 <span>Custom field</span>
                 <select
@@ -1321,7 +1289,7 @@ function NodeEditor({
                   onChange={(event) => setCustomFieldID(event.target.value)}
                 >
                   <option value="">Choose a custom field</option>
-                  {(contentSource === 'postType' ? typeBindingFields : customFields).map(
+                  {customFields.map(
                     (field) => (
                       <option key={field.id} value={field.id}>
                         {field.label}

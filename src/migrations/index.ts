@@ -26,6 +26,8 @@ import * as migration_20261019_160802_compact_workspace from './20261019_160802_
 import * as migration_20261019_173505_board_refinement from './20261019_173505_board_refinement';
 import * as migration_20261019_193700_compact_columns_time from './20261019_193700_compact_columns_time';
 import * as migration_20261020_170954_reusable_menus from './20261020_170954_reusable_menus';
+import * as migration_20261020_180749_simplify_cms from './20261020_180749_simplify_cms';
+import * as migration_20261020_183100_saved_view_content_cleanup from './20261020_183100_saved_view_content_cleanup';
 
 export const migrations = [
   {
@@ -166,6 +168,16 @@ export const migrations = [
   {
     up: migration_20261020_170954_reusable_menus.up,
     down: migration_20261020_170954_reusable_menus.down,
-    name: '20261020_170954_reusable_menus'
+    name: '20261020_170954_reusable_menus',
+  },
+  {
+    up: migration_20261020_180749_simplify_cms.up,
+    down: migration_20261020_180749_simplify_cms.down,
+    name: '20261020_180749_simplify_cms'
+  },
+  {
+    up: migration_20261020_183100_saved_view_content_cleanup.up,
+    down: migration_20261020_183100_saved_view_content_cleanup.down,
+    name: '20261020_183100_saved_view_content_cleanup'
   },
 ];

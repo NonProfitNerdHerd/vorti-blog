@@ -3,7 +3,7 @@ import type { FormValue } from './model';
 export interface ActionSetting {
     key: string;
     label: string;
-    type: 'text' | 'textarea' | 'select' | 'field' | 'integration' | 'postType';
+    type: 'text' | 'textarea' | 'select' | 'field' | 'integration';
     options?: string[];
     help?: string;
     required?: boolean;

@@ -212,6 +212,8 @@ export function createDesignCollections(options) {
                                     throw new Error(valid);
                             }
                             if (node.type === 'field') {
+                                if (node.content && !['custom', 'static', 'document', 'customField'].includes(node.content.source))
+                                    throw new Error('Choose a supported field binding.');
                                 fields.add(node.id);
                                 if (node.content?.source === 'customField' && !customFieldIDs.has(node.content.fieldId))
                                     throw new Error(`Custom Field bound to ${node.label} does not exist in this Template`);

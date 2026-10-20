@@ -30,8 +30,8 @@ export function DocumentPicker({
     const timer = setTimeout(async () => {
       try {
         const titleField =
-          collection === 'post-types'
-            ? 'singular'
+          collection === 'design-templates'
+            ? 'name'
             : ['categories', 'tags', 'saved-views', 'menus'].includes(collection)
               ? 'name'
               : 'title'

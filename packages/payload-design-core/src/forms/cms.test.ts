@@ -20,10 +20,10 @@ describe('CMS action mappings', () => {
     expect(validateDefinition(definition).some(issue => issue.message.includes('Contact email'))).toBe(true)
     expect(validateDefinition(definition).find(issue => issue.message.includes('Contact email'))?.action).toBe(contact.id)
   })
-  it('requires a numeric registered Post Type and refuses structured bodies as plaintext', () => {
-    const action: FormAction = { id: 'post', kind: 'content', name: 'Post', config: { titleField: 'title', bodyField: 'body', postType: 'users' } }
+  it('creates ordinary draft Posts and refuses structured bodies as plaintext', () => {
+    const action: FormAction = { id: 'post', kind: 'content', name: 'Post', config: { titleField: 'title', bodyField: 'body' } }
     const fields = [{ id: 'title', kind: 'text', label: 'Title' }, { id: 'body', kind: 'textarea', label: 'Body' }]
-    expect(cmsActionIssues(action, { fields })).toContain('Select a published Post Type for the draft Post.')
+    expect(cmsActionIssues(action, { fields })).toEqual([])
     expect(() => mappedCMSText({ body: { role: 'administrator' } }, action, 'bodyField', true)).toThrow('invalid')
   })
 })

@@ -53,6 +53,8 @@ import {
   type ContentKind,
   type Viewport,
 } from '../content/model'
+import { PostTemplateChooser } from './PostTemplateChooser'
+import { useRouter } from 'next/navigation'
 import { readPath, templateContentNodes } from '../content/template-adapter'
 import type { BlockType, BlockDesign, Template } from '../types'
 import { EditorHeaderPortal, EditorDevices, EditorHistory } from '../builder/EditorHeader'
@@ -96,6 +98,7 @@ export const ContentWorkspace = (
 ) => {
   const { field, groups, lexicalSchemaPath, readOnly, permissions, indexPath, schemaPath } = props
   const { collectionSlug, id: documentID } = useDocumentInfo()
+  const router = useRouter()
   const { config: workspaceConfig } = useConfig()
   const singular = workspaceConfig.collections.find((c) => c.slug === collectionSlug)?.labels
     ?.singular
@@ -110,32 +113,23 @@ export const ContentWorkspace = (
   const lockedForm = Boolean(readOnly || disabled || !ready)
   const layoutField = useField<ContentLayout | null>({ path: 'contentLayout' })
   const valuesField = useField<Record<string, unknown>>({ path: 'templateValues' })
-  const typeValuesField = useField<Record<string, unknown>>({ path: 'postTypeValues' })
   const templateField = useField<unknown>({ path: 'designTemplate' })
-  const postTypeField = useField<unknown>({ path: 'postType' })
-  const postTypeID = relationID(postTypeField.value)
-  const [postType, setPostType] = useState<{ id: string | number; singular: string; defaultTemplate?: unknown; templates?: unknown[] } | null>(null)
-  const documentLabel = postType?.singular || collectionLabel
-  useEffect(() => {
-    if (collectionSlug !== 'posts') return
-    const controller = new AbortController()
-    const where = postTypeID ? `where[id][equals]=${encodeURIComponent(postTypeID)}` : 'where[key][equals]=post'
-    fetch(`/api/post-types?${where}&where[_status][equals]=published&depth=0&draft=false`, { signal: controller.signal, credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() as Promise<{ docs?: Array<{ id: string | number; singular: string; defaultTemplate?: unknown; templates?: unknown[] }> }> : Promise.reject(new Error('Post Type is unavailable')))
-      .then(result => setPostType(result.docs?.[0] ?? null))
-      .catch(() => { if (!controller.signal.aborted) setPostType(null) })
-    return () => controller.abort()
-  }, [collectionSlug, postTypeID])
+  const snapshotField = useField<{ template: Template; types: BlockType[]; designs: BlockDesign[] } | null>({ path: 'templateSnapshot' })
+  const [choosing, setChoosing] = useState(collectionSlug === 'posts' && !documentID)
+  const documentLabel = collectionLabel
   const allFields = useFormFields(([fields]) => fields)
   const document = useMemo(
     () => Object.fromEntries(Object.entries(allFields).map(([key, value]) => [key, value.value])),
     [allFields],
   )
-  const templateID = relationID(templateField.value) || relationID(postType?.defaultTemplate)
+  const templateID = relationID(snapshotField.value?.template.id) || relationID(templateField.value)
   const locked = Boolean(templateID)
   const capabilities = builderCapabilities(locked ? 'template-content' : 'freeform', lockedForm)
-  const [template, setTemplate] = useState<Template | null>(null)
+  const [loadedTemplate, setTemplate] = useState<Template | null>(null)
+  const template = snapshotField.value?.template ?? loadedTemplate
   const [templates, setTemplates] = useState<Template[]>([])
+  const [libraryLoading, setLibraryLoading] = useState(true)
+  const [libraryVersion, setLibraryVersion] = useState(0)
   const [types, setTypes] = useState<BlockType[]>([])
   const [designs, setDesigns] = useState<BlockDesign[]>([])
   const [error, setError] = useState('')
@@ -172,7 +166,7 @@ export const ContentWorkspace = (
     () =>
       locked
         ? template && String(template.id) === templateID
-          ? templateContentNodes(template, document, types, designs, true)
+          ? templateContentNodes(template, document, snapshotField.value?.types ?? types, snapshotField.value?.designs ?? designs, true)
           : []
         : (layoutField.value?.nodes ??
           (document.content
@@ -185,7 +179,7 @@ export const ContentWorkspace = (
                 },
               ]
             : [])),
-    [locked, template, templateID, document, types, designs, layoutField.value],
+    [locked, template, templateID, document, types, designs, layoutField.value, snapshotField.value],
   )
   const sidebarNodes = contentSidebarNodes(nodes)
   const destination = sidebar.target ?? insertionTarget(sidebarNodes, selected)
@@ -221,16 +215,19 @@ export const ContentWorkspace = (
           setTemplates(templates)
           setTypes(types)
           setDesigns(designs)
+          setError('')
         }
       })
       .catch((cause) => {
         if (alive) setError(String(cause.message))
       })
+      .finally(() => { if (alive) setLibraryLoading(false) })
     return () => {
       alive = false
     }
-  }, [collectionSlug])
+  }, [collectionSlug, libraryVersion])
   useEffect(() => {
+    if (snapshotField.value?.template) return
     if (!templateID) return
     const controller = new AbortController()
     fetch(`/api/design-templates/${encodeURIComponent(templateID)}?depth=0`, {
@@ -252,7 +249,7 @@ export const ContentWorkspace = (
         if (!controller.signal.aborted) setError(cause.message)
       })
     return () => controller.abort()
-  }, [templateID])
+  }, [templateID, snapshotField.value])
   // Media inside JSON is resolved explicitly; Payload relationship depth cannot populate it.
   const mediaIDs = [
     ...new Set(
@@ -426,6 +423,7 @@ export const ContentWorkspace = (
     'designOverrides',
     'responsiveDesigns',
     'designTemplate',
+    'templateSnapshot',
   ])
   const gear = (
     <>
@@ -435,18 +433,18 @@ export const ContentWorkspace = (
           Template
           <select
             aria-label="Template"
-            disabled={lockedForm || templateField.disabled}
-            value={relationID(templateField.value)}
+            disabled={lockedForm || templateField.disabled || Boolean(snapshotField.value)}
+            value={snapshotField.value ? templateID : relationID(templateField.value)}
             onChange={(event) => changeTemplate(event.target.value)}
           >
-            <option value="">{postType?.defaultTemplate ? 'Use Post Type default' : 'Built-in layout — freeform blocks'}</option>
-            {templates.filter(template => !postType || postType.templates?.some(id => relationID(id) === String(template.id))).map((template) => (
+            <option value="">Blank — freeform blocks</option>
+            {templates.map((template) => (
               <option key={template.id} value={template.id}>
                 {template.name}
               </option>
             ))}
             {templateID && !templates.some((template) => String(template.id) === templateID) && (
-              <option value={templateID}>Current template (unavailable)</option>
+              <option value={templateID}>{snapshotField.value?.template.name ?? 'Current template (unavailable)'}</option>
             )}
           </select>
         </label>
@@ -466,7 +464,7 @@ export const ContentWorkspace = (
     </>
   )
   const bindField = (node: ContentNode) =>
-    node.binding && !node.binding.path.startsWith('templateValues.') && !node.binding.path.startsWith('postTypeValues.') ? (
+    node.binding && !node.binding.path.startsWith('templateValues.') ? (
       <React.Fragment key={node.id}>{renderFields([node.binding.path])}</React.Fragment>
     ) : (
       <React.Fragment key={node.id}>
@@ -478,7 +476,6 @@ export const ContentWorkspace = (
           lexicalSchemaPath={lexicalSchemaPath}
           disabled={lockedForm}
           onValues={(path, value) => {
-            if(path.startsWith('postTypeValues.')) {typeValuesField.setValue({...typeValuesField.value,[path.slice('postTypeValues.'.length)]:value});return}
             const next = structuredClone(current.values)
             const segments = path.replace(/^templateValues\./, '').split('.')
             let cursor = next
@@ -621,6 +618,14 @@ export const ContentWorkspace = (
     ([, value]) => value.valid === false && value.errorMessage,
   )
   return (
+    <>
+    {choosing && <PostTemplateChooser templates={templates} loading={libraryLoading} error={error} onRetry={() => { setLibraryLoading(true); setLibraryVersion(version => version + 1) }} onCancel={() => router.push(`${workspaceConfig.routes.admin}/collections/posts`)} onCreated={created => setTemplates(current => [...current.filter(item => item.id !== created.id), created])} onChoose={choice => {
+      const selected = templates.find(item => String(item.id) === choice)
+      templateField.setValue(choice === 'blank' ? null : selected?.id)
+      if (choice === 'blank') { layoutField.setValue({ version: 1, nodes: [] }); valuesField.setValue({}) }
+      if (selected) valuesField.setValue(Object.fromEntries((selected.customFields ?? []).filter(field => field.defaultValue !== undefined).map(field => [field.id, field.defaultValue])))
+      setChoosing(false)
+    }} />}
     <BuilderCore
       id="content-workspace"
       onInsert={(item, parent, before) =>
@@ -837,6 +842,7 @@ export const ContentWorkspace = (
         </BuilderPanels>
       </section>
     </BuilderCore>
+    </>
   )
 }
 
@@ -955,12 +961,12 @@ function BoundValue({
   const categoriesEnabled = useCategoriesEnabled()
   const field = useField({
     path: binding.path,
-    disableFormData: binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.'),
+    disableFormData: binding.path.startsWith('templateValues.'),
   })
   const value = readPath(document, binding.path)
   if (!categoriesEnabled && (binding.path === 'categories' || binding.relationTo === 'categories')) return null
   const update = (value: unknown) =>
-    binding.path.startsWith('templateValues.')||binding.path.startsWith('postTypeValues.')
+    binding.path.startsWith('templateValues.')
       ? onValues(binding.path, value)
       : field.setValue(value)
   if (binding.kind === 'image' || binding.kind === 'images')

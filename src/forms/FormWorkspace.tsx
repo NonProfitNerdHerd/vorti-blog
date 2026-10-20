@@ -10,7 +10,7 @@ import { FormBuilder, type PaymentAvailability } from '@design-system/payload-de
 import { EditorHeaderPortal } from '@design-system/payload-design-core/admin'
 import { FormSharing } from './FormSharing'
 import { prepareStoredForm, type ReviewedDefinition } from './legacy'
-import { useCollectionEditorAccess } from '../content-framework/usePostTypeAccess'
+import { useCollectionEditorAccess } from '../content-framework/useCollectionEditorAccess'
 
 
 export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
@@ -32,14 +32,12 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
   const needsReview = legacy.issues.length > 0
   const reviewed = legacy.issues.every(issue => Array.isArray(working.legacyReview) && working.legacyReview.includes(issue.message))
   const permitted = access.canWrite(path)
-  const [postTypes, setPostTypes] = useState<{ id: string; label: string }[]>([])
   const [payments, setPayments] = useState<PaymentAvailability>()
   const [delivery, setDelivery] = useState<{ local: boolean; emailConfigured: boolean; integrations: { id: string; label: string; provider: string; configured: boolean }[] }>()
   const [resources, setResources] = useState<{ id: string; label: string }[]>([])
   useEffect(() => {
     const controller = new AbortController()
     fetch('/api/forms-actions/options', { signal: controller.signal }).then(async response => { if (response.ok) setDelivery(await response.json()) }).catch(() => {})
-    fetch('/api/forms-cms/options', { signal: controller.signal }).then(async response => { if (response.ok) { const result = await response.json() as { postTypes: { id: string; label: string }[] }; setPostTypes(result.postTypes) } }).catch(() => {})
     fetch('/api/forms-payments/config', { signal: controller.signal }).then(async response => { if (response.ok) setPayments(await response.json()) }).catch(() => {})
     fetch('/api/form-resources?limit=100&depth=0', { signal: controller.signal }).then(async response => {
       if (!response.ok) return
@@ -61,7 +59,7 @@ export const FormWorkspace: JSONFieldClientComponent = ({ path, readOnly }) => {
       const result = await response.json() as { doc?: { id: number | string }; message?: string; errors?: { message?: string }[] }
       if (!response.ok || !result.doc?.id) throw new Error(result.errors?.[0]?.message || result.message || 'Could not create the example form.')
       return formatAdminURL({ adminRoute: config.routes.admin, path: `/collections/forms/${result.doc.id}` })
-    }} navigationTarget={navigationTarget} navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} postTypes={postTypes} integrations={delivery?.integrations} local={delivery?.local}
+    }} navigationTarget={navigationTarget} navigation={navigation} toolbarTarget={toolbarTarget} emailTarget={emailHost?.target} onEmailIssue={emailHost?.open} transferTarget={transferTarget} value={working} onChange={setValue} readOnly={!permitted} resources={resources} payments={payments} integrations={delivery?.integrations} local={delivery?.local}
       saveStatus={hasPublishedDoc ? 'Draft changes do not alter your published form.' : 'Not yet published'}
       onSave={() => void submit({ action: draftAction, method: id ? 'PATCH' : 'POST', overrides: { _status: 'draft' }, skipValidation: true })}
       onPublish={() => void submit({ overrides: { _status: 'published' } })}>

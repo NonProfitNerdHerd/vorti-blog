@@ -184,7 +184,7 @@ The additive payment migration passed against existing isolated local data. The 
 
 ## CMS record actions (local implementation)
 
-The Actions tab now supports actual **Create contact**, **Create support request**, and **Create review content** executors. Choose compatible source fields visually; draft Posts also use a selector of available published Post Types. A contact maps email and optional name. A support request maps title, details, and optional reply email. A Post maps title and plain-text body and always starts as a draft attributed to the authenticated integration manager who approved the form.
+The Actions tab now supports actual **Create contact**, **Create support request**, and **Create review content** executors. Choose compatible source fields visually; draft Posts no longer require a content type selector. A contact maps email and optional name. A support request maps title, details, and optional reply email. A Post maps title and plain-text body and always starts as a draft attributed to the authenticated integration manager who approved the form.
 
 Publishing these actions requires the site's integration permission. Approval is stamped by the server, replacing any client-supplied approver. Execution rechecks that user's current permission and uses access-enforced Payload writes. Source answers are loaded from the exact accepted entry/site/revision. Sensitive fields, descendants of sensitive containers, incompatible inputs, and fields inside repeaters are rejected as CMS mappings. Submitted HTML remains a text node in the generated rich text, never executable markup. Submitted values cannot choose a collection, author, role, or publication status.
 

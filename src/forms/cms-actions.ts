@@ -1,4 +1,4 @@
-import { APIError, ValidationError, createLocalReq, type CollectionConfig, type CollectionSlug, type Endpoint, type Payload, type PayloadRequest } from 'payload'
+import { APIError, ValidationError, createLocalReq, type CollectionConfig, type CollectionSlug, type Payload, type PayloadRequest } from 'payload'
 import { cmsActionIssues, cmsMappings, mappedCMSText, type Answers, type FormAction, type FormDefinition } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_INTERNAL, FORM_SITE, internalRequest, siteAccess, type FormsUser } from './access'
 import { PermanentActionError, type ActionHandlers } from './outbox'
@@ -34,10 +34,6 @@ export async function authorizeCMSActions(definition: FormDefinition, req: Paylo
     const issues = cmsActionIssues(action, definition)
     if (action.kind === 'content') {
       if (site !== FORM_SITE) issues.push('The Posts collection belongs to the default site. Register a scoped destination for another site.')
-      if (!issues.length) {
-        const type = await req.payload.find({ collection: 'post-types', where: { and: [{ id: { equals: action.config.postType } }, { _status: { equals: 'published' } }, { archived: { not_equals: true } }] }, limit: 1, draft: false, depth: 0, overrideAccess: false, req })
-        if (!type.docs.length) issues.push('Select an available published Post Type.')
-      }
     }
     if (issues.length) throw new ValidationError({ errors: issues.map(message => ({ path: 'definition', message: `${action.name}: ${message}` })) })
   }
@@ -58,7 +54,7 @@ function lexicalText(text: string) {
 export function cmsRecordData(action: FormAction, answers: Answers, actorID: number | string): Record<string, unknown> {
   if (action.kind === 'contact') return { name: mappedCMSText(answers, action, 'nameField'), email: mappedCMSText(answers, action, 'emailField', true) }
   if (action.kind === 'support') return { title: mappedCMSText(answers, action, 'titleField', true), details: mappedCMSText(answers, action, 'bodyField', true), email: mappedCMSText(answers, action, 'emailField') || undefined, status: 'received' }
-  if (action.kind === 'content') return { title: mappedCMSText(answers, action, 'titleField', true), content: lexicalText(mappedCMSText(answers, action, 'bodyField', true)), postType: Number(action.config.postType), author: actorID, _status: 'draft' }
+  if (action.kind === 'content') return { title: mappedCMSText(answers, action, 'titleField', true), content: lexicalText(mappedCMSText(answers, action, 'bodyField', true)), author: actorID, _status: 'draft' }
   throw new PermanentActionError('This CMS destination is not registered.')
 }
 
@@ -86,25 +82,14 @@ export function registerCMSHandlers(handlers: ActionHandlers, platform: FormPlat
     let data: Record<string, unknown>
     try { data = cmsRecordData(action, JSON.parse(entry.answers), actor.id) } catch (error) { throw new PermanentActionError((error as Error).message) }
     if (kind === 'content') {
-      const type = await payload.find({ collection: 'post-types', where: { and: [{ id: { equals: action.config.postType } }, { _status: { equals: 'published' } }, { archived: { not_equals: true } }] }, limit: 1, draft: false, depth: 0, overrideAccess: false, req, context: req.context })
-      if (!type.docs.length) throw new PermanentActionError('The approved Post Type is unavailable. Review the form mapping.')
       data = { ...data, slug: `form-${key}`, formActionKey: key }
     } else data = { ...data, site: job.site, sourceEntry: Number(job.submission_i_d), actionKey: key }
     try { await payload.create({ collection: collection as CollectionSlug, data: data as never, draft: kind === 'content', overrideAccess: false, req, context: req.context }) }
     catch (error) {
       if (!(await find()).docs.length) {
-        if (error instanceof ValidationError) throw new PermanentActionError('The destination rejected the mapped values. Review its required fields and Post Type configuration.')
+        if (error instanceof ValidationError) throw new PermanentActionError('The destination rejected the mapped values. Review its required fields.')
         throw error
       }
     }
   })
-}
-
-export function cmsActionEndpoints(platform: FormPlatform): Endpoint[] {
-  return [{ path: '/forms-cms/options', method: 'get', handler: async req => {
-    const site = platform.resolveSite?.(req) || FORM_SITE
-    if (!canForm(req.user as FormsUser, 'integrations', site)) return Response.json({ message: 'Integration permission is required.' }, { status: 403 })
-    const types = site === FORM_SITE ? await req.payload.find({ collection: 'post-types', where: { and: [{ _status: { equals: 'published' } }, { archived: { not_equals: true } }] }, limit: 100, depth: 0, draft: false, overrideAccess: false, req }) : { docs: [] as { id: number; singular?: string }[] }
-    return Response.json({ postTypes: types.docs.map(type => ({ id: String(type.id), label: type.singular || `Post Type ${type.id}` })) }, { headers: { 'Cache-Control': 'private, no-store' } })
-  } }]
 }

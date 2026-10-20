@@ -1,5 +1,5 @@
 import type { Field, Plugin, GroupField } from 'payload'
-import { publishedType, refID } from '../content-framework/collections'
+import { refID } from '../content-framework/collections'
 import { protectCategoryValues, categoriesEnabledForRequest } from '../lib/system-settings'
 import { getFieldPaths } from 'payload/shared'
 import { validateContentLayout, configureEditorHeader } from '@design-system/payload-design-core'
@@ -91,21 +91,13 @@ export const contentWorkspace =
         path: '@design-system/payload-design-core/admin#ContentWorkspace',
         clientProps: { groups, lexicalSchemaPath },
       }
-      const typeValues = fields.find(field => 'name' in field && field.name === 'postTypeValues')
-      if (typeValues) typeValues.admin = { ...typeValues.admin, components: { Field: { path: './content-framework/TypeValues#TypeValues', clientProps: { lexicalSchemaPath } } } }
       collection.hooks = {
         ...collection.hooks,
         beforeChange: [
           async ({ data, originalDoc, req }) => {
-            const type =
-              collection.slug === 'posts'
-                ? await publishedType(req.payload, data.postType ?? originalDoc?.postType, req)
-                : undefined
-            const template =
-              ('designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate) ||
-              refID(type?.defaultTemplate)
+            const template = 'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate
             if (template && data.templateValues && !await categoriesEnabledForRequest(req)) {
-              const definition = await req.payload.findByID({ collection: 'design-templates', id: refID(template)!, depth: 0, overrideAccess: false, req })
+              const definition = originalDoc?.templateSnapshot?.template ?? await req.payload.findByID({ collection: 'design-templates', id: refID(template)!, depth: 0, overrideAccess: false, req })
               const categoryFields = Array.isArray(definition.customFields) ? definition.customFields as Array<{ id: string; relationTo?: string }> : []
               await protectCategoryValues(req, categoryFields, { ...(originalDoc?.templateValues || {}), ...data.templateValues }, originalDoc?.templateValues || {}, 'templateValues')
             }

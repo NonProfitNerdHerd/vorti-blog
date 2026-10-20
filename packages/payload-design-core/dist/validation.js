@@ -101,7 +101,7 @@ export async function validateTemplatedContent(store, content) {
     }
     const values = (content.templateValues ?? {});
     for (const field of templateFields(layout)) {
-        if (field.content?.source === 'static' || field.content?.source === 'document' || field.content?.source === 'postType')
+        if (field.content?.source === 'static' || field.content?.source === 'document')
             continue;
         const value = values[field.content?.source === 'customField' ? field.content.fieldId : field.id];
         const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0) || (field.fieldType === 'richText' && !hasLexicalContent(value));

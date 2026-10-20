@@ -560,15 +560,12 @@ test('visual definition import validates, confirms, supports undo and preserves 
 
 test('CMS actions create private contacts, support requests and one draft Post with approved mappings', async ({ page, baseURL, playwright }) => {
   test.setTimeout(120000)
-  const options = await (await page.request.get('/api/forms-cms/options')).json()
-  expect(options.postTypes.length).toBeGreaterThan(0)
-  const postType = options.postTypes.find((type: { label: string }) => type.label === 'Post') || options.postTypes[0]
   const definition = emptyDefinition(), slug = `cms-${Date.now()}`, title = `Submitted story ${Date.now()}`
   definition.fields = [{ id: 'email', kind: 'email', label: 'Contact email', required: true }, { id: 'name', kind: 'text', label: 'Contact name' }, { id: 'title', kind: 'text', label: 'Story title', required: true }, { id: 'body', kind: 'textarea', label: 'Story details', required: true }]
   definition.actions = [
     { id: 'contact', kind: 'contact', name: 'Create contact', config: { emailField: 'email', nameField: 'name', approvedBy: '999999' } },
     { id: 'support', kind: 'support', name: 'Staff request', config: { titleField: 'title', bodyField: 'body', emailField: 'email' } },
-    { id: 'post', kind: 'content', name: 'Editorial draft', config: { titleField: 'title', bodyField: 'body', postType: postType.id, author: '999999', _status: 'published' } },
+    { id: 'post', kind: 'content', name: 'Editorial draft', config: { titleField: 'title', bodyField: 'body', author: '999999', _status: 'published' } },
   ]
   const invalid = structuredClone(definition); invalid.fields[0].sensitive = true
   const rejected = await page.request.post('/api/forms', { data: { title: 'Invalid sensitive mapping', slug: `${slug}-invalid`, definition: invalid, _status: 'published' } })
@@ -579,8 +576,6 @@ test('CMS actions create private contacts, support requests and one draft Post w
   const { doc } = await created.json()
   await page.goto(`/admin/collections/forms/${doc.id}`)
   await page.getByRole('tab', { name: 'Actions', exact: true }).click()
-  await expect(page.getByLabel('Post Type for draft content')).toHaveValue(postType.id)
-  await page.getByLabel('Post Type for draft content').selectOption(postType.id)
   const publishing = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes(`/api/forms/${doc.id}?`) && !response.url().includes('autosave=true'))
   await page.getByRole('button', { name: 'Publish changes', exact: true }).click()
   expect((await publishing).ok()).toBe(true)
@@ -593,7 +588,6 @@ test('CMS actions create private contacts, support requests and one draft Post w
   expect((await page.request.post('/api/users', { data: { ...designerCredentials, role: 'designer' } })).ok()).toBe(true)
   const designer = await playwright.request.newContext({ baseURL })
   expect((await designer.post('/api/users/login', { data: designerCredentials })).ok()).toBe(true)
-  expect((await designer.get('/api/forms-cms/options')).status()).toBe(403)
   expect((await designer.patch(`/api/forms/${doc.id}`, { data: { definition } })).status()).toBe(403)
   expect((await designer.patch(`/api/forms/${doc.id}?draft=true`, { data: { definition, _status: 'published' } })).status()).toBe(403)
   const draftSave = await designer.patch(`/api/forms/${doc.id}?draft=true`, { data: { definition, _status: 'draft' } })

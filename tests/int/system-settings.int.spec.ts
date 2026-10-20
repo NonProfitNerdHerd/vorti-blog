@@ -34,7 +34,7 @@ describe('Categories system setting', () => {
     const { req } = fixture()
     const fields = [{ id: 'topic', relationTo: 'categories' }, { id: 'tag', relationTo: 'tags' }]
     await expect(protectCategoryValues(req as never, fields, { topic: 2 }, { topic: 1 }, 'templateValues')).rejects.toThrow()
-    await expect(protectCategoryValues(req as never, fields, { topic: 1, tag: 4 }, { topic: { id: 1 } }, 'postTypeValues')).resolves.toBeUndefined()
+    await expect(protectCategoryValues(req as never, fields, { topic: 1, tag: 4 }, { topic: { id: 1 } }, 'templateValues')).resolves.toBeUndefined()
   })
   it('preserves populated or unpopulated category assignments and caches access checks per request', async () => {
     expect(sameCategories([1, { id: 2 }], [2, 1])).toBe(true)

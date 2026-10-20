@@ -33,7 +33,7 @@ export function createPayloadDependencySource(payload, contentCollections, req) 
         async contentUsingTemplate(id) {
             const results = await Promise.all(contentCollections.map(async (collection) => {
                 const result = await payload.find({ collection: collection, where: { designTemplate: { equals: id } }, depth: 0, limit: 1000, pagination: false, overrideAccess: true, req });
-                return result.docs.map((doc) => ({ collection, id: doc.id, status: doc._status }));
+                return result.docs.filter(doc => collection !== 'posts' || !doc.templateSnapshot).map((doc) => ({ collection, id: doc.id, status: doc._status }));
             }));
             return results.flat();
         },

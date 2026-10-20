@@ -21,9 +21,7 @@ export function templateContentNodes(
   function fieldNode(field: TemplateField, path?: string): ContentNode {
     const bindingPath =
       path ??
-      (field.content?.source === 'postType'
-        ? `postTypeValues.${field.content.fieldId}`
-        : field.content?.source === 'document'
+      (field.content?.source === 'document'
           ? field.content.field
           : `templateValues.${field.content?.source === 'customField' ? field.content.fieldId : field.id}`)
     const value =

@@ -11,7 +11,6 @@ const order = [
   'site-settings',
   'design-block-types',
   'design-templates',
-  'post-types',
 ]
 
 /** Keep Payload's permission filtering, links, mobile toggle and persisted groups. */

@@ -1,8 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useSiteFormat } from '@design-system/payload-design-core/content'
-import { useField, useFormFields } from '@payloadcms/ui'
-import type { JSONFieldClientComponent } from 'payload'
 import { RenderLexical } from '@payloadcms/richtext-lexical/client'
 import type { TypeField, EventSchedule } from '@design-system/payload-design-core/content'
 import { evaluateFieldRules, type MediaFacts } from '@design-system/payload-design-core/content'
@@ -236,51 +234,6 @@ export function ScheduleEditor({
         Change one occurrence
       </button>
     </fieldset>
-  )
-}
-export const TypeValues = ({
-  path,
-  readOnly,
-  lexicalSchemaPath,
-}: React.ComponentProps<JSONFieldClientComponent> & { lexicalSchemaPath?: string }) => {
-  const { value = {}, setValue } = useField<Record<string, unknown>>({ path })
-  const type = useFormFields(([fields]) => fields.postType?.value)
-  const [definition, setDefinition] = useState<{
-    singular: string
-    fieldDefinitions: TypeField[]
-  } | null>(null)
-  useEffect(() => {
-    let active = true
-    const id = typeof type === 'object' && type ? ('id' in type ? type.id : '') : type
-    fetch(
-      `/api/post-types?where[_status][equals]=published&${id ? `where[id][equals]=${encodeURIComponent(String(id))}` : 'where[key][equals]=post'}`,
-    )
-      .then(
-        (r) =>
-          r.json() as Promise<{
-            docs?: Array<{ singular: string; fieldDefinitions: TypeField[] }>
-          }>,
-      )
-      .then((r) => {
-        if (active) setDefinition(r.docs?.[0] || null)
-      })
-      .catch(() => {
-        if (active) setDefinition(null)
-      })
-    return () => {
-      active = false
-    }
-  }, [type])
-  if (!definition) return <p>Select a published Post Type to edit its fields.</p>
-  return (
-    <TypeValueForm
-      fields={definition.fieldDefinitions}
-      label={definition.singular + ' fields'}
-      value={value}
-      onChange={setValue}
-      readOnly={readOnly}
-      lexicalSchemaPath={lexicalSchemaPath}
-    />
   )
 }
 export function TypeValueForm({

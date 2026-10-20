@@ -26,6 +26,8 @@ import { resolveDocumentHeadings } from '../blocks/resolve.js';
 import { styleOnlyKinds, variationsFor } from '../blocks/variations.js';
 import { ContentBlock } from '../content/ContentRenderer.js';
 import { containerKinds, getContentLibrary, createContentNode, duplicateContent, insertContent, moveContent, removeContent, updateContent, walkContent, } from '../content/model.js';
+import { PostTemplateChooser } from './PostTemplateChooser.js';
+import { useRouter } from 'next/navigation';
 import { readPath, templateContentNodes } from '../content/template-adapter.js';
 import { EditorHeaderPortal, EditorDevices, EditorHistory } from '../builder/EditorHeader.js';
 import './content-workspace.css';
@@ -62,6 +64,7 @@ async function docs(url) {
 export const ContentWorkspace = (props) => {
     const { field, groups, lexicalSchemaPath, readOnly, permissions, indexPath, schemaPath } = props;
     const { collectionSlug, id: documentID } = useDocumentInfo();
+    const router = useRouter();
     const { config: workspaceConfig } = useConfig();
     const singular = workspaceConfig.collections.find((c) => c.slug === collectionSlug)?.labels
         ?.singular;
@@ -75,31 +78,20 @@ export const ContentWorkspace = (props) => {
     const lockedForm = Boolean(readOnly || disabled || !ready);
     const layoutField = useField({ path: 'contentLayout' });
     const valuesField = useField({ path: 'templateValues' });
-    const typeValuesField = useField({ path: 'postTypeValues' });
     const templateField = useField({ path: 'designTemplate' });
-    const postTypeField = useField({ path: 'postType' });
-    const postTypeID = relationID(postTypeField.value);
-    const [postType, setPostType] = useState(null);
-    const documentLabel = postType?.singular || collectionLabel;
-    useEffect(() => {
-        if (collectionSlug !== 'posts')
-            return;
-        const controller = new AbortController();
-        const where = postTypeID ? `where[id][equals]=${encodeURIComponent(postTypeID)}` : 'where[key][equals]=post';
-        fetch(`/api/post-types?${where}&where[_status][equals]=published&depth=0&draft=false`, { signal: controller.signal, credentials: 'same-origin' })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error('Post Type is unavailable')))
-            .then(result => setPostType(result.docs?.[0] ?? null))
-            .catch(() => { if (!controller.signal.aborted)
-            setPostType(null); });
-        return () => controller.abort();
-    }, [collectionSlug, postTypeID]);
+    const snapshotField = useField({ path: 'templateSnapshot' });
+    const [choosing, setChoosing] = useState(collectionSlug === 'posts' && !documentID);
+    const documentLabel = collectionLabel;
     const allFields = useFormFields(([fields]) => fields);
     const document = useMemo(() => Object.fromEntries(Object.entries(allFields).map(([key, value]) => [key, value.value])), [allFields]);
-    const templateID = relationID(templateField.value) || relationID(postType?.defaultTemplate);
+    const templateID = relationID(snapshotField.value?.template.id) || relationID(templateField.value);
     const locked = Boolean(templateID);
     const capabilities = builderCapabilities(locked ? 'template-content' : 'freeform', lockedForm);
-    const [template, setTemplate] = useState(null);
+    const [loadedTemplate, setTemplate] = useState(null);
+    const template = snapshotField.value?.template ?? loadedTemplate;
     const [templates, setTemplates] = useState([]);
+    const [libraryLoading, setLibraryLoading] = useState(true);
+    const [libraryVersion, setLibraryVersion] = useState(0);
     const [types, setTypes] = useState([]);
     const [designs, setDesigns] = useState([]);
     const [error, setError] = useState('');
@@ -134,7 +126,7 @@ export const ContentWorkspace = (props) => {
     const current = { layout: layoutField.value ?? null, values: valuesField.value ?? {} };
     const nodes = useMemo(() => locked
         ? template && String(template.id) === templateID
-            ? templateContentNodes(template, document, types, designs, true)
+            ? templateContentNodes(template, document, snapshotField.value?.types ?? types, snapshotField.value?.designs ?? designs, true)
             : []
         : (layoutField.value?.nodes ??
             (document.content
@@ -146,7 +138,7 @@ export const ContentWorkspace = (props) => {
                         richText: document.content,
                     },
                 ]
-                : [])), [locked, template, templateID, document, types, designs, layoutField.value]);
+                : [])), [locked, template, templateID, document, types, designs, layoutField.value, snapshotField.value]);
     const sidebarNodes = contentSidebarNodes(nodes);
     const destination = sidebar.target ?? insertionTarget(sidebarNodes, selected);
     const active = walkContent(nodes).find((node) => node.id === selected);
@@ -175,17 +167,22 @@ export const ContentWorkspace = (props) => {
                 setTemplates(templates);
                 setTypes(types);
                 setDesigns(designs);
+                setError('');
             }
         })
             .catch((cause) => {
             if (alive)
                 setError(String(cause.message));
-        });
+        })
+            .finally(() => { if (alive)
+            setLibraryLoading(false); });
         return () => {
             alive = false;
         };
-    }, [collectionSlug]);
+    }, [collectionSlug, libraryVersion]);
     useEffect(() => {
+        if (snapshotField.value?.template)
+            return;
         if (!templateID)
             return;
         const controller = new AbortController();
@@ -207,7 +204,7 @@ export const ContentWorkspace = (props) => {
                 setError(cause.message);
         });
         return () => controller.abort();
-    }, [templateID]);
+    }, [templateID, snapshotField.value]);
     // Media inside JSON is resolved explicitly; Payload relationship depth cannot populate it.
     const mediaIDs = [
         ...new Set(walkContent(nodes)
@@ -344,18 +341,15 @@ export const ContentWorkspace = (props) => {
         'designOverrides',
         'responsiveDesigns',
         'designTemplate',
+        'templateSnapshot',
     ]);
-    const gear = (_jsxs(_Fragment, { children: [_jsxs("details", { open: true, children: [_jsx("summary", { children: "Template" }), _jsxs("label", { children: ["Template", _jsxs("select", { "aria-label": "Template", disabled: lockedForm || templateField.disabled, value: relationID(templateField.value), onChange: (event) => changeTemplate(event.target.value), children: [_jsx("option", { value: "", children: postType?.defaultTemplate ? 'Use Post Type default' : 'Built-in layout — freeform blocks' }), templates.filter(template => !postType || postType.templates?.some(id => relationID(id) === String(template.id))).map((template) => (_jsx("option", { value: template.id, children: template.name }, template.id))), templateID && !templates.some((template) => String(template.id) === templateID) && (_jsx("option", { value: templateID, children: "Current template (unavailable)" }))] })] }), renderFields((groups.Template ?? []).filter((name) => !internal.has(name)))] }), Object.entries(groups)
+    const gear = (_jsxs(_Fragment, { children: [_jsxs("details", { open: true, children: [_jsx("summary", { children: "Template" }), _jsxs("label", { children: ["Template", _jsxs("select", { "aria-label": "Template", disabled: lockedForm || templateField.disabled || Boolean(snapshotField.value), value: snapshotField.value ? templateID : relationID(templateField.value), onChange: (event) => changeTemplate(event.target.value), children: [_jsx("option", { value: "", children: "Blank \u2014 freeform blocks" }), templates.map((template) => (_jsx("option", { value: template.id, children: template.name }, template.id))), templateID && !templates.some((template) => String(template.id) === templateID) && (_jsx("option", { value: templateID, children: snapshotField.value?.template.name ?? 'Current template (unavailable)' }))] })] }), renderFields((groups.Template ?? []).filter((name) => !internal.has(name)))] }), Object.entries(groups)
                 .filter(([name]) => name !== 'Template' && name !== 'Content')
                 .map(([name, names]) => {
                 const visible = names.filter((name) => !internal.has(name));
                 return visible.length ? (_jsxs("details", { open: true, children: [_jsx("summary", { children: name }), renderFields(visible)] }, name)) : null;
             })] }));
-    const bindField = (node) => node.binding && !node.binding.path.startsWith('templateValues.') && !node.binding.path.startsWith('postTypeValues.') ? (_jsx(React.Fragment, { children: renderFields([node.binding.path]) }, node.id)) : (_jsxs(React.Fragment, { children: [node.binding?.helpText && _jsx("p", { children: node.binding.helpText }), _jsx(BoundValue, { node: node, document: document, lexicalSchemaPath: lexicalSchemaPath, disabled: lockedForm, onValues: (path, value) => {
-                    if (path.startsWith('postTypeValues.')) {
-                        typeValuesField.setValue({ ...typeValuesField.value, [path.slice('postTypeValues.'.length)]: value });
-                        return;
-                    }
+    const bindField = (node) => node.binding && !node.binding.path.startsWith('templateValues.') ? (_jsx(React.Fragment, { children: renderFields([node.binding.path]) }, node.id)) : (_jsxs(React.Fragment, { children: [node.binding?.helpText && _jsx("p", { children: node.binding.helpText }), _jsx(BoundValue, { node: node, document: document, lexicalSchemaPath: lexicalSchemaPath, disabled: lockedForm, onValues: (path, value) => {
                     const next = structuredClone(current.values);
                     const segments = path.replace(/^templateValues\./, '').split('.');
                     let cursor = next;
@@ -404,77 +398,87 @@ export const ContentWorkspace = (props) => {
                     }
                 } }))] }));
     const issues = Object.entries(allFields).filter(([, value]) => value.valid === false && value.errorMessage);
-    return (_jsx(BuilderCore, { id: "content-workspace", onInsert: (item, parent, before) => add(item.kind, parent, before, types.find((type) => String(type.id) === item.value)), onMove: (id, parent, before) => {
-            if (!locked)
-                setNodes(moveContent(nodes, id, parent, before));
-        }, children: _jsxs("section", { className: "content-workspace", onKeyDown: (event) => {
-                if (event.key === 'Escape' && !right && window.matchMedia('(max-width: 1100px)').matches)
-                    sidebar.close();
-                if ((event.metaKey || event.ctrlKey) &&
-                    event.key.toLowerCase() === 'z' &&
-                    !event.target.closest('.editor-header__title')) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    undo(event.shiftKey);
-                }
-            }, children: [_jsx(EditorHistory, { undo: () => undo(), redo: () => undo(true), canUndo: !lockedForm && Boolean(history.current.past.length), canRedo: !lockedForm && Boolean(history.current.future.length) }), _jsx(EditorHeaderPortal, { slot: "navigation", children: _jsx(SidebarControls, { state: sidebar, canInsert: capabilities.editStructure }) }), _jsx(EditorHeaderPortal, { slot: "preview", children: _jsxs("div", { className: "editor-header__buttons", children: [_jsx(EditorDevices, { value: viewport, onChange: setViewport }), _jsx(InspectorToggle, { open: right, change: (open) => {
-                                    setRight(open);
-                                    if (open && window.matchMedia('(max-width: 1100px)').matches)
-                                        setLeft(false);
-                                } })] }) }), _jsx(EditorHeaderPortal, { slot: "title", children: _jsx("div", { className: "editor-header__title", children: renderFields(['title']) }) }), _jsxs(BuilderPanels, { viewport: viewport, onViewportChange: setViewport, className: "content-workspace__layout", leftOpen: left, rightOpen: right && !inspectorExpanded, children: [_jsx("aside", { hidden: !left, className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: _jsx(BuilderSidebar, { state: sidebar, adapter: {
-                                    nodes: sidebarNodes,
-                                    selected,
-                                    canEdit: capabilities.editStructure,
-                                    locked,
-                                    items: [
-                                        ...getContentLibrary().map((item) => ({ ...item, value: item.kind })),
-                                        ...types
-                                            .filter((type) => type.rendererKey === 'hero-board')
-                                            .map((type) => ({
-                                            kind: 'designed',
-                                            value: String(type.id),
-                                            label: type.name,
-                                            category: 'Designed Blocks',
-                                        })),
-                                    ],
-                                    onSelect: selectAndScroll,
-                                    onInsert: (item, target) => add(item.kind, target.parent, target.before, types.find((type) => String(type.id) === item.value)),
-                                    onMove: (id, target) => setNodes(moveContent(nodes, id, target.parent, target.before)),
-                                    onDuplicate: (id) => {
-                                        const node = walkContent(nodes).find((node) => node.id === id);
-                                        const position = locateSidebar(sidebarNodes, id);
-                                        if (node && position) {
-                                            const copy = duplicateContent(node);
-                                            setNodes(insertContent(nodes, copy, position.parent, position.siblings[position.index + 1]?.id));
-                                            select(copy.id);
-                                        }
-                                    },
-                                    onDelete: (id) => {
-                                        setNodes(removeContent(nodes, id));
-                                        setSelected('');
-                                    },
-                                } }) }), _jsxs("div", { className: "content-workspace__center", children: [error && _jsx("p", { role: "alert", children: error }), issues.length > 0 && (_jsx("div", { role: "alert", children: issues.map(([path, value]) => (_jsx("button", { type: "button", onClick: () => {
-                                            const affected = walkContent(nodes).find((node) => node.binding?.path === path ||
-                                                path.includes(node.id) ||
-                                                node.fields?.some((field) => field.binding?.path === path));
-                                            if (affected)
-                                                selectAndScroll(affected.id);
-                                            else {
-                                                setPanel('document');
-                                                setRight(true);
-                                                requestAnimationFrame(() => {
-                                                    const input = window.document.getElementById(`field-${path.replaceAll('.', '__')}`);
-                                                    input?.scrollIntoView({ block: 'center' });
-                                                    input?.focus();
-                                                });
-                                            }
-                                        }, children: String(value.errorMessage) }, path))) })), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
-                                        maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
-                                    }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsx("aside", { className: "content-workspace__right", "aria-label": "Inspector", "data-inspector-expanded": inspectorExpanded, children: _jsxs(EditorDialog, { inline: true, open: inspectorExpanded, title: panel === 'document' ? `${documentLabel} settings` : 'Block settings', onClose: () => { setInspectorExpanded(false); setRight(true); }, children: [_jsx(InspectorTabs, { value: panel, onChange: setPanel, documentLabel: documentLabel, onExpand: () => setInspectorExpanded(true) }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
-                                                    ? bindField(active)
-                                                    : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
-                                                    .filter((node) => node.kind === 'postListing')
-                                                    .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }) }))] })] }) }));
+    return (_jsxs(_Fragment, { children: [choosing && _jsx(PostTemplateChooser, { templates: templates, loading: libraryLoading, error: error, onRetry: () => { setLibraryLoading(true); setLibraryVersion(version => version + 1); }, onCancel: () => router.push(`${workspaceConfig.routes.admin}/collections/posts`), onCreated: created => setTemplates(current => [...current.filter(item => item.id !== created.id), created]), onChoose: choice => {
+                    const selected = templates.find(item => String(item.id) === choice);
+                    templateField.setValue(choice === 'blank' ? null : selected?.id);
+                    if (choice === 'blank') {
+                        layoutField.setValue({ version: 1, nodes: [] });
+                        valuesField.setValue({});
+                    }
+                    if (selected)
+                        valuesField.setValue(Object.fromEntries((selected.customFields ?? []).filter(field => field.defaultValue !== undefined).map(field => [field.id, field.defaultValue])));
+                    setChoosing(false);
+                } }), _jsx(BuilderCore, { id: "content-workspace", onInsert: (item, parent, before) => add(item.kind, parent, before, types.find((type) => String(type.id) === item.value)), onMove: (id, parent, before) => {
+                    if (!locked)
+                        setNodes(moveContent(nodes, id, parent, before));
+                }, children: _jsxs("section", { className: "content-workspace", onKeyDown: (event) => {
+                        if (event.key === 'Escape' && !right && window.matchMedia('(max-width: 1100px)').matches)
+                            sidebar.close();
+                        if ((event.metaKey || event.ctrlKey) &&
+                            event.key.toLowerCase() === 'z' &&
+                            !event.target.closest('.editor-header__title')) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            undo(event.shiftKey);
+                        }
+                    }, children: [_jsx(EditorHistory, { undo: () => undo(), redo: () => undo(true), canUndo: !lockedForm && Boolean(history.current.past.length), canRedo: !lockedForm && Boolean(history.current.future.length) }), _jsx(EditorHeaderPortal, { slot: "navigation", children: _jsx(SidebarControls, { state: sidebar, canInsert: capabilities.editStructure }) }), _jsx(EditorHeaderPortal, { slot: "preview", children: _jsxs("div", { className: "editor-header__buttons", children: [_jsx(EditorDevices, { value: viewport, onChange: setViewport }), _jsx(InspectorToggle, { open: right, change: (open) => {
+                                            setRight(open);
+                                            if (open && window.matchMedia('(max-width: 1100px)').matches)
+                                                setLeft(false);
+                                        } })] }) }), _jsx(EditorHeaderPortal, { slot: "title", children: _jsx("div", { className: "editor-header__title", children: renderFields(['title']) }) }), _jsxs(BuilderPanels, { viewport: viewport, onViewportChange: setViewport, className: "content-workspace__layout", leftOpen: left, rightOpen: right && !inspectorExpanded, children: [_jsx("aside", { hidden: !left, className: "content-workspace__left", "aria-label": "Block library and hierarchy", children: _jsx(BuilderSidebar, { state: sidebar, adapter: {
+                                            nodes: sidebarNodes,
+                                            selected,
+                                            canEdit: capabilities.editStructure,
+                                            locked,
+                                            items: [
+                                                ...getContentLibrary().map((item) => ({ ...item, value: item.kind })),
+                                                ...types
+                                                    .filter((type) => type.rendererKey === 'hero-board')
+                                                    .map((type) => ({
+                                                    kind: 'designed',
+                                                    value: String(type.id),
+                                                    label: type.name,
+                                                    category: 'Designed Blocks',
+                                                })),
+                                            ],
+                                            onSelect: selectAndScroll,
+                                            onInsert: (item, target) => add(item.kind, target.parent, target.before, types.find((type) => String(type.id) === item.value)),
+                                            onMove: (id, target) => setNodes(moveContent(nodes, id, target.parent, target.before)),
+                                            onDuplicate: (id) => {
+                                                const node = walkContent(nodes).find((node) => node.id === id);
+                                                const position = locateSidebar(sidebarNodes, id);
+                                                if (node && position) {
+                                                    const copy = duplicateContent(node);
+                                                    setNodes(insertContent(nodes, copy, position.parent, position.siblings[position.index + 1]?.id));
+                                                    select(copy.id);
+                                                }
+                                            },
+                                            onDelete: (id) => {
+                                                setNodes(removeContent(nodes, id));
+                                                setSelected('');
+                                            },
+                                        } }) }), _jsxs("div", { className: "content-workspace__center", children: [error && _jsx("p", { role: "alert", children: error }), issues.length > 0 && (_jsx("div", { role: "alert", children: issues.map(([path, value]) => (_jsx("button", { type: "button", onClick: () => {
+                                                    const affected = walkContent(nodes).find((node) => node.binding?.path === path ||
+                                                        path.includes(node.id) ||
+                                                        node.fields?.some((field) => field.binding?.path === path));
+                                                    if (affected)
+                                                        selectAndScroll(affected.id);
+                                                    else {
+                                                        setPanel('document');
+                                                        setRight(true);
+                                                        requestAnimationFrame(() => {
+                                                            const input = window.document.getElementById(`field-${path.replaceAll('.', '__')}`);
+                                                            input?.scrollIntoView({ block: 'center' });
+                                                            input?.focus();
+                                                        });
+                                                    }
+                                                }, children: String(value.errorMessage) }, path))) })), _jsx("div", { className: "content-workspace__viewport", "data-viewport": viewport, style: {
+                                                maxWidth: viewport === 'mobile' ? 390 : viewport === 'tablet' ? 768 : undefined,
+                                            }, children: locked && (!template || String(template.id) !== templateID) ? (_jsx("p", { children: "Loading template\u2026" })) : (tree(nodes)) })] }), right && (_jsx("aside", { className: "content-workspace__right", "aria-label": "Inspector", "data-inspector-expanded": inspectorExpanded, children: _jsxs(EditorDialog, { inline: true, open: inspectorExpanded, title: panel === 'document' ? `${documentLabel} settings` : 'Block settings', onClose: () => { setInspectorExpanded(false); setRight(true); }, children: [_jsx(InspectorTabs, { value: panel, onChange: setPanel, documentLabel: documentLabel, onExpand: () => setInspectorExpanded(true) }), panel === 'document' ? (_jsx("div", { className: "builder-document-settings", children: gear })) : !active ? (_jsx("p", { children: "Select a block on the canvas or in List view." })) : (_jsx(_Fragment, { children: locked ? (_jsxs(_Fragment, { children: [_jsxs("header", { className: "inspector-locked-heading", children: [_jsxs("strong", { children: [_jsx(BlockGlyph, { kind: active.kind }), ' ', active.label ?? getBlockDefinition(active.kind)?.label ?? active.kind] }), _jsx("p", { children: "Template structure and design are locked." })] }), active.binding
+                                                            ? bindField(active)
+                                                            : (active.fields?.map(bindField) ?? (_jsx("p", { children: "This element has no editable fields." })))] })) : (_jsx(_Fragment, { children: _jsx(BlockInspector, { listings: walkContent(nodes)
+                                                            .filter((node) => node.kind === 'postListing')
+                                                            .map((node) => ({ id: node.id, label: node.label ?? 'Listing' })), node: active, disabled: lockedForm, viewport: viewport, designs: designs, types: types, onChange: (patch) => changeNode(active.id, patch, true) }) })) }))] }) }))] })] }) })] }));
 };
 function Insertion({ empty = false, parent, before, disabled, onChoose, }) {
     const drop = useDroppable({
@@ -502,12 +506,12 @@ function BoundValue({ node, document, lexicalSchemaPath, disabled, onValues, }) 
     const categoriesEnabled = useCategoriesEnabled();
     const field = useField({
         path: binding.path,
-        disableFormData: binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.'),
+        disableFormData: binding.path.startsWith('templateValues.'),
     });
     const value = readPath(document, binding.path);
     if (!categoriesEnabled && (binding.path === 'categories' || binding.relationTo === 'categories'))
         return null;
-    const update = (value) => binding.path.startsWith('templateValues.') || binding.path.startsWith('postTypeValues.')
+    const update = (value) => binding.path.startsWith('templateValues.')
         ? onValues(binding.path, value)
         : field.setValue(value);
     if (binding.kind === 'image' || binding.kind === 'images')

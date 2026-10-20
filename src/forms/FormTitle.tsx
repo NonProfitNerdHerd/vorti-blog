@@ -3,7 +3,7 @@ import { TextField, useFormFields } from '@payloadcms/ui'
 import { useState } from 'react'
 import type { TextFieldClientComponent } from 'payload'
 import { EditorHeaderPortal } from '@design-system/payload-design-core/admin'
-import { useCollectionEditorAccess } from '../content-framework/usePostTypeAccess'
+import { useCollectionEditorAccess } from '../content-framework/useCollectionEditorAccess'
 
 export const FormTitle: TextFieldClientComponent = props => {
   const state = useFormFields(([fields]) => fields[props.path || 'title'])

@@ -14,6 +14,7 @@ export const blockGlyphs: Record<string, string> = {
   richText: 'M4 4h16M12 4v12M7 16h10M3 21h18',
   text: 'M3 5h18M3 10h18M3 15h14M3 20h10',
   list: 'M3 5h1M3 12h1M3 19h1M8 5h13M8 12h13M8 19h13',
+  menu: 'M3 4h18M3 10h18M3 16h7M14 14v6h7M14 17h7',
   quote: 'M3 6h7v7H6v5H3ZM14 6h7v7h-4v5h-3Z',
   image: 'M3 3h18v18H3ZM3 17l6-7 4 5 3-3 5 6M17 7h.01',
   gallery: 'M7 2h15v15H7ZM2 7v15h15M7 14l5-6 4 4 3-2 3 4',

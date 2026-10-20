@@ -178,7 +178,7 @@ describe('named menus, authorization and public rendering', () => {
         .run(),
     ).rejects.toThrow(/changed/)
   })
-  it('uses the configured homepage and published custom post-type routes', async () => {
+  it('uses the configured homepage and published Post routes', async () => {
     const home = await payload.create({
       collection: 'pages',
       data: { title: 'Menu home', slug: `menu-home-${stamp}`, _status: 'published' },
@@ -188,24 +188,12 @@ describe('named menus, authorization and public rendering', () => {
       slug: 'site-settings',
       data: { siteName: settings.siteName || 'Menu test site', homepage: home.id },
     })
-    const type = await payload.create({
-      collection: 'post-types',
-      data: {
-        key: `menu-type-${stamp}`,
-        singular: 'Menu Event',
-        plural: 'Menu Events',
-        prefix: `menu-events-${stamp}`,
-        capability: 'content',
-        _status: 'published',
-      },
-    })
     const post = await payload.create({
       collection: 'posts',
       data: {
         title: 'Typed link',
         slug: `typed-menu-${stamp}`,
         author: user.id,
-        postType: type.id,
         _status: 'published',
       },
     })
@@ -221,9 +209,9 @@ describe('named menus, authorization and public rendering', () => {
     })
     expect((await resolveMenu(payload, menu.id))?.items.map((item) => item.href)).toEqual([
       '/',
-      `/${type.prefix}/${post.slug}`,
+      `/posts/${post.slug}`,
     ])
-    await payload.update({ collection: 'post-types', id: type.id, data: { _status: 'draft' } })
+    await payload.update({ collection: 'posts', id: post.id, data: { _status: 'draft' } })
     expect((await resolveMenu(payload, menu.id))?.items.map((item) => item.key)).toEqual(['home'])
     await payload.updateGlobal({
       slug: 'site-settings',

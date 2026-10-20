@@ -74,11 +74,9 @@ export type TemplateCustomField = {
     placeholder?: string;
     options?: string[];
     relationTo?: string;
+    defaultValue?: unknown;
 };
 export type TemplateContentBinding = {
-    source: 'postType';
-    fieldId: string;
-} | {
     source: 'custom';
 } | {
     source: 'static';
@@ -139,6 +137,7 @@ export type Template = {
     id: ID;
     slug: string;
     name: string;
+    description?: string;
     status: Lifecycle;
     allowedCollections: string[];
     sections: TemplateSection[];

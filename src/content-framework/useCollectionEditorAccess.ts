@@ -3,9 +3,6 @@ import { useAuth, useDocumentInfo } from '@payloadcms/ui'
 import { allowsOperation } from './permission-value'
 
 /** Presentational rows do not inherit collection write permissions automatically. */
-export function usePostTypeAccess(readOnly?: boolean) {
-  return useCollectionEditorAccess('post-types', readOnly)
-}
 export function useCollectionEditorAccess(collection: string, readOnly?: boolean) {
   const { permissions, user } = useAuth()
   const { id, docPermissions, documentIsLocked, currentEditor, hasSavePermission } = useDocumentInfo()

@@ -23,8 +23,6 @@ export function cmsActionIssues(action, definition) {
         if (field?.sensitive || all.some(parent => parent.sensitive && flattenFields(parent.children || []).some(child => child.id === id)))
             issues.push(`${mapping.label}: sensitive answers cannot be mapped to CMS records.`);
     }
-    if (action.kind === 'content' && (typeof action.config.postType !== 'string' || !/^\d+$/.test(action.config.postType)))
-        issues.push('Select a published Post Type for the draft Post.');
     return issues;
 }
 export function mappedCMSText(answers, action, key, required = false) {

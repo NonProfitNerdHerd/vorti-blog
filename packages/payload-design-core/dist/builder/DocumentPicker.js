@@ -17,8 +17,8 @@ export function DocumentPicker({ collection, label, value, change, }) {
         const controller = new AbortController();
         const timer = setTimeout(async () => {
             try {
-                const titleField = collection === 'post-types'
-                    ? 'singular'
+                const titleField = collection === 'design-templates'
+                    ? 'name'
                     : ['categories', 'tags', 'saved-views', 'menus'].includes(collection)
                         ? 'name'
                         : 'title';

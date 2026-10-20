@@ -131,7 +131,7 @@ export const menuRenderEndpoint: Endpoint = {
 }
 export const menuInvalidation: Plugin = (config) => {
   for (const collection of config.collections || [])
-    if (['pages', 'posts', 'post-types'].includes(collection.slug)) {
+    if (['pages', 'posts'].includes(collection.slug)) {
       collection.hooks = {
         ...collection.hooks,
         afterChange: [

@@ -13,8 +13,7 @@ formActions.register({ kind: 'webhook', label: 'Webhook', description: 'Send an 
 formActions.register({ kind: 'localWebhook', label: 'Local webhook capture', description: 'Development-only delivery to the local receiver; never an external delivery.', settings: [], validate: () => [] });
 formActions.register({ kind: 'content', label: 'Create review content', description: 'Create a draft Post for editorial review. Submitted values cannot set roles, ownership, publication or permissions.', settings: [
         { key: 'titleField', label: 'Title answer', type: 'field', required: true }, { key: 'bodyField', label: 'Content answer', type: 'field', required: true },
-        { key: 'postType', label: 'Post Type for draft content', type: 'postType', required: true, help: 'The Post stays a draft. The administrator who approves this form becomes its initial author.' },
-    ], validate: required(['titleField', 'bodyField', 'postType']) });
+    ], validate: required(['titleField', 'bodyField']) });
 formActions.register({ kind: 'contact', label: 'Create contact', description: 'Store a contact record linked to this submission.', settings: [
         { key: 'emailField', label: 'Email answer', type: 'field', required: true }, { key: 'nameField', label: 'Name answer', type: 'field' },
     ], validate: required(['emailField']) });

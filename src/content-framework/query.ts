@@ -10,7 +10,6 @@ import {
   type ViewItem,
   type ViewResult,
   type EventSchedule,
-  type TypeField,
 } from '@design-system/payload-design-core'
 import { mediaURL } from '../lib/media'
 import { validateView } from './validation'
@@ -48,7 +47,6 @@ export async function queryView(
   const page = Math.max(1, Math.min(10000, Number(params.get('page')) || 1)),
     limit = Math.min(100, Math.max(1, query.limit || 9))
   const rules: Where[] = []
-  if (query.postTypes?.length) rules.push({ postType: { in: query.postTypes } })
   if (query.ids?.length) rules.push({ id: { in: query.ids } })
   if (query.excludeIDs?.length) rules.push({ id: { not_in: query.excludeIDs } })
   const dateField = query.source === 'pages' ? 'updatedAt' : 'publishedAt'
@@ -75,15 +73,7 @@ export async function queryView(
   if (event) {
     if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 366 * 86400000)
       throw new Error('Choose a calendar range of at most 366 days')
-    const types = await payload.find({
-      collection: 'post-types' as CollectionSlug,
-      where: { and: [{ capability: { equals: 'event' } }, { _status: { equals: 'published' } }] },
-      limit: 100,
-      depth: 0,
-      overrideAccess: false,
-      user: context.user,
-    })
-    rules.push({ postType: { in: types.docs.map((d) => d.id) } })
+    rules.push({ event: { exists: true } })
     // The projection is only a candidate index. Recheck every source document's access and publication.
     if (!context.draft) {
       const candidates: Array<string | number> = []
@@ -152,10 +142,6 @@ export async function queryView(
   let items: ViewItem[] = []
   const authorLabels = await publicAuthors(payload, documents.map((doc) => doc.author).filter((author) => typeof author === 'number'))
   for (const doc of documents) {
-    const type =
-      doc.postType && typeof doc.postType === 'object'
-        ? (doc.postType as Record<string, unknown>)
-        : undefined
     const author =
       doc.author && typeof doc.author === 'object'
         ? (doc.author as Record<string, unknown>)
@@ -176,13 +162,10 @@ export async function queryView(
       ),
     }
     if (event) {
-      const fields = (type?.fieldDefinitions || []) as TypeField[],
-        values = (doc.postTypeValues || {}) as Record<string, unknown>
-      const scheduleField = fields.find((f) => f.kind === 'eventSchedule' && f.public)
-      const schedule = scheduleField && (values[scheduleField.id] as EventSchedule | undefined)
+      const values = (doc.event || {}) as Record<string, unknown>
+      const schedule = values.schedule as EventSchedule | undefined
       if (!schedule) continue
-      const publicValue = (id: string) =>
-        fields.some((f) => f.id === id && f.public) ? values[id] : undefined
+      const publicValue = (id: string) => values[id]
       for (const occurrence of expandSchedule(schedule, from, to, String(doc.id)))
         items.push({
           ...item,

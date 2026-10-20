@@ -9,9 +9,9 @@ vi.mock('@payloadcms/ui', () => ({
   useAuth: () => state.auth,
   useDocumentInfo: () => state.document,
 }))
-import { usePostTypeAccess } from '../../src/content-framework/usePostTypeAccess'
+import { useCollectionEditorAccess } from '../../src/content-framework/useCollectionEditorAccess'
 
-describe('Post Type editing permissions', () => {
+describe('Shared collection editing permissions', () => {
   it.each([
     ['unsaved lock flag', undefined, true, undefined, true],
     ['own lock', 12, true, { id: 1 }, true],
@@ -26,7 +26,7 @@ describe('Post Type editing permissions', () => {
       docPermissions: { create: true, update: true, fields: true },
     }
     function Probe() {
-      return String(usePostTypeAccess().canWrite('singular'))
+      return String(useCollectionEditorAccess('forms').canWrite('singular'))
     }
     expect(renderToStaticMarkup(createElement(Probe))).toBe(String(expected))
   })
@@ -43,8 +43,8 @@ describe('Post Type editing permissions', () => {
       },
     }
     function Probe() {
-      const access = usePostTypeAccess()
-      const readOnly = usePostTypeAccess(true)
+      const access = useCollectionEditorAccess('forms')
+      const readOnly = useCollectionEditorAccess('forms', true)
       return JSON.stringify([
         access.canWrite('singular'),
         access.canWrite('prefix'),

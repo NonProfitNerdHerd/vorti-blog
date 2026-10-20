@@ -460,7 +460,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
     const [placeholder, setPlaceholder] = useState(node?.type === 'field' ? (node.placeholder ?? '') : '');
     const existingContent = node?.type === 'field' ? node.content : undefined;
     const [contentSource, setContentSource] = useState(existingContent?.source ?? 'custom');
-    const [customFieldID, setCustomFieldID] = useState(existingContent?.source === 'customField' || existingContent?.source === 'postType'
+    const [customFieldID, setCustomFieldID] = useState(existingContent?.source === 'customField'
         ? existingContent.fieldId
         : '');
     const [documentField, setDocumentField] = useState(existingContent?.source === 'document'
@@ -468,19 +468,6 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
         : value === 'image'
             ? 'featuredImage'
             : 'title');
-    const [typeBindingFields, setTypeBindingFields] = useState([]);
-    useEffect(() => {
-        const controller = new AbortController();
-        fetch('/api/post-types?limit=100&depth=0&where[_status][equals]=published', {
-            signal: controller.signal,
-        })
-            .then((r) => r.json())
-            .then((data) => setTypeBindingFields((data.docs || []).flatMap((type) => (type.fieldDefinitions || [])
-            .filter((f) => f.public)
-            .map((f) => ({ id: f.id, label: `${type.singular}: ${f.label}` })))))
-            .catch(() => { });
-        return () => controller.abort();
-    }, []);
     const [staticValue, setStaticValue] = useState(existingContent?.source === 'static'
         ? existingContent.value
         : node?.type === 'field'
@@ -534,7 +521,7 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
             };
         }
         else if (kind === 'field') {
-            if ((contentSource === 'customField' || contentSource === 'postType') && !customFieldID)
+            if (contentSource === 'customField' && !customFieldID)
                 return;
             const content = contentSource === 'static'
                 ? { source: 'static', value: staticValue }
@@ -544,15 +531,13 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
                         field: documentField,
                         preview: staticValue || undefined,
                     }
-                    : contentSource === 'postType'
-                        ? { source: 'postType', fieldId: customFieldID }
-                        : contentSource === 'customField'
-                            ? {
-                                source: 'customField',
-                                fieldId: customFieldID,
-                                preview: placeholder || undefined,
-                            }
-                            : { source: 'custom' };
+                    : contentSource === 'customField'
+                        ? {
+                            source: 'customField',
+                            fieldId: customFieldID,
+                            preview: placeholder || undefined,
+                        }
+                        : { source: 'custom' };
             next = {
                 id: node?.id ?? uid('field'),
                 type: 'field',
@@ -662,9 +647,9 @@ function NodeEditor({ item, node, types, designs, allowedCollections, customFiel
                 }, children: [item?.kind === 'field' && (_jsxs("label", { children: ["Field type", _jsx("select", { "aria-label": "Template field type", value: value, onChange: (event) => {
                                     setValue(event.target.value);
                                     setDocumentField(event.target.value === 'image' ? 'featuredImage' : 'title');
-                                }, children: fieldItems.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), tab === 'settings' && kind === 'field' && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("label", { style: control, children: [_jsx("span", { children: "Block label" }), _jsx("input", { "aria-label": "Block Label", value: label, onChange: (e) => setLabel(e.target.value), style: { width: '100%' } })] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Content source" }), _jsxs("select", { "aria-label": "Content Source", value: contentSource, onChange: (event) => setContentSource(event.target.value), children: [_jsx("option", { value: "customField", children: "Template custom field" }), _jsx("option", { value: "postType", children: "Post Type field" }), _jsxs("option", { value: "document", children: [allowedCollections.includes('pages') && !allowedCollections.includes('posts')
+                                }, children: fieldItems.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), tab === 'settings' && kind === 'field' && (_jsxs("div", { style: { display: 'grid', gap: 14 }, children: [_jsxs("label", { style: control, children: [_jsx("span", { children: "Block label" }), _jsx("input", { "aria-label": "Block Label", value: label, onChange: (e) => setLabel(e.target.value), style: { width: '100%' } })] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Content source" }), _jsxs("select", { "aria-label": "Content Source", value: contentSource, onChange: (event) => setContentSource(event.target.value), children: [_jsx("option", { value: "customField", children: "Template custom field" }), _jsxs("option", { value: "document", children: [allowedCollections.includes('pages') && !allowedCollections.includes('posts')
                                                         ? 'Page'
-                                                        : 'Post', ' ', "field"] }), _jsx("option", { value: "static", children: "Static template text" }), _jsx("option", { value: "custom", children: "Legacy canvas field" })] })] }), (contentSource === 'customField' || contentSource === 'postType') && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Custom field" }), _jsxs("select", { "aria-label": "Custom Field", value: customFieldID, onChange: (event) => setCustomFieldID(event.target.value), children: [_jsx("option", { value: "", children: "Choose a custom field" }), (contentSource === 'postType' ? typeBindingFields : customFields).map((field) => (_jsx("option", { value: field.id, children: field.label }, field.id)))] }), !customFields.length && (_jsx("small", { children: "Create fields in the Custom Fields tab first." }))] })), contentSource === 'document' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Document field" }), _jsx("select", { "aria-label": "Document Field", value: documentField, onChange: (event) => setDocumentField(event.target.value), children: documentFields.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), contentSource === 'static' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Text" }), _jsx("input", { "aria-label": "Static Text", value: staticValue, onChange: (event) => setStaticValue(event.target.value) })] })), contentSource === 'document' && value !== 'image' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Preview Text", value: staticValue, placeholder: `Sample ${documentField}`, onChange: (event) => setStaticValue(event.target.value) })] })), (contentSource === 'custom' || contentSource === 'customField') && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Placeholder", value: placeholder, onChange: (e) => setPlaceholder(e.target.value), style: { width: '100%' } })] })), _jsxs("label", { style: { display: 'flex', gap: 8, alignItems: 'center' }, children: [_jsx("input", { type: "checkbox", checked: required, onChange: (e) => setRequired(e.target.checked) }), ' ', "Required"] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Help text" }), _jsx("textarea", { "aria-label": "Help Text", value: help, onChange: (e) => setHelp(e.target.value), rows: 3, style: { width: '100%', resize: 'vertical' } })] }), _jsx("p", { style: { margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }, children: "The Block Label identifies this element in List View. It is not rendered on the page." })] })), tab === 'settings' && kind === 'layout' && value === 'columns' && (_jsxs("div", { children: [_jsx("h3", { style: { marginTop: 0 }, children: "Choose a variation" }), _jsx("div", { role: "radiogroup", "aria-label": "Column Layout", style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }, children: columnRatios.map((option) => (_jsxs("button", { type: "button", role: "radio", "aria-checked": ratio === option, onClick: () => setRatio(option), style: {
+                                                        : 'Post', ' ', "field"] }), _jsx("option", { value: "static", children: "Static template text" }), _jsx("option", { value: "custom", children: "Legacy canvas field" })] })] }), contentSource === 'customField' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Custom field" }), _jsxs("select", { "aria-label": "Custom Field", value: customFieldID, onChange: (event) => setCustomFieldID(event.target.value), children: [_jsx("option", { value: "", children: "Choose a custom field" }), customFields.map((field) => (_jsx("option", { value: field.id, children: field.label }, field.id)))] }), !customFields.length && (_jsx("small", { children: "Create fields in the Custom Fields tab first." }))] })), contentSource === 'document' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Document field" }), _jsx("select", { "aria-label": "Document Field", value: documentField, onChange: (event) => setDocumentField(event.target.value), children: documentFields.map((field) => (_jsx("option", { value: field.value, children: field.label }, field.value))) })] })), contentSource === 'static' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Text" }), _jsx("input", { "aria-label": "Static Text", value: staticValue, onChange: (event) => setStaticValue(event.target.value) })] })), contentSource === 'document' && value !== 'image' && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Preview Text", value: staticValue, placeholder: `Sample ${documentField}`, onChange: (event) => setStaticValue(event.target.value) })] })), (contentSource === 'custom' || contentSource === 'customField') && (_jsxs("label", { style: control, children: [_jsx("span", { children: "Preview text" }), _jsx("input", { "aria-label": "Placeholder", value: placeholder, onChange: (e) => setPlaceholder(e.target.value), style: { width: '100%' } })] })), _jsxs("label", { style: { display: 'flex', gap: 8, alignItems: 'center' }, children: [_jsx("input", { type: "checkbox", checked: required, onChange: (e) => setRequired(e.target.checked) }), ' ', "Required"] }), _jsxs("label", { style: control, children: [_jsx("span", { children: "Help text" }), _jsx("textarea", { "aria-label": "Help Text", value: help, onChange: (e) => setHelp(e.target.value), rows: 3, style: { width: '100%', resize: 'vertical' } })] }), _jsx("p", { style: { margin: 0, color: 'var(--theme-elevation-600)', fontSize: 12 }, children: "The Block Label identifies this element in List View. It is not rendered on the page." })] })), tab === 'settings' && kind === 'layout' && value === 'columns' && (_jsxs("div", { children: [_jsx("h3", { style: { marginTop: 0 }, children: "Choose a variation" }), _jsx("div", { role: "radiogroup", "aria-label": "Column Layout", style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }, children: columnRatios.map((option) => (_jsxs("button", { type: "button", role: "radio", "aria-checked": ratio === option, onClick: () => setRatio(option), style: {
                                         padding: 10,
                                         border: ratio === option
                                             ? '2px solid var(--theme-success-500)'

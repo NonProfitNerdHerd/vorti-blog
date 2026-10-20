@@ -102,29 +102,13 @@ test('production Event editor exposes blocks, panels and a working Saved View ch
   expect(login.ok()).toBeTruthy()
   const user = (await login.json()).user
   const suffix = Date.now()
-  const typeResponse = await page.request.post('/api/post-types', {
-    data: {
-      key: `editor-event-${suffix}`,
-      singular: 'Event',
-      plural: 'Events',
-      prefix: `editor-events-${suffix}`,
-      capability: 'event',
-      _status: 'published',
-      fieldDefinitions: [
-        { id: 'schedule', label: 'Schedule', kind: 'eventSchedule', public: true, required: true },
-      ],
-    },
-  })
-  expect(typeResponse.ok(), await typeResponse.text()).toBeTruthy()
-  const type = (await typeResponse.json()).doc
   const response = await page.request.post('/api/posts', {
     data: {
       title: 'Restored Event editor',
       slug: `restored-event-${suffix}`,
       author: user.id,
-      postType: type.id,
       _status: 'draft',
-      postTypeValues: {
+      event: {
         schedule: {
           start: '2026-11-01T09:00',
           end: '2026-11-01T10:00',
@@ -152,7 +136,7 @@ test('production Event editor exposes blocks, panels and a working Saved View ch
   await expect(workspace.locator('.content-workspace__left')).toBeVisible()
   await expect(workspace.locator('.content-workspace__right')).toBeVisible()
   await expect(workspace.getByRole('tab', { name: 'Document settings', exact: true })).toHaveText(
-    'Event',
+    'Post',
   )
   await page.getByRole('button', { name: 'Add block', exact: true }).click()
   await workspace
@@ -175,7 +159,7 @@ test('production Event editor exposes blocks, panels and a working Saved View ch
   await expect
     .poll(async () => (await (await page.request.get(`/api/posts/${doc.id}`)).json())._status)
     .toBe('published')
-  await page.goto(`/${type.prefix}/${doc.slug}`)
+  await page.goto(`/posts/${doc.slug}`)
   await expect(page.locator('.content-view')).toBeVisible()
 })
 

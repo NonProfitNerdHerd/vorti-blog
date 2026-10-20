@@ -21,7 +21,6 @@ export function cmsActionIssues(action: FormAction, definition: Pick<FormDefinit
     // A private answer must not be copied into a destination without the same sensitivity controls.
     if (field?.sensitive || all.some(parent => parent.sensitive && flattenFields(parent.children || []).some(child => child.id === id))) issues.push(`${mapping.label}: sensitive answers cannot be mapped to CMS records.`)
   }
-  if (action.kind === 'content' && (typeof action.config.postType !== 'string' || !/^\d+$/.test(action.config.postType))) issues.push('Select a published Post Type for the draft Post.')
   return issues
 }
 export function mappedCMSText(answers: Answers, action: FormAction, key: string, required = false): string {

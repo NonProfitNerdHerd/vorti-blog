@@ -1,3 +1,4 @@
+import type { Template, BlockType, BlockDesign } from './types'
 import type { Access, CollectionSlug, Field, Plugin, TabsField } from 'payload'
 import { ValidationError } from 'payload'
 import { getFieldPaths } from 'payload/shared'
@@ -7,6 +8,7 @@ import { createBlockRegistry } from './registry'
 import { slugs } from './types'
 import { validateTemplatedContent } from './validation'
 import { createPayloadDesignStore } from './payload-store'
+import { walkTemplate } from './template-tree'
 
 export type DesignSystemOptions = {
   enabled?: boolean
@@ -54,6 +56,7 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
     for (const collection of collections) {
       if (!contentCollections.includes(collection.slug)) continue
       const templateFields: Field[] = [
+        ...(collection.slug === 'posts' ? [{ name: 'templateSnapshot', type: 'json', admin: { hidden: true }, access: { create: () => false, update: () => false } } as Field] : []),
         { name: 'designTemplate', label: 'Template', type: 'relationship', relationTo: slugs.templates as CollectionSlug,
           filterOptions: { status: { equals: 'published' }, _status: { equals: 'published' }, allowedCollections: { contains: collection.slug } } },
         { name: 'templateValues', type: 'json', admin: { components: { Field: { path: '@design-system/payload-design-core/admin#TemplateContentEditor', clientProps: { lexicalSchemaPath: options.lexicalSchemaPaths?.[collection.slug] ?? findLexicalSchemaPath(collection.fields, `collection.${collection.slug}`) ?? `collection.${collection.slug}.content` } } } } },
@@ -78,6 +81,11 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
         beforeChange: [
           ...(collection.hooks?.beforeChange ?? []),
           async ({ data, originalDoc, req }) => {
+            if (collection.slug === 'posts') {
+              // The client cannot supply or replace the frozen definition.
+              if (originalDoc?.templateSnapshot) data.templateSnapshot = originalDoc.templateSnapshot
+              else delete data.templateSnapshot
+            }
             const incomingValues = data.templateValues as Record<string, unknown> | undefined
             // The Admin transports override edits with values; normalize before validation/storage.
             if (incomingValues?.__designOverrides && typeof incomingValues.__designOverrides === 'object') {
@@ -87,10 +95,30 @@ export function designSystemPlugin(options: DesignSystemOptions = {}): Plugin {
             }
             const reference = 'designTemplate' in data ? data.designTemplate : originalDoc?.designTemplate
             const template = typeof reference === 'object' && reference !== null ? reference.id : reference
-            if (!template) return data
-            const selectedTemplate = await req.payload.findByID({ collection: slugs.templates as CollectionSlug, id: template, depth: 0, overrideAccess: true, req }) as unknown as { allowedCollections?: string[] }
+            if (!template && !originalDoc?.templateSnapshot) return data
+            if (collection.slug === 'posts' && !originalDoc?.templateSnapshot) {
+              const definition = await req.payload.findByID({ collection: slugs.templates as CollectionSlug, id: template, depth: 0, draft: true, overrideAccess: false, req }) as unknown as Template
+              if (!definition.allowedCollections?.includes('posts')) throw new Error('Template is not allowed for Posts')
+              const typeIDs = new Set<string | number>(), designIDs = new Set<string | number>()
+              for (const section of definition.sections ?? []) { typeIDs.add(section.blockType); designIDs.add(section.blockDesign) }
+              walkTemplate(definition.layout ?? [], node => {
+                if (node.type === 'block') { typeIDs.add(node.blockType); designIDs.add(node.blockDesign) }
+              })
+              const [types, designs] = await Promise.all([
+                Promise.all([...typeIDs].map(id => req.payload.findByID({ collection: slugs.blockTypes as CollectionSlug, id, depth: 0, overrideAccess: false, req }))),
+                Promise.all([...designIDs].map(id => req.payload.findByID({ collection: slugs.blockDesigns as CollectionSlug, id, depth: 0, overrideAccess: false, req }))),
+              ])
+              data.templateSnapshot = { template: { ...definition, status: 'published', _status: 'published' }, types, designs }
+              data.templateValues = { ...Object.fromEntries((definition.customFields ?? []).filter(field => field.defaultValue !== undefined).map(field => [field.id, field.defaultValue])), ...data.templateValues }
+            }
+            const snapshot = data.templateSnapshot as { template: Template; types: BlockType[]; designs: BlockDesign[] } | undefined
+            const selectedTemplate = snapshot?.template ?? await req.payload.findByID({ collection: slugs.templates as CollectionSlug, id: template, depth: 0, overrideAccess: true, req }) as unknown as { allowedCollections?: string[] }
             if (!selectedTemplate.allowedCollections?.includes(collection.slug)) throw new Error(`Template is not allowed for ${collection.slug}`)
-            const issues = await validateTemplatedContent(createPayloadDesignStore(req.payload, req), {
+            const issues = await validateTemplatedContent(snapshot ? {
+              getTemplate: async () => snapshot.template,
+              getBlockType: async id => snapshot.types.find(item => String(item.id) === String(id)) ?? null,
+              getBlockDesign: async id => snapshot.designs.find(item => String(item.id) === String(id)) ?? null,
+            } : createPayloadDesignStore(req.payload, req), {
               id: originalDoc?.id ?? 'new', template,
               templateValues: data.templateValues ?? originalDoc?.templateValues ?? {},
               designOverrides: data.designOverrides ?? originalDoc?.designOverrides ?? {},

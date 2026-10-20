@@ -55,7 +55,7 @@ export const isViewPlacement = (kind) => kind === 'savedView' || !!viewForBlock(
 registerContentSource({
     key: 'posts',
     label: 'Posts',
-    fields: ['postType', 'categories', 'tags', 'author', 'featured'],
+    fields: ['categories', 'tags', 'author', 'featured'],
     capabilities: ['content', 'event'],
 });
 registerContentSource({ key: 'pages', label: 'Pages', fields: [], capabilities: ['content'] });
@@ -110,8 +110,5 @@ export const defaultView = {
     filters: true,
 };
 export function documentURL(post) {
-    const type = post.postType && typeof post.postType === 'object'
-        ? post.postType
-        : null;
-    return `/${encodeURIComponent(type?.prefix || 'posts')}/${encodeURIComponent(post.slug || '__preview__')}`;
+    return `/posts/${encodeURIComponent(post.slug || '__preview__')}`;
 }

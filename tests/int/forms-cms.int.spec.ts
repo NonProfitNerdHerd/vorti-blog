@@ -21,9 +21,10 @@ describe('permission-controlled CMS actions', () => {
     await expect(authorizeCMSActions(definition, req, 'other')).rejects.toThrow('Integration permission')
   })
   it('maps only allowlisted properties and stores submitted markup as text in a draft', () => {
-    const action: FormAction = { id: 'post', kind: 'content', name: 'Post', config: { titleField: 'title', bodyField: 'body', postType: '3', role: 'administrator', _status: 'published', author: '999' } }
+    const action: FormAction = { id: 'post', kind: 'content', name: 'Post', config: { titleField: 'title', bodyField: 'body', role: 'administrator', _status: 'published', author: '999' } }
     const data = cmsRecordData(action, { title: 'A title', body: '<script>bad()</script>', role: 'administrator', _status: 'published' }, 7)
-    expect(data).toMatchObject({ author: 7, postType: 3, _status: 'draft' })
+    expect(data).toMatchObject({ author: 7, _status: 'draft' })
+    expect(data).not.toHaveProperty('postType')
     expect(data.role).toBeUndefined()
     expect(JSON.stringify(data.content)).toContain('"text":"<script>bad()</script>"')
     expect(cmsRecordData(contact, { email: 'person@example.test', name: { first: 'A', last: 'Person' } }, 7)).toEqual({ email: 'person@example.test', name: 'A Person' })

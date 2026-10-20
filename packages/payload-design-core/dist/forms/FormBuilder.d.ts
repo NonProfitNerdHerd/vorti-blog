@@ -20,10 +20,6 @@ export interface FormBuilderProps {
         provider: string;
         configured: boolean;
     }[];
-    postTypes?: {
-        id: string;
-        label: string;
-    }[];
     payments?: PaymentAvailability;
     resources?: {
         id: string;
@@ -37,4 +33,4 @@ export interface FormBuilderProps {
     onPublish?: () => void;
     children?: React.ReactNode;
 }
-export declare function FormBuilder({ onCreateExample, navigationTarget, navigation, toolbarTarget, emailTarget, onEmailIssue, transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, postTypes, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;
+export declare function FormBuilder({ onCreateExample, navigationTarget, navigation, toolbarTarget, emailTarget, onEmailIssue, transferTarget, value, onChange, readOnly, saveStatus, onSave, onPublish, children, resources, payments, integrations, local }: FormBuilderProps): import("react/jsx-runtime").JSX.Element;

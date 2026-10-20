@@ -106,7 +106,6 @@ export interface Config {
     'task-message-followers': TaskMessageFollower;
     'task-project-changes': TaskProjectChange;
     'task-notification-events': TaskNotificationEvent;
-    'post-types': PostType;
     'saved-views': SavedView;
     'event-series': EventSery;
     'design-block-types': DesignBlockType;
@@ -193,7 +192,6 @@ export interface Config {
     'task-message-followers': TaskMessageFollowersSelect<false> | TaskMessageFollowersSelect<true>;
     'task-project-changes': TaskProjectChangesSelect<false> | TaskProjectChangesSelect<true>;
     'task-notification-events': TaskNotificationEventsSelect<false> | TaskNotificationEventsSelect<true>;
-    'post-types': PostTypesSelect<false> | PostTypesSelect<true>;
     'saved-views': SavedViewsSelect<false> | SavedViewsSelect<true>;
     'event-series': EventSeriesSelect<false> | EventSeriesSelect<true>;
     'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
@@ -291,11 +289,12 @@ export interface UserAuthOperations {
  */
 export interface Post {
   id: number;
+  title: string;
   /**
-   * Content fields and available Templates come from this Post Type.
+   * Generated from title when left empty. You can edit it.
    */
-  postType?: (number | null) | PostType;
-  postTypeValues?:
+  slug: string;
+  responsiveDesigns?:
     | {
         [k: string]: unknown;
       }
@@ -304,12 +303,7 @@ export interface Post {
     | number
     | boolean
     | null;
-  title: string;
-  /**
-   * Generated from title when left empty. You can edit it.
-   */
-  slug: string;
-  responsiveDesigns?:
+  templateSnapshot?:
     | {
         [k: string]: unknown;
       }
@@ -369,6 +363,15 @@ export interface Post {
     | boolean
     | null;
   formActionKey?: string | null;
+  event?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   contentLayout?:
     | {
         [k: string]: unknown;
@@ -378,35 +381,6 @@ export interface Post {
     | number
     | boolean
     | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "post-types".
- */
-export interface PostType {
-  id: number;
-  key: string;
-  singular: string;
-  plural: string;
-  prefix: string;
-  icon?: string | null;
-  capability: 'content' | 'event';
-  schemaVersion?: number | null;
-  fieldDefinitions?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  templates?: (number | DesignTemplate)[] | null;
-  defaultTemplate?: (number | null) | DesignTemplate;
-  archived?: boolean | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -2605,10 +2579,6 @@ export interface PayloadLockedDocument {
         value: number | TaskNotificationEvent;
       } | null)
     | ({
-        relationTo: 'post-types';
-        value: number | PostType;
-      } | null)
-    | ({
         relationTo: 'saved-views';
         value: number | SavedView;
       } | null)
@@ -2743,11 +2713,10 @@ export interface PayloadMigration {
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
-  postType?: T;
-  postTypeValues?: T;
   title?: T;
   slug?: T;
   responsiveDesigns?: T;
+  templateSnapshot?: T;
   designTemplate?: T;
   templateValues?: T;
   excerpt?: T;
@@ -2768,6 +2737,7 @@ export interface PostsSelect<T extends boolean = true> {
       };
   designOverrides?: T;
   formActionKey?: T;
+  event?: T;
   contentLayout?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3413,26 +3383,6 @@ export interface TaskNotificationEventsSelect<T extends boolean = true> {
   attempts?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "post-types_select".
- */
-export interface PostTypesSelect<T extends boolean = true> {
-  key?: T;
-  singular?: T;
-  plural?: T;
-  prefix?: T;
-  icon?: T;
-  capability?: T;
-  schemaVersion?: T;
-  fieldDefinitions?: T;
-  templates?: T;
-  defaultTemplate?: T;
-  archived?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4383,7 +4333,6 @@ export interface TaskCreateCollectionExport {
       | 'task-message-followers'
       | 'task-project-changes'
       | 'task-notification-events'
-      | 'post-types'
       | 'saved-views'
       | 'event-series'
       | 'design-block-types'

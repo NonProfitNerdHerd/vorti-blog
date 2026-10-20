@@ -49,8 +49,8 @@ export function RelationPicker({
     const timer = setTimeout(() => {
       const field = ['categories', 'tags', 'saved-views'].includes(collection)
         ? 'name'
-        : collection === 'post-types'
-          ? 'singular'
+        : collection === 'design-templates'
+          ? 'name'
           : collection === 'media'
             ? 'filename'
             : collection === 'users'
@@ -167,21 +167,13 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
               <select
                 value={value.query.source}
                 onChange={(e) =>
-                  query({ source: e.target.value as 'posts' | 'pages', rules: [], postTypes: [] })
+                  query({ source: e.target.value as 'posts' | 'pages', rules: [] })
                 }
               >
-                <option value="posts">Posts (all types)</option>
+                <option value="posts">Posts</option>
                 <option value="pages">Pages</option>
               </select>
             </label>
-            {value.query.source === 'posts' && (
-              <RelationPicker
-                label="Post Types (empty means all compatible types)"
-                collection="post-types"
-                value={value.query.postTypes || []}
-                onChange={(ids) => query({ postTypes: ids })}
-              />
-            )}
             <label>
               Display family
               <select value={family} onChange={(e) => setFamily(e.target.value)}>
@@ -226,7 +218,7 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
                         rule(i, { field: e.target.value as QueryRule['field'], values: [] })
                       }
                     >
-                      {['categories', 'tags', 'author', 'featured', 'postType'].filter(f => categoriesEnabled || f !== 'categories').map((f) => (
+                      {['categories', 'tags', 'author', 'featured'].filter(f => categoriesEnabled || f !== 'categories').map((f) => (
                         <option key={f}>{f}</option>
                       ))}
                     </select>
@@ -260,9 +252,7 @@ export const ViewBuilder: JSONFieldClientComponent = ({ path, readOnly }) => {
                   <RelationPicker
                     label="Values"
                     collection={
-                      r.field === 'postType'
-                        ? 'post-types'
-                        : r.field === 'author'
+                      r.field === 'author'
                           ? 'users'
                           : r.field
                     }

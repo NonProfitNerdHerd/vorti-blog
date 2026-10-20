@@ -1,6 +1,6 @@
 # Page/Post Template editing
 
-Site Design contains Site Templates, Menus, Site Settings, Block Creator, Page/Post Templates, and Post Types, in that order. Payload still filters navigation by permissions and owns active links, mobile navigation and saved collapse preferences. Collection URLs and references are unchanged.
+Site Design contains Site Templates, Menus, Site Settings, Block Creator, Page/Post Templates, in that order. Payload still filters navigation by permissions and owns active links, mobile navigation and saved collapse preferences. Collection URLs and references are unchanged.
 
 Ordinary Template blocks come from the same registered catalog as Posts and Pages. Insertion immediately adds and selects a block. Hero and other multi-layout blocks show their inline variation chooser; Skip selects the default. Layout variations remain available in the Layout inspector. Header/Footer editors use the same insertion path. Text blocks use the shared inline editor and document undo history. Rich Text blocks use the host application?s existing Lexical content editor; focused plain-text blocks can switch to formatting without adding a schema field.
 

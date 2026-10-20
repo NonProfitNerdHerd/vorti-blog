@@ -35,10 +35,7 @@ export async function resolveMenu(
     overrideAccess: false,
     user: null,
   })
-  const ref = (value: unknown): number =>
-    Number(value && typeof value === 'object' && 'id' in value ? value.id : value)
   const destinations = new Map<string, string>()
-  const types = new Map<number, Promise<unknown>>()
   for (const [kind, collection] of [
     ['page', 'pages'],
     ['post', 'posts'],
@@ -65,34 +62,7 @@ export async function resolveMenu(
         if (!doc.slug) continue
         let href = `/${encodeURIComponent(doc.slug)}`
         if (kind === 'post') {
-          const post = doc as { postType?: number | { id: number }; slug: string }
-          let type
-          {
-            const typeID = ref(post.postType) || 0
-            if (!types.has(typeID))
-              types.set(
-                typeID,
-                payload
-                  .find({
-                    collection: 'post-types',
-                    where: {
-                      and: [
-                        typeID ? { id: { equals: typeID } } : { key: { equals: 'post' } },
-                        { _status: { equals: 'published' } },
-                      ],
-                    },
-                    depth: 0,
-                    limit: 1,
-                    draft: false,
-                    overrideAccess: false,
-                    user: null,
-                  })
-                  .then((found) => found.docs[0]),
-              )
-            type = await types.get(typeID)
-            if (!type && post.postType) continue
-          }
-          href = documentURL({ slug: doc.slug, postType: type })
+          href = documentURL(doc)
         } else if (homePage(site)?.id === doc.id) href = '/'
         destinations.set(`${kind}:${doc.id}`, href)
       }

@@ -7,7 +7,7 @@ import type { TemplateNode } from '@design-system/payload-design-core'
 import type { HeroBoardValues } from '@design-system/payload-design-core/hero-board'
 import { mediaURL } from './media'
 import { readCategoriesEnabled } from './system-settings'
-import {withPostType} from '../content-framework/presentation'
+import {withPostAuthor} from '../content-framework/presentation'
 import { resolveDocumentBlocks } from './content-layout'
 import type { ContentNode } from '@design-system/payload-design-core'
 
@@ -25,8 +25,8 @@ type TemplatedDocumentExtras = {
 
 export async function resolveContentDesign(source: Post | Page, context: { draft?: boolean; user?: PayloadRequest['user'] } = {}): Promise<PostDesignSection[]> {
   const categoriesEnabled = await readCategoriesEnabled(await getPayload({ config }))
-  if('postType' in source) source=await withPostType(await getPayload({config}),source as unknown as Record<string,unknown>) as unknown as Post
-  if ((source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
+  if('author' in source) source=await withPostAuthor(await getPayload({config}),source as unknown as Record<string,unknown>) as unknown as Post
+  if (('templateSnapshot' in source && source.templateSnapshot) || (source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
     const payload = await getPayload({ config })
     const nodes = await resolveDocumentBlocks(payload, source as unknown as Record<string, unknown>, context)
     return (nodes ?? []).map(node => ({ key: node.id, kind: 'content' as const, node }))

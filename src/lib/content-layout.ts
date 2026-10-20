@@ -39,8 +39,9 @@ export async function resolveDocumentBlocks(
       depth: 0,
       overrideAccess: false,
     }) as unknown as Promise<T>
-  if (templateID) {
-    const template = (await payload.findByID({
+  const snapshot = document.templateSnapshot as { template: Template; types: BlockType[]; designs: BlockDesign[] } | undefined
+  if (templateID || snapshot) {
+    const template = snapshot?.template ?? (await payload.findByID({
       collection: 'design-templates',
       id: templateID as number,
       depth: 0,
@@ -65,8 +66,8 @@ export async function resolveDocumentBlocks(
       blockDesigns.add(section.blockDesign)
     })
     const [types, designs] = await Promise.all([
-      Promise.all([...blockTypes].map((id) => load<BlockType>('design-block-types', id))),
-      Promise.all([...blockDesigns].map((id) => load<BlockDesign>('design-block-designs', id))),
+      snapshot?.types ?? Promise.all([...blockTypes].map((id) => load<BlockType>('design-block-types', id))),
+      snapshot?.designs ?? Promise.all([...blockDesigns].map((id) => load<BlockDesign>('design-block-designs', id))),
     ])
     nodes = templateContentNodes(template, categoriesEnabled ? document : { ...document, categories: [] }, types, designs)
   } else if (document.contentLayout) {
@@ -97,8 +98,8 @@ export async function resolveDocumentBlocks(
       if (node.kind === 'designed') {
         try {
           const [type, design] = await Promise.all([
-            load<BlockType>('design-block-types', node.blockType),
-            load<BlockDesign>('design-block-designs', node.blockDesign),
+            snapshot?.types.find(item => String(item.id) === String(node.blockType)) ?? load<BlockType>('design-block-types', node.blockType),
+            snapshot?.designs.find(item => String(item.id) === String(node.blockDesign)) ?? load<BlockDesign>('design-block-designs', node.blockDesign),
           ])
           node.rendererKey = type.rendererKey
           node.design = design.design

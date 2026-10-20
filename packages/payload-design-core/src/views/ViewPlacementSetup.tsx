@@ -103,7 +103,7 @@ export function ViewPlacementSetup({
           <select
             value={configuration.query.source}
             onChange={(event) =>
-              query({ source: event.target.value as 'posts' | 'pages', rules: [], postTypes: [] })
+              query({ source: event.target.value as 'posts' | 'pages', rules: [] })
             }
           >
             <option value="posts">Posts</option>
@@ -113,18 +113,6 @@ export function ViewPlacementSetup({
       )}
       {configuration.query.source === 'posts' && (
         <>
-          {renderPicker?.(
-            'post-types',
-            'Post Types',
-            configuration.query.postTypes?.join(',') ?? '',
-            (value) => query({ postTypes: value.split(',').filter(Boolean) }),
-          )}
-          {view.family === 'events' && (
-            <p>
-              Only event-capable Post Types are included. Leave Post Types empty to include all
-              event types.
-            </p>
-          )}
           {(['categories', 'tags'] as const)
             .filter((field) => categoriesEnabled || field !== 'categories')
             .map((field) => (
