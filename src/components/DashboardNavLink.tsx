@@ -67,6 +67,7 @@ export function PolicyNav({
     <>
       <DashboardNavLink admin={admin} />
       <DefaultNavClient {...props} groups={primary} />
+      <Link href={`${admin}/crm`} className="vorti-dashboard-link" aria-current={pathname === `${admin}/crm` ? 'page' : undefined}>CRM</Link>
       {tasks && (
         <div className="vorticause-task-nav nav-group">
           <div className="task-nav-heading">

@@ -12,6 +12,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { formsModule } from './forms/plugin'
+import { crmModule } from './crm/plugin'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
@@ -89,6 +90,17 @@ const cloudflare =
     ? await getCloudflareContextFromWrangler()
     : await getCloudflareContext({ async: true })
 
+// Explicitly managed platform tables must not be removed by a development schema push.
+// Fresh isolated test databases can still bootstrap native tables before applying migrations.
+const migrationManaged =
+  isProduction ||
+  Boolean(process.env.DESIGN_CORE_TEST_PERSIST_PATH) ||
+  Boolean(
+    await cloudflare.env.D1.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='vc_organizations'",
+    ).first(),
+  )
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -126,9 +138,10 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: sqliteD1Adapter({ binding: cloudflare.env.D1, ...(process.env.DESIGN_CORE_TEST_PERSIST_PATH ? { push: false } : {}) }),
+  db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: !migrationManaged }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
+    crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES }),
     menuInvalidation,
     designSystemPlugin({
       enabled: true,

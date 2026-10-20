@@ -10,6 +10,7 @@ process.env.PAYLOAD_SECRET = 'local-workspace-browser-only'
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: [
+    'crm-contacts.e2e.spec.ts',
     'task-workspace.e2e.spec.ts',
     'projects-workspace.e2e.spec.ts',
     'workspace-starter.e2e.spec.ts',

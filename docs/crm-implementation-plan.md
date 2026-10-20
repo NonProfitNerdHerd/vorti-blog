@@ -234,3 +234,35 @@ Exact next steps:
 4. Complete organization-aware enforcement in existing Users/CMS/Forms/Tasks/global/search/file/notification APIs before enabling new tenant creation.
 5. Build site administration, effective-policy explanation and active-site selector; finish Phase 1 browser tests.
 6. Continue Phases 2–9; maintain full scope and production release gates above.
+
+### Connected contacts checkpoint — October 20
+
+This checkpoint is implemented and locally verified, not a completion of the full CRM plan. Production remains on the previous release; no production migrations or writes were performed.
+
+- [x] Add separate network identity and chapter relationship storage (`contact-schema-v1.ts`), with cross-root/immutable-ownership constraints, source identifiers and correction requests.
+- [x] Add validated Person/Organization profiles, multiple email/phone methods, addresses, communication preferences, chapter roles and tags.
+- [x] Add authenticated, bounded, non-cacheable CRM endpoints; derive actors from the authenticated user and reject foreign-origin mutations. Unsupported actions cannot change authority.
+- [x] Add site-scoped contact lists, role/search filters, complete matching counts and keyset pagination. Shared household email never automatically merges records.
+- [x] Add confirmed shared-profile edits with revision checks, retries and atomic audit records. Chapter role/tag updates have independent revisions and never rewrite shared identity or another chapter's relationship.
+- [x] Add correction submission, authorized paginated review, reasoned resolve/decline actions, immutable original requests and audit history. Readers cannot resolve requests.
+- [x] Add a responsive centered contact editor and CRM navigation link; preserve failed input and warn about unsaved changes. Current context is deliberately pinned to the compatibility site until cross-system tenant isolation is complete.
+- [x] Register `20261020_222000_crm_contacts` and its snapshot; regenerate the admin import map and native types (native collection types remain unchanged).
+- [x] Prevent automatic development schema pushing once explicitly managed organization tables exist; use migrations instead of risking removal of private runtime tables.
+
+Local interface: `/admin/crm`, after native schema setup and the two registered CRM/organization migrations. `tests/helpers/seedCRM.cli.ts` supplies fictional review accounts only when an explicit isolated `.wrangler` test path is set. `tests/helpers/migrateCRM.cli.ts` verifies native migration tracking, repeat safety and existing-table hashes; it rejects production intent flags.
+
+Validation evidence:
+
+- Organization/money/contact/HTTP regression coverage: 37 tests across six files, including rejection when membership is revoked between authorization and contact delivery. Correction review assertions extend the existing contact permission test.
+- Browser coverage: three passing serial scenarios for creation/reload, profile confirmation, separate chapter details, reader correction submission, authorized correction review, narrow-screen overflow, and clearing cached contact details after permission denial.
+- Application TypeScript and changed-file ESLint pass. Payload imports/types regenerated. No shared design-package source changed.
+- OpenNext optimized application/Worker builds and Wrangler deployment dry-run passed with local-only bindings. Final source validation includes permission-revocation guards; these artifacts are not a production deployment.
+- Native tracked migration verification preserved hashes across 131 pre-existing local application tables, including fictional Posts/Pages and their versions, and a second run was safe. First-time tracked migration creation also passed on a separate isolated database with the same preservation/retry checks.
+
+Still unfinished (do not mark the whole module or Phase 2 complete): household/relationship management, authorized chapter linking and sharing approvals, site administration/context selection, full legacy API isolation, CRM dashboard/timelines/Tasks integration, fundraising/membership/volunteer workflows, private files and correspondence/email, reviewed imports/merges, reports/exports, and subsite website publishing. No placeholder tabs for those features were added.
+
+Next implementation order:
+
+1. Finish Phase 1 integration using `organization-access-audit.md`: scoped account capabilities, legacy content/Forms/workspace guards and team audiences, effective-policy administration, safe sharing/move services and explicit site context. Add account deactivation/recovery semantics before exposing scoped administrators; new audit foreign keys intentionally retain historical actors.
+2. Finish contact households/relationships, chapter-link approval and restricted activity/timeline interfaces, then implement the financial/membership services and staff forms with the existing exact-money core.
+3. Continue every remaining phase above, run full migration/permission/browser release checks, record production recovery details, commit/push, apply additive migrations and deploy only after the complete production release gates pass. Production authorization remains approved; no further approval is needed merely to continue implementation.
