@@ -1,12 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import { validateEntryReview, auditEntryReview } from '@/forms/entry-workflow'
 import type { FormPlatform } from '@/forms/platform'
+import { fixtureUser } from '../helpers/authority'
+vi.mock('@/organizations/identity-authority', async () => {
+  const { fixtureUser } = await import('../helpers/authority')
+  const { authorityClaim } = await import('@/organizations/claims')
+  return { identityAuthority: async (_req: unknown, user: { id: number; role: string }, site: string) => authorityClaim(fixtureUser(user.role, user.id, site)) }
+})
 
 function scenario(role = 'editor', workflow?: unknown) {
   const create = vi.fn().mockResolvedValue({})
   const find = vi.fn().mockResolvedValue({ docs: [{ definition: { workflow } }] })
   const findByID = vi.fn().mockResolvedValue({ id: 4, role: 'editor' })
-  const req = { user: { id: 3, role }, context: {}, payload: { create, find, findByID } }
+  const req = { user: fixtureUser(role), context: {}, payload: { create, find, findByID } }
   const originalDoc = { id: 2, site: 'default', form: 1, revision: 'immutable-one', workflowStatus: 'received', idempotencyKey: 'accepted-key' }
   const validate = (data: Record<string, unknown>, original = originalDoc) => validateEntryReview({ data, originalDoc: original, operation: 'update', req } as never)
   return { req, originalDoc, create, find, findByID, validate }

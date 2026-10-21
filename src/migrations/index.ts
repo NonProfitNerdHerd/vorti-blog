@@ -2,6 +2,8 @@ import * as migration_20261020_213000_organization_foundation from './20261020_2
 import * as migration_20261020_222000_crm_contacts from './20261020_222000_crm_contacts';
 import * as migration_20261020_233000_authority_restrictions from './20261020_233000_authority_restrictions';
 import * as migration_20261020_234000_crm_finance from './20261020_234000_crm_finance';
+import * as migration_20261021_080000_cms_site_ownership from './20261021_080000_cms_site_ownership';
+import * as migration_20261021_090000_workspace_site_ownership from './20261021_090000_workspace_site_ownership';
 import * as migration_20261020_200500_content_publication_views from './20261020_200500_content_publication_views';
 import * as migration_20250929_111647 from './20250929_111647';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
@@ -190,4 +192,6 @@ export const migrations = [
   { up: migration_20261020_222000_crm_contacts.up, down: migration_20261020_222000_crm_contacts.down, name: '20261020_222000_crm_contacts' },
   { up: migration_20261020_233000_authority_restrictions.up, down: migration_20261020_233000_authority_restrictions.down, name: '20261020_233000_authority_restrictions' },
   { up: migration_20261020_234000_crm_finance.up, down: migration_20261020_234000_crm_finance.down, name: '20261020_234000_crm_finance' },
+  { up: migration_20261021_080000_cms_site_ownership.up, down: migration_20261021_080000_cms_site_ownership.down, name: '20261021_080000_cms_site_ownership' },
+  { up: migration_20261021_090000_workspace_site_ownership.up, down: migration_20261021_090000_workspace_site_ownership.down, name: '20261021_090000_workspace_site_ownership' },
 ];

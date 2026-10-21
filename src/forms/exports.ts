@@ -1,4 +1,6 @@
-import type { Endpoint, Payload } from 'payload'
+import { createLocalReq, type Endpoint, type Payload } from 'payload'
+import { cmsSiteContext } from '../organizations/cms-scope'
+import { claimRequest } from '../organizations/identity-authority'
 import type { FormField } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_INTERNAL, type FormsUser } from './access'
 import type { FormPlatform } from './platform'
@@ -21,11 +23,17 @@ export async function generateExport(platform: FormPlatform, payload: Payload, s
   const filters = JSON.parse(job.filters) as ExportFilters, columns = JSON.parse(job.columns) as string[]
   let objectKey: string | undefined
   try {
-    const requester = await payload.findByID({ collection: 'users', id: job.requested_by, overrideAccess: true, depth: 0 }) as FormsUser
-    if (!canForm(requester, 'export', site) || !canForm(requester, 'entries', site) || (filters.sensitive && !canForm(requester, 'sensitive', site))) throw new FormHTTPError('Export permissions changed. Ask an administrator to review access.', 403)
+    const requester = await payload.findByID({ collection: 'users', id: job.requested_by, overrideAccess: true, depth: 0 })
+    const jobReq = await createLocalReq({ user: { ...requester, collection: 'users' }, context: cmsSiteContext(site) }, payload)
+    const authorize = async () => {
+      await claimRequest(jobReq, site)
+      if (!canForm(jobReq.user, 'export', site) || !canForm(jobReq.user, 'entries', site) || (filters.sensitive && !canForm(jobReq.user, 'sensitive', site))) throw new FormHTTPError('Export permissions changed. Ask an administrator to review access.', 403)
+    }
+    await authorize()
     const rows: SpreadsheetCell[][] = [columns], maxRows = platform.exportLimits?.rows || 5000, maxBytes = platform.exportLimits?.bytes || 8 * 1024 * 1024
     let cursor = 0, bytes = 0
     while (cursor < filters.maxID) {
+      await authorize()
       const entries = await platform.db.prepare(`SELECT id, answers, schema_snapshot, revision, workflow_status, created_at FROM form_submissions WHERE site=? AND form_id=? AND id>? AND id<=? AND created_at>=? AND created_at<?${filters.status ? ' AND workflow_status=?' : ''} ORDER BY id LIMIT 100`).bind(site, filters.formID, cursor, filters.maxID, filters.from, filters.to, ...(filters.status ? [filters.status] : [])).all<ExportEntry>()
       if (!entries.results.length) break
       for (const entry of entries.results) {
@@ -38,8 +46,10 @@ export async function generateExport(platform: FormPlatform, payload: Payload, s
       if (renewed.meta.changes !== 1) throw new Error('Export claim expired.')
     }
     const bytesOut = job.format === 'xlsx' ? xlsxDocument(rows) : csvDocument(rows)
+    await authorize()
     objectKey = `form-private/${site}/exports/${id}/${worker}.${job.format}`
     await platform.storage.put(objectKey, bytesOut, { httpMetadata: { contentType: mime[job.format] } })
+    await authorize()
     const completed = await platform.db.prepare("UPDATE form_exports SET status='complete', object_key=?, expires_at=?, error=NULL, updated_at=? WHERE id=? AND site=? AND status='running' AND json_extract(filters,'$.worker')=?").bind(objectKey, new Date(Date.now() + 86400000).toISOString(), new Date().toISOString(), id, site, worker).run()
     if (completed.meta.changes !== 1) await platform.storage.delete(objectKey)
   } catch (error) {
@@ -67,8 +77,8 @@ export function formExportEndpoints(platform: FormPlatform): Endpoint[] {
       if (sensitive && !canForm(req.user as FormsUser, 'sensitive', form.site)) throw new FormHTTPError('Sensitive-entry access is required.', 403)
       const ceiling = await platform.db.prepare('SELECT MAX(id) AS id FROM form_submissions WHERE site=? AND form_id=?').bind(form.site, form.id).first<{ id: number }>()
       const filters: ExportFilters = { formID: form.id, from: from.toISOString(), to: to.toISOString(), maxID: ceiling?.id || 0, status: body.status ? String(body.status) : undefined, sensitive }
-      const context = { ...req.context, [FORM_INTERNAL]: true }
-      const record = await req.payload.create({ collection: 'form-exports', overrideAccess: true, req, context,
+      const context = { ...req.context, formsOperation: 'queue-export', [FORM_INTERNAL]: true }
+      const record = await req.payload.create({ collection: 'form-exports', overrideAccess: true, req: { ...req, context },
         data: { label: `${form.title} · ${String(body.format).toUpperCase()}`, site: form.site, requestedBy: String(req.user.id), status: 'pending', format: String(body.format), columns, filters: { ...filters } } })
       const action = { id: `export-${record.id}`, kind: 'form-export', name: 'Generate entries export', config: { exportID: record.id } }
       await platform.db.prepare("INSERT OR IGNORE INTO form_outbox (label,site,event_i_d,kind,status,payload,attempts,next_attempt_at) VALUES (?,?,?,'form-export','pending',?,0,?)").bind(action.name, form.site, action.id, JSON.stringify({ action }), new Date().toISOString()).run()

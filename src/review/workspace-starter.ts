@@ -1,5 +1,6 @@
 import type { Field, PayloadRequest } from 'payload'
 import { internalWorkspace, reject, workspaceDB, workspaceReq } from './workspace-access'
+import { claimRequest } from '../organizations/identity-authority'
 
 export const starterKeyField: Field = {
   name: 'starterKey',
@@ -62,14 +63,15 @@ export async function initializeBoardDefaults(req: PayloadRequest, board: number
 
 export async function initializeStarterWorkspace(req: PayloadRequest) {
   if (!req.user) reject('Sign in.', 401)
-  const user = await req.payload.findByID({
-    collection: 'users',
-    id: req.user.id,
-    req: workspaceReq(req),
-    overrideAccess: true,
-    depth: 0,
-  })
-  if (user.workspaceInitialized) return
+  await claimRequest(req)
+  // Read only this server-managed marker, not a full account through a privileged API.
+  // Native self-service reads intentionally omit it even for the signed-in account.
+  const user = await workspaceDB(req)
+    .prepare('SELECT workspace_initialized FROM users WHERE id=?')
+    .bind(req.user.id)
+    .first<{ workspace_initialized: number }>()
+  if (!user) reject('Account unavailable.')
+  if (user.workspace_initialized === 1) return
   const projectKey = `work:${req.user.id}`,
     boardKey = `personal-todos:${req.user.id}`
   const findProject = async () =>

@@ -19,7 +19,7 @@ import { paymentQuote } from '@design-system/payload-design-core/forms'
 import { paymentToken, type PaymentRow } from './payment-store'
 
 const response = (body: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', ...headers } })
-const internal = (req: PayloadRequest): PayloadRequest => ({ ...req, context: { ...req.context, [FORM_INTERNAL]: true } })
+const internal = (req: PayloadRequest): PayloadRequest => ({ ...req, context: { ...req.context, formsOperation: 'public-runtime', [FORM_INTERNAL]: true } })
 const errors = (handler: (req: PayloadRequest) => Promise<Response>) => async (req: PayloadRequest): Promise<Response> => {
   try { return await handler(req) } catch (error) {
     if (error instanceof FormHTTPError) return response({ message: error.message }, error.status)

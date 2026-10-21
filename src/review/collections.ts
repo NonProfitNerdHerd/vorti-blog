@@ -15,6 +15,7 @@ import { workspaceEndpoint } from './workspace-service'
 import { commentEvent, drainNotifications, taskEvent } from './notifications'
 import { canMention, resolveMentions } from './mentions'
 import { constantEqual } from '../forms/security'
+import { claimRequest } from '../organizations/identity-authority'
 import {
   canReviewCollection,
   isAdministrator,
@@ -380,6 +381,7 @@ export const ReviewTasks: CollectionConfig = {
               depth: 0,
             })
             const scoped = { ...req, user } as PayloadRequest
+            await claimRequest(scoped)
             const allowed = originalDoc?.id
               ? await canTask(scoped, originalDoc.id)
               : data.initialBoard
@@ -389,7 +391,7 @@ export const ReviewTasks: CollectionConfig = {
                   : next.personal
                     ? String(user.id) === String(req.user?.id) ||
                       String(user.id) === relationID(next.assignee) ||
-                      user.role === 'administrator'
+                      isAdministrator(scoped)
                     : linked && !!(await reviewDocument(scoped, next.documentType, next.documentID))
             if (!allowed) fail('Collaborators must already have access to this task.')
           }

@@ -764,7 +764,7 @@ export async function notify(req: PayloadRequest, event: Notification) {
           ...(await req.payload.findByID({
             collection: 'users',
             id: event.recipient,
-            req,
+            // Stable recipient ID from a server event. canTask below authorizes delivery.
             depth: 0,
             overrideAccess: true,
           })),

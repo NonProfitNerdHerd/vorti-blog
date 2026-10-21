@@ -5,6 +5,11 @@ import { authorizeCMSActions, cmsRecordData, registerCMSHandlers } from '@/forms
 import { ActionHandlers, type OutboxJob } from '@/forms/outbox'
 import { FORM_INTERNAL } from '@/forms/access'
 import type { FormPlatform } from '@/forms/platform'
+import { fixtureUser } from '../helpers/authority'
+vi.mock('@/organizations/identity-authority', async () => {
+  const { fixtureUser } = await import('../helpers/authority')
+  return { claimRequest: async (req: { user: { id: number; role: string } }, site: string) => { Object.assign(req.user, fixtureUser(req.user.role, req.user.id, site)) } }
+})
 
 vi.mock('payload', async importOriginal => ({ ...await importOriginal<typeof import('payload')>(), createLocalReq: async (options: object, payload: Payload) => ({ ...options, payload }) }))
 
@@ -13,7 +18,7 @@ const fields = [{ id: 'email', kind: 'email', label: 'Email' }, { id: 'name', ki
 describe('permission-controlled CMS actions', () => {
   it('stamps the authenticated approver and refuses unauthorized publishing', async () => {
     const definition = { ...emptyDefinition(), fields, actions: [{ ...contact, config: { ...contact.config, approvedBy: '999' } }] }
-    const req = { user: { id: 7, role: 'administrator' } } as PayloadRequest
+    const req = { user: fixtureUser('administrator', 7) } as unknown as PayloadRequest
     const approved = await authorizeCMSActions(definition, req, 'default')
     expect(approved.actions[0].config.approvedBy).toBe('7')
     expect(definition.actions[0].config.approvedBy).toBe('999')

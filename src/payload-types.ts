@@ -130,6 +130,8 @@ export interface Config {
     'form-submissions': FormSubmission;
     exports: Export;
     imports: Import;
+    'platform-user-sites': PlatformUserSite;
+    'platform-workspace-access': PlatformWorkspaceAccess;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -137,16 +139,23 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    users: {
+      siteDirectory: 'platform-user-sites';
+    };
     'task-boards': {
       memberships: 'task-board-memberships';
       directMemberships: 'task-board-memberships';
       preferences: 'task-board-preferences';
+      siteAccessGrants: 'platform-workspace-access';
+      taskSiteAccessGrants: 'platform-workspace-access';
+      directSiteAccessGrants: 'platform-workspace-access';
     };
     'task-projects': {
       projectGrants: 'task-project-memberships';
       directProjectGrants: 'task-project-memberships';
       notificationProjectGrants: 'task-project-memberships';
       projectPreferences: 'task-project-preferences';
+      projectSiteAccessGrants: 'platform-workspace-access';
     };
     'design-block-types': {
       designs: 'design-block-designs';
@@ -216,6 +225,8 @@ export interface Config {
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
+    'platform-user-sites': PlatformUserSitesSelect<false> | PlatformUserSitesSelect<true>;
+    'platform-workspace-access': PlatformWorkspaceAccessSelect<false> | PlatformWorkspaceAccessSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -381,6 +392,9 @@ export interface Post {
     | number
     | boolean
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -428,6 +442,9 @@ export interface DesignTemplate {
         id?: string | null;
       }[]
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -468,6 +485,9 @@ export interface DesignBlockType {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -493,6 +513,9 @@ export interface DesignBlockDesign {
     textContrast?: ('normal' | 'light' | 'dark') | null;
     buttonStyle?: ('primary' | 'outline' | 'minimal') | null;
   };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -504,6 +527,9 @@ export interface DesignBlockDesign {
 export interface Media {
   id: number;
   alt: string;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -527,6 +553,9 @@ export interface Category {
   slug: string;
   description?: string | null;
   image?: (number | null) | Media;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -542,6 +571,9 @@ export interface Tag {
    */
   slug: string;
   description?: string | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -593,6 +625,30 @@ export interface User {
   facebookURL?: string | null;
   instagramURL?: string | null;
   githubURL?: string | null;
+  platformOperator?: boolean | null;
+  platformForms?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  platformAuthority?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  siteDirectory?: {
+    docs?: (string | PlatformUserSite)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -615,6 +671,16 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-user-sites".
+ */
+export interface PlatformUserSite {
+  id: string;
+  user: number | User;
+  site: string;
+  enabled: boolean;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -697,6 +763,9 @@ export interface Page {
     | number
     | boolean
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -830,6 +899,9 @@ export interface SiteTemplate {
     mode: 'default';
     priority: number;
   };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -853,6 +925,9 @@ export interface Menu {
   revision?: number | null;
   starterKey?: string | null;
   expectedUpdatedAt?: string | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -903,6 +978,7 @@ export interface ReviewTask {
   completedAt?: string | null;
   creator?: (number | null) | User;
   archived?: boolean | null;
+  documentSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -946,6 +1022,22 @@ export interface TaskBoard {
     totalDocs?: number;
   };
   expectedUpdatedAt?: string | null;
+  platformSite?: string | null;
+  siteAccessGrants?: {
+    docs?: (string | PlatformWorkspaceAccess)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  taskSiteAccessGrants?: {
+    docs?: (string | PlatformWorkspaceAccess)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  directSiteAccessGrants?: {
+    docs?: (string | PlatformWorkspaceAccess)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -983,6 +1075,12 @@ export interface TaskProject {
     totalDocs?: number;
   };
   expectedUpdatedAt?: string | null;
+  platformSite?: string | null;
+  projectSiteAccessGrants?: {
+    docs?: (string | PlatformWorkspaceAccess)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1015,6 +1113,19 @@ export interface TaskProjectPreference {
   expanded?: boolean | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-workspace-access".
+ */
+export interface PlatformWorkspaceAccess {
+  id: string;
+  board?: (number | null) | TaskBoard;
+  project?: (number | null) | TaskProject;
+  readKey?: string | null;
+  editKey?: string | null;
+  commentKey?: string | null;
+  ownerKey?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1590,6 +1701,9 @@ export interface SavedView {
     | number
     | boolean
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -1613,6 +1727,9 @@ export interface EventSery {
     | number
     | boolean
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1635,6 +1752,9 @@ export interface Search {
         relationTo: 'pages';
         value: number | Page;
       };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1658,6 +1778,9 @@ export interface Redirect {
         } | null);
     url?: string | null;
   };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2258,6 +2381,9 @@ export interface Export {
     | number
     | boolean
     | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -2295,6 +2421,9 @@ export interface Import {
       | boolean
       | null;
   };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -2666,6 +2795,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'form-submissions';
         value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'platform-user-sites';
+        value: string | PlatformUserSite;
+      } | null)
+    | ({
+        relationTo: 'platform-workspace-access';
+        value: string | PlatformWorkspaceAccess;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -2740,6 +2877,9 @@ export interface PostsSelect<T extends boolean = true> {
   formActionKey?: T;
   event?: T;
   contentLayout?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2774,6 +2914,9 @@ export interface PagesSelect<T extends boolean = true> {
       };
   designOverrides?: T;
   contentLayout?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2787,6 +2930,9 @@ export interface CategoriesSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   image?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2798,6 +2944,9 @@ export interface TagsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   description?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2807,6 +2956,9 @@ export interface TagsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2849,6 +3001,9 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
         mode?: T;
         priority?: T;
       };
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2874,6 +3029,10 @@ export interface UsersSelect<T extends boolean = true> {
   facebookURL?: T;
   instagramURL?: T;
   githubURL?: T;
+  platformOperator?: T;
+  platformForms?: T;
+  platformAuthority?: T;
+  siteDirectory?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -2902,6 +3061,9 @@ export interface MenusSelect<T extends boolean = true> {
   revision?: T;
   starterKey?: T;
   expectedUpdatedAt?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2935,6 +3097,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   completedAt?: T;
   creator?: T;
   archived?: T;
+  documentSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2988,6 +3151,10 @@ export interface TaskBoardsSelect<T extends boolean = true> {
   preferences?: T;
   directMemberships?: T;
   expectedUpdatedAt?: T;
+  platformSite?: T;
+  siteAccessGrants?: T;
+  taskSiteAccessGrants?: T;
+  directSiteAccessGrants?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3125,6 +3292,8 @@ export interface TaskProjectsSelect<T extends boolean = true> {
   notificationProjectGrants?: T;
   projectPreferences?: T;
   expectedUpdatedAt?: T;
+  platformSite?: T;
+  projectSiteAccessGrants?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3393,6 +3562,9 @@ export interface TaskNotificationEventsSelect<T extends boolean = true> {
 export interface SavedViewsSelect<T extends boolean = true> {
   name?: T;
   configuration?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3407,6 +3579,9 @@ export interface EventSeriesSelect<T extends boolean = true> {
   end?: T;
   recurring?: T;
   schedule?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3441,6 +3616,9 @@ export interface DesignBlockTypesSelect<T extends boolean = true> {
         id?: T;
       };
   designs?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3467,6 +3645,9 @@ export interface DesignBlockDesignsSelect<T extends boolean = true> {
         textContrast?: T;
         buttonStyle?: T;
       };
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3494,6 +3675,9 @@ export interface DesignTemplatesSelect<T extends boolean = true> {
         allowDesignOverride?: T;
         id?: T;
       };
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3506,6 +3690,9 @@ export interface SearchSelect<T extends boolean = true> {
   title?: T;
   priority?: T;
   doc?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3522,6 +3709,9 @@ export interface RedirectsSelect<T extends boolean = true> {
         reference?: T;
         url?: T;
       };
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3933,6 +4123,9 @@ export interface ExportsSelect<T extends boolean = true> {
   fields?: T;
   collectionSlug?: T;
   where?: T;
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -3963,6 +4156,9 @@ export interface ImportsSelect<T extends boolean = true> {
         issues?: T;
         issueDetails?: T;
       };
+  platformSite?: T;
+  platformWriteActor?: T;
+  platformWriteEpoch?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -3974,6 +4170,29 @@ export interface ImportsSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-user-sites_select".
+ */
+export interface PlatformUserSitesSelect<T extends boolean = true> {
+  id?: T;
+  user?: T;
+  site?: T;
+  enabled?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-workspace-access_select".
+ */
+export interface PlatformWorkspaceAccessSelect<T extends boolean = true> {
+  id?: T;
+  board?: T;
+  project?: T;
+  readKey?: T;
+  editKey?: T;
+  commentKey?: T;
+  ownerKey?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -10,6 +10,9 @@ export const informationCategories = [
   'restricted-activity',
   'reports',
   'content',
+  'workspace',
+  'forms',
+  'form-submissions',
 ] as const
 export type InformationCategory = (typeof informationCategories)[number]
 export const siteOperations = ['read', 'edit', 'export', 'publish', 'configure'] as const
@@ -28,6 +31,7 @@ export interface SiteMembership {
   active: boolean
   /** Optional restrictions narrow the role, never grant a capability beyond it. */
   denied?: Array<{ category: InformationCategory; operation: SiteOperation }>
+  granted?: Array<{ category: InformationCategory; operation: SiteOperation }>
 }
 export interface AuthorityRule {
   site: string
@@ -135,7 +139,7 @@ export function evaluateSiteAuthority(input: {
     (member) =>
       member.active &&
       member.user === user &&
-      roleAllows(member.role, operation) &&
+      (roleAllows(member.role, operation) || member.granted?.some(grant => grant.category === category && grant.operation === operation)) &&
       !member.denied?.some(
         (denial) => denial.category === category && denial.operation === operation,
       ),

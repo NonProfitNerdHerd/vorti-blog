@@ -35,7 +35,7 @@ const toSite = (row: SiteRow): SiteNode => ({
 /** Five binds regardless of hierarchy width/depth; only relevant memberships and receivers enter the scope. */
 const scopeSQL = `WITH RECURSIVE
   args(site,actor,organization,category,operation) AS(VALUES(?,?,?,?,?)),
-  grants AS(SELECT g.* FROM vc_site_grants g JOIN args p ON g.source_id=p.site AND g.organization_id=p.organization AND g.category=p.category AND g.operation=p.operation WHERE g.revoked=0),
+  grants AS(SELECT g.* FROM vc_site_grants g JOIN args p ON g.source_id=p.site AND g.organization_id=p.organization AND (p.category IS NULL OR g.category=p.category) AND (p.operation IS NULL OR g.operation=p.operation) WHERE g.revoked=0),
   members AS(SELECT m.* FROM vc_site_memberships m JOIN vc_sites s ON s.id=m.site_id JOIN args p ON m.user_id=p.actor AND s.organization_id=p.organization WHERE m.active=1
     AND (EXISTS(SELECT 1 FROM vc_site_ancestry a WHERE a.ancestor_id=m.site_id AND a.descendant_id=p.site)
       OR EXISTS(SELECT 1 FROM grants g WHERE g.receiver_id=m.site_id OR(g.receiver_descendants=1 AND EXISTS(SELECT 1 FROM vc_site_ancestry a WHERE a.ancestor_id=g.receiver_id AND a.descendant_id=m.site_id))))),
@@ -112,10 +112,12 @@ export class OrganizationRepository {
     while (true) {
       const page = await this.db
         .prepare(
-          `${scopeSQL} SELECT m.site_id,m.role,EXISTS(SELECT 1 FROM vc_member_restrictions r JOIN args p ON r.category=p.category AND r.operation=p.operation WHERE r.site_id=m.site_id AND r.user_id=m.user_id) AS restricted FROM members m WHERE m.site_id>? ORDER BY m.site_id LIMIT 100`,
+          `${scopeSQL} SELECT m.site_id,m.role,EXISTS(SELECT 1 FROM vc_member_restrictions r JOIN args p ON r.category=p.category AND r.operation=p.operation WHERE r.site_id=m.site_id AND r.user_id=m.user_id) AS restricted,
+            EXISTS(SELECT 1 FROM vc_member_capabilities c JOIN args p ON c.category=p.category AND c.operation=p.operation WHERE c.site_id=m.site_id AND c.user_id=m.user_id) AS granted
+            FROM members m WHERE m.site_id>? ORDER BY m.site_id LIMIT 100`,
         )
         .bind(...parameters, cursor)
-        .all<{ site_id: string; role: SiteRole; restricted: number }>()
+        .all<{ site_id: string; role: SiteRole; restricted: number; granted: number }>()
       snapshot.memberships.push(
         ...page.results.map((member) => ({
           user: String(this.actor),
@@ -123,6 +125,7 @@ export class OrganizationRepository {
           role: member.role,
           active: true,
           denied: member.restricted ? [{ category, operation }] : [],
+          granted: member.granted ? [{ category, operation }] : [],
         })),
       )
       if (page.results.length < 100) break
@@ -206,6 +209,58 @@ export class OrganizationRepository {
     const { decision, authorityRevision } = await this.decision(site, category, operation)
     if (!decision.allowed) throw new SiteAccessError()
     return { ...(await this.site(site)), authorityRevision }
+  }
+  /** One joined, paginated snapshot evaluates the complete capability matrix. Used when issuing
+   * request claims; do not perform fifty independent hierarchy queries during authentication. */
+  async authoritySet(siteID: string): Promise<{
+    site: SiteRow; authorityRevision: number; operator: boolean;
+    allowed: Partial<Record<InformationCategory, SiteOperation[]>>
+  }> {
+    const site = await this.site(siteID), root = site.organization_id
+    const before = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status WHERE user_id=? AND disabled=1)')
+      .bind(root, this.actor).first<{ authority_revision: number }>()
+    if (!before) throw new SiteAccessError()
+    const snapshot: PolicySnapshot = { sites: [], memberships: [], rules: [], grants: [] }
+    const parameters = [siteID, this.actor, root, null, null]
+    const pages = async <T extends { cursor: string }>(query: string, consume: (row: T) => void): Promise<void> => {
+      let cursor = ''
+      for (;;) {
+        const rows = (await this.db.prepare(`${scopeSQL} ${query}`).bind(...parameters, cursor).all<T>()).results
+        for (const row of rows) consume(row)
+        if (rows.length < 100) return
+        cursor = rows.at(-1)!.cursor
+      }
+    }
+    await pages<SiteRow & { cursor: string }>('SELECT *,id AS cursor FROM scope WHERE id>? ORDER BY id LIMIT 100', row => snapshot.sites.push(toSite(row)))
+    const members = new Map<string, PolicySnapshot['memberships'][number]>()
+    await pages<{ site_id: string; role: SiteRole; cursor: string }>('SELECT site_id,role,site_id AS cursor FROM members WHERE site_id>? ORDER BY site_id LIMIT 100', row => {
+      const member: PolicySnapshot['memberships'][number] = { user: String(this.actor), site: row.site_id, role: row.role, active: true, denied: [], granted: [] }
+      members.set(row.site_id, member); snapshot.memberships.push(member)
+    })
+    for (const [table, key] of [['vc_member_restrictions', 'denied'], ['vc_member_capabilities', 'granted']] as const) {
+      const cursorSQL = "r.site_id||'|'||r.category||'|'||r.operation"
+      await pages<{ site_id: string; category: InformationCategory; operation: SiteOperation; cursor: string }>(
+        `SELECT r.site_id,r.category,r.operation,${cursorSQL} AS cursor FROM ${table} r JOIN members m ON m.site_id=r.site_id AND m.user_id=r.user_id WHERE ${cursorSQL}>? ORDER BY cursor LIMIT 100`,
+        row => { members.get(row.site_id)?.[key]?.push({ category: row.category, operation: row.operation }) },
+      )
+    }
+    const ruleCursor = "r.site_id||'|'||r.category||'|'||r.operation"
+    await pages<{ site_id: string; category: InformationCategory; operation: SiteOperation; descendants_allowed: number; oversee_descendants: number; cursor: string }>(
+      `SELECT r.*,${ruleCursor} AS cursor FROM vc_site_policies r JOIN scope s ON s.id=r.site_id WHERE ${ruleCursor}>? ORDER BY cursor LIMIT 100`,
+      row => snapshot.rules.push({ site: row.site_id, category: row.category, operation: row.operation, descendantsAllowed: row.descendants_allowed === 1, overseeDescendants: row.oversee_descendants === 1 }),
+    )
+    await pages<{ id: string; source_id: string; receiver_id: string; receiver_descendants: number; category: InformationCategory; operation: SiteOperation; cursor: string }>(
+      'SELECT *,id AS cursor FROM eligible_grants WHERE id>? ORDER BY id LIMIT 100',
+      row => snapshot.grants.push({ organization: root, source: row.source_id, receiver: row.receiver_id, receiverDescendants: row.receiver_descendants === 1, category: row.category, operations: [row.operation], revoked: false }),
+    )
+    const operator = await this.isOperator(), allowed: Partial<Record<InformationCategory, SiteOperation[]>> = {}
+    for (const category of informationCategories) for (const operation of siteOperations) {
+      if (evaluateSiteAuthority({ snapshot, user: String(this.actor), installationOperator: operator, owningSite: siteID, category, operation }).allowed)
+        (allowed[category] ||= []).push(operation)
+    }
+    const after = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=?').bind(root).first<{ authority_revision: number }>()
+    if (after?.authority_revision !== before.authority_revision) throw new SiteAccessError()
+    return { site, authorityRevision: before.authority_revision, operator, allowed }
   }
   async createOrganization(input: {
     name: string

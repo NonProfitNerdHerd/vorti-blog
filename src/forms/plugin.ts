@@ -21,7 +21,7 @@ import { validateEntryReview, auditEntryReview } from './entry-workflow'
 import { isFormDraftOperation } from './publication'
 
 const text = (name: string, label?: string): Field => ({ name, label, type: 'text' })
-const trusted = (req: PayloadRequest): PayloadRequest => ({ ...req, context: { ...req.context, [FORM_INTERNAL]: true } })
+const trusted = (req: PayloadRequest): PayloadRequest => ({ ...req, context: { ...req.context, formsOperation: 'published-snapshot', [FORM_INTERNAL]: true } })
 export const formsModule = (platform: FormPlatform) => (config: Config): Config => {
   const enhanced = formBuilderPlugin({
     redirectRelationships: ['pages'],

@@ -3,6 +3,8 @@ import { mayTransition, type EntryWorkflow } from '@design-system/payload-design
 import { canForm, FORM_INTERNAL, FORM_SITE, internalRequest, type FormsUser } from './access'
 import { BookingStore } from './booking'
 import type { FormPlatform } from './platform'
+import { identityAuthority } from '../organizations/identity-authority'
+import { withAuthority } from '../organizations/claims'
 
 const reviewFields = ['workflowStatus', 'read', 'starred', 'spam', 'archived', 'reviewer', 'notes', 'tags'] as const
 const relationshipID = (value: unknown): unknown => value && typeof value === 'object' && 'id' in value ? value.id : value
@@ -17,7 +19,8 @@ export const validateEntryReview: CollectionBeforeChangeHook = async ({ data, or
     let workflow: EntryWorkflow | undefined
     if (originalDoc.revision) {
       // This is a server-only lookup after entry permission enforcement, scoped to the historical form and site.
-      const result = await req.payload.find({ collection: 'form-revisions' as CollectionSlug, overrideAccess: true, req, depth: 0, limit: 1,
+      const result = await req.payload.find({ collection: 'form-revisions' as CollectionSlug, overrideAccess: true,
+        req: { ...req, context: { ...req.context, formsOperation: 'historical-entry-schema', [FORM_INTERNAL]: true } }, depth: 0, limit: 1,
         where: { and: [{ revision: { equals: originalDoc.revision } }, { site: { equals: site } }, { form: { equals: relationshipID(originalDoc.form) } }] },
       })
       const revision = result.docs[0] as unknown as { definition?: { workflow?: EntryWorkflow } } | undefined
@@ -32,6 +35,7 @@ export const validateEntryReview: CollectionBeforeChangeHook = async ({ data, or
     let reviewer: FormsUser | undefined
     try {
       reviewer = await req.payload.findByID({ collection: 'users', id: relationshipID(data.reviewer) as string | number, overrideAccess: true, req, depth: 0 }) as FormsUser
+      reviewer = withAuthority(reviewer, await identityAuthority(req, reviewer, site))
     } catch { invalid('reviewer', 'Choose an existing reviewer with entry access in this site.') }
     if (!canForm(reviewer, 'entries', site)) invalid('reviewer', 'This user does not have entry access in this site.')
   }
@@ -50,8 +54,8 @@ export const auditEntryReview = (platform: FormPlatform): CollectionAfterChangeH
   const site = String(doc.site || FORM_SITE)
   // Cancellation is idempotent. Reopening an entry never silently claims capacity again.
   if (changes.workflowStatus && doc.workflowStatus === 'rejected' && doc.idempotencyKey) await new BookingStore(platform.db).cancel(site, doc.idempotencyKey)
-  await req.payload.create({ collection: 'form-audit' as CollectionSlug, overrideAccess: true, req,
-    context: { ...req.context, [FORM_INTERNAL]: true },
+  await req.payload.create({ collection: 'form-audit' as CollectionSlug, overrideAccess: true,
+    req: { ...req, context: { ...req.context, formsOperation: 'entry-review-audit', [FORM_INTERNAL]: true } },
     data: { label: `Entry ${doc.id} updated`, site, submissionID: String(doc.id), actorID: String(req.user?.id || ''), action: 'entry-review', changes } as never,
   })
   return doc

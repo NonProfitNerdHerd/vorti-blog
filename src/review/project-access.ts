@@ -1,45 +1,41 @@
 import type { PayloadRequest, Where } from 'payload'
 import { isAdministrator, relationID } from './documents'
-import { reject, type BoardRole } from './workspace-access'
+import { reject, workspaceReq, type BoardRole } from './workspace-access'
+import { workspaceGrantWhere } from '../organizations/workspace-scope'
+import { claimRequest } from '../organizations/identity-authority'
+import { authorityClaim } from '../organizations/claims'
 
 export const roleRank = { viewer: 1, commenter: 2, editor: 3, owner: 4 } as const
 export function projectWhere(
   req: PayloadRequest,
   permission: 'read' | 'edit' | 'comment' | 'owner' = 'read',
   prefix = '',
-  join = 'projectGrants',
+  _join = 'projectGrants',
 ): Where {
-  const user = req.user?.id ?? -1
-  const or: Where[] = [{ [`${prefix}owner`]: { equals: user } }]
-  if (permission !== 'owner') {
-    const field =
-      permission === 'read' ? 'user' : permission === 'edit' ? 'editUser' : 'commentUser'
-    or.push({ [`${prefix}${join}.${field}`]: { equals: user } })
-    if (permission === 'read') or.push({ [`${prefix}visibility`]: { equals: 'team' } })
-  }
-  return permission === 'read' || permission === 'owner'
-    ? { or }
-    : { and: [{ or }, { [`${prefix}archived`]: { not_equals: true } }] }
+  return workspaceGrantWhere(req, permission, prefix, 'projectSiteAccessGrants')
 }
 export async function projectRole(req: PayloadRequest, id: unknown): Promise<BoardRole | null> {
   if (!req.user || !relationID(id)) return null
+  const claim = await claimRequest(req)
   const project = await req.payload.findByID({
     collection: 'task-projects',
     id: relationID(id),
-    req,
+    req: workspaceReq(req),
     depth: 0,
     overrideAccess: true,
   })
-  if (isAdministrator(req) || relationID(project.owner) === String(req.user.id)) return 'owner'
+  if (isAdministrator(req)) return 'owner'
+  if (project.platformSite && (project.platformSite !== claim?.site || !claim.allowed.workspace?.includes('read'))) return null
+  if (relationID(project.owner) === String(req.user.id)) return 'owner'
   const result = await req.payload.find({
     collection: 'task-project-memberships',
-    req,
+    req: workspaceReq(req),
     depth: 0,
     overrideAccess: true,
     limit: 1,
     where: { and: [{ project: { equals: project.id } }, { user: { equals: req.user.id } }] },
   })
-  return result.docs[0]?.role ?? (project.visibility === 'team' ? 'viewer' : null)
+  return result.docs[0]?.role ?? (project.visibility === 'team' && project.platformSite === claim?.site && claim.allowed.workspace?.includes('read') ? 'viewer' : null)
 }
 export async function requireProject(
   req: PayloadRequest,
@@ -60,6 +56,7 @@ export async function requireProject(
     depth: 0,
     overrideAccess: true,
   })
+  if (permission !== 'read' && project.platformSite && !authorityClaim(req.user)?.allowed.workspace?.includes('edit')) reject('Workspace editing is unavailable in this site.')
   if (permission === 'edit' && project.archived) reject('Restore this project before editing.', 409)
   return project
 }

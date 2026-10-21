@@ -14,6 +14,12 @@ import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { formsModule } from './forms/plugin'
 import { crmModule } from './crm/plugin'
 import { accountStatusGuards } from './organizations/account-guards'
+import { tenantCMS } from './organizations/cms-plugin'
+import { tenantUsers } from './organizations/users-plugin'
+import { tenantGlobals } from './organizations/globals-plugin'
+import { tenantForms } from './organizations/forms-plugin'
+import { tenantWorkspace } from './organizations/workspace-plugin'
+import { tenantAuthority } from './organizations/authority-plugin'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
@@ -189,6 +195,12 @@ export default buildConfig({
     // Generation, production builds and Workers must register the same admin components.
     contentWorkspace({ enabled: true }),
     documentReview,
+    tenantCMS,
+    tenantUsers,
+    tenantGlobals,
+    tenantForms,
+    tenantWorkspace,
+    tenantAuthority,
     accountStatusGuards(cloudflare.env.D1),
   ],
 })

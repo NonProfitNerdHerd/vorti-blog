@@ -3,6 +3,7 @@ import type { CollectionConfig, PayloadRequest } from 'payload'
 import { relationID } from './documents'
 import { internalWorkspace, reject } from './workspace-access'
 import { notify } from './workspace-collections'
+import { cmsDatabase, cmsSiteContext } from '../organizations/cms-scope'
 
 type Delivery = { recipient: string; kind: 'mention' | 'assignment' | 'comment' | 'invitation' | 'approval'; board?: string; request?: string; project?: string; thread?: string; projectChange?: string }
 type EventDocument = {
@@ -101,7 +102,7 @@ export async function drainNotifications(req: PayloadRequest) {
       const actors = event.actor
         ? await req.payload.find({
             collection: 'users',
-            req,
+            // Stored event actor only; this is not a directory/search response.
             overrideAccess: true,
             depth: 0,
             limit: 1,
@@ -114,8 +115,18 @@ export async function drainNotifications(req: PayloadRequest) {
         user: actor ? { ...actor, collection: 'users' } : null,
       } as PayloadRequest
       const deliveries = event.deliveries as Delivery[]
-      for (const delivery of deliveries.slice(0, 10))
-        await notify(eventReq, {
+      for (const delivery of deliveries.slice(0, 10)) {
+        // A worker's current UI context must not retarget a durable event. Resolve its source,
+        // then notify rechecks the recipient's current access before creating any inbox item.
+        const source = event.task
+          ? await cmsDatabase(req).prepare(`SELECT COALESCE((SELECT b.platform_site FROM review_tasks_rels r JOIN task_boards b ON b.id=r.task_boards_id WHERE r.parent_id=t.id AND r.path='boards' AND b.platform_site IS NOT NULL ORDER BY b.id LIMIT 1),t.document_site,'default') AS site FROM review_tasks t WHERE t.id=?`).bind(relationID(event.task)).first<{ site: string }>()
+          : delivery.board
+            ? await cmsDatabase(req).prepare("SELECT COALESCE(platform_site,'default') AS site FROM task_boards WHERE id=?").bind(delivery.board).first<{ site: string }>()
+            : delivery.project
+              ? await cmsDatabase(req).prepare("SELECT COALESCE(platform_site,'default') AS site FROM task_projects WHERE id=?").bind(delivery.project).first<{ site: string }>()
+              : { site: 'default' }
+        if (!source) continue
+        await notify({ ...eventReq, context: { ...eventReq.context, ...cmsSiteContext(source.site) } }, {
           ...delivery,
           task: event.task ? relationID(event.task) : undefined,
           comment: event.comment ? relationID(event.comment) : undefined,
@@ -127,6 +138,7 @@ export async function drainNotifications(req: PayloadRequest) {
                 ? 'A task was assigned to you.'
                 : delivery.kind === 'invitation' ? `You were added to a ${delivery.project ? 'project' : 'board'}.` : delivery.kind === 'approval' ? 'A sharing change needs your approval.' : delivery.thread ? 'New board discussion activity.' : 'New comment on a task you follow.',
         })
+      }
       await req.payload.update({
         collection: 'task-notification-events',
         id: event.id,

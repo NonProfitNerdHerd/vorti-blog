@@ -10,6 +10,7 @@ import {
 } from './workspace-access'
 import { boardAudit } from './workspace-collections'
 import { queueBoardEvent } from './notifications'
+import { workspaceAuthority, workspaceAuthorityCheck, type WorkspaceAuthority } from '../organizations/workspace-authority'
 
 async function audience(
   req: PayloadRequest,
@@ -30,19 +31,22 @@ async function audience(
   )
     owners.add(relationID(task.creator))
   const snapshot: unknown[] = []
+  const sites = new Set<string>()
   for (const id of boards) {
     const board = await req.payload.findByID({
       collection: 'task-boards',
       id,
-      req,
+      req: workspaceReq(req),
       depth: 0,
       overrideAccess: true,
     })
+    sites.add(board.platformSite || '')
+    if (sites.size > 1) reject('Tasks cannot be shared between separate site audiences.')
     if (board.archived) reject('Restore archived boards before sharing tasks.', 400)
     if (ids(task.boards).includes(id)) owners.add(relationID(board.owner))
     const members = await req.payload.find({
       collection: 'task-board-memberships',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
       depth: 0,
       pagination: false,
@@ -54,7 +58,7 @@ async function audience(
       const project = await req.payload.findByID({
         collection: 'task-projects',
         id: relationID(board.project),
-        req,
+        req: workspaceReq(req),
         depth: 0,
         overrideAccess: true,
       })
@@ -63,7 +67,7 @@ async function audience(
         owners.add(relationID(project.owner))
       const grants = await req.payload.find({
         collection: 'task-project-memberships',
-        req,
+        req: workspaceReq(req),
         depth: 0,
         overrideAccess: true,
         pagination: false,
@@ -87,6 +91,8 @@ async function audience(
       board.membershipRevision ?? 0,
     ])
   }
+  const authority = workspaceAuthority(req)
+  if (authority) snapshot.push({ authority })
   return { owners: [...owners], fingerprint: JSON.stringify(snapshot), snapshot }
 }
 
@@ -120,7 +126,15 @@ async function placementBatch(
     )
     bindings.push(sharingRequest.id, sharingRequest.fingerprint, sharingRequest.updatedAt)
   }
-  for (const item of snapshot as [
+  const audiences = snapshot.filter(item => {
+    if (item && typeof item === 'object' && 'authority' in item) {
+      const check = workspaceAuthorityCheck(item.authority as WorkspaceAuthority)
+      checks.push(check.query); bindings.push(...check.values)
+      return false
+    }
+    return true
+  })
+  for (const item of audiences as [
     string,
     number,
     string,

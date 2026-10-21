@@ -1,7 +1,7 @@
 import { workspaceReq } from './workspace-access'
 import { initializeStarterWorkspace } from './workspace-starter'
 import type { Endpoint, PayloadRequest } from 'payload'
-import { relationID } from './documents'
+import { relationID, isAdministrator } from './documents'
 import {
   reject,
   requireBoard,
@@ -35,7 +35,7 @@ export async function boardTasks(req: PayloadRequest, board: number) {
       depth: 0,
       limit: 100,
       page,
-      select: { id: true, startDate: true, dueDate: true, milestone: true },
+      select: { startDate: true, dueDate: true, milestone: true },
       where: {
         and: [
           { boards: { equals: board } },
@@ -303,7 +303,7 @@ export const workspaceEndpoints: Endpoint[] = [
               { archived: { not_equals: true } },
               { status: { not_equals: 'done' } },
               ...(access === true ? [] : [access || { id: { equals: -1 } }]),
-              ...(req.user?.role === 'administrator' ? [] : [boardWhere(req, 'read', 'boards.')]),
+              ...(isAdministrator(req) ? [] : [boardWhere(req, 'read', 'boards.')]),
             ],
           },
         })

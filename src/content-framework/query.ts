@@ -1,5 +1,6 @@
 import { publicAuthorIdentity } from '@design-system/payload-design-core'
 import { publicAuthors } from '../lib/public-attribution'
+import { CMS_DERIVED_READ } from '../organizations/cms-scope'
 import type { CollectionSlug, Payload, PayloadRequest, Where } from 'payload'
 import {
   defaultView,
@@ -80,6 +81,7 @@ export async function queryView(
       for (let p = 1; ; p++) {
         const series = await payload.find({
           collection: 'event-series' as CollectionSlug,
+          context: { contentOperation: 'published-event-candidates', [CMS_DERIVED_READ]: true },
           where: {
             or: [
               { recurring: { equals: true } },

@@ -3,6 +3,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { defaultOrganizationSeed, organizationSchema } from '../../src/organizations/schema'
 import { atomicSiteMutation, SiteConflictError } from '../../src/organizations/atomic'
 import { OrganizationRepository, SiteAccessError } from '../../src/organizations/repository'
+import { informationCategories, siteOperations } from '../../src/organizations/policy'
+import { legacyContentCapabilities } from '../../src/organizations/schema-v3'
+import { identityAuthority, claimRequest } from '../../src/organizations/identity-authority'
+import { authorityClaim } from '../../src/organizations/claims'
+import { cmsSiteContext } from '../../src/organizations/cms-scope'
+import type { PayloadRequest } from 'payload'
 
 const databases: DatabaseSync[] = []
 afterEach(() => {
@@ -74,6 +80,44 @@ function fixture() {
   return { sqlite, db, mutation }
 }
 describe('organization storage SQL and atomic writes', () => {
+  it('keeps concurrent site claims on request copies instead of mutating a shared account', async () => {
+    const { sqlite, db } = fixture()
+    for (const sql of legacyContentCapabilities) sqlite.exec(sql)
+    const root = await new OrganizationRepository(db, 1).createOrganization({ name: 'Fictional other network', siteName: 'Other', operationKey: 'request_context_other_12345' })
+    const user = { id: 2, role: 'designer' }
+    const request = (site: string) => ({ context: cmsSiteContext(site), payload: { db: { client: db } }, user }) as unknown as PayloadRequest
+    const first = request('default'), second = request(String(root.site))
+    await Promise.all([claimRequest(first), claimRequest(second)])
+    expect(first.user).not.toBe(user); expect(second.user).not.toBe(user)
+    expect(authorityClaim(user)).toBeNull()
+    expect(Object.getOwnPropertySymbols(first.user!)).toHaveLength(0)
+    expect(first.user!.platformAuthority).toEqual({ actor: user.id })
+    expect(authorityClaim(JSON.parse(JSON.stringify(first.user)))).toBeNull()
+    expect(authorityClaim({ ...first.user! })?.site).toBe('default')
+    expect(authorityClaim(first.user)?.site).toBe('default')
+    expect(authorityClaim(first.user)?.allowed.content).toContain('edit')
+    expect(authorityClaim(second.user)?.site).toBe(root.site)
+    expect(authorityClaim(second.user)?.allowed.content).toBeUndefined()
+  })
+  it('derives the same complete capability matrix as individual checks and fences cached revocations', async () => {
+    const { sqlite, db } = fixture()
+    for (const sql of legacyContentCapabilities) sqlite.exec(sql)
+    const repository = new OrganizationRepository(db, 2)
+    const matrix = await repository.authoritySet('default')
+    for (const category of informationCategories) for (const operation of siteOperations) {
+      expect(matrix.allowed[category]?.includes(operation) === true).toBe((await repository.authority('default', category, operation)).allowed)
+    }
+    expect(matrix.allowed.content).toContain('configure')
+    expect(matrix.allowed['form-submissions']).not.toContain('read')
+    const req = { context: cmsSiteContext('default'), payload: { db: { client: db } }, user: { id: 2, role: 'designer' } } as unknown as PayloadRequest
+    const first = await identityAuthority(req, req.user)
+    expect(first.allowed.content).toContain('edit')
+    sqlite.exec("INSERT INTO vc_member_restrictions VALUES('default',2,'content','edit')")
+    const second = await identityAuthority(req, req.user)
+    expect(second.epoch).toBeGreaterThan(first.epoch)
+    expect(second.allowed.content).not.toContain('edit')
+    expect(Object.isFrozen(second.allowed)).toBe(true)
+  })
   it('is additive and seed-repeat safe without claiming personal records', () => {
     const { sqlite } = fixture()
     for (const sql of [...organizationSchema, ...defaultOrganizationSeed]) sqlite.exec(sql)

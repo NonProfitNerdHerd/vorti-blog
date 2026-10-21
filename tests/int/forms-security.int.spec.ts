@@ -5,6 +5,7 @@ import { canForm, permittedSites } from '@/forms/access'
 import { allowsOperation } from '@/content-framework/permission-value'
 import { visibleAnswers, entrySchema } from '@/forms/redaction'
 import { constantEqual, fileSignature, hashToken, randomToken, readBoundedJSON, safeFilename } from '@/forms/security'
+import { fixtureUser } from '../helpers/authority'
 
 function database() {
   const sqlite = new DatabaseSync(':memory:')
@@ -50,7 +51,9 @@ describe('Forms security and site boundary', () => {
     expect(permittedSites(null, 'entries')).toEqual([])
     expect(canForm({ id: 1, role: 'editor' }, 'publish')).toBe(false)
     expect(canForm({ id: 1, role: 'administrator' }, 'entries', 'another-site')).toBe(false)
-    expect(canForm({ id: 1, role: 'editor', formAccess: [{ site: 'team', permissions: ['export'] }] }, 'export', 'team')).toBe(true)
+    expect(canForm({ id: 1, role: 'editor', formAccess: [{ site: 'team', permissions: ['export'] }] }, 'export', 'team')).toBe(false)
+    expect(canForm(fixtureUser('administrator', 1, 'team'), 'export', 'team')).toBe(true)
+    expect(canForm(fixtureUser('administrator', 1, 'team'), 'export', 'other')).toBe(false)
   })
   it('generates hashed, high entropy tokens and validates file signatures', async () => {
     const one = randomToken(), two = randomToken()

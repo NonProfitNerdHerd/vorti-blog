@@ -4,6 +4,8 @@ import { canForm, FORM_INTERNAL, FORM_SITE, internalRequest, siteAccess, type Fo
 import { PermanentActionError, type ActionHandlers } from './outbox'
 import type { FormPlatform } from './platform'
 import { hashToken } from './security'
+import { cmsSiteContext } from '../organizations/cms-scope'
+import { claimRequest } from '../organizations/identity-authority'
 
 const protectedField = { admin: { readOnly: true }, access: { create: ({ req }: { req: PayloadRequest }) => internalRequest(req), update: () => false } }
 export const cmsCollections: CollectionConfig[] = [
@@ -25,16 +27,13 @@ export const cmsCollections: CollectionConfig[] = [
   ],
 })) as CollectionConfig[]
 
-/** Posts currently belong to the default site; do not leak other sites into a global collection. */
+/** Approval is bound to this form's owning site; execution rechecks the approver there. */
 export async function authorizeCMSActions(definition: FormDefinition, req: PayloadRequest, site: string): Promise<FormDefinition> {
   const actions = definition.actions.filter(action => cmsMappings[action.kind])
   if (!actions.length) return definition
   if (!canForm(req.user as FormsUser, 'integrations', site)) throw new APIError('Integration permission is required to publish CMS record actions.', 403)
   for (const action of actions) {
     const issues = cmsActionIssues(action, definition)
-    if (action.kind === 'content') {
-      if (site !== FORM_SITE) issues.push('The Posts collection belongs to the default site. Register a scoped destination for another site.')
-    }
     if (issues.length) throw new ValidationError({ errors: issues.map(message => ({ path: 'definition', message: `${action.name}: ${message}` })) })
   }
   return { ...definition, actions: definition.actions.map(action => cmsMappings[action.kind] ? { ...action, config: { ...action.config, approvedBy: String(req.user!.id) } } : action) }
@@ -67,15 +66,16 @@ export function registerCMSHandlers(handlers: ActionHandlers, platform: FormPlat
       if (error instanceof APIError && error.status === 404) return null
       throw error
     })
-    if (!actor || !canForm(actor, 'integrations', job.site)) throw new PermanentActionError('The approving user no longer has integration permission. Republish the form with an authorized user.')
-    if (kind === 'content' && job.site !== FORM_SITE) throw new PermanentActionError('This Posts destination is not available in this site.')
+    if (!actor) throw new PermanentActionError('The approving user is unavailable.')
+    const req = await createLocalReq({ user: { ...actor, collection: 'users' }, context: { ...cmsSiteContext(job.site), formsOperation: 'cms-action', [FORM_INTERNAL]: true } }, payload)
+    await claimRequest(req, job.site)
+    if (!canForm(req.user, 'integrations', job.site)) throw new PermanentActionError('The approving user no longer has integration permission. Republish the form with an authorized user.')
     const entry = await platform.db.prepare('SELECT answers,schema_snapshot FROM form_submissions WHERE id=? AND site=? AND revision=?').bind(job.submission_i_d, job.site, job.revision).first<{ answers: string; schema_snapshot: string }>()
     if (!entry) throw new PermanentActionError('The original submission is unavailable.')
     const issues = cmsActionIssues(action, JSON.parse(entry.schema_snapshot))
     if (issues.length) throw new PermanentActionError(issues.join(' '))
     // Payload treats a symbol-only context as empty during nested Local API calls.
     // The named operation preserves it; authorization still requires the unforgeable symbol.
-    const req = await createLocalReq({ user: { ...actor, collection: 'users' }, context: { formsOperation: 'cms-action', [FORM_INTERNAL]: true } }, payload)
     const key = await hashToken(JSON.stringify([job.site, job.event_i_d, kind])), keyField = kind === 'content' ? 'formActionKey' : 'actionKey'
     const find = () => payload.find({ collection: collection as CollectionSlug, where: { and: [{ [keyField]: { equals: key } }, ...(kind === 'content' ? [] : [{ site: { equals: job.site } }])] }, limit: 1, depth: 0, draft: true, overrideAccess: false, req, context: req.context })
     if ((await find()).docs.length) return

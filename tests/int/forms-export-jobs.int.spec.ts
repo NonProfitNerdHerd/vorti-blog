@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DatabaseSync } from 'node:sqlite'
 import type { Payload } from 'payload'
 import { statements } from '@/migrations/20261012_200651_forms_module'
 import { generateExport } from '@/forms/exports'
 import type { FormPlatform } from '@/forms/platform'
+vi.mock('payload', async importOriginal => ({ ...await importOriginal<typeof import('payload')>(), createLocalReq: async (options: object, payload: Payload) => ({ ...options, payload }) }))
+vi.mock('@/organizations/identity-authority', async () => {
+  const { fixtureUser } = await import('../helpers/authority')
+  return { claimRequest: async (req: { user: { id: number; role: string } }, site: string) => { Object.assign(req.user, fixtureUser(req.user.role, req.user.id, site)) } }
+})
 
 function fixture() {
   const sqlite = new DatabaseSync(':memory:')

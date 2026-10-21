@@ -1,20 +1,22 @@
 import type { PayloadRequest, Where } from 'payload'
 import { taskWhere } from './workspace-access'
+import { authorityClaim } from '../organizations/claims'
+import { claimRequest } from '../organizations/identity-authority'
 
 export const reviewDocuments = ['posts', 'pages', 'design-templates', 'site-templates'] as const
 export type ReviewDocument = (typeof reviewDocuments)[number]
-export const isAdministrator = (req: PayloadRequest) => req.user?.role === 'administrator'
+export const isAdministrator = (req: PayloadRequest) => authorityClaim(req.user)?.operator === true
 export const relationID = (value: unknown): string =>
   String(value && typeof value === 'object' && 'id' in value ? value.id : (value ?? ''))
 
 export function canReviewCollection(req: PayloadRequest, collection: string) {
   if (!req.user || !reviewDocuments.includes(collection as ReviewDocument)) return false
-  return (
-    ['posts', 'pages'].includes(collection) || ['administrator', 'designer'].includes(req.user.role)
-  )
+  const content = authorityClaim(req.user)?.allowed.content
+  return !!content?.includes(['posts', 'pages'].includes(collection) ? 'read' : 'configure')
 }
 
 export async function reviewDocument(req: PayloadRequest, collection: string, id: string) {
+  await claimRequest(req)
   if (!canReviewCollection(req, collection)) return null
   try {
     return await req.payload.findByID({

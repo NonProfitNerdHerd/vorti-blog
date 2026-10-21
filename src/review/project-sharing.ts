@@ -4,12 +4,14 @@ import {
   boardRole,
   reject,
   requireBoard,
+  workspaceReq,
   workspaceDB,
   ensureWorkspaceGuards,
 } from './workspace-access'
 import { requireProject } from './project-access'
 import { boardAudit } from './workspace-collections'
 import { queueBoardEvent } from './notifications'
+import { workspaceAuthority, workspaceAuthorityCheck } from '../organizations/workspace-authority'
 
 type Check = { query: string; values: (string | number)[] }
 async function changeSnapshot(
@@ -21,10 +23,12 @@ async function changeSnapshot(
   const board = await req.payload.findByID({
     collection: 'task-boards',
     id: boardID,
-    req,
+    req: workspaceReq(req),
     overrideAccess: true,
     depth: 0,
   })
+  const destination = await req.payload.findByID({ collection: 'task-projects', id: projectID, req: workspaceReq(req), overrideAccess: true, depth: 0 })
+  if ((board.platformSite || null) !== (destination.platformSite || null)) reject('Boards cannot move between site audiences.')
   const tasks = await req.payload.find({
     collection: 'review-tasks',
     req,
@@ -56,12 +60,14 @@ async function changeSnapshot(
   })
   const projects = new Set<number>([projectID])
   const inheritedSources = new Set<number>()
+  const authority = workspaceAuthority(req)
+  if (authority) { checks.push(workspaceAuthorityCheck(authority)); fingerprint.push({ authority }) }
   if (board.project) projects.add(Number(relationID(board.project)))
   for (const id of boards) {
     const item = await req.payload.findByID({
       collection: 'task-boards',
       id,
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
       depth: 0,
     })
@@ -83,7 +89,7 @@ async function changeSnapshot(
     if (item.project && item.inheritProject) inheritedSources.add(Number(relationID(item.project)))
     const members = await req.payload.find({
       collection: 'task-board-memberships',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
       depth: 0,
       pagination: false,
@@ -107,7 +113,7 @@ async function changeSnapshot(
     const project = await req.payload.findByID({
       collection: 'task-projects',
       id,
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
       depth: 0,
     })
@@ -126,7 +132,7 @@ async function changeSnapshot(
     })
     const members = await req.payload.find({
       collection: 'task-project-memberships',
-      req,
+      req: workspaceReq(req),
       overrideAccess: true,
       depth: 0,
       pagination: false,

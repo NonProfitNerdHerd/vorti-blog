@@ -1,16 +1,22 @@
 import type { Access, PayloadRequest, Where } from 'payload'
+import { authorityClaim, type ClaimedUser } from '../organizations/claims'
+import type { InformationCategory, SiteOperation } from '../organizations/policy'
 
 export const FORM_SITE = 'default'
 export type FormPermission = 'create' | 'edit' | 'publish' | 'entries' | 'sensitive' | 'export' | 'integrations' | 'admin'
-export interface FormsUser { id: number | string; role?: string; formAccess?: { site: string; permissions: FormPermission[] }[] }
-const roleDefaults: Record<string, FormPermission[]> = {
-  administrator: ['create', 'edit', 'publish', 'entries', 'sensitive', 'export', 'integrations', 'admin'],
-  designer: ['create', 'edit', 'publish'], editor: ['entries'],
+export interface FormsUser extends ClaimedUser { role?: string; platformForms?: unknown; formAccess?: unknown }
+export const formCapabilities: Record<FormPermission, [InformationCategory, SiteOperation]> = {
+  create: ['forms', 'edit'], edit: ['forms', 'edit'], publish: ['forms', 'publish'],
+  entries: ['form-submissions', 'read'], sensitive: ['form-submissions', 'configure'],
+  export: ['form-submissions', 'export'], integrations: ['forms', 'configure'], admin: ['forms', 'configure'],
 }
 export function permittedSites(user: FormsUser | null | undefined, permission: FormPermission): string[] {
   if (!user) return []
-  return [...new Set([...(roleDefaults[user.role || '']?.includes(permission) ? [FORM_SITE] : []),
-    ...(user.formAccess || []).filter(item => item.permissions?.includes(permission)).map(item => item.site)])]
+  const claim = authorityClaim(user), [category, operation] = formCapabilities[permission]
+  if (claim) return claim.allowed[category]?.includes(operation) ? [claim.site] : []
+  // Serialized UI hints never authorize server operations. HTTP clients cannot forge the Symbol.
+  if (typeof window !== 'undefined' && Array.isArray(user.platformForms)) return user.platformForms.filter(item => typeof item?.site === 'string' && Array.isArray(item.permissions) && item.permissions.includes(permission)).map(item => item.site)
+  return []
 }
 export function canForm(user: FormsUser | null | undefined, permission: FormPermission, site = FORM_SITE): boolean {
   return permittedSites(user, permission).includes(site)
