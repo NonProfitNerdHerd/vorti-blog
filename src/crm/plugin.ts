@@ -3,13 +3,18 @@ import { ContactRepository } from './contacts'
 import { OrganizationRepository } from '../organizations/repository'
 import type { ConstituentRole } from './contact-model'
 import { readBoundedJSON } from '../forms/security'
+import { financeEndpoints } from './finance-endpoints'
 
 export interface CRMPlatform {
   db: D1Database
   storage: R2Bucket
 }
-function errorResponse(error: unknown): Response {
-  if (error instanceof Error && /no such table:.*vc_/i.test(error.message)) return Response.json({ message: 'CRM database migrations are pending. Contact an installation operator.' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } })
+export function errorResponse(error: unknown): Response {
+  if (error instanceof Error && /no such table:.*vc_/i.test(error.message))
+    return Response.json(
+      { message: 'CRM database migrations are pending. Contact an installation operator.' },
+      { status: 503, headers: { 'Cache-Control': 'private, no-store' } },
+    )
   const status =
     typeof error === 'object' && error && 'status' in error ? Number(error.status) : 400
   const safeMessage =
@@ -168,7 +173,13 @@ export const crmModule =
     }
     return {
       ...config,
-      endpoints: [...(config.endpoints || []), contacts, mutations, context],
+      endpoints: [
+        ...(config.endpoints || []),
+        contacts,
+        mutations,
+        context,
+        ...financeEndpoints(platform.db, errorResponse),
+      ],
       admin: {
         ...config.admin,
         components: {

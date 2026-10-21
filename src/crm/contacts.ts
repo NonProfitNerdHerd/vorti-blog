@@ -230,12 +230,14 @@ export class ContactRepository {
         input.after.label.length > 250)
     )
       throw new Error('Invalid page cursor.')
+    const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`
+    if (new TextEncoder().encode(pattern).length > 50) throw new Error('Search contains too many wildcard characters.')
     const where = `a.site_id=? AND c.organization_id=? AND a.archived=0 AND c.archived=0
       AND c.label LIKE ? ESCAPE '\\' ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''}`
     const parameters: Array<string | number> = [
       site.id,
       site.organization_id,
-      `%${search.replace(/[\\%_]/g, '\\$&')}%`,
+      pattern,
       ...(input.role ? [input.role] : []),
     ]
     const total = await this.db

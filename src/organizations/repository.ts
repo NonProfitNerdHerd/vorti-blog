@@ -65,7 +65,9 @@ export class OrganizationRepository {
   }
   async isOperator(): Promise<boolean> {
     return !!(await this.db
-      .prepare('SELECT user_id FROM vc_installation_operators WHERE user_id=?')
+      .prepare(
+        'SELECT user_id FROM vc_installation_operators WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=vc_installation_operators.user_id AND a.disabled=1)',
+      )
       .bind(this.actor)
       .first())
   }
@@ -88,8 +90,10 @@ export class OrganizationRepository {
     const target = await this.site(site)
     const organization = target.organization_id
     const authority = await this.db
-      .prepare('SELECT authority_revision FROM vc_organizations WHERE id=?')
-      .bind(organization)
+      .prepare(
+        'SELECT authority_revision FROM vc_organizations WHERE id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status WHERE user_id=? AND disabled=1)',
+      )
+      .bind(organization, this.actor)
       .first<{ authority_revision: number }>()
     if (!authority) throw new SiteAccessError()
     const parameters = [site, this.actor, organization, category, operation]
@@ -108,16 +112,17 @@ export class OrganizationRepository {
     while (true) {
       const page = await this.db
         .prepare(
-          `${scopeSQL} SELECT site_id,role FROM members WHERE site_id>? ORDER BY site_id LIMIT 100`,
+          `${scopeSQL} SELECT m.site_id,m.role,EXISTS(SELECT 1 FROM vc_member_restrictions r JOIN args p ON r.category=p.category AND r.operation=p.operation WHERE r.site_id=m.site_id AND r.user_id=m.user_id) AS restricted FROM members m WHERE m.site_id>? ORDER BY m.site_id LIMIT 100`,
         )
         .bind(...parameters, cursor)
-        .all<{ site_id: string; role: SiteRole }>()
+        .all<{ site_id: string; role: SiteRole; restricted: number }>()
       snapshot.memberships.push(
         ...page.results.map((member) => ({
           user: String(this.actor),
           site: member.site_id,
           role: member.role,
           active: true,
+          denied: member.restricted ? [{ category, operation }] : [],
         })),
       )
       if (page.results.length < 100) break
@@ -398,6 +403,22 @@ export class OrganizationRepository {
       .prepare('SELECT role,active FROM vc_site_memberships WHERE site_id=? AND user_id=?')
       .bind(site.id, input.user)
       .first<{ role: SiteRole; active: number }>()
+    const rank = { reader: 0, editor: 1, administrator: 2 }
+    const expands =
+      input.active && (!before || !before.active || rank[input.role] > rank[before.role])
+    // Identity administration alone cannot delegate access to a protected finance or communications domain.
+    if (expands && !(await this.isOperator())) {
+      const operations: SiteOperation[] =
+        input.role === 'administrator'
+          ? [...siteOperations]
+          : input.role === 'editor'
+            ? ['read', 'edit']
+            : ['read']
+      for (const category of informationCategories) {
+        await this.require(site.id, category, 'configure')
+        for (const operation of operations) await this.require(site.id, category, operation)
+      }
+    }
     const reducingLastAdministrator =
       before?.role === 'administrator' &&
       before.active === 1 &&
@@ -414,7 +435,7 @@ export class OrganizationRepository {
       afterWrite.push(
         this.db
           .prepare(
-            "INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM vc_site_memberships WHERE site_id=? AND role='administrator' AND active=1) THEN 1 ELSE 0 END",
+            "INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM vc_site_memberships m WHERE m.site_id=? AND m.role='administrator' AND m.active=1 AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=m.user_id AND a.disabled=1)) THEN 1 ELSE 0 END",
           )
           .bind(`${input.operationKey}:administrator`, site.id),
         this.db
@@ -444,6 +465,183 @@ export class OrganizationRepository {
         .bind(new Date().toISOString(), site.id, input.expectedRevision),
       afterWrite,
       result: { site: site.id, user: input.user, revision: input.expectedRevision + 1 },
+    })
+  }
+  /** Restrictions can only narrow a membership's role. Configure remains separately checked. */
+  async setRestrictions(input: {
+    site: string
+    user: number
+    denied: Array<{ category: InformationCategory; operation: SiteOperation }>
+    expectedRevision: number
+    operationKey: string
+  }): Promise<Record<string, unknown>> {
+    if (
+      !Number.isSafeInteger(input.user) ||
+      input.user < 1 ||
+      !Array.isArray(input.denied) ||
+      input.denied.length > 50 ||
+      input.denied.some(
+        (item) =>
+          !informationCategories.includes(item.category) ||
+          !siteOperations.includes(item.operation),
+      )
+    )
+      throw new Error('Choose valid membership capabilities.')
+    const denied = Array.from(
+      new Map(input.denied.map((item) => [`${item.category}:${item.operation}`, item])).values(),
+    ).sort((a, b) => `${a.category}:${a.operation}`.localeCompare(`${b.category}:${b.operation}`))
+    const site = await this.require(input.site, 'identity', 'configure')
+    const member = await this.db
+      .prepare('SELECT role,active FROM vc_site_memberships WHERE site_id=? AND user_id=?')
+      .bind(site.id, input.user)
+      .first<{ role: SiteRole; active: number }>()
+    if (!member) throw new SiteAccessError()
+    // A scoped administrator cannot lock out administration, including through capability denial.
+    if (
+      member.role === 'administrator' &&
+      denied.some((item) => item.category === 'identity' && item.operation === 'configure')
+    )
+      throw new Error('Use the membership role to change site administration.')
+    const before = (
+      await this.db
+        .prepare(
+          'SELECT category,operation FROM vc_member_restrictions WHERE site_id=? AND user_id=? ORDER BY category,operation',
+        )
+        .bind(site.id, input.user)
+        .all<{ category: InformationCategory; operation: SiteOperation }>()
+    ).results
+    if (!(await this.isOperator())) {
+      const changed = [...before, ...denied].filter(
+        (item) =>
+          before.some(
+            (old) => old.category === item.category && old.operation === item.operation,
+          ) !==
+          denied.some(
+            (next) => next.category === item.category && next.operation === item.operation,
+          ),
+      )
+      for (const category of new Set(changed.map((item) => item.category)))
+        await this.require(site.id, category, 'configure')
+      for (const removed of before.filter(
+        (item) =>
+          !denied.some(
+            (next) => next.category === item.category && next.operation === item.operation,
+          ),
+      ))
+        await this.require(site.id, removed.category, removed.operation)
+    }
+    return atomicSiteMutation(this.db, {
+      actor: this.actor,
+      operationKey: input.operationKey,
+      fingerprint: await fingerprint({
+        action: 'membership.restrict',
+        site: site.id,
+        user: input.user,
+        denied,
+        revision: input.expectedRevision,
+      }),
+      write: this.db
+        .prepare(
+          'UPDATE vc_sites SET revision=revision+1,updated_at=? WHERE id=? AND revision=? AND archived=0',
+        )
+        .bind(new Date().toISOString(), site.id, input.expectedRevision),
+      afterWrite: [
+        ...this.fence(input.operationKey, site.organization_id, site.authorityRevision),
+        this.db
+          .prepare('DELETE FROM vc_member_restrictions WHERE site_id=? AND user_id=?')
+          .bind(site.id, input.user),
+        ...denied.map((item) =>
+          this.db
+            .prepare(
+              'INSERT INTO vc_member_restrictions(site_id,user_id,category,operation) VALUES(?,?,?,?)',
+            )
+            .bind(site.id, input.user, item.category, item.operation),
+        ),
+        this.audit(
+          input.operationKey,
+          site.organization_id,
+          site.id,
+          'membership.capabilities-changed',
+          'membership',
+          `${site.id}:${input.user}`,
+          before,
+          denied,
+        ),
+      ],
+      result: { site: site.id, user: input.user, revision: input.expectedRevision + 1 },
+    })
+  }
+  /** Deactivation retains authorship, credentials and immutable history. Only operators manage accounts. */
+  async setAccountStatus(input: {
+    user: number
+    disabled: boolean
+    expectedRevision: number
+    reason: string
+    operationKey: string
+  }): Promise<Record<string, unknown>> {
+    if (!(await this.isOperator())) throw new SiteAccessError()
+    if (!Number.isSafeInteger(input.user) || input.user < 1 || typeof input.disabled !== 'boolean')
+      throw new Error('Choose a valid account.')
+    const reason = text(input.reason, 2000)
+    const before = await this.db
+      .prepare('SELECT disabled,revision FROM vc_account_status WHERE user_id=?')
+      .bind(input.user)
+      .first()
+    const now = new Date().toISOString()
+    return atomicSiteMutation(this.db, {
+      actor: this.actor,
+      operationKey: input.operationKey,
+      fingerprint: await fingerprint({ action: 'account.status', ...input, reason }),
+      write:
+        input.expectedRevision === 0
+          ? this.db
+              .prepare(
+                'INSERT INTO vc_account_status(user_id,disabled,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING',
+              )
+              .bind(input.user, input.disabled ? 1 : 0, now)
+          : this.db
+              .prepare(
+                'UPDATE vc_account_status SET disabled=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?',
+              )
+              .bind(input.disabled ? 1 : 0, now, input.user, input.expectedRevision),
+      afterWrite: [
+        this.db
+          .prepare(
+            'INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM vc_installation_operators o WHERE o.user_id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=o.user_id AND a.disabled=1)) THEN 1 ELSE 0 END',
+          )
+          .bind(`${input.operationKey}:operator`, this.actor),
+        this.db
+          .prepare('DELETE FROM vc_write_guards WHERE operation_key=?')
+          .bind(`${input.operationKey}:operator`),
+        this.db
+          .prepare(
+            `INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,CASE WHEN NOT EXISTS(
+          SELECT 1 FROM vc_site_memberships m WHERE m.user_id=? AND m.active=1 AND m.role='administrator'
+          AND NOT EXISTS(SELECT 1 FROM vc_site_memberships other WHERE other.site_id=m.site_id AND other.active=1 AND other.role='administrator'
+            AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=other.user_id AND a.disabled=1))) THEN 1 ELSE 0 END`,
+          )
+          .bind(`${input.operationKey}:site-admin`, input.user),
+        this.db
+          .prepare('DELETE FROM vc_write_guards WHERE operation_key=?')
+          .bind(`${input.operationKey}:site-admin`),
+        this.db
+          .prepare(
+            'INSERT INTO vc_platform_audit(id,actor_id,action,record_type,record_id,before_value,after_value,reason,operation_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+          )
+          .bind(
+            crypto.randomUUID(),
+            this.actor,
+            'account.status-changed',
+            'user',
+            String(input.user),
+            before ? JSON.stringify(before) : null,
+            JSON.stringify({ disabled: input.disabled }),
+            reason,
+            input.operationKey,
+            now,
+          ),
+      ],
+      result: { user: input.user, disabled: input.disabled, revision: input.expectedRevision + 1 },
     })
   }
   /** Every policy/membership/sharing mutation must advance the organization's authority revision. */

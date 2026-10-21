@@ -26,6 +26,8 @@ export interface SiteMembership {
   site: string
   role: SiteRole
   active: boolean
+  /** Optional restrictions narrow the role, never grant a capability beyond it. */
+  denied?: Array<{ category: InformationCategory; operation: SiteOperation }>
 }
 export interface AuthorityRule {
   site: string
@@ -130,7 +132,13 @@ export function evaluateSiteAuthority(input: {
   if (constraint)
     return { allowed: false, reason: 'ancestor-constraint', controllingSite: constraint.id }
   const memberships = snapshot.memberships.filter(
-    (member) => member.active && member.user === user && roleAllows(member.role, operation),
+    (member) =>
+      member.active &&
+      member.user === user &&
+      roleAllows(member.role, operation) &&
+      !member.denied?.some(
+        (denial) => denial.category === category && denial.operation === operation,
+      ),
   )
   if (memberships.some((member) => member.site === target.id))
     return { allowed: true, reason: 'local-membership', controllingSite: target.id }

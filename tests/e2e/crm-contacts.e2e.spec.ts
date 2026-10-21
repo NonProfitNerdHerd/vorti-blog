@@ -4,6 +4,7 @@ test.use({ actionTimeout: 20000 })
 test.describe.configure({ mode: 'serial' })
 const browserFirstName = 'Fictional Browser ' + Date.now()
 const browserContact = browserFirstName + ' Contact'
+
 test('CRM contact creation, validation and persisted shared-profile editing', async ({ page }) => {
   const login = await page.request.post('/api/users/login', {
     timeout: 120000,
@@ -97,4 +98,48 @@ test('an authorized reviewer resolves a correction without rewriting the profile
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(dialog).not.toBeVisible()
   await expect(page.getByRole('button', { name: browserContact, exact: true })).toHaveCount(0)
+})
+
+test('staff record a gift, audit a refund and preserve the original amount after reload', async ({
+  page,
+}) => {
+  const login = await page.request.post('/api/users/login', {
+    timeout: 120000,
+    data: { email: 'dev@payloadcms.com', password: 'test' },
+  })
+  expect(login.ok()).toBe(true)
+  await page.goto('/admin/crm')
+  await page.getByRole('button', { name: browserContact, exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('tab', { name: 'Gifts', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Record gift', exact: true }).click()
+  const fundName = 'Fictional Browser Fund ' + Date.now()
+  await dialog.getByLabel('New fund name', { exact: true }).fill(fundName)
+  await dialog.getByRole('button', { name: 'Create fund', exact: true }).click()
+  await dialog
+    .getByRole('combobox', { name: 'Fund', exact: true })
+    .selectOption({ label: fundName })
+  await dialog.getByLabel('Amount', { exact: true }).fill('125.00')
+  await dialog.getByLabel('Received on', { exact: true }).fill('2026-10-20')
+  await dialog.getByLabel('Reference', { exact: true }).fill('Fictional browser donation')
+  await dialog.getByRole('button', { name: 'Save gift', exact: true }).click()
+  await expect(dialog.getByRole('status')).toContainText('Gift was recorded.')
+  await dialog.getByRole('button', { name: '2026-10-20', exact: true }).click()
+  await dialog.getByLabel('Signed amount (refunds are negative)', { exact: true }).fill('-25.00')
+  await dialog.getByLabel('Reason', { exact: true }).fill('Fictional partial refund review')
+  await dialog.getByRole('button', { name: 'Record adjustment', exact: true }).click()
+  await expect(
+    dialog.getByRole('row').filter({ hasText: 'Fictional partial refund review' }),
+  ).toContainText('USD -25.00')
+  await dialog.getByRole('button', { name: 'Close gift', exact: true }).click()
+  await page.reload()
+  await page.getByRole('button', { name: browserContact, exact: true }).click()
+  await dialog.getByRole('tab', { name: 'Gifts', exact: true }).click()
+  const giftRow = dialog.getByRole('row').filter({ hasText: '2026-10-20' })
+  await expect(giftRow).toContainText('USD 125.00')
+  await expect(giftRow).toContainText('USD 100.00')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true)
 })

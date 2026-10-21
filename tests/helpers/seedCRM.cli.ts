@@ -3,6 +3,7 @@ import { getPayload } from 'payload'
 import { sql } from '@payloadcms/db-d1-sqlite'
 import { organizationSchema, defaultOrganizationSeed } from '../../src/organizations/schema'
 import { contactSchemaV1 } from '../../src/crm/contact-schema-v1'
+import { financeSchemaV1 } from '../../src/crm/finance-schema-v1'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
 const allowed = path.resolve('.wrangler') + path.sep
@@ -31,7 +32,7 @@ if (!reader.docs.length)
       role: 'editor',
     },
   })
-for (const statement of [...organizationSchema, ...defaultOrganizationSeed, ...contactSchemaV1])
+for (const statement of [...organizationSchema, ...defaultOrganizationSeed, ...contactSchemaV1, ...financeSchemaV1])
   await payload.db.drizzle.run(sql.raw(statement))
 console.log('Fictional CRM review accounts and isolated schema ready.')
 process.exit(0)

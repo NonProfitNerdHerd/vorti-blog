@@ -37,3 +37,12 @@ The initial search found 216 matching lines involving administrator shortcuts, t
 - [ ] Review migration SQL and record recovery point before production apply.
 
 The new foundation repository currently has no registered public endpoint or custom admin screen. Its actor must come from authenticated server context, never request JSON. This keeps partial integration from enabling unsafe tenant onboarding.
+
+## Authority and financial checkpoint
+
+- Membership restrictions now narrow individual category/operation capabilities. Scoped identity administration cannot remove its own finance restrictions or delegate broader roles than it can exercise. Ancestor ceilings and revision fences still apply.
+- Operator-controlled account deactivation preserves user IDs and history. Request-time guards cover registered custom endpoints, native/Local API collection operations, global reads/updates and login. A server-only Symbol permits migration tooling through partially upgraded authority schemas; HTTP JSON cannot impersonate it. Bootstrap without organization tables remains supported. Background jobs that omit authenticated actor context still need the job-specific reauthorization work above.
+- Last-administrator checks exclude disabled accounts. This does not yet replace legacy `role === 'administrator'` shortcuts with scoped capabilities across CMS, Forms, Tasks or account-management interfaces.
+- Finance services use explicit chapter scope, independent finance capabilities, current authority checks and atomic audit/receipt writes. Contact identity access alone does not allow gift access. Funds must belong to the gift's chapter, including a database check against races; original gift amounts and allocations remain immutable.
+
+Tenant onboarding and context switching remain unexposed. The full tenant-isolation release gate is still open; these guards do not make all existing systems site-aware.

@@ -4,6 +4,7 @@ import { Gutter, useConfig } from '@payloadcms/ui'
 import { constituentRoles, type ContactProfile } from './contact-model'
 import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
+import { ContactGifts } from './ContactGifts'
 import './workspace.css'
 
 type Detail = ContactSummary & {
@@ -74,7 +75,7 @@ export function ContactWorkspace() {
     operation.current = null
     setError('Your CRM access changed. Reload the workspace to check your current permissions.')
   }, [])
-  const [tab, setTab] = useState<'profile' | 'chapter' | 'corrections'>('profile'),
+  const [tab, setTab] = useState<'profile' | 'chapter' | 'corrections' | 'gifts'>('profile'),
     [tagInput, setTagInput] = useState('')
   const read = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...init, cache: 'no-store' }),
@@ -213,7 +214,7 @@ export function ContactWorkspace() {
   }
   const editable =
     editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
-  const switchTab = (nextTab: 'profile' | 'chapter' | 'corrections') => {
+  const switchTab = (nextTab: 'profile' | 'chapter' | 'corrections' | 'gifts') => {
     if (
       saving ||
       !editor ||
@@ -231,7 +232,7 @@ export function ContactWorkspace() {
     operation.current = null
   }
   const save = async () => {
-    if (!site || !editor || saving || tab === 'corrections') return
+    if (!site || !editor || saving || tab === 'corrections' || tab === 'gifts') return
     setSaving(true)
     setSaveError('')
     operation.current ||= crypto.randomUUID()
@@ -468,9 +469,11 @@ export function ContactWorkspace() {
               >
                 Corrections
               </button>
+              <button type="button" role="tab" aria-selected={tab === 'gifts'} onClick={() => switchTab('gifts')}>Gifts</button>
             </div>
           )}
           <div className="vc-crm-dialog-body">
+            {tab === 'gifts' && editor && editor !== 'new' && site && <ContactGifts api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
             {tab === 'corrections' && editor && editor !== 'new' && site && (
               <ContactCorrections
                 api={api}
@@ -779,7 +782,7 @@ export function ContactWorkspace() {
             <button type="button" disabled={saving} onClick={close}>
               Cancel
             </button>
-            {tab !== 'corrections' && (
+            {tab !== 'corrections' && tab !== 'gifts' && (
               <button
                 className="vc-crm-primary"
                 type="submit"

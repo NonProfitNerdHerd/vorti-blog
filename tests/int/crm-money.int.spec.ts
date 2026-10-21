@@ -5,6 +5,7 @@ import {
   receivedTotals,
   validateAllocations,
   type GiftLedgerRecord,
+  type Money,
 } from '../../src/crm/money'
 const usd = { code: 'USD', exponent: 2 }
 describe('CRM exact currency arithmetic', () => {
@@ -17,6 +18,9 @@ describe('CRM exact currency arithmetic', () => {
       expect(() => parseMoney(amount, usd)).toThrow()
   })
   it('keeps currencies separate and never adds floating point values', () => {
+    expect(() => addMoney([{ currency: 'USD', minorUnits: 100 } as unknown as Money])).toThrow(
+      'canonical',
+    )
     expect(
       addMoney([
         parseMoney('0.1', usd),

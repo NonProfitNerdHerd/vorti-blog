@@ -6,6 +6,9 @@ import { getPayload, createLocalReq } from 'payload'
 import { sql } from '@payloadcms/db-d1-sqlite'
 import * as foundation from '../../src/migrations/20261020_213000_organization_foundation'
 import * as contacts from '../../src/migrations/20261020_222000_crm_contacts'
+import * as restrictions from '../../src/migrations/20261020_233000_authority_restrictions'
+import * as finance from '../../src/migrations/20261020_234000_crm_finance'
+import { PLATFORM_MIGRATION } from '../../src/organizations/account-guards'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
 if (
@@ -32,7 +35,7 @@ const admin = (
   })
 ).docs[0]
 if (!admin) throw new Error('Seed the isolated workspace account first.')
-const req = await createLocalReq({ user: admin }, payload)
+const req = await createLocalReq({ user: admin, context: { [PLATFORM_MIGRATION]: true } }, payload)
 for (const collection of ['posts', 'pages'] as const) {
   const slug = 'fictional-crm-migration-preservation'
   if (
@@ -79,6 +82,8 @@ type Statement = {
 const migrations = [
   { name: '20261020_213000_organization_foundation', ...foundation },
   { name: '20261020_222000_crm_contacts', ...contacts },
+  { name: '20261020_233000_authority_restrictions', ...restrictions },
+  { name: '20261020_234000_crm_finance', ...finance },
 ]
 const binding = payload.db.drizzle.$client as D1Database
 const selected = migrations.map((migration) => ({

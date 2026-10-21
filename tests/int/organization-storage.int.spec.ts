@@ -301,4 +301,107 @@ describe('organization storage SQL and atomic writes', () => {
     ).toBe('ancestor-oversight')
     expect(queries).toBeLessThanOrEqual(10)
   })
+  it('narrows capabilities independently of roles and invalidates decisions immediately', async () => {
+    const { sqlite, db } = fixture()
+    const manager = new OrganizationRepository(db, 1),
+      reader = new OrganizationRepository(db, 3)
+    expect((await reader.authority('default', 'finances', 'read')).allowed).toBe(true)
+    await manager.setRestrictions({
+      site: 'default',
+      user: 3,
+      denied: [{ category: 'finances', operation: 'read' }],
+      expectedRevision: 1,
+      operationKey: 'restrict_finance_1234567',
+    })
+    expect((await reader.authority('default', 'finances', 'read')).allowed).toBe(false)
+    expect((await reader.authority('default', 'identity', 'read')).allowed).toBe(true)
+    await manager.setRestrictions({
+      site: 'default',
+      user: 3,
+      denied: [],
+      expectedRevision: 2,
+      operationKey: 'restore_finance_1234567',
+    })
+    expect((await reader.authority('default', 'finances', 'read')).allowed).toBe(true)
+    expect((await reader.authority('default', 'finances', 'export')).allowed).toBe(false)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM vc_platform_audit').get()?.n).toBe(2)
+    await expect(
+      reader.setRestrictions({
+        site: 'default',
+        user: 3,
+        denied: [],
+        expectedRevision: 3,
+        operationKey: 'self_elevate_1234567890',
+      }),
+    ).rejects.toBeInstanceOf(SiteAccessError)
+  })
+  it('deactivates accounts without deleting history and prevents administrator lockout', async () => {
+    const { sqlite, db } = fixture()
+    const manager = new OrganizationRepository(db, 1),
+      reader = new OrganizationRepository(db, 3)
+    const mutation = {
+      user: 3,
+      disabled: true,
+      expectedRevision: 0,
+      reason: 'Fictional account offboarding',
+      operationKey: 'account_deactivate_12345',
+    }
+    const first = await manager.setAccountStatus(mutation)
+    expect(await manager.setAccountStatus(mutation)).toEqual(first)
+    await expect(reader.authority('default', 'identity', 'read')).rejects.toBeInstanceOf(
+      SiteAccessError,
+    )
+    expect(sqlite.prepare('SELECT count(*) AS n FROM users').get()?.n).toBe(3)
+    await manager.setAccountStatus({
+      ...mutation,
+      disabled: false,
+      expectedRevision: 1,
+      operationKey: 'account_restore_12345678',
+    })
+    expect((await reader.authority('default', 'identity', 'read')).allowed).toBe(true)
+    await expect(
+      manager.setAccountStatus({ ...mutation, user: 1, operationKey: 'last_operator_123456789' }),
+    ).rejects.toBeInstanceOf(SiteConflictError)
+    expect(await manager.isOperator()).toBe(true)
+    await expect(
+      reader.setAccountStatus({ ...mutation, user: 2, operationKey: 'reader_deactivate_123456' }),
+    ).rejects.toBeInstanceOf(SiteAccessError)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM vc_platform_audit').get()?.n).toBe(2)
+  })
+  it('does not let identity administrators bypass financial restrictions or delegate them away', async () => {
+    const { sqlite, db } = fixture()
+    sqlite.exec("UPDATE vc_site_memberships SET role='administrator' WHERE user_id=2")
+    const operator = new OrganizationRepository(db, 1),
+      scoped = new OrganizationRepository(db, 2)
+    await operator.setRestrictions({
+      site: 'default',
+      user: 2,
+      denied: [{ category: 'finances', operation: 'read' }],
+      expectedRevision: 1,
+      operationKey: 'restricted_admin_1234567',
+    })
+    await expect(
+      scoped.setRestrictions({
+        site: 'default',
+        user: 2,
+        denied: [],
+        expectedRevision: 2,
+        operationKey: 'self_bypass_finance_1234',
+      }),
+    ).rejects.toBeInstanceOf(SiteAccessError)
+    await expect(
+      scoped.setMembership({
+        site: 'default',
+        user: 3,
+        role: 'administrator',
+        active: true,
+        expectedRevision: 2,
+        operationKey: 'delegate_bypass_1234567',
+      }),
+    ).rejects.toBeInstanceOf(SiteAccessError)
+    expect(sqlite.prepare('SELECT revision FROM vc_sites').get()?.revision).toBe(2)
+    expect(sqlite.prepare('SELECT role FROM vc_site_memberships WHERE user_id=3').get()?.role).toBe(
+      'reader',
+    )
+  })
 })

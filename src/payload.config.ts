@@ -13,6 +13,7 @@ import { searchPlugin } from '@payloadcms/plugin-search'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { formsModule } from './forms/plugin'
 import { crmModule } from './crm/plugin'
+import { accountStatusGuards } from './organizations/account-guards'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
@@ -188,6 +189,7 @@ export default buildConfig({
     // Generation, production builds and Workers must register the same admin components.
     contentWorkspace({ enabled: true }),
     documentReview,
+    accountStatusGuards(cloudflare.env.D1),
   ],
 })
 

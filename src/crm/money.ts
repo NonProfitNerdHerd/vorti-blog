@@ -10,6 +10,7 @@ export interface CurrencyDefinition {
 const minorPattern = /^-?(0|[1-9][0-9]*)$/
 export function assertMoney(value: Money): void {
   if (
+    !value || typeof value !== 'object' || typeof value.currency !== 'string' || typeof value.minorUnits !== 'string' ||
     !/^[A-Z]{3}$/.test(value.currency) ||
     !minorPattern.test(value.minorUnits) ||
     value.minorUnits === '-0' ||
