@@ -1,6 +1,7 @@
 import { createLocalReq, type Endpoint, type Payload } from 'payload'
 import { cmsSiteContext } from '../organizations/cms-scope'
-import { claimRequest } from '../organizations/identity-authority'
+import { claimRequest, confirmRequestAuthority } from '../organizations/identity-authority'
+import { mutationFence } from '../organizations/mutation-guards'
 import type { FormField } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_INTERNAL, type FormsUser } from './access'
 import type { FormPlatform } from './platform'
@@ -50,7 +51,8 @@ export async function generateExport(platform: FormPlatform, payload: Payload, s
     objectKey = `form-private/${site}/exports/${id}/${worker}.${job.format}`
     await platform.storage.put(objectKey, bytesOut, { httpMetadata: { contentType: mime[job.format] } })
     await authorize()
-    const completed = await platform.db.prepare("UPDATE form_exports SET status='complete', object_key=?, expires_at=?, error=NULL, updated_at=? WHERE id=? AND site=? AND status='running' AND json_extract(filters,'$.worker')=?").bind(objectKey, new Date(Date.now() + 86400000).toISOString(), new Date().toISOString(), id, site, worker).run()
+    const completedBatch = await platform.db.batch([...(await mutationFence(jobReq)), platform.db.prepare("UPDATE form_exports SET status='complete', object_key=?, expires_at=?, error=NULL, updated_at=? WHERE id=? AND site=? AND status='running' AND json_extract(filters,'$.worker')=?").bind(objectKey, new Date(Date.now() + 86400000).toISOString(), new Date().toISOString(), id, site, worker)])
+    const completed = completedBatch.at(-1)!
     if (completed.meta.changes !== 1) await platform.storage.delete(objectKey)
   } catch (error) {
     if (objectKey) await platform.storage.delete(objectKey).catch(() => {})
@@ -96,6 +98,10 @@ export function formExportEndpoints(platform: FormPlatform): Endpoint[] {
     if (job.status !== 'complete' || !job.object_key?.startsWith(`form-private/${job.site}/exports/`) || !Number.isFinite(expiry) || expiry <= Date.now()) return Response.json({ message: 'This export is not ready or has expired. Request another export.' }, { status: 409, headers: noStore })
     const file = await platform.storage.get(job.object_key)
     if (!file) return Response.json({ message: 'Export no longer available.' }, { status: 410, headers: noStore })
+    try { await confirmRequestAuthority(req) } catch (error) {
+      await file.body.cancel()
+      throw error
+    }
     return new Response(file.body, { headers: { ...noStore, 'Content-Type': mime[job.format], 'Content-Disposition': `attachment; filename="form-entries-${job.id}.${job.format}"`, 'X-Content-Type-Options': 'nosniff' } })
   } }, { path: '/forms-exports/:formID/columns', method: 'get', handler: async req => {
     const form = await platform.db.prepare('SELECT id,site FROM forms WHERE id=?').bind(String(req.routeParams?.formID || '')).first<{ id: number; site: string }>()

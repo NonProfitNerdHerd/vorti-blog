@@ -11,7 +11,7 @@ test('CRM contact creation, validation and persisted shared-profile editing', as
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm')
+  await page.goto('/admin/crm?site=default')
   await expect(page.getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'New contact' }).click()
   const dialog = page.getByRole('dialog')
@@ -49,7 +49,7 @@ test('a reader requests a correction without editing shared identity', async ({ 
     data: { email: 'crm-reader@example.invalid', password: 'crm-local-review-only' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm')
+  await page.goto('/admin/crm?site=default')
   await expect(page.getByRole('button', { name: 'New contact' })).toHaveCount(0)
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
@@ -74,7 +74,7 @@ test('an authorized reviewer resolves a correction without rewriting the profile
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm')
+  await page.goto('/admin/crm?site=default')
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('tab', { name: 'Corrections', exact: true }).click()
@@ -89,7 +89,7 @@ test('an authorized reviewer resolves a correction without rewriting the profile
   await expect(row.getByRole('cell', { name: 'resolved', exact: true })).toBeVisible()
   await dialog.getByRole('tab', { name: 'Shared profile', exact: true }).click()
   await expect(dialog.getByLabel('Preferred name')).toHaveValue('Browser review')
-  await page.route('**/api/crm/context', (route) =>
+  await page.route('**/api/crm/context*', (route) =>
     route.fulfill({
       status: 403,
       json: { message: 'This site is unavailable or your access changed.' },
@@ -108,7 +108,7 @@ test('staff record a gift, audit a refund and preserve the original amount after
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm')
+  await page.goto('/admin/crm?site=default')
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('tab', { name: 'Gifts', exact: true }).click()

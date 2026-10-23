@@ -6,13 +6,15 @@ import { resolveMenu } from '@/menus/server'
 import { resolveDocumentBlocks } from '@/lib/content-layout'
 import type { MenuItem } from '@design-system/payload-design-core'
 import { up } from '@/migrations/20261020_170954_reusable_menus'
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
 describe('named menus, authorization and public rendering', () => {
-  let payload: Payload, user: User
+  let payload: Payload, user: User, administrator: User
   const req = () => createLocalReq({ user: { ...user, collection: 'users' } }, payload)
   const stamp = Date.now()
   beforeAll(async () => {
     payload = await getPayload({ config })
+    administrator = (await payload.find({ collection: 'users', where: { role: { equals: 'administrator' } }, limit: 1 })).docs[0]
+    if (!administrator) throw new Error('Seed a fictional administrator before this integration test.')
     await up({ db: (payload.db as unknown as { drizzle: unknown }).drizzle } as never)
     user = await payload.create({
       collection: 'users',
@@ -44,14 +46,17 @@ describe('named menus, authorization and public rendering', () => {
   it('resolves only public destinations, hides their descendants and uses stable IDs after edits', async () => {
     const page = await payload.create({
       collection: 'pages',
+      req: await req(),
       data: { title: 'Menu page', slug: `menu-page-${stamp}`, _status: 'published' },
     })
     const draft = await payload.create({
       collection: 'pages',
+      req: await req(),
       data: { title: 'Private draft', slug: `menu-draft-${stamp}`, _status: 'draft' },
     })
     const post = await payload.create({
       collection: 'posts',
+      req: await req(),
       data: {
         title: 'Menu post',
         slug: `menu-post-${stamp}`,
@@ -137,18 +142,19 @@ describe('named menus, authorization and public rendering', () => {
         expect.anything(),
       ],
     })
-    await payload.update({ collection: 'pages', id: page.id, data: { _status: 'draft' } })
+    await payload.update({ collection: 'pages', req: await req(), id: page.id, data: { _status: 'draft' } })
     expect((await resolveMenu(payload, menu.id))?.items.map((item) => item.key)).toEqual([
       'post',
       'external',
     ])
-    const global = await payload.findGlobal({ slug: 'navigation', depth: 0 })
+    const global = await payload.findGlobal({ slug: 'navigation', req: await req(), depth: 0 })
     await payload.updateGlobal({
       slug: 'navigation',
+      req: await req(),
       data: { primaryMenu: menu.id, expectedUpdatedAt: global.updatedAt },
     })
     expect(
-      (await payload.findGlobal({ slug: 'navigation', overrideAccess: false })).primary?.map(
+      (await payload.findGlobal({ slug: 'navigation', req: await req(), overrideAccess: false })).primary?.map(
         (item) => item.label,
       ),
     ).toEqual(['Article', 'External'])
@@ -159,11 +165,12 @@ describe('named menus, authorization and public rendering', () => {
       overrideAccess: false,
     })
     expect(await resolveMenu(payload, menu.id)).toBeNull()
-    expect((await payload.findGlobal({ slug: 'navigation' })).primary).toEqual([])
+    expect((await payload.findGlobal({ slug: 'navigation', req: await req() })).primary).toEqual([])
   })
   it('rejects overlapping revisions at the database boundary', async () => {
     const menu = await payload.create({
       collection: 'menus',
+      req: await req(),
       data: { name: 'Concurrent menu', items: [] },
     })
     const client = (payload.db as unknown as { client: D1Database }).client
@@ -181,15 +188,18 @@ describe('named menus, authorization and public rendering', () => {
   it('uses the configured homepage and published Post routes', async () => {
     const home = await payload.create({
       collection: 'pages',
+      req: await req(),
       data: { title: 'Menu home', slug: `menu-home-${stamp}`, _status: 'published' },
     })
     const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0 })
     await payload.updateGlobal({
       slug: 'site-settings',
+      user: administrator,
       data: { siteName: settings.siteName || 'Menu test site', homepage: home.id },
     })
     const post = await payload.create({
       collection: 'posts',
+      req: await req(),
       data: {
         title: 'Typed link',
         slug: `typed-menu-${stamp}`,
@@ -199,6 +209,7 @@ describe('named menus, authorization and public rendering', () => {
     })
     const menu = await payload.create({
       collection: 'menus',
+      req: await req(),
       data: {
         name: 'Routing menu',
         items: [
@@ -211,10 +222,11 @@ describe('named menus, authorization and public rendering', () => {
       '/',
       `/posts/${post.slug}`,
     ])
-    await payload.update({ collection: 'posts', id: post.id, data: { _status: 'draft' } })
+    await payload.update({ collection: 'posts', req: await req(), id: post.id, data: { _status: 'draft' } })
     expect((await resolveMenu(payload, menu.id))?.items.map((item) => item.key)).toEqual(['home'])
     await payload.updateGlobal({
       slug: 'site-settings',
+      user: administrator,
       data: {
         homepage:
           typeof settings.homepage === 'object' ? settings.homepage?.id : settings.homepage || null,
@@ -223,7 +235,7 @@ describe('named menus, authorization and public rendering', () => {
   })
   it('keeps the legacy rows untouched when changing default locations', async () => {
     const client = (payload.db as unknown as { client: D1Database }).client
-    const global = await payload.findGlobal({ slug: 'navigation', depth: 0 })
+    const global = await payload.findGlobal({ slug: 'navigation', req: await req(), depth: 0 })
     const id = `legacy-preserve-${stamp}`
     await client
       .prepare(
@@ -237,6 +249,7 @@ describe('named menus, authorization and public rendering', () => {
       .all()
     const menu = await payload.create({
       collection: 'menus',
+      req: await req(),
       data: {
         name: 'New location',
         items: [{ key: 'new', label: 'Current link', kind: 'custom', url: '/new' }],
@@ -249,7 +262,7 @@ describe('named menus, authorization and public rendering', () => {
       data: { primaryMenu: menu.id, expectedUpdatedAt: global.updatedAt },
     })
     expect(
-      (await payload.findGlobal({ slug: 'navigation', overrideAccess: false })).primary?.[0].label,
+      (await payload.findGlobal({ slug: 'navigation', req: await req(), overrideAccess: false })).primary?.[0].label,
     ).toBe('Current link')
     expect(
       (await client.prepare('SELECT * FROM navigation_primary WHERE id=?').bind(id).all()).results,

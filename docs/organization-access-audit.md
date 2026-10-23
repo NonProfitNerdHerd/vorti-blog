@@ -2,7 +2,7 @@
 
 This is the implementation checklist for Phase 1. It is not a claim that current VortiCause is already an isolated multi-organization installation. Tenant onboarding remains unexposed until the integration below is complete.
 
-## Current source findings
+## Initial source findings (see subsequent implementation checkpoints)
 
 | Boundary | Existing behavior to adapt | Integration requirement |
 |---|---|---|
@@ -36,7 +36,7 @@ The initial search found 216 matching lines involving administrator shortcuts, t
 - [ ] Separate-account integration/browser matrix and existing-data upgrade tests.
 - [ ] Review migration SQL and record recovery point before production apply.
 
-The new foundation repository currently has no registered public endpoint or custom admin screen. Its actor must come from authenticated server context, never request JSON. This keeps partial integration from enabling unsafe tenant onboarding.
+Production organization administration remains unregistered. The isolated local runtime now exposes `/admin/sites` and `/api/organization-admin` for review; registration requires an explicit local persistence path. Actors come from authenticated server context, never request JSON. Production tenant onboarding remains gated.
 
 ## Authority and financial checkpoint
 
@@ -55,4 +55,31 @@ Tenant onboarding and context switching remain unexposed. The full tenant-isolat
 - Team projects and boards have an owning site. Historical private work and starters remain personal. A database-maintained audience projection applies owners, explicit members, project inheritance, private exceptions, team audiences, and archival in bounded native predicates. Distinct join aliases prevent native alias reuse across Inbox task/board/project branches. Native reads/counts, comments, placements, and notifications reuse these predicates. Audience mutations include policy epochs in their approval fingerprints and atomic guards; cross-site moves fail closed. Starter initialization reads its own durable marker directly without exposing private account fields.
 - The additive migrations preserve historical bodies, versions, relationships, and IDs. Native lock-relationship columns and the exact generated index names travel with the snapshots. Local upgrade verification preserved all 131 historical application tables, verified 51 native ownership indexes, and was repeat-safe.
 
-This is still a partial integration checkpoint. Remaining release work includes site/member/context administration, site-specific settings and public subsite routing, the remaining raw-job/mutation and file-route audit, and the CRM-reference privacy intersections needed by the unimplemented workflows. In particular, ordinary Forms/Tasks mutation commit fences still need the final review applied to CMS writes. Tenant onboarding stays unexposed. Passing this subset does not satisfy the approved release gates. No production migration or deployment has been performed; the user's existing release authorization remains in effect.
+This checkpoint is superseded locally by the desktop continuation below. Site-specific settings, public subsite routing, and CRM-reference privacy intersections for the unimplemented workflows remain release work. Production tenant onboarding stays unexposed. Passing an integration subset does not satisfy the complete approved release gates. No production migration or deployment has been performed.
+
+## Desktop continuation: local administration and commit guards
+
+- Native account, Forms, and workspace mutations carry a final server-generated actor/site/epoch proof. Database triggers reject stale account/site authority, including Forms draft versions. Mutation proof fields are scrubbed even from privileged reads and cannot be supplied through HTTP JSON. Every collection rejects proof-based filters, counts, distinct values, sorts, and joined selections, preventing inference through a related record. Account provisioning also fences its capability writes. The additive `20261022_010000_native_mutation_guards` migration adds 48 proof columns, including the Forms version column, and retains existing IDs, content, and audience projections.
+- Workspace proofs capture task revisions and board/project audience revisions before existing permission hooks. Native mutations/deletes and raw task-field, dependency, time, placement, and view mutations validate those witnesses at commit. This catches board/project membership changes independently of organization policy epochs. Existing reviewed sharing keeps its more detailed audience checks.
+- Nested Local API calls cannot silently replace an in-flight request's old authority epoch. Export publication is fenced in the same D1 batch as the completion update; failed publication removes the staged private object. Forms/export/workspace downloads check authority after storage retrieval and cancel undelivered bodies on denial. Durable notifications continue to resolve their stored source and recheck recipients.
+- Local administration supports organizations, nested sites, memberships, category restrictions, inherited policies and explanations, explicitly reviewed read/edit sharing, and audited moves. Source and destination authority and revisions are checked. Roots, cycles, cross-organization moves, and subtrees larger than 200 sites are rejected; larger hierarchy jobs remain unimplemented. Site lists omit denied records and encrypt actor-bound continuation cursors; member and grant lists are paginated.
+- Site preference changes use revision checks. Native editors carry a virtual `editorSite`; a conflicting explicit context fails rather than retargeting a save. CRM reads and saves stay pinned to the editor's site, including focus refreshes. The local CRM selector opens an explicit site; `/admin/sites` can save the default for new editors. Existing personal work retains its ownership and privacy rules.
+- Administration endpoints require native authentication and same-origin mutations. Only successful audited authority mutations acknowledge their intentional epoch change; ordinary responses retain their final authority check. New administration routes remain absent from production configuration until the full rollout gates pass.
+
+The local screen is available when starting the app with an isolated `DESIGN_CORE_TEST_PERSIST_PATH` or `E2E_TEST_PERSIST_PATH`. Use fictional fixture accounts and the local tracked migration helper. No real email, production migration, or deployment is part of this checkpoint. Per-site public settings/routing, large hierarchy jobs, and future CRM-linked board privacy remain unfinished.
+
+Verification: the final focused run passed 65 integration tests across nine files, including 24 organization storage cases covering private-proof query denial and mutation races. Another 29 native workspace cases and five browser scenarios passed; migration upgrade/retry retained 131 historical tables, 51 ownership indexes, and 48 proof columns. Scoped native file stage/upload/download/delete and privileged proof redaction also passed. Earlier TypeScript and local Worker build/dry-run passed, but the final shared-folder rerun is blocked by newly arriving OneDrive duplicate declarations and a missing generated design-package export; the latest Docker build rerun also failed without a useful diagnostic. These files were not overwritten or removed. Reconcile that unrelated folder state and repeat the final checks before treating this as release-ready; see the CRM implementation checkpoint for details.
+
+## October 23 combined release candidate
+
+The shared-folder conflicts above have been preserved and reconciled. The current candidate registers administration through the explicit server-controlled `ORGANIZATION_ADMIN_ENABLED` setting. Scoped settings currently cover private site identity; installation globals and existing public URLs remain compatibility-owned. This is private CRM/workspace onboarding, not public subsite publishing.
+
+Global updates now carry a final authority proof checked by D1 for inserts and updates. System Settings also checks current operator status. Proofs are stripped from privileged reads. Public Navigation has a server-only default-site read path and a final authority fence; public HTTP JSON cannot select that path.
+
+Native account authentication is kept separate from staff mutations: a full-row native authentication upsert may retain the same stored proof only if every installed account application column is unchanged. Authentication counters, reset tokens, hashes, and salts remain managed by Payload's native authenticated/token flows. Any staff mutation gets a new proof; stale profile, role, and future application-field updates still fail. This fixes login after permission changes without relaxing application writes.
+
+CMS context and authority witnesses survive actual Payload Local API request cloning. The plain context marker preserves server symbols without granting access; registry symbols bridge separate API/RSC module instances so the public renderer retains its explicit default-site permission path.
+
+Release validation passed: 74 focused integration tests, 29 native Tasks/Projects cases, five native menu cases, seven native site-template persistence cases, separate-account/private-file helpers, 232 design-package tests, and all eight release browser scenarios. TypeScript/lint, additive upgrade/retry checks, the optimized Linux build, artifact checksums, and portable deployment dry-runs also passed. Browser validation used an isolated current Wrangler CLI after identifying a disconnect in the pinned CLI's local proxy; production dependencies remain pinned.
+
+Production recovery/deployment evidence is recorded under the ignored `.wrangler/releases/20261023/` directory. The current checkpoint still awaits production apply/deployment and authenticated smoke tests. Future CRM-to-board references must implement privacy intersections before they are introduced; this release introduces none.

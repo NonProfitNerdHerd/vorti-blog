@@ -395,6 +395,7 @@ export interface Post {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -445,6 +446,7 @@ export interface DesignTemplate {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -488,6 +490,7 @@ export interface DesignBlockType {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -516,6 +519,7 @@ export interface DesignBlockDesign {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -530,6 +534,7 @@ export interface Media {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -556,6 +561,7 @@ export interface Category {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -574,6 +580,7 @@ export interface Tag {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -649,6 +656,16 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -766,6 +783,7 @@ export interface Page {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -902,6 +920,7 @@ export interface SiteTemplate {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -928,6 +947,7 @@ export interface Menu {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -979,6 +999,16 @@ export interface ReviewTask {
   creator?: (number | null) | User;
   archived?: boolean | null;
   documentSite?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1038,6 +1068,16 @@ export interface TaskBoard {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1081,6 +1121,16 @@ export interface TaskProject {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1097,6 +1147,16 @@ export interface TaskProjectMembership {
   editUser?: (number | null) | User;
   commentUser?: (number | null) | User;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1111,6 +1171,16 @@ export interface TaskProjectPreference {
   key?: string | null;
   favorite?: boolean | null;
   expanded?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1139,6 +1209,16 @@ export interface TaskBoardMembership {
   key: string;
   editUser?: (number | null) | User;
   commentUser?: (number | null) | User;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1184,6 +1264,16 @@ export interface TaskBoardPreference {
     | number
     | boolean
     | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1221,6 +1311,16 @@ export interface TaskView {
     | boolean
     | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1247,6 +1347,16 @@ export interface ReviewComment {
     | null;
   moderated?: boolean | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1262,6 +1372,16 @@ export interface ReviewActivity {
   documentDeleted?: boolean | null;
   actor?: (number | null) | User;
   message: string;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1276,6 +1396,16 @@ export interface TaskSection {
   position?: number | null;
   archived?: boolean | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1291,6 +1421,16 @@ export interface TaskPlacement {
   position?: number | null;
   key: string;
   active?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1305,6 +1445,16 @@ export interface TaskFollower {
   key: string;
   following?: boolean | null;
   muted?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1321,6 +1471,16 @@ export interface TaskSharingRequest {
   approved?: (number | User)[] | null;
   fingerprint: string;
   state: 'pending' | 'approved' | 'rejected' | 'stale';
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1342,6 +1502,16 @@ export interface TaskNotification {
   message: string;
   key: string;
   read?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1365,6 +1535,16 @@ export interface TaskBoardMessage {
     | boolean
     | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1382,6 +1562,16 @@ export interface TaskProjectChange {
   approved?: (number | User)[] | null;
   fingerprint?: string | null;
   state?: ('pending' | 'approved' | 'rejected' | 'invalidated') | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1394,6 +1584,16 @@ export interface TaskBoardActivity {
   board: number | TaskBoard;
   actor?: (number | null) | User;
   message: string;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1408,6 +1608,16 @@ export interface TaskBoardField {
   position?: number | null;
   key?: string | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1444,6 +1654,16 @@ export interface TaskFieldDefinition {
   systemKey?: string | null;
   archived?: boolean | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1472,6 +1692,16 @@ export interface TaskBoardPage {
   };
   expectedUpdatedAt?: string | null;
   key?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1493,6 +1723,16 @@ export interface TaskBaseline {
     | boolean
     | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1515,6 +1755,16 @@ export interface TaskFieldValue {
     | boolean
     | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1528,6 +1778,16 @@ export interface TaskDependency {
   predecessor: number | ReviewTask;
   project: number | TaskProject;
   key?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1546,6 +1806,16 @@ export interface TaskAttachment {
   mimeType: string;
   size: number;
   state?: ('staged' | 'ready' | 'deleting') | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1573,6 +1843,16 @@ export interface TaskTimeEntry {
     | null;
   activeUserKey?: string | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1608,6 +1888,16 @@ export interface TaskTimeAudit {
     | null;
   operationKey: string;
   fingerprint: string;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1623,6 +1913,16 @@ export interface TaskCountdown {
   key?: string | null;
   endsAt?: string | null;
   remainingSeconds?: number | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1645,6 +1945,16 @@ export interface TaskCapacity {
     | boolean
     | null;
   expectedUpdatedAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1658,6 +1968,16 @@ export interface TaskMessageFollower {
   user?: (number | null) | User;
   key?: string | null;
   following?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1682,6 +2002,16 @@ export interface TaskNotificationEvent {
     | null;
   delivered?: boolean | null;
   attempts?: number | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1704,6 +2034,7 @@ export interface SavedView {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -1730,6 +2061,7 @@ export interface EventSery {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1755,6 +2087,7 @@ export interface Search {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1781,6 +2114,7 @@ export interface Redirect {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1796,6 +2130,16 @@ export interface FormContact {
   name?: string | null;
   email: string;
   notes?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1845,6 +2189,16 @@ export interface FormSubmission {
   paymentStatus?: ('none' | 'pending' | 'paid' | 'failed' | 'canceled' | 'refunded' | 'simulated') | null;
   paymentReference?: string | null;
   sessionHash?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2037,6 +2391,16 @@ export interface Form {
   locale?: string | null;
   archived?: boolean | null;
   publishedRevision?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -2056,6 +2420,16 @@ export interface FormSupportRequest {
   status?: ('received' | 'in-review' | 'completed' | 'archived') | null;
   reviewer?: (number | null) | User;
   notes?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2082,6 +2456,16 @@ export interface FormRevision {
   slug?: string | null;
   digest?: string | null;
   retiredAt?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2108,6 +2492,16 @@ export interface FormDraft {
   expiresAt?: string | null;
   revokedAt?: string | null;
   sessionHash?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2129,6 +2523,16 @@ export interface FormAttachment {
   submissionID?: string | null;
   expiresAt?: string | null;
   scanStatus?: ('unscanned' | 'pending' | 'clean' | 'rejected' | 'error' | 'deleting') | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2166,6 +2570,16 @@ export interface FormOutbox {
     | number
     | boolean
     | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2189,6 +2603,16 @@ export interface FormAudit {
     | number
     | boolean
     | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2216,6 +2640,16 @@ export interface FormAnalytic {
     | number
     | boolean
     | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2241,6 +2675,16 @@ export interface FormDelivery {
     | number
     | boolean
     | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2264,6 +2708,16 @@ export interface FormResource {
     | null;
   capacity?: number | null;
   holdMinutes?: number | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2295,6 +2749,16 @@ export interface FormTemplate {
     | boolean
     | null;
   revision?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2318,6 +2782,16 @@ export interface FormIntegration {
     | boolean
     | null;
   enabled?: boolean | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2353,6 +2827,16 @@ export interface FormExport {
   objectKey?: string | null;
   expiresAt?: string | null;
   error?: string | null;
+  platformMutationProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2384,6 +2868,7 @@ export interface Export {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -2424,6 +2909,7 @@ export interface Import {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -2880,6 +3366,7 @@ export interface PostsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2917,6 +3404,7 @@ export interface PagesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2933,6 +3421,7 @@ export interface CategoriesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2947,6 +3436,7 @@ export interface TagsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2959,6 +3449,7 @@ export interface MediaSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -3004,6 +3495,7 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3033,6 +3525,8 @@ export interface UsersSelect<T extends boolean = true> {
   platformForms?: T;
   platformAuthority?: T;
   siteDirectory?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -3064,6 +3558,7 @@ export interface MenusSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3098,6 +3593,8 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   creator?: T;
   archived?: T;
   documentSite?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3115,6 +3612,8 @@ export interface ReviewCommentsSelect<T extends boolean = true> {
   mentions?: T;
   moderated?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3129,6 +3628,8 @@ export interface ReviewActivitySelect<T extends boolean = true> {
   documentDeleted?: T;
   actor?: T;
   message?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3155,6 +3656,8 @@ export interface TaskBoardsSelect<T extends boolean = true> {
   siteAccessGrants?: T;
   taskSiteAccessGrants?: T;
   directSiteAccessGrants?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3169,6 +3672,8 @@ export interface TaskBoardMembershipsSelect<T extends boolean = true> {
   key?: T;
   editUser?: T;
   commentUser?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3182,6 +3687,8 @@ export interface TaskSectionsSelect<T extends boolean = true> {
   position?: T;
   archived?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3196,6 +3703,8 @@ export interface TaskPlacementsSelect<T extends boolean = true> {
   position?: T;
   key?: T;
   active?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3209,6 +3718,8 @@ export interface TaskFollowersSelect<T extends boolean = true> {
   key?: T;
   following?: T;
   muted?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3226,6 +3737,8 @@ export interface TaskBoardPreferencesSelect<T extends boolean = true> {
   view?: T;
   viewInstance?: T;
   viewSettings?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3241,6 +3754,8 @@ export interface TaskSharingRequestsSelect<T extends boolean = true> {
   approved?: T;
   fingerprint?: T;
   state?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3261,6 +3776,8 @@ export interface TaskNotificationsSelect<T extends boolean = true> {
   message?: T;
   key?: T;
   read?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3272,6 +3789,8 @@ export interface TaskBoardActivitySelect<T extends boolean = true> {
   board?: T;
   actor?: T;
   message?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3294,6 +3813,8 @@ export interface TaskProjectsSelect<T extends boolean = true> {
   expectedUpdatedAt?: T;
   platformSite?: T;
   projectSiteAccessGrants?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3309,6 +3830,8 @@ export interface TaskProjectMembershipsSelect<T extends boolean = true> {
   editUser?: T;
   commentUser?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3322,6 +3845,8 @@ export interface TaskProjectPreferencesSelect<T extends boolean = true> {
   key?: T;
   favorite?: T;
   expanded?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3337,6 +3862,8 @@ export interface TaskViewsSelect<T extends boolean = true> {
   defaultView?: T;
   configuration?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3350,6 +3877,8 @@ export interface TaskBoardFieldsSelect<T extends boolean = true> {
   position?: T;
   key?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3363,6 +3892,8 @@ export interface TaskBoardPagesSelect<T extends boolean = true> {
   body?: T;
   expectedUpdatedAt?: T;
   key?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3375,6 +3906,8 @@ export interface TaskBaselinesSelect<T extends boolean = true> {
   name?: T;
   snapshot?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3390,6 +3923,8 @@ export interface TaskFieldDefinitionsSelect<T extends boolean = true> {
   systemKey?: T;
   archived?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3403,6 +3938,8 @@ export interface TaskFieldValuesSelect<T extends boolean = true> {
   key?: T;
   value?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3415,6 +3952,8 @@ export interface TaskDependenciesSelect<T extends boolean = true> {
   predecessor?: T;
   project?: T;
   key?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3432,6 +3971,8 @@ export interface TaskAttachmentsSelect<T extends boolean = true> {
   mimeType?: T;
   size?: T;
   state?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3450,6 +3991,8 @@ export interface TaskTimeEntriesSelect<T extends boolean = true> {
   history?: T;
   activeUserKey?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3468,6 +4011,8 @@ export interface TaskTimeAuditSelect<T extends boolean = true> {
   afterValue?: T;
   operationKey?: T;
   fingerprint?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3482,6 +4027,8 @@ export interface TaskCountdownsSelect<T extends boolean = true> {
   key?: T;
   endsAt?: T;
   remainingSeconds?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3495,6 +4042,8 @@ export interface TaskCapacitiesSelect<T extends boolean = true> {
   weeklyHours?: T;
   weekdays?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3509,6 +4058,8 @@ export interface TaskBoardMessagesSelect<T extends boolean = true> {
   body?: T;
   mentions?: T;
   expectedUpdatedAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3521,6 +4072,8 @@ export interface TaskMessageFollowersSelect<T extends boolean = true> {
   user?: T;
   key?: T;
   following?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3537,6 +4090,8 @@ export interface TaskProjectChangesSelect<T extends boolean = true> {
   approved?: T;
   fingerprint?: T;
   state?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3552,6 +4107,8 @@ export interface TaskNotificationEventsSelect<T extends boolean = true> {
   deliveries?: T;
   delivered?: T;
   attempts?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3565,6 +4122,7 @@ export interface SavedViewsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3582,6 +4140,7 @@ export interface EventSeriesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3619,6 +4178,7 @@ export interface DesignBlockTypesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3648,6 +4208,7 @@ export interface DesignBlockDesignsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3678,6 +4239,7 @@ export interface DesignTemplatesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3693,6 +4255,7 @@ export interface SearchSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3712,6 +4275,7 @@ export interface RedirectsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3726,6 +4290,8 @@ export interface FormContactsSelect<T extends boolean = true> {
   name?: T;
   email?: T;
   notes?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3743,6 +4309,8 @@ export interface FormSupportRequestsSelect<T extends boolean = true> {
   status?: T;
   reviewer?: T;
   notes?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3760,6 +4328,8 @@ export interface FormRevisionsSelect<T extends boolean = true> {
   slug?: T;
   digest?: T;
   retiredAt?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3777,6 +4347,8 @@ export interface FormDraftsSelect<T extends boolean = true> {
   expiresAt?: T;
   revokedAt?: T;
   sessionHash?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3797,6 +4369,8 @@ export interface FormAttachmentsSelect<T extends boolean = true> {
   submissionID?: T;
   expiresAt?: T;
   scanStatus?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3817,6 +4391,8 @@ export interface FormOutboxSelect<T extends boolean = true> {
   nextAttemptAt?: T;
   leaseUntil?: T;
   attemptLog?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3831,6 +4407,8 @@ export interface FormAuditSelect<T extends boolean = true> {
   actorID?: T;
   action?: T;
   changes?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3849,6 +4427,8 @@ export interface FormAnalyticsSelect<T extends boolean = true> {
   step?: T;
   durationMs?: T;
   fieldIDs?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3865,6 +4445,8 @@ export interface FormDeliveriesSelect<T extends boolean = true> {
   subject?: T;
   body?: T;
   headers?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3879,6 +4461,8 @@ export interface FormResourcesSelect<T extends boolean = true> {
   availability?: T;
   capacity?: T;
   holdMinutes?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3893,6 +4477,8 @@ export interface FormTemplatesSelect<T extends boolean = true> {
   kind?: T;
   theme?: T;
   revision?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3907,6 +4493,8 @@ export interface FormIntegrationsSelect<T extends boolean = true> {
   credentialName?: T;
   settings?: T;
   enabled?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3925,6 +4513,8 @@ export interface FormExportsSelect<T extends boolean = true> {
   objectKey?: T;
   expiresAt?: T;
   error?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4071,6 +4661,8 @@ export interface FormsSelect<T extends boolean = true> {
   locale?: T;
   archived?: T;
   publishedRevision?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -4104,6 +4696,8 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   paymentStatus?: T;
   paymentReference?: T;
   sessionHash?: T;
+  platformMutationProof?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4126,6 +4720,7 @@ export interface ExportsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -4159,6 +4754,7 @@ export interface ImportsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -4318,6 +4914,15 @@ export interface Navigation {
       }[]
     | null;
   expectedUpdatedAt?: string | null;
+  platformGlobalProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4364,6 +4969,15 @@ export interface SiteSetting {
   copyrightText?: string | null;
   contactEmail?: string | null;
   contactInformation?: string | null;
+  platformGlobalProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4384,6 +4998,15 @@ export interface SystemSetting {
     | null;
   tagManagementRoles?: ('administrator' | 'designer' | 'editor')[] | null;
   categoriesEnabled?: boolean | null;
+  platformGlobalProof?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4439,6 +5062,7 @@ export interface NavigationSelect<T extends boolean = true> {
         id?: T;
       };
   expectedUpdatedAt?: T;
+  platformGlobalProof?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -4479,6 +5103,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   copyrightText?: T;
   contactEmail?: T;
   contactInformation?: T;
+  platformGlobalProof?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -4491,6 +5116,7 @@ export interface SystemSettingsSelect<T extends boolean = true> {
   workspaceEmbedOrigins?: T;
   tagManagementRoles?: T;
   categoriesEnabled?: T;
+  platformGlobalProof?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

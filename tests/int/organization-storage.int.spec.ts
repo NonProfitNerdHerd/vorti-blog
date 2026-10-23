@@ -7,8 +7,19 @@ import { informationCategories, siteOperations } from '../../src/organizations/p
 import { legacyContentCapabilities } from '../../src/organizations/schema-v3'
 import { identityAuthority, claimRequest } from '../../src/organizations/identity-authority'
 import { authorityClaim } from '../../src/organizations/claims'
-import { cmsSiteContext } from '../../src/organizations/cms-scope'
-import type { PayloadRequest } from 'payload'
+import { cmsSiteContext, cmsScope } from '../../src/organizations/cms-scope'
+import { createLocalReq, type PayloadRequest } from 'payload'
+import { bindEditorSite } from '../../src/organizations/editor-site'
+import { mutationFence, guardedMutations, nativeMutationSchemaV1, nativeMutationGuardsV1, tenantMutationGuards } from '../../src/organizations/mutation-guards'
+import { organizationAdministration } from '../../src/organizations/admin-plugin'
+import { tenantAuthority } from '../../src/organizations/authority-plugin'
+import type { WorkspaceProof } from '../../src/organizations/workspace-proof'
+import { rejectMutationProofQuery } from '../../src/organizations/mutation-query'
+import { guardedGlobals, globalSettingsGuards } from '../../src/organizations/site-settings'
+import { tenantGlobals } from '../../src/organizations/globals-plugin'
+import { CMS_MENU_RENDER } from '../../src/organizations/cms-scope'
+import { nativeUserAuthenticationGuardsV2 } from '../../src/organizations/mutation-guards'
+import type { Config, SanitizedCollectionConfig } from 'payload'
 
 const databases: DatabaseSync[] = []
 afterEach(() => {
@@ -80,6 +91,231 @@ function fixture() {
   return { sqlite, db, mutation }
 }
 describe('organization storage SQL and atomic writes', () => {
+  it('permits native authentication maintenance with a stale stored proof without permitting account changes', () => {
+    const { sqlite } = fixture()
+    sqlite.exec('ALTER TABLE users ADD COLUMN platform_mutation_proof TEXT; ALTER TABLE users ADD COLUMN login_attempts INTEGER DEFAULT 0; ALTER TABLE users ADD COLUMN hash TEXT; ALTER TABLE users ADD COLUMN future_private_setting TEXT')
+    for (const table of ['task_boards', 'task_projects', 'review_tasks']) sqlite.exec(`CREATE TABLE ${table}(id INTEGER PRIMARY KEY,updated_at TEXT,membership_revision INTEGER)`)
+    const columns = sqlite.prepare('PRAGMA table_info(users)').all().map(row => String(row.name))
+    for (const statement of nativeUserAuthenticationGuardsV2(columns)) sqlite.exec(statement)
+    const epoch = Number(sqlite.prepare("SELECT authority_revision AS n FROM vc_organizations WHERE id='default'").get()?.n)
+    const proof = JSON.stringify({ actor: 1, site: 'default', epoch })
+    sqlite.prepare('UPDATE users SET platform_mutation_proof=? WHERE id=1').run(proof)
+    sqlite.exec("UPDATE vc_organizations SET authority_revision=authority_revision+1 WHERE id='default'")
+    sqlite.prepare("INSERT INTO users(id,role,platform_mutation_proof,login_attempts,hash) VALUES(1,'administrator',?,1,'native-reset-hash') ON CONFLICT(id) DO UPDATE SET role=excluded.role,platform_mutation_proof=excluded.platform_mutation_proof,login_attempts=excluded.login_attempts,hash=excluded.hash").run(proof)
+    expect(sqlite.prepare('SELECT login_attempts FROM users WHERE id=1').get()?.login_attempts).toBe(1)
+    expect(() => sqlite.prepare("UPDATE users SET role='editor',platform_mutation_proof=? WHERE id=1").run(proof)).toThrow('Mutation authority changed')
+    expect(() => sqlite.prepare("UPDATE users SET future_private_setting='changed',platform_mutation_proof=? WHERE id=1").run(proof)).toThrow('Mutation authority changed')
+    expect(() => sqlite.prepare("UPDATE users SET platform_mutation_proof=? WHERE id=1").run(JSON.stringify({ actor: 1, site: 'default', epoch, nonce: 'new-stale-request' }))).toThrow('Mutation authority changed')
+    expect(() => sqlite.prepare("INSERT INTO users(id,role,platform_mutation_proof) VALUES(9,'administrator',?)").run(proof)).toThrow('Mutation authority changed')
+  })
+  it('allows only server-selected compatibility navigation and fences its final delivery', async () => {
+    const { sqlite, db } = fixture()
+    const config = tenantGlobals({ globals: [{ slug: 'navigation', fields: [] }] } as Config)
+    const global = config.globals![0]
+    const req = { user: null, context: { ...cmsSiteContext('default'), [CMS_MENU_RENDER]: true }, headers: new Headers(), payload: { db: { client: db } } } as unknown as PayloadRequest
+    const read = global.access!.read!
+    if (typeof read !== 'function') throw Error('Expected guarded navigation access')
+    await expect(read({ req: { ...req, context: { menuOperation: 'public-render' } } })).resolves.toBe(false)
+    await expect(read({ req })).resolves.toBe(true)
+    const afterRead = global.hooks!.afterRead!.at(-1)!
+    const args = { req, doc: { platformGlobalProof: { actor: 1 }, primary: [] } } as Parameters<typeof afterRead>[0]
+    expect(await afterRead(args)).not.toHaveProperty('platformGlobalProof')
+    sqlite.exec("UPDATE vc_organizations SET authority_revision=authority_revision+1 WHERE id='default'")
+    await expect(afterRead(args)).rejects.toThrow('Site permissions changed')
+  })
+  it('fences global settings inserts and updates against revocation and operator loss', () => {
+    const { sqlite } = fixture()
+    for (const table of guardedGlobals) sqlite.exec(`CREATE TABLE "${table}"(id INTEGER PRIMARY KEY,value TEXT,platform_global_proof TEXT)`)
+    for (const statement of globalSettingsGuards) sqlite.exec(statement)
+    const epoch = Number(sqlite.prepare("SELECT authority_revision AS n FROM vc_organizations WHERE id='default'").get()?.n)
+    const proof = JSON.stringify({ actor: 1, epoch, nonce: 'server-generated' })
+    for (const table of guardedGlobals) sqlite.prepare(`INSERT INTO "${table}" VALUES(1,'original',?)`).run(proof)
+    sqlite.exec("UPDATE vc_organizations SET authority_revision=authority_revision+1 WHERE id='default'")
+    for (const table of guardedGlobals) {
+      expect(() => sqlite.prepare(`UPDATE "${table}" SET value='stale',platform_global_proof=? WHERE id=1`).run(proof)).toThrow('Global authority changed')
+      expect(() => sqlite.prepare(`INSERT INTO "${table}" VALUES(2,'stale',?)`).run(proof)).toThrow('Global authority changed')
+      expect(sqlite.prepare(`SELECT value FROM "${table}" WHERE id=1`).get()?.value).toBe('original')
+    }
+    const currentProof = JSON.stringify({ actor: 2, epoch: epoch + 1, nonce: 'server-generated' })
+    expect(() => sqlite.prepare('UPDATE system_settings SET platform_global_proof=? WHERE id=1').run(currentProof)).toThrow('Global authority changed')
+  })
+  it('isolates site identity settings, audits retries, and rejects stale or revoked writes', async () => {
+    const { db, sqlite } = fixture()
+    const repo = new OrganizationRepository(db, 1)
+    const site = String((await repo.createOrganization({ name: 'Fictional settings', siteName: 'National', operationKey: crypto.randomUUID() })).site)
+    const other = String((await repo.createOrganization({ name: 'Unrelated settings', siteName: 'Unrelated', operationKey: crypto.randomUUID() })).site)
+    const input = { site, expectedRevision: 0, operationKey: crypto.randomUUID(), settings: { siteName: 'National office', siteTagline: 'Fictional', timezone: 'America/Chicago' } }
+    await expect(repo.setSettings(input)).resolves.toMatchObject({ revision: 1 })
+    await expect(repo.setSettings(input)).resolves.toMatchObject({ revision: 1 })
+    expect((await repo.settings(site)).settings).toEqual(input.settings)
+    expect((await repo.settings(other)).settings.siteName).toBe('Unrelated')
+    await expect(new OrganizationRepository(db, 3).settings(site)).rejects.toBeInstanceOf(SiteAccessError)
+    await expect(repo.setSettings({ ...input, operationKey: crypto.randomUUID() })).rejects.toBeInstanceOf(SiteConflictError)
+    await expect(repo.setSettings({ ...input, site: 'default' })).rejects.toThrow('compatibility')
+    await expect(repo.setSettings({ ...input, settings: { ...input.settings, timezone: 'Invalid/Zone' } })).rejects.toThrow('IANA timezone')
+    expect(sqlite.prepare("SELECT count(*) AS n FROM vc_platform_audit WHERE action='site.settings-changed'").get()?.n).toBe(1)
+    const original = db.batch.bind(db)
+    db.batch = (async (statements: D1PreparedStatement[]) => {
+      sqlite.prepare('UPDATE vc_organizations SET authority_revision=authority_revision+1 WHERE id=(SELECT organization_id FROM vc_sites WHERE id=?)').run(site)
+      return original(statements)
+    }) as typeof db.batch
+    await expect(repo.setSettings({ ...input, expectedRevision: 1, operationKey: crypto.randomUUID() })).rejects.toBeInstanceOf(SiteConflictError)
+    expect(sqlite.prepare('SELECT revision FROM vc_site_settings WHERE site_id=?').get(site)?.revision).toBe(1)
+  })
+  it('blocks proof inference through native counts, relation filters, sort and join selections', () => {
+    for (const args of [
+      { where: { and: [{ 'task.platformMutationProof.audiences.boards.0.id': { equals: 9 } }] } },
+      { sort: '-version.platformMutationProof.actor' },
+      { field: 'platformMutationProof.audiences.boards.0.id' },
+      { joins: { task: { where: { platformMutationProof: { exists: true } } } } },
+      { select: { task: { platformMutationProof: true } } },
+    ]) expect(() => rejectMutationProofQuery(args)).toThrow('not a queryable record field')
+    expect(() => rejectMutationProofQuery({ where: { title: { contains: 'platformMutationProof' } }, select: { platformMutationProof: false } })).not.toThrow()
+  })
+  it('paginates authorized sites without exposing denied candidate IDs or accepting another account’s cursor', async () => {
+    const { sqlite, db } = fixture()
+    for (let index = 0; index < 52; index++) {
+      const id = `hidden-${String(index).padStart(3, '0')}`
+      sqlite.prepare("INSERT INTO vc_sites(id,organization_id,parent_id,name,route_key,created_at,updated_at) VALUES(?,'default','default','Hidden',?,'now','now')").run(id, id)
+      sqlite.prepare("INSERT INTO vc_site_ancestry VALUES(?,?,0),('default',?,1)").run(id, id, id)
+    }
+    const reader = new OrganizationRepository(db, 3)
+    const first = await reader.listSites()
+    expect(first.sites.map(site => site.id)).toEqual(['default'])
+    expect(first.next).toBeTruthy()
+    expect(first.next).not.toContain('hidden-')
+    expect((await reader.listSites(first.next!)).sites).toEqual([])
+    await expect(new OrganizationRepository(db, 2).listSites(first.next!)).rejects.toThrow('valid site page')
+  })
+  it('keeps administration local, authenticated and same-origin, and acknowledges audited policy changes', async () => {
+    const { db } = fixture()
+    const base = { collections: [], endpoints: [] } as Config
+    expect(organizationAdministration({ enabled: false })(base)).toBe(base)
+    const config = tenantAuthority(organizationAdministration({ enabled: true })(base))
+    const invoke = async (user: number | null, method: 'get' | 'post', body?: object, origin = 'https://local.invalid', query = '') => {
+      const http = new Request('https://local.invalid/api/organization-admin' + query, { method: method.toUpperCase(),
+        headers: { Origin: origin, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) })
+      return config.endpoints!.find(endpoint => endpoint.path === '/organization-admin' && endpoint.method === method)!.handler({
+        context: {}, headers: http.headers, url: http.url, body: http.body,
+        user: user ? { id: user, role: user === 1 ? 'administrator' : 'editor', collection: 'users' } : null,
+        payload: { db: { client: db } },
+      } as unknown as PayloadRequest)
+    }
+    expect((await invoke(null, 'get')).status).toBe(401)
+    expect((await invoke(3, 'get', undefined, 'https://local.invalid', '?site=default')).status).toBe(403)
+    const change = { action: 'policy', site: 'default', category: 'identity', operation: 'read', descendantsAllowed: true, overseeDescendants: false,
+      expectedRevision: 1, operationKey: crypto.randomUUID(), actor: 3, operator: true }
+    expect((await invoke(1, 'post', change, 'https://foreign.invalid')).status).toBe(403)
+    expect((await invoke(1, 'post', change)).status).toBe(200)
+    expect((await invoke(1, 'post', { ...change, expectedRevision: 1, operationKey: crypto.randomUUID() })).status).toBe(409)
+    expect((await invoke(3, 'post', { ...change, expectedRevision: 2, operationKey: crypto.randomUUID() })).status).toBe(403)
+  })
+  it('pins a request epoch through nested calls and fences a revoked raw mutation with its audit', async () => {
+    const { sqlite, db } = fixture()
+    const req = { context: {}, headers: new Headers(), payload: { db: { client: db } }, user: { id: 2, role: 'designer' } } as unknown as PayloadRequest
+    await claimRequest(req)
+    const fence = await mutationFence(req)
+    sqlite.exec('UPDATE vc_site_memberships SET active=0 WHERE user_id=2')
+    await expect(claimRequest(req)).rejects.toThrow('permissions changed')
+    await expect(db.batch([...fence, db.prepare("UPDATE legacy_posts SET title='Forbidden' WHERE id=7")])).rejects.toThrow()
+    expect(sqlite.prepare('SELECT title FROM legacy_posts WHERE id=7').get()?.title).toBe('Retain historical content')
+    expect(sqlite.prepare('SELECT count(*) AS n FROM vc_write_guards').get()?.n).toBe(0)
+  })
+  it('rejects stale native and autosave proofs while allowing independent trusted payment updates', async () => {
+    const { sqlite, db } = fixture()
+    for (const sql of nativeMutationSchemaV1) sqlite.exec(sql)
+    for (const [, table, versions] of guardedMutations) {
+      if (table === 'users') sqlite.exec('ALTER TABLE users ADD COLUMN platform_mutation_proof TEXT')
+      else sqlite.exec(`CREATE TABLE "${table}"(id INTEGER PRIMARY KEY,platform_mutation_proof TEXT,value TEXT,updated_at TEXT,membership_revision INTEGER DEFAULT 0,project_id INTEGER)`)
+      if (versions) sqlite.exec(`CREATE TABLE "${versions}"(id INTEGER PRIMARY KEY,version_platform_mutation_proof TEXT)`)
+    }
+    for (const sql of nativeMutationGuardsV1) sqlite.exec(sql)
+    const epoch = sqlite.prepare('SELECT authority_revision AS n FROM vc_organizations').get()?.n
+    const proof = JSON.stringify({ actor: 2, site: 'default', epoch })
+    sqlite.exec("INSERT INTO task_boards(id,updated_at,membership_revision) VALUES(9,'before',0); INSERT INTO review_tasks(id,updated_at,value) VALUES(9,'before','Original task')")
+    const audiences: WorkspaceProof = { boards: [{ id: 9, updated: 'before', revision: 0 }], projects: [], tasks: [{ id: 9, updated: 'before' }] }
+    const taskProof = JSON.stringify({ actor: 2, site: 'default', epoch, audiences })
+    const req = { context: {}, headers: new Headers(), payload: { db: { client: db } }, user: { id: 2, role: 'designer' } } as unknown as PayloadRequest
+    const fence = await mutationFence(req, audiences)
+    sqlite.exec('UPDATE task_boards SET membership_revision=membership_revision+1 WHERE id=9')
+    expect(() => sqlite.prepare("UPDATE review_tasks SET value='Forbidden',platform_mutation_proof=? WHERE id=9").run(taskProof)).toThrow('authority changed')
+    await expect(db.batch([...fence, db.prepare("UPDATE legacy_posts SET title='Forbidden' WHERE id=7")])).rejects.toThrow()
+    expect(sqlite.prepare('SELECT title FROM legacy_posts WHERE id=7').get()?.title).toBe('Retain historical content')
+    const guarded = tenantMutationGuards({ collections: [{ slug: 'task-views', fields: [], hooks: { beforeValidate: [({ data }) => {
+      sqlite.exec('UPDATE task_boards SET membership_revision=membership_revision+1 WHERE id=9')
+      return data
+    }] } }] } as Config).collections![0]
+    let args: Parameters<NonNullable<typeof guarded.hooks.beforeChange>[number]>[0] = {
+      req, data: { board: 9 }, operation: 'create', context: req.context, collection: guarded as SanitizedCollectionConfig,
+    }
+    for (const hook of guarded.hooks!.beforeValidate!) {
+      const result = await hook(args)
+      if (result) args = { ...args, data: result }
+    }
+    await expect(guarded.hooks!.beforeChange!.at(-1)!(args)).rejects.toThrow('Workspace changed')
+    const privileged = await guarded.hooks!.afterRead!.at(-1)!({
+      collection: guarded as SanitizedCollectionConfig, req, context: req.context, overrideAccess: true,
+      doc: { id: 9, platformMutationProof: { audiences } },
+    })
+    expect(privileged).not.toHaveProperty('platformMutationProof')
+    sqlite.prepare('INSERT INTO form_submissions(id,platform_mutation_proof,value) VALUES(1,?,?)').run(proof, 'Original')
+    sqlite.exec('UPDATE vc_site_memberships SET active=0 WHERE user_id=2')
+    expect(() => sqlite.prepare('UPDATE form_submissions SET value=?,platform_mutation_proof=? WHERE id=1').run('Forbidden', proof)).toThrow('authority changed')
+    expect(() => sqlite.prepare('INSERT INTO _forms_v(id,version_platform_mutation_proof) VALUES(1,?)').run(proof)).toThrow('authority changed')
+    sqlite.prepare("INSERT INTO vc_native_delete_proofs(collection,record_id,organization_id,actor_id,authority_revision,created_at) VALUES('form-submissions','1','default',2,?,?)").run(epoch!, new Date().toISOString())
+    expect(() => sqlite.exec('DELETE FROM form_submissions WHERE id=1')).toThrow('authority changed')
+    // Provider-verified reconciliation is an independent system operation, not a staff save.
+    sqlite.exec("UPDATE form_submissions SET value='Provider reconciliation' WHERE id=1")
+    expect(sqlite.prepare('SELECT value FROM form_submissions WHERE id=1').get()?.value).toBe('Provider reconciliation')
+  })
+  it('keeps old native editors bound to their original site after another tab switches context', async () => {
+    const { db } = fixture(), repo = new OrganizationRepository(db, 1)
+    const root = await repo.createOrganization({ name: 'Fictional tab network', siteName: 'National', operationKey: 'native_tabs_network_12345' })
+    await repo.setContext({ site: String(root.site), expectedRevision: 0, operationKey: 'native_tabs_context_12345' })
+    const req = { context: {}, headers: new Headers(), payload: { db: { client: db } }, user: { id: 1, role: 'administrator' } } as unknown as PayloadRequest
+    await claimRequest(req)
+    expect(authorityClaim(req.user)?.site).toBe(root.site)
+    await bindEditorSite(req, 'default')
+    expect(authorityClaim(req.user)?.site).toBe('default')
+    // Payload clones contexts using Object.keys, so server-only symbol context
+    // must retain its site and authority witness through the real local API.
+    const payload = { ...req.payload, config: { admin: { user: 'users' } }, collections: {} } as PayloadRequest['payload']
+    const nested = await createLocalReq({ req: { ...req, i18n: { t: () => '' } } as unknown as PayloadRequest }, payload)
+    expect((await cmsScope(nested, 'read')).site).toBe('default')
+    const conflicting = { ...req, context: {}, headers: new Headers({ 'x-vorticause-site': String(root.site) }) } as PayloadRequest
+    await expect(bindEditorSite(conflicting, 'default')).rejects.toThrow('editor site changed')
+    const other = { ...req, context: {}, user: { id: 3, role: 'editor' } } as unknown as PayloadRequest
+    await bindEditorSite(other, root.site)
+    expect(authorityClaim(other.user)?.allowed.identity).toBeUndefined()
+  })
+  it('manages a hierarchy, shares only approved categories, and moves a subtree atomically', async () => {
+    const { db, sqlite } = fixture(), repo = new OrganizationRepository(db, 1)
+    const revision = (id: string) => Number(sqlite.prepare('SELECT revision FROM vc_sites WHERE id=?').get(id)?.revision)
+    const child = async (parent: string, name: string) => String((await repo.createSite({ parent, name, expectedRevision: revision(parent), operationKey: crypto.randomUUID() })).site)
+    const national = String((await repo.createOrganization({ name: 'Fictional hierarchy', siteName: 'National', operationKey: crypto.randomUUID() })).site)
+    const regionA = await child(national, 'Region A'), regionB = await child(national, 'Region B'), local = await child(regionA, 'Local'), branch = await child(local, 'Branch')
+    await repo.setMembership({ site: regionB, user: 2, role: 'reader', active: true, expectedRevision: revision(regionB), operationKey: crypto.randomUUID() })
+    const reader = new OrganizationRepository(db, 2)
+    expect((await reader.authority(local, 'identity', 'read')).allowed).toBe(false)
+    await repo.setSharing({ site: local, receiver: regionB, category: 'identity', operation: 'read', receiverDescendants: false, revoked: false, expectedRevision: revision(local), operationKey: crypto.randomUUID() })
+    expect((await reader.authority(local, 'identity', 'read')).reason).toBe('explicit-sharing')
+    expect((await reader.authority(local, 'finances', 'read')).allowed).toBe(false)
+    expect((await reader.authority(local, 'identity', 'configure')).allowed).toBe(false)
+    await repo.moveSite({ site: local, parent: regionB, expectedRevision: revision(local), expectedParentRevision: revision(regionB), operationKey: crypto.randomUUID() })
+    expect(sqlite.prepare('SELECT distance FROM vc_site_ancestry WHERE ancestor_id=? AND descendant_id=?').get(regionB, branch)?.distance).toBe(2)
+    expect(sqlite.prepare('SELECT 1 FROM vc_site_ancestry WHERE ancestor_id=? AND descendant_id=?').get(regionA, branch)).toBeUndefined()
+    await expect(repo.moveSite({ site: local, parent: branch, expectedRevision: revision(local), expectedParentRevision: revision(branch), operationKey: crypto.randomUUID() })).rejects.toThrow('subtree')
+    const before = sqlite.prepare('SELECT parent_id FROM vc_sites WHERE id=?').get(local)?.parent_id
+    await expect(repo.moveSite({ site: local, parent: regionA, expectedRevision: revision(local), expectedParentRevision: 0, operationKey: crypto.randomUUID() })).rejects.toBeInstanceOf(SiteConflictError)
+    expect(sqlite.prepare('SELECT parent_id FROM vc_sites WHERE id=?').get(local)?.parent_id).toBe(before)
+    expect((await repo.administration(local)).decisions).toHaveLength(informationCategories.length * siteOperations.length)
+  })
+  it('prevents restricted administrators creating children to regain a denied category', async () => {
+    const { db, sqlite } = fixture(), repo = new OrganizationRepository(db, 2)
+    sqlite.exec("UPDATE vc_site_memberships SET role='administrator' WHERE user_id=2; INSERT INTO vc_member_restrictions VALUES('default',2,'finances','read')")
+    await expect(repo.createSite({ parent: 'default', name: 'Escalation', expectedRevision: 1, operationKey: crypto.randomUUID() })).rejects.toBeInstanceOf(SiteAccessError)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM vc_sites').get()?.n).toBe(1)
+  })
   it('keeps concurrent site claims on request copies instead of mutating a shared account', async () => {
     const { sqlite, db } = fixture()
     for (const sql of legacyContentCapabilities) sqlite.exec(sql)

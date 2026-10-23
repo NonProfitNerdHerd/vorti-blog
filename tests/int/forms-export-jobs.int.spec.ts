@@ -4,21 +4,24 @@ import type { Payload } from 'payload'
 import { statements } from '@/migrations/20261012_200651_forms_module'
 import { generateExport } from '@/forms/exports'
 import type { FormPlatform } from '@/forms/platform'
+import { organizationSchema, defaultOrganizationSeed } from '@/organizations/schema'
 vi.mock('payload', async importOriginal => ({ ...await importOriginal<typeof import('payload')>(), createLocalReq: async (options: object, payload: Payload) => ({ ...options, payload }) }))
-vi.mock('@/organizations/identity-authority', async () => {
-  const { fixtureUser } = await import('../helpers/authority')
-  return { claimRequest: async (req: { user: { id: number; role: string } }, site: string) => { Object.assign(req.user, fixtureUser(req.user.role, req.user.id, site)) } }
-})
 
 function fixture() {
   const sqlite = new DatabaseSync(':memory:')
+  sqlite.exec("CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT); INSERT INTO users VALUES(7,'administrator'),(8,'editor')")
+  for (const sql of [...organizationSchema, ...defaultOrganizationSeed]) sqlite.exec(sql)
   for (const sql of statements.filter(sql => /^CREATE TABLE `form_exports`/.test(sql))) sqlite.exec(sql)
   sqlite.exec('CREATE TABLE form_submissions (id integer, site text, form_id integer, answers text, schema_snapshot text, revision text, workflow_status text, created_at text)')
   const snapshot = JSON.stringify({ title: 'Original form', fields: [{ id: 'name', kind: 'text', label: 'Original name' }] })
   sqlite.prepare('INSERT INTO form_submissions VALUES (1,?,?,?,?,?,?,?)').run('default', 1, JSON.stringify({ name: 'Example' }), snapshot, 'old-revision', 'received', '2026-01-02T00:00:00.000Z')
   sqlite.prepare("INSERT INTO form_exports (id,site,requested_by,status,format,columns,filters) VALUES (1,'default','7','pending','csv',?,?)").run(JSON.stringify(['entryID', 'revision', 'field:name']), JSON.stringify({ formID: 1, from: '2026-01-01', to: '2026-02-01', maxID: 1, sensitive: false }))
   const objects = new Map<string, Uint8Array>()
-  const db = { prepare(sql: string) {
+  const db = { async batch(values: Array<{ run: () => Promise<unknown> }>) {
+    sqlite.exec('BEGIN')
+    try { const result = []; for (const value of values) result.push(await value.run()); sqlite.exec('COMMIT'); return result }
+    catch (error) { sqlite.exec('ROLLBACK'); throw error }
+  }, prepare(sql: string) {
     let args: (string | number | null)[] = []
     const statement = {
       bind(...values: (string | number | null)[]) { args = values; return statement },
@@ -29,10 +32,22 @@ function fixture() {
     return statement
   } } as unknown as D1Database
   const platform = { db, storage: { async put(key: string, bytes: Uint8Array) { objects.set(key, bytes) }, async delete(key: string) { objects.delete(key) } } } as unknown as FormPlatform
-  const payload = { findByID: async () => ({ id: 7, role: 'administrator' }) } as unknown as Payload
+  const payload = { db: { client: db }, findByID: async () => ({ id: 7, role: 'administrator' }) } as unknown as Payload
   return { sqlite, objects, platform, payload }
 }
 describe('private export jobs', () => {
+  it('removes a private artifact if requester permission is revoked immediately before publication', async () => {
+    const f = fixture(), batch = f.platform.db.batch.bind(f.platform.db)
+    vi.spyOn(f.platform.db, 'batch').mockImplementation(async statements => {
+      f.sqlite.exec('UPDATE vc_site_memberships SET active=0 WHERE user_id=7; DELETE FROM vc_installation_operators WHERE user_id=7')
+      return batch(statements)
+    })
+    await generateExport(f.platform, f.payload, 'default', 1)
+    expect(f.sqlite.prepare('SELECT status FROM form_exports').get()?.status).toBe('failed')
+    expect(f.objects.size).toBe(0)
+    expect(f.sqlite.prepare('SELECT count(*) AS n FROM vc_write_guards').get()?.n).toBe(0)
+    f.sqlite.close()
+  })
   it('paginates larger exports without dropping or duplicating rows', async () => {
     const f = fixture(), template = f.sqlite.prepare('SELECT * FROM form_submissions').get()!
     const insert = f.sqlite.prepare('INSERT INTO form_submissions VALUES (?,?,?,?,?,?,?,?)')
@@ -61,10 +76,13 @@ describe('private export jobs', () => {
   })
   it('rechecks current permissions and reports configured size limits without partial downloads', async () => {
     const f = fixture()
-    await generateExport(f.platform, { findByID: async () => ({ id: 7, role: 'editor' }) } as unknown as Payload, 'default', 1)
+    f.sqlite.prepare('UPDATE vc_site_memberships SET role=? WHERE user_id=7').run('reader')
+    f.sqlite.exec('DELETE FROM vc_installation_operators WHERE user_id=7')
+    await generateExport(f.platform, f.payload, 'default', 1)
     expect(f.sqlite.prepare('SELECT status,error FROM form_exports').get()).toMatchObject({ status: 'failed', error: 'Export permissions changed. Ask an administrator to review access.' })
     expect(f.objects.size).toBe(0)
     f.sqlite.prepare("UPDATE form_exports SET status='pending'").run()
+    f.sqlite.exec("UPDATE vc_site_memberships SET role='administrator' WHERE user_id=7")
     f.platform.exportLimits = { bytes: 1 }
     await generateExport(f.platform, f.payload, 'default', 1)
     expect(String(f.sqlite.prepare('SELECT error FROM form_exports').get()?.error)).toContain('size limit')

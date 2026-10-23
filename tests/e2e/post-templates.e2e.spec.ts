@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test'
-test.use({ actionTimeout: 20000 })
+test.use({ actionTimeout: 60000 })
 
 test('template-first creation, existing creator return, independent posts and Blank', async ({ page }) => {
-  await page.request.post('/api/users/login', { data: { email: 'dev@payloadcms.com', password: 'test' } })
+  await page.request.post('/api/users/login', { data: { email: 'dev@payloadcms.com', password: 'test' }, timeout: 120000 })
   const count = async () => (await (await page.request.get('/api/posts/count')).json()).totalDocs as number
   const before = await count(), stamp = Date.now()
   const response = await page.request.post('/api/design-templates', { data: { name: `Article ${stamp}`, slug: `article-${stamp}`, allowedCollections: ['posts'], description: 'A reusable article introduction', status: 'published', _status: 'published', layout: [{ id: 'intro', type: 'field', fieldType: 'shortText', label: 'Introduction', content: { source: 'custom' } }] } })
@@ -32,9 +32,11 @@ test('template-first creation, existing creator return, independent posts and Bl
   await expect(drawer.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(`Created in chooser ${stamp}`)
   await page.keyboard.press('Escape')
   await expect(chooser).toBeVisible()
+  await expect(chooser.getByRole('button', { name: new RegExp(`Article ${stamp}`) })).toHaveAttribute('aria-pressed', 'true')
   expect(await count()).toBe(before)
   await chooser.getByRole('button', { name: 'Create Post', exact: true }).click()
   await expect(chooser).not.toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Template', exact: true })).toHaveValue(String(template.id))
   await page.locator('.doc-header input[name=title]').fill(`Independent article ${stamp}`)
   await page.locator('#editor-intro').click()
   const intro = page.getByRole('region', { name: 'Introduction', exact: true }).getByRole('textbox', { name: 'Introduction', exact: true })
@@ -44,8 +46,11 @@ test('template-first creation, existing creator return, independent posts and Bl
   await expect(page).toHaveURL(/\/collections\/posts\/\d+/)
   await page.reload()
   await expect(intro).toHaveValue('The Post owns this introduction')
-  const previewPromise = page.waitForEvent('popup')
-  await page.getByRole('link', { name: 'Preview', exact: true }).click()
+  const previewLink = page.getByRole('link', { name: 'Preview', exact: true })
+  await expect(previewLink).toHaveAttribute('target', '_blank')
+  const previewPromise = page.waitForEvent('popup', { timeout: 120000 })
+  // Keyboard activation remains reliable while native header portals settle.
+  await previewLink.press('Enter')
   const preview = await previewPromise
   await expect(preview.getByText('The Post owns this introduction', { exact: true })).toBeVisible()
   await preview.close()

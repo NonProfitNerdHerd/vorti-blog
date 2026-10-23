@@ -93,6 +93,8 @@ For a production release:
 
 Cloudflare resource names and deployed URLs can differ from the VortiCause product name. Renaming the product does not rename existing Workers, databases, buckets, or authentication cookies.
 
+`ORGANIZATION_ADMIN_ENABLED=true` registers the authenticated Sites administration screen at `/admin/sites` and its services. Keep it false for installations that have not completed the organization/CRM migrations and access checks. This setting does not grant account permissions. Non-default sites have private identity settings (name, tagline, timezone); existing public URLs and full public Site Settings continue to belong to the compatibility site. Public subsite routing remains unfinished.
+
 Production logging uses the application's JSON console logger. `PAYLOAD_LOG_LEVEL` controls verbosity. Worker observability and any mail/analytics provider connections require their own configuration.
 
 ## Contributing

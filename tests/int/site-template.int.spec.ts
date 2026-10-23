@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
 
 describe('Site Template persistence foundation', () => {
   let payload: Payload
@@ -28,8 +29,10 @@ describe('Site Template persistence foundation', () => {
   })
 
   afterAll(async () => {
-    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: null }, overrideAccess: true })
-    if (templateID) await payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: true })
+    if (!payload || !administratorID) return
+    const user = await payload.findByID({ collection: 'users', id: administratorID })
+    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: null }, overrideAccess: false, user })
+    if (templateID) await payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: false, user })
     for (const id of [administratorID, designerID, editorID]) if (id) await payload.delete({ collection: 'users', id, overrideAccess: true })
   })
 
@@ -66,13 +69,13 @@ describe('Site Template persistence foundation', () => {
     const published = await payload.find({ collection: 'site-templates', where: { id: { equals: templateID } }, overrideAccess: false })
     expect(published.totalDocs).toBe(1)
     const draft = await payload.create({ collection: 'site-templates', draft: true, overrideAccess: false, user: designer, data: {
-      name: 'Private Draft Site Template', slug: 'private-draft-site-template', header: { layout: [] }, footer: { layout: [] }, assignment: { mode: 'default', priority: 0 }, _status: 'draft',
+      name: 'Private Draft Site Template', slug: 'private-draft-site-template-' + Date.now(), header: { layout: [] }, footer: { layout: [] }, assignment: { mode: 'default', priority: 0 }, _status: 'draft',
     } })
     try {
       const anonymous = await payload.find({ collection: 'site-templates', where: { id: { equals: draft.id } }, overrideAccess: false })
       expect(anonymous.totalDocs).toBe(0)
     } finally {
-      await payload.delete({ collection: 'site-templates', id: draft.id, overrideAccess: true })
+      await payload.delete({ collection: 'site-templates', id: draft.id, overrideAccess: false, user: designer })
     }
   })
 
@@ -87,15 +90,17 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('validates Site Shell nodes and Additional CSS', async () => {
-    await expect(payload.update({ collection: 'site-templates', id: templateID, data: { header: { layout: [{ id: 'content-field', type: 'field' }] } } })).rejects.toThrow('invalid')
-    await expect(payload.update({ collection: 'site-templates', id: templateID, data: { additionalCSS: '@import "remote.css";' } })).rejects.toThrow('invalid')
-    await expect(payload.update({ collection: 'site-templates', id: templateID, data: { additionalCSS: '</style><script>bad()</script>' } })).rejects.toThrow('invalid')
+    const user = await payload.findByID({ collection: 'users', id: designerID })
+    await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { header: { layout: [{ id: 'content-field', type: 'field' }] } } })).rejects.toThrow('invalid')
+    await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { additionalCSS: '@import "remote.css";' } })).rejects.toThrow('invalid')
+    await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { additionalCSS: '</style><script>bad()</script>' } })).rejects.toThrow('invalid')
   })
 
   it('stores the authoritative default relationship and prevents deleting it', async () => {
-    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: templateID }, overrideAccess: true })
+    const user = await payload.findByID({ collection: 'users', id: administratorID })
+    await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: templateID }, overrideAccess: false, user })
     const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0 })
     expect(settings.defaultSiteTemplate).toBe(templateID)
-    await expect(payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: true })).rejects.toThrow('selected as the default')
+    await expect(payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: false, user })).rejects.toThrow('selected as the default')
   })
 })

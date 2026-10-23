@@ -10,6 +10,11 @@ import * as restrictions from '../../src/migrations/20261020_233000_authority_re
 import * as finance from '../../src/migrations/20261020_234000_crm_finance'
 import * as cms from '../../src/migrations/20261021_080000_cms_site_ownership'
 import * as workspace from '../../src/migrations/20261021_090000_workspace_site_ownership'
+import * as mutationGuards from '../../src/migrations/20261022_010000_native_mutation_guards'
+import * as scopedSettings from '../../src/migrations/20261023_160000_scoped_site_settings'
+import * as globalGuards from '../../src/migrations/20261023_163000_global_commit_guards'
+import * as authenticationGuards from '../../src/migrations/20261023_170000_native_authentication_guards'
+import { guardedMutations } from '../../src/organizations/mutation-guards'
 import { cmsCollections } from '../../src/organizations/cms-collections'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
@@ -158,6 +163,10 @@ const migrations = [
   { name: '20261020_234000_crm_finance', ...finance },
   { name: '20261021_080000_cms_site_ownership', ...cms },
   { name: '20261021_090000_workspace_site_ownership', ...workspace },
+  { name: '20261022_010000_native_mutation_guards', ...mutationGuards },
+  { name: '20261023_160000_scoped_site_settings', ...scopedSettings },
+  { name: '20261023_163000_global_commit_guards', ...globalGuards },
+  { name: '20261023_170000_native_authentication_guards', ...authenticationGuards },
 ]
 const selected = migrations.map((migration) => ({
   name: migration.name,
@@ -239,6 +248,17 @@ const applied = await payload.find({
   limit: 100,
   pagination: false,
 })
+let mutationProofColumnsVerified = 0
+for (const [, table, versions] of guardedMutations) {
+  for (const [target, column] of [[table, 'platform_mutation_proof'], ...(versions ? [[versions, 'version_platform_mutation_proof']] : [])]) {
+    const columns = (await binding.prepare(`PRAGMA table_info("${target}")`).all<{ name: string }>()).results
+    if (!columns.some(field => field.name === column)) throw new Error(`Missing native mutation proof column on ${target}.`)
+    mutationProofColumnsVerified++
+  }
+  for (const suffix of ['insert', 'update', 'delete', 'deleted'])
+    if (!await binding.prepare("SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=?").bind(`${table}_vc_mutation_${suffix}`).first())
+      throw new Error(`Missing native mutation guard on ${table}.`)
+}
 if (migrations.some((migration) => !applied.docs.some((row) => row.name === migration.name)))
   throw new Error('CRM migrations were not tracked.')
 console.log(
@@ -247,6 +267,7 @@ console.log(
     historicalTablesPreserved: tables.length,
     repeatSafe: true,
     nativeOwnershipIndexesVerified: indexesVerified,
+    nativeMutationProofColumnsVerified: mutationProofColumnsVerified,
   }),
 )
 process.exit(0)

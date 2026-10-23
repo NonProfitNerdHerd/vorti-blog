@@ -1,4 +1,6 @@
 import { workspaceReq } from './workspace-access'
+import { mutationFence } from '../organizations/mutation-guards'
+import { workspaceMutationFence } from './workspace-commit'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { relationID, isAdministrator } from './documents'
 import {
@@ -244,7 +246,7 @@ async function placementBatch(
       binding.prepare('DELETE FROM task_workspace_guards WHERE id = ?').bind(`${guardID}:${i}`),
     )
   try {
-    await binding.batch(statements)
+    await binding.batch([...(await mutationFence(req)), ...statements])
   } catch {
     reject('The task or board membership changed. Reload and try again.', 409)
   }
@@ -455,8 +457,10 @@ export const workspaceEndpoint: Endpoint = {
       if (!Number.isFinite(position)) reject('Invalid card position.', 400)
       const sectionID = section?.id ?? null,
         next = new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString()
-      const changed = await workspaceDB(req)
-        .prepare(
+      const db = workspaceDB(req)
+      const changes = await db.batch([...(await workspaceMutationFence(req, { task: task.id, board: destination }, async () => {
+        await requireTask(req, task.id, 'edit'); await requireBoard(req, destination, 'edit')
+      })), db.prepare(
           'UPDATE task_placements SET section_id=?,position=?,updated_at=? WHERE id=? AND updated_at=? AND active=1 AND (? IS NULL OR EXISTS(SELECT 1 FROM task_sections WHERE id=? AND board_id=? AND archived!=1))',
         )
         .bind(
@@ -469,7 +473,8 @@ export const workspaceEndpoint: Endpoint = {
           sectionID,
           Number(destination),
         )
-        .run()
+      ])
+      const changed = changes.at(-1)!
       if (!changed.meta.changes)
         reject('This card or its section changed. Reload before moving it again.', 409)
       await boardAudit(req, destination, `Task #${task.id} moved`)

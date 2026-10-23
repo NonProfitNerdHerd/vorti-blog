@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { workspaceMutationFence } from './workspace-commit'
 import { initializeStarterWorkspace } from './workspace-starter'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { relationID, isAdministrator } from './documents'
@@ -240,7 +241,9 @@ export const workspaceEndpoints: Endpoint[] = [
         )
       statements.push(db.prepare('DELETE FROM task_workspace_guards WHERE id=?').bind(guard))
       try {
-        await db.batch(statements)
+        await db.batch([...(await workspaceMutationFence(req, { board: view.board }, async () => {
+          await requireBoard(req, view.board, 'owner'); await requireBoard(req, view.board, 'edit')
+        })), ...statements])
       } catch {
         reject('This view changed. Reload before saving.', 409)
       }
@@ -428,6 +431,7 @@ export const workspaceEndpoints: Endpoint[] = [
         await ensureWorkspaceGuards(req)
         try {
           await db.batch([
+            ...(await workspaceMutationFence(req, { task: id }, () => requireTask(req, id, 'edit'))),
             db
               .prepare(
                 'INSERT INTO task_workspace_guards(id,valid) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM review_tasks WHERE id=? AND updated_at=?) THEN 1 ELSE 0 END)',
@@ -481,6 +485,9 @@ export const workspaceEndpoints: Endpoint[] = [
         await ensureWorkspaceGuards(req)
         try {
           await db.batch([
+            ...(await workspaceMutationFence(req, { task: id, predecessor: predecessor.id }, async () => {
+              await requireTask(req, id, 'edit'); await requireTask(req, predecessor.id)
+            })),
             db
               .prepare(
                 'INSERT INTO task_workspace_guards(id,valid) SELECT ?,CASE WHEN NOT EXISTS(WITH RECURSIVE chain(id) AS (SELECT predecessor_id FROM task_dependencies WHERE task_id=? UNION SELECT d.predecessor_id FROM task_dependencies d JOIN chain c ON d.task_id=c.id) SELECT 1 FROM chain WHERE id=?) AND EXISTS(SELECT 1 FROM review_tasks WHERE id=? AND updated_at=?) THEN 1 ELSE 0 END',

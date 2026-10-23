@@ -20,6 +20,9 @@ import { tenantGlobals } from './organizations/globals-plugin'
 import { tenantForms } from './organizations/forms-plugin'
 import { tenantWorkspace } from './organizations/workspace-plugin'
 import { tenantAuthority } from './organizations/authority-plugin'
+import { tenantMutationGuards } from './organizations/mutation-guards'
+import { organizationAdministration } from './organizations/admin-plugin'
+import { tenantEditorSite } from './organizations/editor-site'
 import { importExportPlugin } from '@payloadcms/plugin-import-export'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 
@@ -200,6 +203,10 @@ export default buildConfig({
     tenantGlobals,
     tenantForms,
     tenantWorkspace,
+    tenantMutationGuards,
+    tenantEditorSite,
+    organizationAdministration({ enabled: Boolean(localPersistPath) ||
+      (cloudflare.env as CloudflareEnv & { ORGANIZATION_ADMIN_ENABLED?: string }).ORGANIZATION_ADMIN_ENABLED === 'true' }),
     tenantAuthority,
     accountStatusGuards(cloudflare.env.D1),
   ],

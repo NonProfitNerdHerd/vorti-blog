@@ -1,5 +1,8 @@
 import type { Config } from 'payload'
 import { claimRequest, confirmRequestAuthority } from './identity-authority'
+import { rejectMutationProofQuery } from './mutation-query'
+/** Only an audited atomic authority mutation may acknowledge its intentional epoch change. */
+export const AUTHORITY_MUTATION_COMMITTED = Symbol('atomic-authority-mutation-committed')
 
 /** Populate capabilities from current D1 authority before any custom/native staff access checks. */
 export const tenantAuthority = (config: Config): Config => {
@@ -9,7 +12,8 @@ export const tenantAuthority = (config: Config): Config => {
       handler: async (...args: Parameters<typeof endpoint.handler>) => {
         await claimRequest(args[0])
         const response = await endpoint.handler(...args)
-        await confirmRequestAuthority(args[0])
+        if (!(args[0].context as Record<symbol, unknown>)[AUTHORITY_MUTATION_COMMITTED])
+          await confirmRequestAuthority(args[0])
         return response
       },
     }))
@@ -22,7 +26,8 @@ export const tenantAuthority = (config: Config): Config => {
       hooks: {
         ...collection.hooks,
         beforeOperation: [
-          async ({ req }) => {
+          async ({ req, args }) => {
+            rejectMutationProofQuery(args)
             await claimRequest(req)
           },
           ...(collection.hooks?.beforeOperation || []),

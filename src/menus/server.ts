@@ -8,7 +8,7 @@ import {
   type ResolvedMenu,
 } from '@design-system/payload-design-core'
 import { homePage } from '../lib/site-pages'
-import { CMS_MENU_RENDER } from '../organizations/cms-scope'
+import { CMS_MENU_RENDER, cmsSiteContext } from '../organizations/cms-scope'
 
 /** Deliberately anonymous: an editor's session must never hydrate private destinations into public HTML. */
 export async function resolveMenu(
@@ -23,7 +23,8 @@ export async function resolveMenu(
       id: Number(id),
       depth: 0,
       overrideAccess: true,
-      context: { menuOperation: 'public-render', [CMS_MENU_RENDER]: true },
+      user: null,
+      context: { ...cmsSiteContext('default'), menuOperation: 'public-render', [CMS_MENU_RENDER]: true },
     })
   } catch (error) {
     if ((error as { status?: number }).status === 404) return null

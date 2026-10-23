@@ -4,6 +4,10 @@ import * as migration_20261020_233000_authority_restrictions from './20261020_23
 import * as migration_20261020_234000_crm_finance from './20261020_234000_crm_finance';
 import * as migration_20261021_080000_cms_site_ownership from './20261021_080000_cms_site_ownership';
 import * as migration_20261021_090000_workspace_site_ownership from './20261021_090000_workspace_site_ownership';
+import * as migration_20261022_010000_native_mutation_guards from './20261022_010000_native_mutation_guards';
+import * as migration_20261023_160000_scoped_site_settings from './20261023_160000_scoped_site_settings';
+import * as migration_20261023_163000_global_commit_guards from './20261023_163000_global_commit_guards';
+import * as migration_20261023_170000_native_authentication_guards from './20261023_170000_native_authentication_guards';
 import * as migration_20261020_200500_content_publication_views from './20261020_200500_content_publication_views';
 import * as migration_20250929_111647 from './20250929_111647';
 import * as migration_20260916_190635_plugin_foundation from './20260916_190635_plugin_foundation';
@@ -194,4 +198,8 @@ export const migrations = [
   { up: migration_20261020_234000_crm_finance.up, down: migration_20261020_234000_crm_finance.down, name: '20261020_234000_crm_finance' },
   { up: migration_20261021_080000_cms_site_ownership.up, down: migration_20261021_080000_cms_site_ownership.down, name: '20261021_080000_cms_site_ownership' },
   { up: migration_20261021_090000_workspace_site_ownership.up, down: migration_20261021_090000_workspace_site_ownership.down, name: '20261021_090000_workspace_site_ownership' },
+  { up: migration_20261022_010000_native_mutation_guards.up, down: migration_20261022_010000_native_mutation_guards.down, name: '20261022_010000_native_mutation_guards' },
+  { up: migration_20261023_160000_scoped_site_settings.up, down: migration_20261023_160000_scoped_site_settings.down, name: '20261023_160000_scoped_site_settings' },
+  { up: migration_20261023_163000_global_commit_guards.up, down: migration_20261023_163000_global_commit_guards.down, name: '20261023_163000_global_commit_guards' },
+  { up: migration_20261023_170000_native_authentication_guards.up, down: migration_20261023_170000_native_authentication_guards.down, name: '20261023_170000_native_authentication_guards' },
 ];

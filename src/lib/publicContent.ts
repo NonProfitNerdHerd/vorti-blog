@@ -3,6 +3,7 @@ import { getPayload } from 'payload'
 import { cache } from 'react'
 import config from '@/payload.config'
 import type { Navigation, SiteSetting } from '@/payload-types'
+import { CMS_MENU_RENDER, cmsSiteContext } from '@/organizations/cms-scope'
 
 export const fallbackPublicSiteData = {
   navigation: { id: 0, primary: [], footer: [] } as Navigation,
@@ -12,7 +13,12 @@ export const fallbackPublicSiteData = {
 export const getPublicSiteData = cache(async () => {
   const payload = await getPayload({ config })
   const [navigation, siteSettings] = await Promise.all([
-    payload.findGlobal({ slug: 'navigation', depth: 1, overrideAccess: false }),
+    payload.findGlobal({
+      slug: 'navigation',
+      depth: 1,
+      overrideAccess: false,
+      context: { ...cmsSiteContext('default'), [CMS_MENU_RENDER]: true },
+    }),
     payload.findGlobal({ slug: 'site-settings', depth: 1, overrideAccess: false }),
   ])
   return { navigation, siteSettings }
@@ -60,8 +66,7 @@ export async function getPublicAuthorProfile(slug: string) {
   return {
     displayName: userIdentity(author, author.displayName || ''),
     slug: author.slug,
-    profilePhoto:
-      photo && typeof photo === 'object' ? { url: photo.url, alt: photo.alt } : null,
+    profilePhoto: photo && typeof photo === 'object' ? { url: photo.url, alt: photo.alt } : null,
     shortBio: author.shortBio ?? null,
     biography: author.biography ?? null,
     website: author.website ?? null,

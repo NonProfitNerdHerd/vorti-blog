@@ -16,7 +16,7 @@ test.describe('tenant enforcement through authenticated native HTTP APIs', () =>
     for (const account of [fixture.userA, fixture.userB]) {
       const client = await playwright.request.newContext({ baseURL })
       const login = await client.post('/api/users/login', { data: account })
-      expect(login.ok()).toBe(true)
+      expect(login.ok(), login.ok() ? '' : await login.text()).toBe(true)
       tokens.push((await login.json()).token)
       await client.dispose()
     }

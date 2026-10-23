@@ -1,0 +1,61 @@
+.vc-sites {
+  padding-block: 24px;
+  max-width: 1120px;
+}
+.vc-sites header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.vc-sites section {
+  margin-block: 24px;
+  padding: 20px;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 8px;
+}
+.vc-sites label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 14px;
+}
+.vc-sites input:not([type='checkbox']),
+.vc-sites select {
+  padding: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+.vc-sites button {
+  padding: 8px 12px;
+  margin: 4px;
+  cursor: pointer;
+}
+.vc-sites table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-wrap: anywhere;
+}
+.vc-sites td,
+.vc-sites th {
+  padding: 8px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+  text-align: left;
+}
+.vc-sites [role='alert'] {
+  color: var(--theme-error-600);
+}
+@media (max-width: 600px) {
+  .vc-sites section {
+    padding: 10px;
+  }
+  .vc-sites table {
+    font-size: 12px;
+  }
+  .vc-sites td,
+  .vc-sites th {
+    padding: 4px;
+  }
+}

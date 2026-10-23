@@ -10,6 +10,7 @@ import { cmsDatabase, cmsScope, migrationRequest } from './cms-scope'
 import { identityAuthority } from './identity-authority'
 import { withAuthority } from './claims'
 import { formCapabilities } from '../forms/access'
+import { mutationFence } from './mutation-guards'
 const directoryList = Symbol('account-directory-list')
 
 async function installed(req: PayloadRequest): Promise<boolean> {
@@ -210,6 +211,7 @@ export const tenantUsers = (config: Config): Config => ({
                 ...(['administrator', 'designer'].includes(doc.role) ? ['configure'] : []),
               ]
               await db.batch([
+                ...(await mutationFence(req)),
                 db
                   .prepare(
                     'INSERT OR IGNORE INTO vc_site_memberships(site_id,user_id,role) VALUES(?,?,?)',

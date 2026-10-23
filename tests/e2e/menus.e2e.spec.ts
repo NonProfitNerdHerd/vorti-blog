@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
-test.use({ actionTimeout: 20000 })
+// The full local release build can take more than 20s to compile a cold API route.
+test.use({ actionTimeout: 60000 })
 test('visual menu editing, nested rows, public placements, stale saves and responsive navigation', async ({
   page,
   request,
 }) => {
   await page.request.post('/api/users/login', {
     data: { email: 'dev@payloadcms.com', password: 'test' },
+    timeout: 120000,
   })
   const create = async (collection: string, data: object) => {
     const response = await page.request.post(`/api/${collection}?depth=0`, { data })
@@ -97,7 +99,9 @@ test('visual menu editing, nested rows, public placements, stale saves and respo
       ],
     },
   })
-  const html = await (await page.request.get(`/${surface.slug}`)).text()
+  const publicPage = await page.request.get(`/${surface.slug}`, { timeout: 120000 })
+  expect(publicPage.ok(), await publicPage.text()).toBe(true)
+  const html = await publicPage.text()
   expect(html).toContain('href="/team"')
   expect(html).not.toContain('Loading menu')
   await page.goto(`/${surface.slug}`)

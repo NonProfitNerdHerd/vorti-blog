@@ -8,6 +8,7 @@ import type { SiteOperation } from './policy'
 // each use checks current primary-D1 authority first. Never cache records or CRM output here.
 const caches = new WeakMap<D1Database, Map<string, { claim: AuthorityClaim; until: number }>>()
 const installedDatabases = new WeakSet<D1Database>()
+const requestEpochs = Symbol.for('vorticause.request-authority-epochs')
 export async function identityAuthority(
   req: PayloadRequest,
   user: { id: string | number; role?: string },
@@ -116,6 +117,16 @@ export async function claimRequest(
 ): Promise<AuthorityClaim | null> {
   if (!req.user || migrationRequest(req)) return null
   const claim = await identityAuthority(req, req.user, site)
+  // Nested Local API calls must not silently replace a stale request's authority with a
+  // newer epoch. A job/page must restart and review under its new permissions instead.
+  const context = req.context as Record<symbol, unknown>
+  req.context.authorityOperation ||= 'site-request'
+  const epochs = (context[requestEpochs] ||= new Map<string, number>()) as Map<string, number>
+  const key = `${claim.actor}:${claim.site}`
+  const previous = epochs.get(key)
+  if (previous !== undefined && previous !== claim.epoch)
+    throw new APIError('Site permissions changed. Reload and retry.', 403)
+  epochs.set(key, claim.epoch)
   // Local API callers may reuse one User object across concurrent site-bound requests.
   // Keep the authority on the request's copy so one tab/job cannot retarget another.
   req.user = withAuthority(req.user, claim)

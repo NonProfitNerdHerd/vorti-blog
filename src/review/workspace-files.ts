@@ -3,6 +3,7 @@ import { constantEqual } from '../forms/security'
 import { taskSearchTerms } from './client'
 import { relationID } from './documents'
 import { boardRole, reject, requireBoard, requireTask, taskWhere } from './workspace-access'
+import { confirmRequestAuthority } from '../organizations/identity-authority'
 
 const limit = 25 * 1024 * 1024
 const allowed: Record<string, string> = {
@@ -37,6 +38,26 @@ async function accessFile(
     if (comment.moderated || relationID(comment.task) !== relationID(doc.task))
       reject('Attachment is unavailable.', 404)
   }
+}
+/** Called after the native audience snapshot and before metadata commits. Handler checks
+ * alone leave a gap between the last permission lookup and entering the Local API. */
+export async function validateWorkspaceAttachment(
+  req: PayloadRequest, data: Record<string, unknown>, original?: Record<string, unknown>, deleting = false,
+): Promise<void> {
+  if (original) original = { ...original,
+    task: original.task ?? original.task_id, board: original.board ?? original.board_id,
+    comment: original.comment ?? original.comment_id, uploader: original.uploader ?? original.uploader_id }
+  const doc = { ...original, ...data }
+  await accessFile(req, doc, true)
+  if (original && (deleting || data.state === 'deleting')) {
+    if (relationID(original.uploader) !== String(req.user?.id)) {
+      if (original.task) await requireTask(req, original.task, 'edit')
+      else await requireBoard(req, original.board, 'owner')
+    }
+  }
+  if (original && data.state === 'ready' &&
+    (relationID(original.uploader) !== String(req.user?.id) || original.state !== 'staged'))
+    reject('Upload is unavailable.', 409)
 }
 export async function fileList(
   req: PayloadRequest,
@@ -282,6 +303,13 @@ export function workspaceFileEndpoints(storage: R2Bucket): Endpoint[] {
         if (doc.state !== 'ready') reject('Attachment is unavailable.', 404)
         const object = await storage.get(doc.objectKey)
         if (!object) reject('Attachment is unavailable.', 410)
+        try {
+          await accessFile(req, doc)
+          await confirmRequestAuthority(req)
+        } catch (error) {
+          await object!.body.cancel()
+          throw error
+        }
         return new Response(object!.body, {
           headers: {
             'Content-Type': 'application/octet-stream',
@@ -330,6 +358,8 @@ export function workspaceFileEndpoints(storage: R2Bucket): Endpoint[] {
   ]
 }
 export async function cleanWorkspaceFiles(req: PayloadRequest, storage: R2Bucket) {
+  // Maintenance is authorized by its job token, not an incidental browser account context.
+  req = { ...req, user: null, context: { workspaceMaintenance: true } } as PayloadRequest
   const result = await req.payload.find({
     collection: 'task-attachments',
     req,

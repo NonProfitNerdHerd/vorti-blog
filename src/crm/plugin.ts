@@ -27,7 +27,7 @@ export function errorResponse(error: unknown): Response {
   return Response.json(
     { message: safeMessage },
     {
-      status: [400, 403, 409, 413, 415].includes(status) ? status : 500,
+      status: [400, 401, 403, 404, 409, 413, 415, 503].includes(status) ? status : 500,
       headers: { 'Cache-Control': 'private, no-store' },
     },
   )
@@ -158,7 +158,8 @@ export const crmModule =
           return Response.json({ message: 'Sign in to use CRM.' }, { status: 401 })
         try {
           const authority = new OrganizationRepository(platform.db, Number(req.user.id))
-          const site = await authority.require('default', 'identity', 'read')
+          const selected = (req.url ? new URL(req.url).searchParams.get('site') : null) || (await authority.context()).site
+          const site = await authority.require(selected, 'identity', 'read')
           return Response.json(
             {
               site: { id: site.id, name: site.name },

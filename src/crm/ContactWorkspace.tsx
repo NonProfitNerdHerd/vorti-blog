@@ -5,6 +5,7 @@ import { constituentRoles, type ContactProfile } from './contact-model'
 import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
+import Link from 'next/link'
 import './workspace.css'
 
 type Detail = ContactSummary & {
@@ -33,7 +34,7 @@ const empty = (): ContactProfile => ({
 export function ContactWorkspace() {
   const {
     config: {
-      routes: { api },
+      routes: { api, admin },
     },
   } = useConfig()
   const [site, setSite] = useState<{ id: string; name: string } | null>(null),
@@ -60,6 +61,18 @@ export function ContactWorkspace() {
     operation = useRef<string | null>(null),
     requestSequence = useRef(0)
   const accessGeneration = useRef(0)
+  const pinnedSite = useRef<string | null>(null)
+  const [availableSites, setAvailableSites] = useState<Array<{ id: string; name: string }>>([])
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetch(api + '/organization-admin', { cache: 'no-store', signal: controller.signal }).then(async response => {
+      if (response.ok) {
+        const data = await response.json() as { sites: Array<{ id: string; name: string }> }
+        setAvailableSites(data.sites)
+      }
+    }).catch(() => {})
+    return () => controller.abort()
+  }, [api])
   const loseAccess = useCallback((): void => {
     accessGeneration.current++
     requestSequence.current++
@@ -91,7 +104,10 @@ export function ContactWorkspace() {
     setLoading(true)
     setError('')
     try {
-      const context = await read<Context>(api + '/crm/context')
+      const selected = pinnedSite.current || new URL(window.location.href).searchParams.get('site')
+      const context = await read<Context>(api + '/crm/context' + (selected ? '?site=' + encodeURIComponent(selected) : ''))
+      if (sequence !== requestSequence.current) return
+      pinnedSite.current = context.site.id
       const query = new URLSearchParams({ site: context.site.id, search, role, limit: '50' })
       if (cursor) {
         query.set('afterID', cursor.id)
@@ -304,13 +320,27 @@ export function ContactWorkspace() {
         <div>
           <h1>CRM</h1>
           <p>{site?.name || 'Constituent workspace'}</p>
+            {availableSites.length > 0 && <>
+              <label>CRM site <select value={site?.id || ''} onChange={event => {
+                if (event.target.value) {
+                  // A full navigation runs the unsaved-input guard and resets the site-bound editor.
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                  window.location.assign(`${admin}/crm?site=${encodeURIComponent(event.target.value)}`)
+                }
+              }}>
+                <option value="" disabled>Choose a site</option>
+                {site && !availableSites.some(value => value.id === site.id) && <option value={site.id}>{site.name}</option>}
+                {availableSites.map(value => <option value={value.id} key={value.id}>{value.name}</option>)}
+              </select></label>
+              <Link href={`${admin}/sites`}>Sites and permissions</Link>
+            </>}
         </div>
         <div>
           <button type="button" disabled={loading} onClick={() => void refresh()}>
             Refresh
           </button>
           {canCreate && (
-            <button className="vc-crm-primary" type="button" onClick={() => void open()}>
+            <button className="vc-crm-primary" type="button" disabled={saving} onClick={() => void open()}>
               New contact
             </button>
           )}
@@ -402,7 +432,7 @@ export function ContactWorkspace() {
             {docs.map((doc) => (
               <tr key={doc.id}>
                 <td>
-                  <button className="vc-crm-title" type="button" onClick={() => void open(doc.id)}>
+                  <button className="vc-crm-title" type="button" disabled={saving} onClick={() => void open(doc.id)}>
                     {doc.label}
                   </button>
                 </td>

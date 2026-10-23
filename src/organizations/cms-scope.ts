@@ -3,10 +3,12 @@ import { OrganizationRepository } from './repository'
 import type { SiteOperation } from './policy'
 import { PLATFORM_MIGRATION } from './account-guards'
 
-export const CMS_SITE = Symbol('server-selected-cms-site')
-export const CMS_MENU_RENDER = Symbol('server-menu-render')
-export const CMS_DERIVED_READ = Symbol('server-derived-content-read')
-const requestState = Symbol('validated-cms-request')
+// Payload's cached config and Next's API/RSC bundles can load separate module instances.
+// Registry symbols bridge those server instances; JSON cannot construct symbol keys.
+export const CMS_SITE = Symbol.for('vorticause.server-selected-cms-site')
+export const CMS_MENU_RENDER = Symbol.for('vorticause.server-menu-render')
+export const CMS_DERIVED_READ = Symbol.for('vorticause.server-derived-content-read')
+const requestState = Symbol.for('vorticause.validated-cms-request')
 export const cmsSiteContext = (site: string) => ({ cmsOperation: 'site-scoped', [CMS_SITE]: site })
 export interface CMSScope {
   site: string
@@ -43,6 +45,9 @@ function siteID(value: unknown): string {
 export async function cmsScope(req: PayloadRequest, operation: SiteOperation): Promise<CMSScope> {
   const db = cmsDatabase(req),
     context = req.context as Context
+  // Payload treats symbol-only contexts as empty when nesting a Local API call.
+  // This marker preserves the symbol state; it never authorizes an operation.
+  context.cmsOperation ||= 'site-scoped'
   const actor = req.user ? Number(req.user.id) : null
   if (actor !== null && (!Number.isSafeInteger(actor) || actor < 1))
     throw new APIError('Site unavailable.', 403)

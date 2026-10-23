@@ -2,6 +2,7 @@ import type { PayloadRequest } from 'payload'
 import { relationID } from './documents'
 import { requireTask, reject, workspaceDB, ensureWorkspaceGuards } from './workspace-access'
 import { managesTime, timeSummary } from './workspace-time'
+import { workspaceMutationFence } from './workspace-commit'
 
 export async function mutateWorkTime(
   req: PayloadRequest,
@@ -250,7 +251,7 @@ export async function mutateWorkTime(
       .bind(guard, `${guard}:overlap`),
   )
   try {
-    await db.batch(statements)
+    await db.batch([...(await workspaceMutationFence(req, { task: taskID }, () => requireTask(req, taskID, 'edit'))), ...statements])
   } catch {
     const replay = await db
       .prepare('SELECT fingerprint FROM task_time_audit WHERE operation_key=?')

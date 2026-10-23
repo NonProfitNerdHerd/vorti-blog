@@ -1,4 +1,6 @@
-import { atomicSiteMutation } from './atomic'
+import { atomicSiteMutation, SiteConflictError } from './atomic'
+import { decodeSiteCursor, encodeSiteCursor } from './site-cursor'
+import { validateScopedSiteSettings, type ScopedSiteSettings } from './site-settings'
 import {
   evaluateSiteAuthority,
   informationCategories,
@@ -70,6 +72,157 @@ export class OrganizationRepository {
       )
       .bind(this.actor)
       .first())
+  }
+  /** Only authorized sites are returned; a context preference never creates a grant. */
+  async listSites(after = ''): Promise<{ sites: SiteRow[]; next: string | null }> {
+    const cursor = await decodeSiteCursor(after, this.actor)
+    const operator = await this.isOperator()
+    const rows = await this.db.prepare(`SELECT s.id,s.organization_id,s.parent_id,s.archived,s.revision,s.name,s.route_key FROM vc_sites s
+      WHERE s.id>? AND (?=1 OR EXISTS(SELECT 1 FROM vc_site_memberships m JOIN vc_site_ancestry a ON a.ancestor_id=m.site_id
+        WHERE m.user_id=? AND m.active=1 AND a.descendant_id=s.id)
+      OR EXISTS(SELECT 1 FROM vc_site_grants g JOIN vc_site_memberships m ON m.user_id=? AND m.active=1
+        WHERE g.source_id=s.id AND g.revoked=0 AND (g.receiver_id=m.site_id OR (g.receiver_descendants=1 AND EXISTS(
+          SELECT 1 FROM vc_site_ancestry a WHERE a.ancestor_id=g.receiver_id AND a.descendant_id=m.site_id)))))
+      ORDER BY s.id LIMIT 50`).bind(cursor, operator ? 1 : 0, this.actor, this.actor).all<SiteRow>()
+    if (operator) {
+      if (!(await this.isOperator())) throw new SiteAccessError()
+      return { sites: rows.results, next: rows.results.length === 50 ? await encodeSiteCursor(rows.results.at(-1)!.id, this.actor) : null }
+    }
+    const sites: SiteRow[] = []
+    const epochs = new Map<string, number>()
+    for (const row of rows.results) {
+      const authority = await this.authoritySet(row.id)
+      const previous = epochs.get(row.organization_id)
+      if (previous !== undefined && previous !== authority.authorityRevision) throw new SiteConflictError()
+      epochs.set(row.organization_id, authority.authorityRevision)
+      if (Object.values(authority.allowed).some(operations => operations.includes('read'))) sites.push(row)
+    }
+    for (const [organization, epoch] of epochs) {
+      const current = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=?').bind(organization).first<{ authority_revision: number }>()
+      if (current?.authority_revision !== epoch) throw new SiteConflictError()
+    }
+    return { sites, next: rows.results.length === 50 ? await encodeSiteCursor(rows.results.at(-1)!.id, this.actor) : null }
+  }
+  async administration(siteID: string, memberAfter = 0, grantAfter = '') {
+    const site = await this.require(siteID, 'identity', 'configure')
+    const [members, policies, grants] = await Promise.all([
+      this.db.prepare('SELECT user_id,role,active,revision FROM vc_site_memberships WHERE site_id=? AND user_id>? ORDER BY user_id LIMIT 101')
+        .bind(siteID, memberAfter).all<{ user_id: number; role: SiteRole; active: number; revision: number }>(),
+      this.db.prepare('SELECT category,operation,descendants_allowed,oversee_descendants,revision FROM vc_site_policies WHERE site_id=? ORDER BY category,operation')
+        .bind(siteID).all(),
+      this.db.prepare('SELECT id,receiver_id,receiver_descendants,category,operation,revoked,revision FROM vc_site_grants WHERE source_id=? AND id>? ORDER BY id LIMIT 101').bind(siteID, grantAfter).all<{ id: string }>(),
+    ])
+    const { decisions } = await this.authoritySet(siteID)
+    const current = await this.site(siteID)
+    const latest = await this.require(siteID, 'identity', 'configure')
+    if (latest.authorityRevision !== site.authorityRevision) throw new SiteConflictError()
+    return { site: current, members: members.results.slice(0, 100), memberNext: members.results.length > 100 ? members.results[99].user_id : null,
+      policies: policies.results, grants: grants.results.slice(0, 100), grantNext: grants.results.length > 100 ? grants.results[99].id : null, decisions }
+  }
+  async memberRestrictions(siteID: string, user: number) {
+    const site = await this.require(siteID, 'identity', 'configure')
+    if (!Number.isSafeInteger(user) || user <= 0 || !await this.db.prepare('SELECT 1 FROM vc_site_memberships WHERE site_id=? AND user_id=?').bind(siteID, user).first())
+      throw new SiteAccessError()
+    const denied = (await this.db.prepare('SELECT category,operation FROM vc_member_restrictions WHERE site_id=? AND user_id=? ORDER BY category,operation').bind(siteID, user).all<{ category: InformationCategory; operation: SiteOperation }>()).results
+    if ((await this.require(siteID, 'identity', 'configure')).authorityRevision !== site.authorityRevision) throw new SiteConflictError()
+    return { denied, revision: site.revision }
+  }
+  async setContext(input: { site: string; expectedRevision: number; operationKey: string }) {
+    const authority = await this.authoritySet(input.site)
+    if (!Object.values(authority.allowed).some(operations => operations.includes('read'))) throw new SiteAccessError()
+    const now = new Date().toISOString()
+    return atomicSiteMutation(this.db, {
+      actor: this.actor, operationKey: input.operationKey,
+      fingerprint: await fingerprint({ action: 'context.set', ...input }),
+      write: input.expectedRevision === 0
+        ? this.db.prepare('INSERT INTO vc_site_contexts(user_id,site_id,updated_at) VALUES(?,?,?) ON CONFLICT(user_id) DO NOTHING').bind(this.actor, input.site, now)
+        : this.db.prepare('UPDATE vc_site_contexts SET site_id=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').bind(input.site, now, this.actor, input.expectedRevision),
+      afterWrite: [...this.fence(input.operationKey, authority.site.organization_id, authority.authorityRevision),
+        this.audit(input.operationKey, authority.site.organization_id, input.site, 'context.changed', 'context', String(this.actor), null, { site: input.site })],
+      result: { site: input.site, revision: input.expectedRevision + 1 },
+    })
+  }
+  async context() {
+    return await this.db.prepare('SELECT site_id AS site,revision FROM vc_site_contexts WHERE user_id=?').bind(this.actor).first<{ site: string; revision: number }>() || { site: 'default', revision: 0 }
+  }
+  async settings(siteID: string) {
+    const site = await this.require(siteID, 'content', 'read')
+    if (siteID === 'default') throw new Error('Use the compatibility Site Settings workspace.')
+    const row = await this.db.prepare('SELECT value,revision FROM vc_site_settings WHERE site_id=?')
+      .bind(siteID).first<{ value: string; revision: number }>()
+    if ((await this.require(siteID, 'content', 'read')).authorityRevision !== site.authorityRevision) throw new SiteConflictError()
+    return { settings: row ? JSON.parse(row.value) as ScopedSiteSettings : { siteName: site.name, siteTagline: '', timezone: 'UTC' }, revision: row?.revision ?? 0 }
+  }
+  async setSettings(input: { site: string; expectedRevision: number; operationKey: string; settings: unknown }) {
+    const site = await this.require(input.site, 'content', 'configure')
+    if (input.site === 'default') throw new Error('Use the compatibility Site Settings workspace.')
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) throw new SiteConflictError()
+    const settings = validateScopedSiteSettings(input.settings), value = JSON.stringify(settings), now = new Date().toISOString()
+    return atomicSiteMutation(this.db, {
+      actor: this.actor, operationKey: input.operationKey,
+      fingerprint: await fingerprint({ action: 'site.settings', ...input, settings }),
+      write: input.expectedRevision === 0
+        ? this.db.prepare('INSERT INTO vc_site_settings(site_id,value,updated_at) VALUES(?,?,?) ON CONFLICT(site_id) DO NOTHING').bind(input.site, value, now)
+        : this.db.prepare('UPDATE vc_site_settings SET value=?,revision=revision+1,updated_at=? WHERE site_id=? AND revision=?').bind(value, now, input.site, input.expectedRevision),
+      afterWrite: [...this.fence(input.operationKey, site.organization_id, site.authorityRevision),
+        this.audit(input.operationKey, site.organization_id, input.site, 'site.settings-changed', 'site-settings', input.site, null, settings)],
+      result: { site: input.site, settings, revision: input.expectedRevision + 1 },
+    })
+  }
+  async setSharing(input: { site: string; receiver: string; category: InformationCategory; operation: SiteOperation;
+    receiverDescendants: boolean; revoked: boolean; expectedRevision: number; operationKey: string }) {
+    if (!informationCategories.includes(input.category) || !['read', 'edit'].includes(input.operation) ||
+      typeof input.receiverDescendants !== 'boolean' || typeof input.revoked !== 'boolean' || input.site === input.receiver)
+      throw new Error('Choose a valid sharing grant.')
+    const source = await this.require(input.site, input.category, 'configure')
+    const receiver = await this.require(input.receiver, input.category, 'configure')
+    await this.require(input.site, input.category, input.operation)
+    if (source.organization_id !== receiver.organization_id) throw new SiteAccessError()
+    const id = `${input.site}:${input.receiver}:${input.category}:${input.operation}`, now = new Date().toISOString()
+    return atomicSiteMutation(this.db, {
+      actor: this.actor, operationKey: input.operationKey,
+      fingerprint: await fingerprint({ action: 'sharing.set', ...input }),
+      write: this.db.prepare('UPDATE vc_sites SET revision=revision+1,updated_at=? WHERE id=? AND revision=? AND archived=0').bind(now, source.id, input.expectedRevision),
+      afterWrite: [...this.fence(input.operationKey, source.organization_id, source.authorityRevision),
+        this.db.prepare(`INSERT INTO vc_site_grants(id,organization_id,source_id,receiver_id,receiver_descendants,category,operation,revoked,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET receiver_descendants=excluded.receiver_descendants,revoked=excluded.revoked,revision=vc_site_grants.revision+1`)
+          .bind(id, source.organization_id, source.id, receiver.id, input.receiverDescendants ? 1 : 0, input.category, input.operation, input.revoked ? 1 : 0, now),
+        this.audit(input.operationKey, source.organization_id, source.id, 'sharing.changed', 'grant', id, null, input)],
+      result: { site: source.id, revision: input.expectedRevision + 1 },
+    })
+  }
+  async moveSite(input: { site: string; parent: string; expectedRevision: number; expectedParentRevision: number; operationKey: string }) {
+    const site = await this.require(input.site, 'identity', 'configure'),
+      parent = await this.require(input.parent, 'identity', 'configure')
+    if (!site.parent_id || site.organization_id !== parent.organization_id ||
+      await this.db.prepare('SELECT 1 FROM vc_site_ancestry WHERE ancestor_id=? AND descendant_id=?').bind(site.id, parent.id).first())
+      throw new Error('Choose a parent outside this site’s subtree in the same organization.')
+    // Moving changes every category's inherited ceiling; identity administration alone is insufficient.
+    for (const target of [site.id, parent.id]) {
+      const authority = await this.authoritySet(target)
+      if (informationCategories.some(category => siteOperations.some(operation => !authority.allowed[category]?.includes(operation))))
+        throw new SiteAccessError()
+    }
+    const size = await this.db.prepare('SELECT count(*) AS n FROM vc_site_ancestry WHERE ancestor_id=?').bind(site.id).first<{ n: number }>()
+    if (!size || size.n > 200) throw new Error('This move requires a durable hierarchy job; keep the current parent.')
+    const now = new Date().toISOString()
+    return atomicSiteMutation(this.db, {
+      actor: this.actor, operationKey: input.operationKey,
+      fingerprint: await fingerprint({ action: 'site.move', ...input }),
+      write: this.db.prepare('UPDATE vc_sites SET revision=revision+1,updated_at=? WHERE id=? AND revision=? AND archived=0').bind(now, site.id, input.expectedRevision),
+      afterWrite: [...this.fence(input.operationKey, site.organization_id, site.authorityRevision),
+        this.db.prepare('UPDATE vc_sites SET revision=revision+1,updated_at=? WHERE id=? AND revision=? AND archived=0').bind(now, parent.id, input.expectedParentRevision),
+        this.db.prepare('INSERT INTO vc_write_guards(operation_key,affected) VALUES(?,changes())').bind(`${input.operationKey}:parent`),
+        this.db.prepare('DELETE FROM vc_write_guards WHERE operation_key=?').bind(`${input.operationKey}:parent`),
+        this.db.prepare('UPDATE vc_sites SET parent_id=? WHERE id=?').bind(parent.id, site.id),
+        this.db.prepare(`DELETE FROM vc_site_ancestry WHERE descendant_id IN(SELECT descendant_id FROM vc_site_ancestry WHERE ancestor_id=?)
+          AND ancestor_id NOT IN(SELECT descendant_id FROM vc_site_ancestry WHERE ancestor_id=?)`).bind(site.id, site.id),
+        this.db.prepare(`INSERT INTO vc_site_ancestry(ancestor_id,descendant_id,distance)
+          SELECT a.ancestor_id,d.descendant_id,a.distance+d.distance+1 FROM vc_site_ancestry a CROSS JOIN vc_site_ancestry d
+          WHERE a.descendant_id=? AND d.ancestor_id=?`).bind(parent.id, site.id),
+        this.audit(input.operationKey, site.organization_id, site.id, 'site.moved', 'site', site.id, { parent: site.parent_id }, { parent: parent.id })],
+      result: { site: site.id, revision: input.expectedRevision + 1 },
+    })
   }
   private async site(id: string): Promise<SiteRow> {
     const site = await this.db
@@ -215,6 +368,7 @@ export class OrganizationRepository {
   async authoritySet(siteID: string): Promise<{
     site: SiteRow; authorityRevision: number; operator: boolean;
     allowed: Partial<Record<InformationCategory, SiteOperation[]>>
+    decisions: Array<AuthorityDecision & { category: InformationCategory; operation: SiteOperation }>
   }> {
     const site = await this.site(siteID), root = site.organization_id
     const before = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status WHERE user_id=? AND disabled=1)')
@@ -254,13 +408,16 @@ export class OrganizationRepository {
       row => snapshot.grants.push({ organization: root, source: row.source_id, receiver: row.receiver_id, receiverDescendants: row.receiver_descendants === 1, category: row.category, operations: [row.operation], revoked: false }),
     )
     const operator = await this.isOperator(), allowed: Partial<Record<InformationCategory, SiteOperation[]>> = {}
+    const decisions: Array<AuthorityDecision & { category: InformationCategory; operation: SiteOperation }> = []
     for (const category of informationCategories) for (const operation of siteOperations) {
-      if (evaluateSiteAuthority({ snapshot, user: String(this.actor), installationOperator: operator, owningSite: siteID, category, operation }).allowed)
+      const decision = evaluateSiteAuthority({ snapshot, user: String(this.actor), installationOperator: operator, owningSite: siteID, category, operation })
+      decisions.push({ category, operation, ...decision })
+      if (decision.allowed)
         (allowed[category] ||= []).push(operation)
     }
     const after = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=?').bind(root).first<{ authority_revision: number }>()
     if (after?.authority_revision !== before.authority_revision) throw new SiteAccessError()
-    return { site, authorityRevision: before.authority_revision, operator, allowed }
+    return { site, authorityRevision: before.authority_revision, operator, allowed, decisions }
   }
   async createOrganization(input: {
     name: string
@@ -283,7 +440,7 @@ export class OrganizationRepository {
       afterWrite: [
         this.db
           .prepare(
-            'INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,count(*) FROM vc_installation_operators WHERE user_id=?',
+            'INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,count(*) FROM vc_installation_operators o WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=o.user_id AND a.disabled=1)',
           )
           .bind(`${input.operationKey}:operator`, this.actor),
         this.db
@@ -323,6 +480,11 @@ export class OrganizationRepository {
     operationKey: string
   }): Promise<Record<string, unknown>> {
     const parent = await this.require(input.parent, 'identity', 'configure')
+    // Creating a child provisions its administrator across all domains. Do not let a
+    // restricted identity administrator regain finance access through a new child.
+    const delegation = await this.authoritySet(parent.id)
+    if (informationCategories.some(category => siteOperations.some(operation => !delegation.allowed[category]?.includes(operation))))
+      throw new SiteAccessError()
     const name = text(input.name, 160),
       site = crypto.randomUUID(),
       now = new Date().toISOString()
@@ -454,6 +616,9 @@ export class OrganizationRepository {
     )
       throw new Error('Invalid membership.')
     const site = await this.require(input.site, 'identity', 'configure')
+    if (!(await this.isOperator()) && !await this.db.prepare(`SELECT 1 FROM vc_site_memberships m JOIN vc_sites s ON s.id=m.site_id
+      WHERE m.user_id=? AND m.active=1 AND s.organization_id=? LIMIT 1`).bind(input.user, site.organization_id).first())
+      throw new SiteAccessError()
     const before = await this.db
       .prepare('SELECT role,active FROM vc_site_memberships WHERE site_id=? AND user_id=?')
       .bind(site.id, input.user)
@@ -534,7 +699,7 @@ export class OrganizationRepository {
       !Number.isSafeInteger(input.user) ||
       input.user < 1 ||
       !Array.isArray(input.denied) ||
-      input.denied.length > 50 ||
+      input.denied.length > informationCategories.length * siteOperations.length ||
       input.denied.some(
         (item) =>
           !informationCategories.includes(item.category) ||
