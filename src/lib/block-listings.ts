@@ -1,3 +1,4 @@
+import { rendererRequest, type RenderScope } from './render-scope'
 import type { Payload, PayloadRequest, Where } from 'payload'
 import { mediaURL } from './media'
 import { readCategoriesEnabled } from './system-settings'
@@ -7,8 +8,9 @@ export async function queryBlockListing(
   payload: Payload,
   props: Record<string, unknown>,
   page = 1,
-  context: { draft?: boolean; user?: PayloadRequest['user'] } = {},
+  context: RenderScope = {},
 ) {
+  const req=await rendererRequest(payload,context)
   const collection = props.collection === 'pages' ? 'pages' : 'posts'
   const categoriesEnabled = await readCategoriesEnabled(payload)
   const limit = Math.min(50, Math.max(1, Number(props.limit) || 6))
@@ -27,7 +29,7 @@ export async function queryBlockListing(
   const sort = ['-publishedAt', 'publishedAt', 'title', '-updatedAt'].includes(String(props.sort))
     ? String(props.sort)
     : '-publishedAt'
-  const response = await payload.find({
+  const response = await payload.find({req,
     collection,
     user: context.user,
     draft,

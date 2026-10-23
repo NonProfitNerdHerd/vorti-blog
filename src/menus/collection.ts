@@ -1,3 +1,4 @@
+import { PUBLIC_SITE_HEADER } from '../organizations/public-website'
 import { APIError, type CollectionConfig, type Endpoint, type Plugin } from 'payload'
 import { revalidatePath } from 'next/cache'
 import { authenticated } from '../access/content'
@@ -122,7 +123,7 @@ export const menuRenderEndpoint: Endpoint = {
   path: '/menu-render/:id',
   method: 'get',
   handler: async (req) => {
-    const menu = await resolveMenu(req.payload, String(req.routeParams?.id || ''))
+    const menu = await resolveMenu(req.payload, String(req.routeParams?.id || ''), req.headers.get(PUBLIC_SITE_HEADER) || 'default')
     return Response.json(menu || { error: 'Menu unavailable.' }, {
       status: menu ? 200 : 404,
       headers: { 'Cache-Control': 'no-store' },

@@ -283,7 +283,7 @@ test('Build sidebars align with tabs and grow with one page scrollbar', async ({
 })
 
 test.beforeEach(async ({ page, baseURL }) => {
-  const credentials = JSON.parse(await readFile('.wrangler/forms-local-admin.json', 'utf8'))
+  const credentials = JSON.parse(await readFile(process.env.FORM_TEST_ADMIN_FILE || '.wrangler/forms-local-admin.json', 'utf8'))
   const login = await page.request.post(`${baseURL}/api/users/login`, { data: credentials, maxRetries: 2 })
   expect(login.ok()).toBe(true)
 })
@@ -1209,8 +1209,10 @@ test('private XLSX exports and printable receipts preserve originals and deny ot
   const other = await (await visitor.get('/api/forms-runtime/' + slug)).json()
   expect((await visitor.post('/api/forms-runtime/' + slug + '/receipt', { headers: { 'X-Form-Session': other.session }, data: { revision: other.revision, receipt: accepted.receipt } })).status()).toBe(404)
   await page.goto('/admin/collections/forms/' + form.id, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('tab', { name: 'Results', exact: true }).click()
-  await expect(page.getByRole('table', { name: 'Form entries' }).getByText('=1+1', { exact: false })).toBeVisible()
+  await expect(async () => {
+    await page.getByRole('tab', { name: 'Results', exact: true }).click()
+    await expect(page.getByRole('table', { name: 'Form entries' }).getByText('=1+1', { exact: false })).toBeVisible({ timeout: 1000 })
+  }).toPass({ timeout: 30000 })
   await page.getByRole('button', { name: 'Export entries', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: /Original answer/ })).toBeChecked()
   await page.getByLabel('File format', { exact: true }).selectOption('xlsx')

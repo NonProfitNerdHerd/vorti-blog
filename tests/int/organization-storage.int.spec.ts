@@ -32,6 +32,7 @@ function fixture() {
     `PRAGMA foreign_keys=ON; CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT); INSERT INTO users VALUES(1,'administrator'),(2,'designer'),(3,'editor'); CREATE TABLE legacy_posts(id INTEGER PRIMARY KEY,title TEXT); INSERT INTO legacy_posts VALUES(7,'Retain historical content');`,
   )
   for (const sql of [...organizationSchema, ...defaultOrganizationSeed]) sqlite.exec(sql)
+  sqlite.exec("UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id='default'")
   class Statement {
     values: Array<string | number | null> = []
     constructor(readonly sql: string) {}
@@ -291,7 +292,7 @@ describe('organization storage SQL and atomic writes', () => {
   it('manages a hierarchy, shares only approved categories, and moves a subtree atomically', async () => {
     const { db, sqlite } = fixture(), repo = new OrganizationRepository(db, 1)
     const revision = (id: string) => Number(sqlite.prepare('SELECT revision FROM vc_sites WHERE id=?').get(id)?.revision)
-    const child = async (parent: string, name: string) => String((await repo.createSite({ parent, name, expectedRevision: revision(parent), operationKey: crypto.randomUUID() })).site)
+    const child = async (parent: string, name: string) => { sqlite.prepare('UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id=?').run(parent); return String((await repo.createSite({ parent, name, expectedRevision: revision(parent), operationKey: crypto.randomUUID() })).site) }
     const national = String((await repo.createOrganization({ name: 'Fictional hierarchy', siteName: 'National', operationKey: crypto.randomUUID() })).site)
     const regionA = await child(national, 'Region A'), regionB = await child(national, 'Region B'), local = await child(regionA, 'Local'), branch = await child(local, 'Branch')
     await repo.setMembership({ site: regionB, user: 2, role: 'reader', active: true, expectedRevision: revision(regionB), operationKey: crypto.randomUUID() })
@@ -434,6 +435,7 @@ describe('organization storage SQL and atomic writes', () => {
       operationKey: 'create_network_123456',
     })
     expect(replay).toEqual(root)
+    sqlite.prepare('UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id=?').run(root.site as string)
     const child = await repository.createSite({
       parent: root.site as string,
       name: 'Regional',
@@ -501,7 +503,7 @@ describe('organization storage SQL and atomic writes', () => {
     expect(
       sqlite.prepare('SELECT authority_revision FROM vc_organizations WHERE id=?').get('default')
         ?.authority_revision,
-    ).toBe(8)
+    ).toBe(11)
     expect(
       (await new OrganizationRepository(db, 3).authority(child.site as string, 'finances', 'read'))
         .reason,
@@ -534,7 +536,7 @@ describe('organization storage SQL and atomic writes', () => {
     ).toBe(false)
     expect(
       sqlite.prepare('SELECT authority_revision FROM vc_organizations').get()?.authority_revision,
-    ).toBe(6)
+    ).toBe(8)
     await expect(
       repository.setMembership({
         site: 'default',

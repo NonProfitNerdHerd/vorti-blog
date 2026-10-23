@@ -1,3 +1,4 @@
+import * as migration_20261023_200000_subsite_websites from './20261023_200000_subsite_websites';
 import * as migration_20261020_213000_organization_foundation from './20261020_213000_organization_foundation';
 import * as migration_20261020_222000_crm_contacts from './20261020_222000_crm_contacts';
 import * as migration_20261020_233000_authority_restrictions from './20261020_233000_authority_restrictions';
@@ -202,4 +203,5 @@ export const migrations = [
   { up: migration_20261023_160000_scoped_site_settings.up, down: migration_20261023_160000_scoped_site_settings.down, name: '20261023_160000_scoped_site_settings' },
   { up: migration_20261023_163000_global_commit_guards.up, down: migration_20261023_163000_global_commit_guards.down, name: '20261023_163000_global_commit_guards' },
   { up: migration_20261023_170000_native_authentication_guards.up, down: migration_20261023_170000_native_authentication_guards.down, name: '20261023_170000_native_authentication_guards' },
+  { up: migration_20261023_200000_subsite_websites.up, down: migration_20261023_200000_subsite_websites.down, name: '20261023_200000_subsite_websites' },
 ];

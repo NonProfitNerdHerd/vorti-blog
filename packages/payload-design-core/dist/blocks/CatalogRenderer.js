@@ -1,5 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { isViewPlacement } from '../views/model.js';
+import { SiteAnchor } from '../PublicSiteContext.js';
 import React, { lazy, Suspense } from 'react';
 import { safeURL } from '../content/model.js';
 import { getBlockDefinition } from './registry.js';
@@ -9,7 +10,7 @@ import { blockItems } from './items.js';
 import { DynamicView } from '../views/DynamicView.js';
 import { Menu } from '../menus/Menu.js';
 const Listing = lazy(() => import('./Listing'));
-const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })));
+const FormPlacement = lazy(() => import('../forms/FormPlacement').then((module) => ({ default: module.FormPlacement })));
 const ListingNavigation = lazy(() => import('./Listing').then((module) => ({ default: module.ListingNavigation })));
 const InteractiveBlock = lazy(() => import('./InteractiveBlock'));
 export const blockIcons = {
@@ -28,13 +29,11 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
     const props = node.props ?? {}, text = (key, fallback = '') => String(props[key] ?? fallback);
     const definition = getBlockDefinition(node.kind);
     if (node.kind === 'menu')
-        return _jsx(Menu, { menuID: text('menuID'), initial: props.resolvedMenu, editing: editing, depth: Math.max(1, Math.min(5, Number(props.depth) || 5)), orientation: text('orientation', 'horizontal'), alignment: text('alignment', 'start'), gap: text('gap', '1rem'), mobile: text('mobile', 'collapse'), label: text('label', 'Navigation'), submenuBackground: text('submenuBackground', '#ffffff'), submenuColor: text('submenuColor', '#1a1a1a'), submenuPadding: text('submenuPadding', '.5rem'), submenuBorder: text('submenuBorder', '1px solid #8884'), submenuRadius: text('submenuRadius', '8px'), hoverColor: text('hoverColor', '#4f46e5'), activeColor: text('activeColor', '#4f46e5') });
+        return (_jsx(Menu, { menuID: text('menuID'), initial: props.resolvedMenu, editing: editing, depth: Math.max(1, Math.min(5, Number(props.depth) || 5)), orientation: text('orientation', 'horizontal'), alignment: text('alignment', 'start'), gap: text('gap', '1rem'), mobile: text('mobile', 'collapse'), label: text('label', 'Navigation'), submenuBackground: text('submenuBackground', '#ffffff'), submenuColor: text('submenuColor', '#1a1a1a'), submenuPadding: text('submenuPadding', '.5rem'), submenuBorder: text('submenuBorder', '1px solid #8884'), submenuRadius: text('submenuRadius', '8px'), hoverColor: text('hoverColor', '#4f46e5'), activeColor: text('activeColor', '#4f46e5') }));
     if (node.kind === 'form')
-        return _jsx(Suspense, { fallback: _jsx("p", { children: "Loading form\u2026" }), children: _jsx(FormPlacement, { formID: text('formID'), editing: editing }) });
+        return (_jsx(Suspense, { fallback: _jsx("p", { children: "Loading form\u2026" }), children: _jsx(FormPlacement, { formID: text('formID'), editing: editing }) }));
     if (isViewPlacement(node.kind))
-        return !props.viewID && editing
-            ? _jsxs("div", { role: "status", children: [_jsx("strong", { children: definition?.label }), _jsx("p", { children: "Select this block to set up its content filters in the inspector, or choose an existing Saved View." })] })
-            : _jsx(DynamicView, { viewID: text('viewID'), initial: props.resolvedView, editing: editing });
+        return !props.viewID && editing ? (_jsxs("div", { role: "status", children: [_jsx("strong", { children: definition?.label }), _jsx("p", { children: "Select this block to set up its content filters in the inspector, or choose an existing Saved View." })] })) : (_jsx(DynamicView, { viewID: text('viewID'), initial: props.resolvedView, editing: editing }));
     if (definition?.render)
         return _jsx(_Fragment, { children: definition.render(node, children) });
     if ([
@@ -53,7 +52,7 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
         case 'icon':
             return (_jsx("span", { role: text('label') ? 'img' : undefined, "aria-label": text('label') || undefined, children: icon }));
         case 'iconButton':
-            return (_jsx("a", { className: "icon-button", href: safeURL(props.url), "aria-label": text('label', 'Learn more'), children: icon }));
+            return (_jsx(SiteAnchor, { className: "icon-button", href: safeURL(props.url), "aria-label": text('label', 'Learn more'), children: icon }));
         case 'iconLabel':
             return (_jsxs("span", { children: [icon, " ", text('label')] }));
         case 'iconList':
@@ -64,7 +63,7 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
                 }, children: blockItems(props.items).map((item, index) => (_jsxs("li", { style: {
                         breakInside: 'avoid',
                         marginBottom: props.itemGap !== undefined ? `${Number(props.itemGap)}px` : undefined,
-                    }, children: [_jsx(BlockIcon, { name: item.icon ?? text('icon', 'check') }), ' ', item.url ? _jsx("a", { href: safeURL(item.url), children: item.label }) : item.label] }, index))) }));
+                    }, children: [_jsx(BlockIcon, { name: item.icon ?? text('icon', 'check') }), ' ', item.url ? (_jsx(SiteAnchor, { href: safeURL(item.url), children: item.label })) : (item.label)] }, index))) }));
         case 'text':
         case 'subtitle':
             return _jsx("p", { style: { whiteSpace: 'pre-wrap' }, children: text('text') });
@@ -119,7 +118,7 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
                 } }));
         case 'socialButtons':
             return (_jsx("nav", { "aria-label": "Social links", children: blockItems(props.links, true).map((item, index) => {
-                    return (_jsxs("a", { className: "social-button", href: safeURL(item.url), rel: "noopener noreferrer", style: { marginInlineEnd: '1rem' }, children: [item.icon && _jsx(BlockIcon, { name: item.icon }), " ", item.label] }, index));
+                    return (_jsxs(SiteAnchor, { className: "social-button", href: safeURL(item.url), rel: "noopener noreferrer", style: { marginInlineEnd: '1rem' }, children: [item.icon && _jsx(BlockIcon, { name: item.icon }), " ", item.label] }, index));
                 }) }));
         case 'map': {
             const latitude = Math.max(-85, Math.min(85, Number(props.latitude ?? 44.5))), longitude = Math.max(-180, Math.min(180, Number(props.longitude ?? -89.5))), delta = 180 / 2 ** Math.max(1, Math.min(18, Number(props.zoom ?? 10)));
@@ -128,7 +127,7 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
                 layer: 'mapnik',
                 ...(props.marker === false ? {} : { marker: `${latitude},${longitude}` }),
             });
-            return (_jsxs("figure", { children: [_jsx("iframe", { title: "Location map", loading: "lazy", src: `https://www.openstreetmap.org/export/embed.html?${params}`, style: { width: '100%', minHeight: '320px', border: 0 } }), _jsx("figcaption", { children: _jsx("a", { href: "https://www.openstreetmap.org/copyright", children: "\u00A9 OpenStreetMap contributors" }) })] }));
+            return (_jsxs("figure", { children: [_jsx("iframe", { title: "Location map", loading: "lazy", src: `https://www.openstreetmap.org/export/embed.html?${params}`, style: { width: '100%', minHeight: '320px', border: 0 } }), _jsx("figcaption", { children: _jsx(SiteAnchor, { href: "https://www.openstreetmap.org/copyright", children: "\u00A9 OpenStreetMap contributors" }) })] }));
         }
         case 'tableOfContents':
             return (_jsxs("nav", { "aria-label": "Table of contents", style: { columnCount: Number(props.columns ?? 1) }, children: [(!Array.isArray(props.headings) || !props.headings.length) && (_jsx("p", { children: "Add Heading blocks to this document to build a table of contents. Check the selected heading levels if headings are missing." })), (Array.isArray(props.headings) ? props.headings : []).map((raw, index) => {
@@ -137,7 +136,7 @@ export function CatalogRenderer({ node, children, editing, viewport, }) {
                                 paddingInlineStart: `${Math.max(0, heading.level - Number(props.minLevel ?? 2))}rem`,
                                 marginBottom: `${Number(props.itemGap ?? 0)}px`,
                                 breakInside: 'avoid',
-                            }, children: _jsxs("a", { href: `#${heading.id}`, children: [props.numbered ? `${index + 1}. ` : '', heading.text] }) }, index));
+                            }, children: _jsxs(SiteAnchor, { href: `#${heading.id}`, children: [props.numbered ? `${index + 1}. ` : '', heading.text] }) }, index));
                     })] }));
         case 'postListing':
             return (_jsx(Suspense, { fallback: _jsx("p", { children: "Loading listing?" }), children: _jsx(Listing, { node: node, editing: editing }) }));

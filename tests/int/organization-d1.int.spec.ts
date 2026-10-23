@@ -22,6 +22,7 @@ describe('organization writes on actual local D1', () => {
     await db.prepare("INSERT INTO users VALUES(1,'administrator'),(2,'editor')").run()
     for (const sql of [...organizationSchema, ...defaultOrganizationSeed])
       await db.prepare(sql).run()
+    await db.prepare("UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id='default'").run()
   })
   afterAll(async () => {
     await proxy?.dispose()
@@ -110,6 +111,7 @@ describe('organization writes on actual local D1', () => {
       repository.createOrganization(input),
     ])
     expect(results[0]).toEqual(results[1])
+    await db.prepare('UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id=?').bind(results[0].site).run()
     const child = await repository.createSite({
       parent: results[0].site as string,
       name: 'Local',

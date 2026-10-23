@@ -447,6 +447,7 @@ export interface DesignTemplate {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -491,6 +492,7 @@ export interface DesignBlockType {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -520,6 +522,7 @@ export interface DesignBlockDesign {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -535,6 +538,7 @@ export interface Media {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -921,6 +925,7 @@ export interface SiteTemplate {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -948,6 +953,7 @@ export interface Menu {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3450,6 +3456,7 @@ export interface MediaSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -3496,6 +3503,7 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3559,6 +3567,7 @@ export interface MenusSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4179,6 +4188,7 @@ export interface DesignBlockTypesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -4209,6 +4219,7 @@ export interface DesignBlockDesignsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -4240,6 +4251,7 @@ export interface DesignTemplatesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  websiteCopyKey?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;

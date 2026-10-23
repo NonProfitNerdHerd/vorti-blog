@@ -1,3 +1,4 @@
+import { rendererRequest, type RenderScope } from './render-scope'
 import { resolveBlocks } from '@design-system/payload-design-core/content'
 import { resolveMenu } from '../menus/server'
 import { queryBlockListing } from './block-listings'
@@ -22,8 +23,10 @@ import {readSavedView,queryView} from '../content-framework/query'
 export async function resolveDocumentBlocks(
   payload: Payload,
   document: Record<string, unknown>,
-  context: { draft?: boolean; user?: PayloadRequest['user'] } = {},
+  context: RenderScope = {},
 ): Promise<ContentNode[] | null> {
+  context={...context,site:typeof document.platformSite==='string'?document.platformSite:context.site}
+  const req=await rendererRequest(payload,context)
   const categoriesEnabled = await readCategoriesEnabled(payload)
   const reference = document.designTemplate
   const templateID =
@@ -34,7 +37,7 @@ export async function resolveDocumentBlocks(
     id: unknown,
   ): Promise<T> =>
     payload.findByID({
-      collection,
+      collection, req,
       id: id as number,
       depth: 0,
       overrideAccess: false,
@@ -42,7 +45,7 @@ export async function resolveDocumentBlocks(
   const snapshot = document.templateSnapshot as { template: Template; types: BlockType[]; designs: BlockDesign[] } | undefined
   if (templateID || snapshot) {
     const template = snapshot?.template ?? (await payload.findByID({
-      collection: 'design-templates',
+      collection: 'design-templates', req,
       id: templateID as number,
       depth: 0,
       overrideAccess: false,
@@ -85,7 +88,7 @@ export async function resolveDocumentBlocks(
       mediaCache.set(
         key,
         payload
-          .findByID({ collection: 'media', id: value as number, depth: 0, overrideAccess: false })
+          .findByID({ collection: 'media', req, id: value as number, depth: 0, overrideAccess: false })
           .then((value) => ({ ...value, url: mediaURL(value) }))
           .catch((): null => null),
       )
@@ -126,7 +129,7 @@ export async function resolveDocumentBlocks(
   return resolveBlocks(result, {
     categoriesEnabled,
     document,
-    menu: id => resolveMenu(payload, id),
+    menu: id => resolveMenu(payload, id, context.site),
     view: async id => queryView(payload,await readSavedView(payload,id,context),undefined,context),
     list: (props, page) => queryBlockListing(payload, props, page, context),
   })

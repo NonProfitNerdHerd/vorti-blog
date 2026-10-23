@@ -1,3 +1,4 @@
+import { publicPath } from '@/lib/public-site-context'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { LivePostPreview } from '@/components/LivePostPreview'
@@ -12,7 +13,7 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ livePr
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   if ((await searchParams).livePreview) return { robots: { index: false, follow: false } }
   const post = await getPublishedPost((await params).slug)
-  return post ? contentMetadata(post, await getSiteSettings()) : {}
+  return post ? {...contentMetadata(post, await getSiteSettings()),alternates:{canonical:await publicPath(`/posts/${encodeURIComponent(post.slug!)}`)}} : {}
 }
 
 export default async function PostPage({ params, searchParams }: Props) {

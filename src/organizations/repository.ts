@@ -1,3 +1,4 @@
+import { disabledAncestorSQL } from './website-schema-v1'
 import { atomicSiteMutation, SiteConflictError } from './atomic'
 import { decodeSiteCursor, encodeSiteCursor } from './site-cursor'
 import { validateScopedSiteSettings, type ScopedSiteSettings } from './site-settings'
@@ -474,12 +475,14 @@ export class OrganizationRepository {
     })
   }
   async createSite(input: {
+    routeKey?: string
     parent: string
     expectedRevision: number
     name: string
     operationKey: string
   }): Promise<Record<string, unknown>> {
     const parent = await this.require(input.parent, 'identity', 'configure')
+    if (await this.db.prepare(disabledAncestorSQL(true)).bind(parent.id).first()) throw new SiteAccessError()
     // Creating a child provisions its administrator across all domains. Do not let a
     // restricted identity administrator regain finance access through a new child.
     const delegation = await this.authoritySet(parent.id)
@@ -494,6 +497,7 @@ export class OrganizationRepository {
       operationKey: input.operationKey,
       fingerprint: await fingerprint({
         action: 'site.create',
+        routeKey: input.routeKey,
         parent: parent.id,
         name,
         expectedRevision: input.expectedRevision,
@@ -509,7 +513,7 @@ export class OrganizationRepository {
           .prepare(
             'INSERT INTO vc_sites(id,organization_id,parent_id,name,route_key,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',
           )
-          .bind(site, parent.organization_id, parent.id, name, site, now, now),
+          .bind(site, parent.organization_id, parent.id, name, input.routeKey || site, now, now),
         this.db
           .prepare(
             'INSERT INTO vc_site_ancestry(ancestor_id,descendant_id,distance) SELECT ancestor_id,?,distance+1 FROM vc_site_ancestry WHERE descendant_id=? UNION ALL SELECT ?,?,0',

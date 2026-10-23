@@ -1,3 +1,4 @@
+import { PUBLIC_SITE_HEADER, PUBLIC_PREVIEW_HEADER, publicWebsite } from './public-website'
 import { APIError, type PayloadRequest } from 'payload'
 import { OrganizationRepository } from './repository'
 import type { SiteOperation } from './policy'
@@ -48,10 +49,41 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
   // Payload treats symbol-only contexts as empty when nesting a Local API call.
   // This marker preserves the symbol state; it never authorizes an operation.
   context.cmsOperation ||= 'site-scoped'
-  const actor = req.user ? Number(req.user.id) : null
+  let actor = req.user ? Number(req.user.id) : null
   if (actor !== null && (!Number.isSafeInteger(actor) || actor < 1))
     throw new APIError('Site unavailable.', 403)
-  const explicit = context[CMS_SITE] ?? (actor ? req.headers?.get('x-vorticause-site') : null)
+  let routeHeaders: Headers | undefined
+  try {
+    routeHeaders = await (await import('next/headers')).headers()
+  } catch {
+    /* Native Local API calls may have no Next request. */
+  }
+  const publicSite =
+    req.headers?.get(PUBLIC_SITE_HEADER) ||
+    (!context[CMS_SITE] ? routeHeaders?.get(PUBLIC_SITE_HEADER) : null)
+  const preview =
+    (req.headers?.get(PUBLIC_PREVIEW_HEADER) || routeHeaders?.get(PUBLIC_PREVIEW_HEADER)) === '1'
+  const publicFile =
+    operation === 'read' &&
+    !!req.url &&
+    /^\/(?:sites\/[a-zA-Z0-9_-]+\/)?api\/media\/file(?:\/|$)/.test(new URL(req.url).pathname)
+  // Media file URLs are public website destinations. A staff member's preference
+  // must not retarget an image request; private workspace files use other routes.
+  if (publicFile && !preview) {
+    req.user = null
+    actor = null
+  }
+  if (!actor && preview) {
+    const authenticated = (await req.payload.auth({ headers: routeHeaders || req.headers })).user
+    if (!authenticated) throw new APIError('Site unavailable.', 404)
+    req.user = authenticated
+    actor = Number(authenticated.id)
+  }
+  if (publicSite && !(await publicWebsite(db, publicSite, preview && actor !== null)))
+    throw new APIError('Site unavailable.', 404)
+  const explicit = publicFile
+    ? publicSite || 'default'
+    : (context[CMS_SITE] ?? publicSite ?? (actor ? req.headers?.get('x-vorticause-site') : null))
   let states = context[requestState] as Map<string, Promise<State>> | undefined
   if (!states) {
     states = new Map()
@@ -94,6 +126,8 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
   let scope = state.scopes.get(operation)
   if (!scope) {
     const selected = state.site
+    if (!actor && selected !== 'default' && !(await publicWebsite(db, selected)))
+      throw new APIError('Site unavailable.', 404)
     scope = (async (): Promise<CMSScope> => {
       if (actor) {
         const site = await new OrganizationRepository(db, actor).require(

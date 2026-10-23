@@ -1,3 +1,4 @@
+import { publicWebsite } from '../organizations/public-website'
 import type { Payload } from 'payload'
 import {
   documentURL,
@@ -14,7 +15,9 @@ import { CMS_MENU_RENDER, cmsSiteContext } from '../organizations/cms-scope'
 export async function resolveMenu(
   payload: Payload,
   id: string | number,
+  siteID?: string,
 ): Promise<ResolvedMenu | null> {
+  if(!siteID){try {siteID=(await (await import('next/headers')).headers()).get('x-vorticause-public-site') || 'default'}catch{siteID='default'}}
   if (!/^[1-9][0-9]*$/.test(String(id))) return null
   let menu
   try {
@@ -24,7 +27,7 @@ export async function resolveMenu(
       depth: 0,
       overrideAccess: true,
       user: null,
-      context: { ...cmsSiteContext('default'), menuOperation: 'public-render', [CMS_MENU_RENDER]: true },
+      context: { ...cmsSiteContext(siteID), menuOperation: 'public-render', [CMS_MENU_RENDER]: true },
     })
   } catch (error) {
     if ((error as { status?: number }).status === 404) return null
@@ -32,12 +35,12 @@ export async function resolveMenu(
   }
   const items = (menu.items || []) as MenuItem[]
   if (validateMenuItems(items) !== true) return null
-  const site = await payload.findGlobal({
+  const site = siteID === 'default' ? await payload.findGlobal({
     slug: 'site-settings',
     depth: 1,
     overrideAccess: false,
     user: null,
-  })
+  }) : JSON.parse((await publicWebsite((payload.db as unknown as {client:D1Database}).client,siteID))?.presentation || '{}')
   const destinations = new Map<string, string>()
   for (const [kind, collection] of [
     ['page', 'pages'],
@@ -51,7 +54,7 @@ export async function resolveMenu(
     // Bound SQLite parameters and avoid one query per link.
     for (let index = 0; index < ids.length; index += 75) {
       const result = await payload.find({
-        collection,
+        collection, context: cmsSiteContext(siteID),
         where: {
           and: [{ id: { in: ids.slice(index, index + 75) } }, { _status: { equals: 'published' } }],
         },

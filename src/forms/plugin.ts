@@ -1,3 +1,4 @@
+import { requireWebsitePublishing } from '../organizations/websites'
 import type { CollectionSlug, Config, Field, PayloadRequest } from 'payload'
 import { APIError, ValidationError } from 'payload'
 import { prepareStoredForm } from './legacy'
@@ -70,6 +71,7 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
         beforeValidate: [async ({ data, originalDoc, operation, req }) => {
           if (!data) return data
           const site = String(data.site || originalDoc?.site || FORM_SITE)
+          if (data._status === 'published') await requireWebsitePublishing(platform.db,site)
           if (!internalRequest(req) && !canForm(req.user as FormsUser, operation === 'create' ? 'create' : 'edit', site)) throw new APIError('You cannot edit forms in this site.', 403)
           if (originalDoc?.site && site !== originalDoc.site) throw new ValidationError({ errors: [{ path: 'site', message: 'A form cannot move between sites.' }] })
           data.site = site

@@ -1,4 +1,5 @@
 'use client'
+import { usePublicFetch, SiteAnchor } from '../PublicSiteContext'
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import type { ResolvedMenu } from './model'
 import './menu.css'
@@ -43,6 +44,7 @@ export function Menu({
   className?: string
   open?: boolean
 }) {
+  const publicFetch = usePublicFetch()
   const id = `menu-${useId().replace(/:/g, '')}`,
     root = useRef<HTMLElement>(null)
   const [loaded, setLoaded] = useState(initial),
@@ -50,7 +52,7 @@ export function Menu({
   useEffect(() => {
     if (!menuID || (initial && String(initial.id) === menuID)) return
     const controller = new AbortController()
-    fetch(`/api/menu-render/${encodeURIComponent(menuID)}`, { signal: controller.signal })
+    publicFetch(`/api/menu-render/${encodeURIComponent(menuID)}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw Error('Unavailable menu')
         setLoaded(await response.json())
@@ -60,7 +62,7 @@ export function Menu({
         if (!controller.signal.aborted) setError(menuID)
       })
     return () => controller.abort()
-  }, [menuID, initial])
+  }, [menuID, initial, publicFetch])
   const menu =
     initial && String(initial.id) === menuID
       ? initial
@@ -134,14 +136,14 @@ export function Menu({
       {items.map((item) => (
         <li key={item.key}>
           <div className="vc-menu__item">
-            <a
+            <SiteAnchor
               href={item.href}
               target={item.newTab ? '_blank' : undefined}
               rel={item.newTab ? 'noopener noreferrer' : undefined}
               onClick={editing ? (event) => event.preventDefault() : undefined}
             >
               {item.label}
-            </a>
+            </SiteAnchor>
             {item.children.length > 0 && level < depth && (
               <details
                 onToggle={(event) => {

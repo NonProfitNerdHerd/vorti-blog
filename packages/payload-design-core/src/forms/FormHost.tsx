@@ -1,4 +1,5 @@
 'use client'
+import { usePublicFetch, usePublicSitePath } from '../PublicSiteContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FormRenderer, type FormRendererProps } from './FormRenderer'
 import type { BookingAdapter, BookingOption, BookingSelection } from './BookingInput'
@@ -13,6 +14,7 @@ export function FormHost({ slug, embedded = false }: { slug: string; embedded?: 
   return <FormInstance key={slug} slug={slug} embedded={embedded} />
 }
 function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
+  const publicFetch = usePublicFetch(), publicPath = usePublicSitePath()
   const [form, setForm] = useState<PublicForm>(), [error, setError] = useState(''), [retry, setRetry] = useState(0)
   const [receipt, setReceipt] = useState(''), [receiptURL, setReceiptURL] = useState('')
   const [payment, setPayment] = useState('')
@@ -49,23 +51,23 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     }
     if (token) { resumeToken.current = token; window.history.replaceState(null, '', window.location.pathname + window.location.search) }
     const resumable = token || resumeToken.current
-    fetch(`/api/forms-runtime/${encodeURIComponent(slug)}${resumable ? '/resume' : ''}`, { signal: controller.signal, credentials: 'same-origin', ...(resumable ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resumable }) } : {}) }).then(async response => {
+    publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}${resumable ? '/resume' : ''}`, { signal: controller.signal, credentials: 'same-origin', ...(resumable ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resumable }) } : {}) }).then(async response => {
       const body = await response.json() as PublicForm & { message?: string }
       if (!response.ok) throw new Error(body.message || 'Could not load this form.')
       if (controller.signal.aborted) return
       activeDraftID.current = body.draftID
       if (resumable && body.draftID) {
         resumeToken.current = body.resumeToken || resumable
-        setResumePath(new URL(`/forms/${encodeURIComponent(slug)}#resume=${resumeToken.current}`, window.location.origin).href)
+        setResumePath(new URL(publicPath(`/forms/${encodeURIComponent(slug)}#resume=${resumeToken.current}`), window.location.origin).href)
       }
       setForm(body); setReceipt(''); setReceiptURL(''); retryKey.current = crypto.randomUUID(); holds.current = {}; setError('')
     }).catch(error => { if (!controller.signal.aborted) setError(error.message) })
     return () => { controller.abort(); if (autosave.current) clearTimeout(autosave.current) }
-  }, [slug, retry])
+  }, [slug, retry, publicFetch, publicPath])
   const booking = useMemo<BookingAdapter | undefined>(() => {
     if (!form) return undefined
     async function request(field: string, operation: Record<string, unknown>) {
-      const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/booking`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form!.session }, body: JSON.stringify({ revision: form!.revision, field, ...operation }) })
+      const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/booking`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form!.session }, body: JSON.stringify({ revision: form!.revision, field, ...operation }) })
       const result = await response.json() as BookingSelection & { message?: string; slots: BookingOption[] }
       if (!response.ok) throw new Error(result.message || 'Could not update this reservation.')
       return result
@@ -82,10 +84,10 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
       release: async (_field, path) => { const old = holds.current[path]; if (old) { await request(old.field, { operation: 'release', token: old.token }); delete holds.current[path] } },
       selected: path => holds.current[path],
     }
-  }, [form, slug])
+  }, [form, slug, publicFetch])
   const analytics = useCallback<NonNullable<FormRendererProps['onEvent']>>((kind, metadata) => {
     if (!form || kind === 'accepted') return
-    void fetch('/api/forms-runtime/' + encodeURIComponent(slug) + '/analytics', {
+    void publicFetch('/api/forms-runtime/' + encodeURIComponent(slug) + '/analytics', {
       method: 'POST', credentials: 'same-origin', keepalive: true,
       headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session },
       body: JSON.stringify({ revision: form.revision, eventID: crypto.randomUUID(), kind, ...metadata }),
@@ -93,7 +95,7 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
   }, [form, slug])
   const receiptControls = form && receipt && <p><button type="button" onClick={async () => {
     try {
-      const response = await fetch('/api/forms-runtime/' + encodeURIComponent(slug) + '/receipt', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, receipt }) })
+      const response = await publicFetch('/api/forms-runtime/' + encodeURIComponent(slug) + '/receipt', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, receipt }) })
       if (!response.ok) throw new Error('The receipt could not be loaded. Please retry.')
       setReceiptURL(URL.createObjectURL(await response.blob()))
     } catch (error) { setSaveState((error as Error).message) }
@@ -106,10 +108,10 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     if (stopped.current) return { message: 'This form has already been submitted.' }
     if (revoking.current) return { message: 'Wait for draft revocation to finish, then save your current answers.' }
     setSaveState('Saving progress…')
-    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/progress`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, answers, resumeToken: resumeToken.current || undefined }) })
+    const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/progress`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, answers, resumeToken: resumeToken.current || undefined }) })
     const body = await response.json() as { message: string; draftID: number; resumeToken: string; resumePath: string }
     if (!response.ok) { setSaveState(body.message || 'Progress could not be saved.'); throw new Error(body.message) }
-    activeDraftID.current = body.draftID; resumeToken.current = body.resumeToken; setResumePath(new URL(body.resumePath, window.location.origin).href); setSaveState('Progress saved.')
+    activeDraftID.current = body.draftID; resumeToken.current = body.resumeToken; setResumePath(new URL(publicPath(body.resumePath), window.location.origin).href); setSaveState('Progress saved.')
     return { message: body.message }
     })
     pendingSave.current = operation
@@ -120,7 +122,7 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     if (autosave.current) clearTimeout(autosave.current)
     try {
       await pendingSave.current.catch(() => {})
-      const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(id === undefined ? { token: resumeToken.current } : { id }) })
+      const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/revoke`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(id === undefined ? { token: resumeToken.current } : { id }) })
       const body = await response.json() as { message: string }
       if (!response.ok) throw new Error(body.message)
       if (id === undefined || id === activeDraftID.current) {
@@ -134,16 +136,16 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     if (!window.confirm('Resume this draft and replace the answers currently on this page?')) return false
     if (autosave.current) clearTimeout(autosave.current)
     await pendingSave.current.catch(() => {})
-    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/resume`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/resume`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     const body = await response.json() as PublicForm & { message: string; resumeToken: string }
     if (!response.ok) throw new Error(body.message)
     activeDraftID.current = body.draftID; resumeToken.current = body.resumeToken; stopped.current = false; setForm(body); retryKey.current = crypto.randomUUID(); holds.current = {}; setReceipt(''); setReceiptURL('')
-    setResumePath(new URL(`/forms/${encodeURIComponent(slug)}#resume=${body.resumeToken}`, window.location.origin).href); setSaveState('Saved draft resumed.')
+    setResumePath(new URL(publicPath(`/forms/${encodeURIComponent(slug)}#resume=${body.resumeToken}`), window.location.origin).href); setSaveState('Saved draft resumed.')
     return true
   }} />{(!receipt || form.definition.graph?.enabled) && <FormRenderer key={`${form.revision}:${form.session}`} definition={form.definition} initialAnswers={form.answers} booking={booking} onEvent={analytics} onAnalyticsConsent={consentChanged} onSave={save} onChange={answers => {
     if (form.definition.access.autosaveProgress && !revoking.current) { if (autosave.current) clearTimeout(autosave.current); autosave.current = setTimeout(() => { void save(answers).catch(() => {}) }, 2000) }
   }} onUpload={(file, field, progress) => new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest(); request.open('POST', `/api/forms-runtime/${encodeURIComponent(slug)}/upload`)
+    const request = new XMLHttpRequest(); request.open('POST', publicPath(`/api/forms-runtime/${encodeURIComponent(slug)}/upload`))
     request.setRequestHeader('Content-Type', file.type); request.setRequestHeader('X-Form-Session', form.session); request.setRequestHeader('X-Form-Revision', form.revision); request.setRequestHeader('X-Form-Field', field.id); request.setRequestHeader('X-File-Name', encodeURIComponent(file.name))
     request.upload.onprogress = event => { if (event.lengthComputable) progress(Math.round(event.loaded / event.total * 100)) }
     request.onerror = () => reject(new Error('Upload failed. Please retry.'))
@@ -152,7 +154,7 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
   })} onSubmit={async (answers, navigation) => {
     if (autosave.current) clearTimeout(autosave.current)
     await pendingSave.current.catch(() => {})
-    const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, navigation, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) })
+    const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/submit`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, idempotencyKey: retryKey.current, answers, navigation, analyticsConsent: analyticsConsent.current, bookings: Object.fromEntries(Object.entries(holds.current).map(([path, hold]) => [path, hold.token])), website: '' }) })
     const body = await response.json() as { message?: string; errors?: FormIssue[]; redirect?: string; analyticsRecorded?: boolean; receipt?: string; payment?: { token: string } }
     if (!response.ok && !body.errors) throw new Error(body.message || 'Could not submit. Please retry.')
     if (body.receipt) { stopped.current = true; setReceipt(body.receipt); setSaveState(body.message || 'Your response has been received.') }
@@ -167,10 +169,10 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     setEmailBusy(true)
     try {
       await pendingSave.current.catch(() => {})
-      const response = await fetch(`/api/forms-runtime/${encodeURIComponent(slug)}/progress-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, token: resumeToken.current, email: resumeEmail }) })
+      const response = await publicFetch(`/api/forms-runtime/${encodeURIComponent(slug)}/progress-email`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Form-Session': form.session }, body: JSON.stringify({ revision: form.revision, token: resumeToken.current, email: resumeEmail }) })
       const body = await response.json() as { message: string }
       if (!response.ok) throw new Error(body.message)
       setSaveState(body.message)
     } catch (error) { setSaveState((error as Error).message) } finally { setEmailBusy(false) }
-  }}>{emailBusy ? 'Queuing email…' : 'Email resume link'}</button></div></div>}{form.definition.access.publicResults && <details><summary>View survey results</summary><SurveyResults endpoint={`/api/forms-surveys/${encodeURIComponent(slug)}?lookup=slug`} /></details>}</section>
+  }}>{emailBusy ? 'Queuing email…' : 'Email resume link'}</button></div></div>}{form.definition.access.publicResults && <details><summary>View survey results</summary><SurveyResults endpoint={publicPath(`/api/forms-surveys/${encodeURIComponent(slug)}?lookup=slug`)} /></details>}</section>
 }

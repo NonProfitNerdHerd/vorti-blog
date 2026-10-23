@@ -19,7 +19,7 @@ export type HeroBoardValues = {
         url: string;
     };
 };
-export declare function HeroBoardRenderer({ design, values, headingLevel }: {
+export declare function HeroBoardRenderer({ design, values, headingLevel, }: {
     design: DesignPrimitive;
     values: HeroBoardValues;
     headingLevel?: 1 | 2 | 3;

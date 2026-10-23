@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Gutter, useConfig } from '@payloadcms/ui'
 import Link from 'next/link'
 import {
@@ -10,6 +10,7 @@ import {
   type AuthorityDecision,
 } from './policy'
 import './workspace.css'
+import { WebsiteControls } from './WebsiteControls'
 import type { ScopedSiteSettings } from './site-settings'
 
 interface Site {
@@ -54,7 +55,11 @@ export function OrganizationWorkspace() {
     api = config.routes.api + '/organization-admin'
   const [sites, setSites] = useState<Site[]>([]),
     [next, setNext] = useState<string | null>(null)
-  const [selected, setSelected] = useState(''),
+  const [selected, setSelected] = useState(() =>
+      typeof window === 'undefined'
+        ? 'default'
+        : new URLSearchParams(window.location.search).get('site') || 'default',
+    ),
     [detail, setDetail] = useState<Detail | null>(null)
   const [operator, setOperator] = useState(false),
     [error, setError] = useState(''),
@@ -71,13 +76,14 @@ export function OrganizationWorkspace() {
   const [restriction, setRestriction] = useState<
     Array<{ category: InformationCategory; operation: SiteOperation }>
   >([])
+  const [websiteDirty, setWebsiteDirty] = useState(false)
   const sequence = useRef(0),
     dirtyRef = useRef(false)
   const mutationKey = useRef<string | null>(null)
-  const formRef = useRef<HTMLFormElement>(null)
+  const formRef = useRef<HTMLFieldSetElement>(null)
   useEffect(() => {
-    dirtyRef.current = dirty
-  }, [dirty])
+    dirtyRef.current = dirty || websiteDirty
+  }, [dirty, websiteDirty])
   const request = useCallback(async <T,>(url: string, options?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...options, cache: 'no-store' })
     const data = (await response.json()) as T & { message?: string }
@@ -172,8 +178,9 @@ export function OrganizationWorkspace() {
     }
   }, [api, request, selected])
   const change = (run: () => void) => {
-    if (dirty && !window.confirm('Discard the unsaved site changes?')) return
+    if ((dirty || websiteDirty) && !window.confirm('Discard the unsaved site changes?')) return
     run()
+    setWebsiteDirty(false)
     setDirty(false)
     setMessage('')
     setError('')
@@ -182,11 +189,27 @@ export function OrganizationWorkspace() {
     setRestrictionsLoaded(false)
     setMemberUser('')
   }
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault()
     if (busy || (!detail && action !== 'create-organization')) return
-    const form = event.currentTarget,
-      values = new FormData(form)
+    const invalid = Array.from(
+      formRef.current?.querySelectorAll<HTMLInputElement>('input[required]') || [],
+    ).find((input) => !input.checkValidity())
+    if (invalid) {
+      invalid.reportValidity()
+      return
+    }
+    const values = new FormData()
+    formRef.current?.querySelectorAll('input[name],select[name]').forEach((element) => {
+      const input = element as unknown as HTMLInputElement
+      if (
+        input instanceof HTMLInputElement &&
+        ['checkbox', 'radio'].includes(input.type) &&
+        !input.checked
+      )
+        return
+      values.append(input.name, input.value)
+    })
     if (action === 'restrictions' && (!restrictionsLoaded || restrictionOwner !== memberUser))
       return
     const payload = {
@@ -208,6 +231,7 @@ export function OrganizationWorkspace() {
           : undefined,
       operationKey: (mutationKey.current ||= crypto.randomUUID()),
       name: values.get('name'),
+      routeKey: values.get('routeKey'),
       siteName: values.get('siteName'),
       user: values.get('user'),
       role: values.get('role'),
@@ -227,20 +251,24 @@ export function OrganizationWorkspace() {
     setError('')
     setMessage('')
     try {
-      await request(api, {
+      const saved = await request<{ doc: { site?: string }; initializationError?: string }>(api, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       setDirty(false)
       mutationKey.current = null
-      form.reset()
+      formRef.current?.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+        input.value = input.defaultValue
+        input.checked = input.defaultChecked
+      })
       setRestriction([])
       setRestrictionsLoaded(false)
       setMemberUser('')
       await list()
-      if (selected) await load(selected)
-      setMessage('Saved. The change has been audited.')
+      if (action === 'create-site' && saved.doc.site) setSelected(saved.doc.site)
+      else if (selected) await load(selected)
+      setMessage(saved.initializationError || 'Saved. The change has been audited.')
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Save failed. Your input has been retained.',
@@ -249,18 +277,43 @@ export function OrganizationWorkspace() {
       setBusy(false)
     }
   }
+  const siteLabel = (site: Site) => {
+    const names = [site.name],
+      seen = new Set([site.id])
+    let parent = site.parent_id
+    while (parent && !seen.has(parent)) {
+      seen.add(parent)
+      const ancestor = sites.find((item) => item.id === parent)
+      if (!ancestor) break
+      names.unshift(ancestor.name)
+      parent = ancestor.parent_id
+    }
+    return names.join(' → ')
+  }
   const policy = detail?.policies.find(
     (rule) => rule.category === category && rule.operation === operation,
   )
+  const descendantNames = sites
+    .filter((site) => {
+      const seen = new Set<string>()
+      let parent = site.parent_id
+      while (parent && !seen.has(parent)) {
+        if (parent === selected) return true
+        seen.add(parent)
+        parent = sites.find((ancestor) => ancestor.id === parent)?.parent_id || null
+      }
+      return false
+    })
+    .map(siteLabel)
   return (
     <Gutter className="vc-sites">
       <header>
-        <h1>Sites and permissions</h1>
+        <h2>SubSites</h2>
         <Link href={`${config.routes.admin}/crm`}>CRM contacts</Link>
       </header>
       <p>
-        Manage site membership, delegated permissions, and editor context. Public URLs continue to
-        use the installation’s compatibility site.
+        Build National, Regional, and Local websites. Manage membership, delegated permissions, and
+        inherited restrictions.
       </p>
       <p>
         <Link
@@ -284,14 +337,14 @@ export function OrganizationWorkspace() {
           <option value="">Choose a site</option>
           {sites.map((site) => (
             <option value={site.id} key={site.id}>
-              {site.name}
+              {siteLabel(site)}
             </option>
           ))}
         </select>
       </label>
       <button
         type="button"
-        disabled={!selected || busy || dirty}
+        disabled={!selected || busy || dirty || websiteDirty}
         onClick={() => {
           setBusy(true)
           setError('')
@@ -317,6 +370,14 @@ export function OrganizationWorkspace() {
       >
         Use selected site for new editors
       </button>
+      {selected && (
+        <WebsiteControls
+          key={selected}
+          site={selected}
+          onDirtyChange={setWebsiteDirty}
+          descendantNames={descendantNames}
+        />
+      )}
       {next && (
         <button
           type="button"
@@ -416,20 +477,39 @@ export function OrganizationWorkspace() {
                 )}
               </select>
             </label>
-            <form
+            <fieldset
               ref={formRef}
               key={`${selected}:${action}`}
-              onSubmit={(event) => void submit(event)}
               onChange={() => {
                 setDirty(true)
                 mutationKey.current = null
               }}
             >
+              {action === 'create-site' && (
+                <p>
+                  New child sites start unpublished with a copy of the parent’s design. Posts,
+                  pages, forms, contacts, gifts, and private work are not copied. Links to uncopied
+                  content are omitted from navigation.
+                </p>
+              )}
               {['create-site', 'create-organization'].includes(action) && (
-                <label>
-                  Name
-                  <input name="name" required maxLength={160} />
-                </label>
+                <>
+                  <label>
+                    Name
+                    <input name="name" required maxLength={160} />
+                  </label>
+                  {action === 'create-site' && (
+                    <label>
+                      Website URL key
+                      <input
+                        name="routeKey"
+                        required
+                        pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                        maxLength={80}
+                      />
+                    </label>
+                  )}
+                </>
               )}
               {action === 'create-organization' && (
                 <label>
@@ -694,7 +774,8 @@ export function OrganizationWorkspace() {
                 </p>
               )}
               <button
-                type="submit"
+                type="button"
+                onClick={(event) => void submit(event)}
                 disabled={
                   busy ||
                   (!detail && action !== 'create-organization') ||
@@ -712,7 +793,12 @@ export function OrganizationWorkspace() {
                     if (window.confirm('Discard input and reload the current site revision?')) {
                       setDirty(false)
                       mutationKey.current = null
-                      formRef.current?.reset()
+                      formRef.current
+                        ?.querySelectorAll<HTMLInputElement>('input')
+                        .forEach((input) => {
+                          input.value = input.defaultValue
+                          input.checked = input.defaultChecked
+                        })
                       setMemberUser('')
                       setRestriction([])
                       setRestrictionsLoaded(false)
@@ -723,7 +809,7 @@ export function OrganizationWorkspace() {
                   Reload current revision
                 </button>
               )}
-            </form>
+            </fieldset>
           </section>
         </>
       )}

@@ -241,6 +241,7 @@ describe('site-owned CRM contacts on local D1', () => {
       tags: ['Original chapter'],
       operationKey: 'contact_chapters_seed_123',
     })
+    await db.prepare("UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id='default'").run()
     const child = await new OrganizationRepository(db, 1).createSite({
       parent: 'default',
       name: 'Fictional Local Chapter',

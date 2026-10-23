@@ -1,49 +1,422 @@
-import { ContentBlock } from '@design-system/payload-design-core/content'
+import { ContentBlock, savedViewConverters } from '@design-system/payload-design-core/content'
 import { PrivacyPolicyLink } from './PrivacyPolicyLink'
-import Link from 'next/link'
+import { SiteAnchor as Link } from '@design-system/payload-design-core/content'
 import Image from 'next/image'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import type { CSSProperties, ElementType, ReactNode } from 'react'
 import type { Media, Navigation, SiteSetting, SiteTemplate } from '@/payload-types'
-import { shellStyleKeys, validateAdditionalCSS, type SiteShellNode, type SiteShellRegionSettings, type SiteShellStyle } from '@design-system/payload-design-core'
+import {
+  shellStyleKeys,
+  validateAdditionalCSS,
+  type SiteShellNode,
+  type SiteShellRegionSettings,
+  type SiteShellStyle,
+} from '@design-system/payload-design-core'
 import { MobileMenuProvider, MobileMenuToggle, SiteNavigation } from './Navigation'
 
-type ShellProps = { template: SiteTemplate; siteSettings: SiteSetting; navigation: Navigation; header: SiteShellNode[]; footer: SiteShellNode[] }
-const text = (value: unknown) => typeof value === 'string' ? value : ''
-const url = (value: unknown) => typeof value === 'string' && (/^https?:\/\//i.test(value) || /^\/[A-Za-z0-9/_#?&=.%~-]*$/.test(value)) ? value : null
-const media = (value: unknown): Media | null => value && typeof value === 'object' && 'url' in value ? value as Media : null
+type ShellProps = {
+  template: SiteTemplate
+  siteSettings: SiteSetting
+  navigation: Navigation
+  header: SiteShellNode[]
+  footer: SiteShellNode[]
+}
+const text = (value: unknown) => (typeof value === 'string' ? value : '')
+const url = (value: unknown) =>
+  typeof value === 'string' &&
+  (/^https?:\/\//i.test(value) || /^\/[A-Za-z0-9/_#?&=.%~-]*$/.test(value))
+    ? value
+    : null
+const media = (value: unknown): Media | null =>
+  value && typeof value === 'object' && 'url' in value ? (value as Media) : null
 const nodeClass = (id: string) => `site-shell-node-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`
 
-function LegacyShellElement({ node, settings, navigation }: { node: Extract<SiteShellNode, { type: 'element' }>; settings: SiteSetting; navigation: Navigation }) {
-  const props = node.props ?? {}; const className = `site-shell-element site-shell-element--${node.element} ${nodeClass(node.id)}`
-  if (node.element === 'siteName') { const Tag = (['span', 'div', 'p', 'h1', 'h2'].includes(String(props.htmlElement)) ? props.htmlElement : 'span') as ElementType; const value = <Tag>{settings.siteName || 'VortiCause'}</Tag>; return <div className={className}>{props.linkToHomepage === false ? value : <Link href="/">{value}</Link>}</div> }
-  if (node.element === 'logo') { const image = media(props.source === 'siteSettings.darkLogo' ? settings.darkLogo : settings.logo); if (!image?.url) return null; const width = Number(props.width) || image.width || 240; const height = image.height || Math.round(width / 3); const value = <Image unoptimized src={image.url} width={width} height={height} alt={image.alt || settings.siteName || ''} />; return <div className={className}>{props.linkToHomepage === false ? value : <Link href="/">{value}</Link>}</div> }
-  if (node.element === 'navigation') return <div className={className}><SiteNavigation items={props.menuSource === 'footer' ? navigation.footer : navigation.primary} label={props.menuSource === 'footer' ? 'Footer navigation' : 'Primary navigation'} /></div>
-  if (node.element === 'mobileMenuToggle') return <div className={className}><MobileMenuToggle label={text(props.text) || 'Menu'} /></div>
-  if (node.element === 'button') { const href = url(props.url); return href ? <div className={className}><a className={`site-shell-button site-shell-button--${text(props.buttonStyle) || 'primary'}`} href={href} target={props.newTab ? '_blank' : undefined} rel={props.newTab ? 'noopener noreferrer' : undefined}>{text(props.label) || 'Learn more'}</a></div> : null }
+function LegacyShellElement({
+  node,
+  settings,
+  navigation,
+}: {
+  node: Extract<SiteShellNode, { type: 'element' }>
+  settings: SiteSetting
+  navigation: Navigation
+}) {
+  const props = node.props ?? {}
+  const className = `site-shell-element site-shell-element--${node.element} ${nodeClass(node.id)}`
+  if (node.element === 'siteName') {
+    const Tag = (
+      ['span', 'div', 'p', 'h1', 'h2'].includes(String(props.htmlElement))
+        ? props.htmlElement
+        : 'span'
+    ) as ElementType
+    const value = <Tag>{settings.siteName || 'VortiCause'}</Tag>
+    return (
+      <div className={className}>
+        {props.linkToHomepage === false ? value : <Link href="/">{value}</Link>}
+      </div>
+    )
+  }
+  if (node.element === 'logo') {
+    const image = media(
+      props.source === 'siteSettings.darkLogo' ? settings.darkLogo : settings.logo,
+    )
+    if (!image?.url) return null
+    const width = Number(props.width) || image.width || 240
+    const height = image.height || Math.round(width / 3)
+    const value = (
+      <Image
+        unoptimized
+        src={image.url}
+        width={width}
+        height={height}
+        alt={image.alt || settings.siteName || ''}
+      />
+    )
+    return (
+      <div className={className}>
+        {props.linkToHomepage === false ? value : <Link href="/">{value}</Link>}
+      </div>
+    )
+  }
+  if (node.element === 'navigation')
+    return (
+      <div className={className}>
+        <SiteNavigation
+          items={props.menuSource === 'footer' ? navigation.footer : navigation.primary}
+          label={props.menuSource === 'footer' ? 'Footer navigation' : 'Primary navigation'}
+        />
+      </div>
+    )
+  if (node.element === 'mobileMenuToggle')
+    return (
+      <div className={className}>
+        <MobileMenuToggle label={text(props.text) || 'Menu'} />
+      </div>
+    )
+  if (node.element === 'button') {
+    const href = url(props.url)
+    return href ? (
+      <div className={className}>
+        <Link
+          className={`site-shell-button site-shell-button--${text(props.buttonStyle) || 'primary'}`}
+          href={href}
+          target={props.newTab ? '_blank' : undefined}
+          rel={props.newTab ? 'noopener noreferrer' : undefined}
+        >
+          {text(props.label) || 'Learn more'}
+        </Link>
+      </div>
+    ) : null
+  }
   if (node.element === 'text') return <div className={className}>{text(props.text)}</div>
-  if (node.element === 'richText') return props.lexical && typeof props.lexical === 'object' && 'root' in props.lexical ? <RichText className={className} data={props.lexical as never} /> : null
-  if (node.element === 'image') { const image = media(props.image ?? props.media); return image?.url ? <Image unoptimized className={className} src={image.url} width={image.width || 1200} height={image.height || 675} alt={image.alt || text(props.alt)} /> : null }
-  if (node.element === 'socialLinks') { const selected = Array.isArray(props.networks) ? props.networks : ['twitter', 'youtube', 'facebook', 'instagram', 'discord', 'github']; const fields: Record<string, keyof SiteSetting> = { twitter: 'twitterURL', youtube: 'youtubeURL', facebook: 'facebookURL', instagram: 'instagramURL', discord: 'discordURL', github: 'githubURL' }; return <div className={className}>{selected.map((raw) => { const name = String(raw); const href = url(settings[fields[name]]); return href ? <a key={name} href={href} rel="noopener noreferrer"><span className={props.showLabels ? undefined : 'visually-hidden'}>{name}</span>{!props.showLabels && <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>}</a> : null })}</div> }
-  if (node.element === 'currentYear') return <span className={className}>{new Date().getFullYear()}</span>
-  if (node.element === 'copyright') return <span className={className}>{settings.copyrightText || `© ${new Date().getFullYear()} ${settings.siteName || 'VortiCause'}`}</span>
-  if (node.element === 'icon') return <span className={className} aria-hidden="true">{text(props.text).slice(0, 3)}</span>
+  if (node.element === 'richText')
+    return props.lexical && typeof props.lexical === 'object' && 'root' in props.lexical ? (
+      <RichText
+        converters={savedViewConverters}
+        className={className}
+        data={props.lexical as never}
+      />
+    ) : null
+  if (node.element === 'image') {
+    const image = media(props.image ?? props.media)
+    return image?.url ? (
+      <Image
+        unoptimized
+        className={className}
+        src={image.url}
+        width={image.width || 1200}
+        height={image.height || 675}
+        alt={image.alt || text(props.alt)}
+      />
+    ) : null
+  }
+  if (node.element === 'socialLinks') {
+    const selected = Array.isArray(props.networks)
+      ? props.networks
+      : ['twitter', 'youtube', 'facebook', 'instagram', 'discord', 'github']
+    const fields: Record<string, keyof SiteSetting> = {
+      twitter: 'twitterURL',
+      youtube: 'youtubeURL',
+      facebook: 'facebookURL',
+      instagram: 'instagramURL',
+      discord: 'discordURL',
+      github: 'githubURL',
+    }
+    return (
+      <div className={className}>
+        {selected.map((raw) => {
+          const name = String(raw)
+          const href = url(settings[fields[name]])
+          return href ? (
+            <Link key={name} href={href} rel="noopener noreferrer">
+              <span className={props.showLabels ? undefined : 'visually-hidden'}>{name}</span>
+              {!props.showLabels && (
+                <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+              )}
+            </Link>
+          ) : null
+        })}
+      </div>
+    )
+  }
+  if (node.element === 'currentYear')
+    return <span className={className}>{new Date().getFullYear()}</span>
+  if (node.element === 'copyright')
+    return (
+      <span className={className}>
+        {settings.copyrightText ||
+          `© ${new Date().getFullYear()} ${settings.siteName || 'VortiCause'}`}
+      </span>
+    )
+  if (node.element === 'icon')
+    return (
+      <span className={className} aria-hidden="true">
+        {text(props.text).slice(0, 3)}
+      </span>
+    )
   return null
 }
 
-function ShellElement(props: Parameters<typeof LegacyShellElement>[0]) { if (props.node.element === 'richText') return <ContentBlock node={{ id: props.node.id, kind: 'richText', richText: props.node.props?.lexical, styles: props.node.responsiveStyles, presentation: props.node.appearance }} />; return <ContentBlock node={{ id: props.node.id, kind: 'group', styles: props.node.responsiveStyles, presentation: props.node.appearance }} body={<LegacyShellElement {...props} />} /> }
-
-function ShellNodes({ nodes, settings, navigation }: { nodes: SiteShellNode[]; settings: SiteSetting; navigation: Navigation }): ReactNode {
-  return nodes.map((node) => { if (node.type === 'layout' && node.block) return <ContentBlock key={node.id} node={node.block}>{node.children?.map(child => <ShellNodes key={child.id} nodes={[child]} settings={settings} navigation={navigation} />)}</ContentBlock>; if (node.type === 'element') return <ShellElement key={node.id} node={node} settings={settings} navigation={navigation} />; const children = node.layout === 'columns' ? node.columns?.map((column) => <div className="site-shell-column" style={{ flexBasis: `${column.width}%` }} key={column.id}><ShellNodes nodes={column.children} settings={settings} navigation={navigation} /></div>) : <ShellNodes nodes={node.children ?? []} settings={settings} navigation={navigation} />; return <ContentBlock key={node.id} node={{ id: node.id, kind: 'group', styles: node.responsiveStyles, presentation: node.appearance }} body={<div className={`site-shell-layout site-shell-layout--${node.layout} ${nodeClass(node.id)}`}>{children}</div>} /> })
+function ShellElement(props: Parameters<typeof LegacyShellElement>[0]) {
+  if (props.node.element === 'richText')
+    return (
+      <ContentBlock
+        node={{
+          id: props.node.id,
+          kind: 'richText',
+          richText: props.node.props?.lexical,
+          styles: props.node.responsiveStyles,
+          presentation: props.node.appearance,
+        }}
+      />
+    )
+  return (
+    <ContentBlock
+      node={{
+        id: props.node.id,
+        kind: 'group',
+        styles: props.node.responsiveStyles,
+        presentation: props.node.appearance,
+      }}
+      body={<LegacyShellElement {...props} />}
+    />
+  )
 }
 
-function safeCSS(value: unknown): string | null { if (typeof value === 'number') return String(value); return typeof value === 'string' && !/[;{}<>]/.test(value) ? value : null }
-const cssNames: Record<string, string> = { width: 'width', maxWidth: 'max-width', minHeight: 'min-height', alignment: 'align-items', justification: 'justify-content', gap: 'gap', padding: 'padding', margin: 'margin', background: 'background', textColor: 'color', border: 'border', borderRadius: 'border-radius', shadow: 'box-shadow', fontSize: 'font-size' }
-function nodeRules(nodes: SiteShellNode[], tablet: number, mobile: number) { const rules: Record<'desktop' | 'tablet' | 'mobile', string[]> = { desktop: [], tablet: [], mobile: [] }; const walk = (items: SiteShellNode[]) => items.forEach((node) => { const style = node.style ?? {} as SiteShellStyle; for (const viewport of ['desktop', 'tablet', 'mobile'] as const) { const declarations: string[] = []; for (const [key, cssName] of Object.entries(cssNames)) { const mapped = shellStyleKeys[key] ?? key; if (['desktop', 'tablet', 'mobile'].some(device => node.responsiveStyles?.[device as 'desktop']?.[mapped] !== undefined)) continue; const raw = style[key]; const value = raw && typeof raw === 'object' && 'desktop' in raw ? raw[viewport] ?? (viewport === 'desktop' ? raw.desktop : undefined) : viewport === 'desktop' ? raw : undefined; const safe = safeCSS(value); if (safe) declarations.push(`${cssName}:${safe}`) } const visibility = style.visibility; const visible = visibility && typeof visibility === 'object' && 'desktop' in visibility ? visibility[viewport] : viewport === 'desktop' ? visibility : undefined; if (visible === 'hidden') declarations.push('display:none'); if (declarations.length) rules[viewport].push(`.${nodeClass(node.id)}{${declarations.join(';')}}`) } if (node.type === 'layout') { walk(node.children ?? []); node.columns?.forEach((column) => walk(column.children)) } }); walk(nodes); return `${rules.desktop.join('')}@media(max-width:${tablet}px){${rules.tablet.join('')}}@media(max-width:${mobile}px){${rules.mobile.join('')}}` }
-function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {} }
-export function compileSiteTemplateCSS(template: SiteTemplate) { const groups = { color: record(template.colors), type: record(template.typography), dimensions: record(template.dimensions), buttons: record(template.buttons) }; const vars: string[] = []; for (const [group, values] of Object.entries(groups)) for (const [key, value] of Object.entries(values)) { const safe = safeCSS(value); if (safe) vars.push(`--site-${group}-${key.replace(/[^a-zA-Z0-9-]/g, '-')}:${safe}`) } const mobile = record(template.mobile); const tablet = Number(mobile.tabletBreakpoint) || Number(mobile.breakpoint) || 768; const phone = Number(mobile.mobileBreakpoint) || 480; return `:root{${vars.join(';')}}${nodeRules([...(template.header.layout as SiteShellNode[]), ...(template.footer.layout as SiteShellNode[])], tablet, phone)}` }
-function regionStyle(settings?: SiteShellRegionSettings): CSSProperties { return { minHeight: settings?.minHeight, padding: settings?.padding, margin: settings?.margin, background: settings?.transparent ? 'transparent' : settings?.backgroundColor, border: settings?.border, boxShadow: settings?.boxShadow, position: settings?.position === 'sticky' ? 'sticky' : undefined, top: settings?.position === 'sticky' ? 0 : undefined, zIndex: settings?.zIndex } }
-function innerStyle(settings?: SiteShellRegionSettings): CSSProperties | undefined { return settings?.widthMode === 'contained' && settings.maxWidth ? { maxWidth: settings.maxWidth } : undefined }
-export function SiteTemplateStyles({ template }: { template: SiteTemplate }) { const additional = validateAdditionalCSS(template.additionalCSS) === true ? template.additionalCSS : ''; return <><style data-site-template="generated">{compileSiteTemplateCSS(template)}</style>{additional ? <style data-site-template="additional">{additional}</style> : null}</> }
-export function SiteTemplateHeader(props: ShellProps) { const settings = props.template.header.settings as SiteShellRegionSettings | undefined; return <MobileMenuProvider><header className="site-template-region site-template-header" style={regionStyle(settings)}><div className={settings?.widthMode === 'contained' ? 'site-template-region-inner' : undefined} style={innerStyle(settings)}><ShellNodes nodes={props.header} settings={props.siteSettings} navigation={props.navigation} /></div></header></MobileMenuProvider> }
-export function SiteTemplateFooter(props: ShellProps) { const settings = props.template.footer.settings as SiteShellRegionSettings | undefined; return <MobileMenuProvider><footer className="site-template-region site-template-footer" style={regionStyle(settings)}><div className={settings?.widthMode === 'contained' ? 'site-template-region-inner' : undefined} style={innerStyle(settings)}><ShellNodes nodes={props.footer} settings={props.siteSettings} navigation={props.navigation} /><PrivacyPolicyLink site={props.siteSettings} /></div></footer></MobileMenuProvider> }
+function ShellNodes({
+  nodes,
+  settings,
+  navigation,
+}: {
+  nodes: SiteShellNode[]
+  settings: SiteSetting
+  navigation: Navigation
+}): ReactNode {
+  return nodes.map((node) => {
+    if (node.type === 'layout' && node.block)
+      return (
+        <ContentBlock key={node.id} node={node.block}>
+          {node.children?.map((child) => (
+            <ShellNodes
+              key={child.id}
+              nodes={[child]}
+              settings={settings}
+              navigation={navigation}
+            />
+          ))}
+        </ContentBlock>
+      )
+    if (node.type === 'element')
+      return <ShellElement key={node.id} node={node} settings={settings} navigation={navigation} />
+    const children =
+      node.layout === 'columns' ? (
+        node.columns?.map((column) => (
+          <div
+            className="site-shell-column"
+            style={{ flexBasis: `${column.width}%` }}
+            key={column.id}
+          >
+            <ShellNodes nodes={column.children} settings={settings} navigation={navigation} />
+          </div>
+        ))
+      ) : (
+        <ShellNodes nodes={node.children ?? []} settings={settings} navigation={navigation} />
+      )
+    return (
+      <ContentBlock
+        key={node.id}
+        node={{
+          id: node.id,
+          kind: 'group',
+          styles: node.responsiveStyles,
+          presentation: node.appearance,
+        }}
+        body={
+          <div
+            className={`site-shell-layout site-shell-layout--${node.layout} ${nodeClass(node.id)}`}
+          >
+            {children}
+          </div>
+        }
+      />
+    )
+  })
+}
+
+function safeCSS(value: unknown): string | null {
+  if (typeof value === 'number') return String(value)
+  return typeof value === 'string' && !/[;{}<>]/.test(value) ? value : null
+}
+const cssNames: Record<string, string> = {
+  width: 'width',
+  maxWidth: 'max-width',
+  minHeight: 'min-height',
+  alignment: 'align-items',
+  justification: 'justify-content',
+  gap: 'gap',
+  padding: 'padding',
+  margin: 'margin',
+  background: 'background',
+  textColor: 'color',
+  border: 'border',
+  borderRadius: 'border-radius',
+  shadow: 'box-shadow',
+  fontSize: 'font-size',
+}
+function nodeRules(nodes: SiteShellNode[], tablet: number, mobile: number) {
+  const rules: Record<'desktop' | 'tablet' | 'mobile', string[]> = {
+    desktop: [],
+    tablet: [],
+    mobile: [],
+  }
+  const walk = (items: SiteShellNode[]) =>
+    items.forEach((node) => {
+      const style = node.style ?? ({} as SiteShellStyle)
+      for (const viewport of ['desktop', 'tablet', 'mobile'] as const) {
+        const declarations: string[] = []
+        for (const [key, cssName] of Object.entries(cssNames)) {
+          const mapped = shellStyleKeys[key] ?? key
+          if (
+            ['desktop', 'tablet', 'mobile'].some(
+              (device) => node.responsiveStyles?.[device as 'desktop']?.[mapped] !== undefined,
+            )
+          )
+            continue
+          const raw = style[key]
+          const value =
+            raw && typeof raw === 'object' && 'desktop' in raw
+              ? (raw[viewport] ?? (viewport === 'desktop' ? raw.desktop : undefined))
+              : viewport === 'desktop'
+                ? raw
+                : undefined
+          const safe = safeCSS(value)
+          if (safe) declarations.push(`${cssName}:${safe}`)
+        }
+        const visibility = style.visibility
+        const visible =
+          visibility && typeof visibility === 'object' && 'desktop' in visibility
+            ? visibility[viewport]
+            : viewport === 'desktop'
+              ? visibility
+              : undefined
+        if (visible === 'hidden') declarations.push('display:none')
+        if (declarations.length)
+          rules[viewport].push(`.${nodeClass(node.id)}{${declarations.join(';')}}`)
+      }
+      if (node.type === 'layout') {
+        walk(node.children ?? [])
+        node.columns?.forEach((column) => walk(column.children))
+      }
+    })
+  walk(nodes)
+  return `${rules.desktop.join('')}@media(max-width:${tablet}px){${rules.tablet.join('')}}@media(max-width:${mobile}px){${rules.mobile.join('')}}`
+}
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+export function compileSiteTemplateCSS(template: SiteTemplate) {
+  const groups = {
+    color: record(template.colors),
+    type: record(template.typography),
+    dimensions: record(template.dimensions),
+    buttons: record(template.buttons),
+  }
+  const vars: string[] = []
+  for (const [group, values] of Object.entries(groups))
+    for (const [key, value] of Object.entries(values)) {
+      const safe = safeCSS(value)
+      if (safe) vars.push(`--site-${group}-${key.replace(/[^a-zA-Z0-9-]/g, '-')}:${safe}`)
+    }
+  const mobile = record(template.mobile)
+  const tablet = Number(mobile.tabletBreakpoint) || Number(mobile.breakpoint) || 768
+  const phone = Number(mobile.mobileBreakpoint) || 480
+  return `:root{${vars.join(';')}}${nodeRules([...(template.header.layout as SiteShellNode[]), ...(template.footer.layout as SiteShellNode[])], tablet, phone)}`
+}
+function regionStyle(settings?: SiteShellRegionSettings): CSSProperties {
+  return {
+    minHeight: settings?.minHeight,
+    padding: settings?.padding,
+    margin: settings?.margin,
+    background: settings?.transparent ? 'transparent' : settings?.backgroundColor,
+    border: settings?.border,
+    boxShadow: settings?.boxShadow,
+    position: settings?.position === 'sticky' ? 'sticky' : undefined,
+    top: settings?.position === 'sticky' ? 0 : undefined,
+    zIndex: settings?.zIndex,
+  }
+}
+function innerStyle(settings?: SiteShellRegionSettings): CSSProperties | undefined {
+  return settings?.widthMode === 'contained' && settings.maxWidth
+    ? { maxWidth: settings.maxWidth }
+    : undefined
+}
+export function SiteTemplateStyles({ template }: { template: SiteTemplate }) {
+  const additional =
+    validateAdditionalCSS(template.additionalCSS) === true ? template.additionalCSS : ''
+  return (
+    <>
+      <style data-site-template="generated">{compileSiteTemplateCSS(template)}</style>
+      {additional ? <style data-site-template="additional">{additional}</style> : null}
+    </>
+  )
+}
+export function SiteTemplateHeader(props: ShellProps) {
+  const settings = props.template.header.settings as SiteShellRegionSettings | undefined
+  return (
+    <MobileMenuProvider>
+      <header className="site-template-region site-template-header" style={regionStyle(settings)}>
+        <div
+          className={settings?.widthMode === 'contained' ? 'site-template-region-inner' : undefined}
+          style={innerStyle(settings)}
+        >
+          <ShellNodes
+            nodes={props.header}
+            settings={props.siteSettings}
+            navigation={props.navigation}
+          />
+        </div>
+      </header>
+    </MobileMenuProvider>
+  )
+}
+export function SiteTemplateFooter(props: ShellProps) {
+  const settings = props.template.footer.settings as SiteShellRegionSettings | undefined
+  return (
+    <MobileMenuProvider>
+      <footer className="site-template-region site-template-footer" style={regionStyle(settings)}>
+        <div
+          className={settings?.widthMode === 'contained' ? 'site-template-region-inner' : undefined}
+          style={innerStyle(settings)}
+        >
+          <ShellNodes
+            nodes={props.footer}
+            settings={props.siteSettings}
+            navigation={props.navigation}
+          />
+          <PrivacyPolicyLink site={props.siteSettings} />
+        </div>
+      </footer>
+    </MobileMenuProvider>
+  )
+}

@@ -12,6 +12,6 @@ export async function POST(request: Request) {
   try { data = await request.json() as Post }
   catch { return Response.json({ error: 'Invalid Post' }, { status: 400 }) }
   if (!data || typeof data !== 'object') return Response.json({ error: 'Invalid Post' }, { status: 400 })
-  try { return Response.json(await resolvePostDesign(data)) }
+  try { return Response.json(await resolvePostDesign(data,{draft:true,user})) }
   catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'Unable to resolve Template' }, { status: 422 }) }
 }

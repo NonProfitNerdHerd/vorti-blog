@@ -1,15 +1,17 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { usePublicFetch, SiteAnchor } from '../PublicSiteContext.js';
 import { useEffect, useId, useRef, useState } from 'react';
 import './menu.css';
 export function Menu({ menuID, initial, editing, depth = 5, orientation = 'horizontal', alignment = 'start', gap = '1rem', submenuBackground = '#ffffff', submenuColor = '#1a1a1a', submenuPadding = '.5rem', submenuBorder = '1px solid #8884', submenuRadius = '8px', hoverColor = '#4f46e5', activeColor = '#4f46e5', label = 'Navigation', mobile = 'collapse', navigationID, className = '', open, }) {
+    const publicFetch = usePublicFetch();
     const id = `menu-${useId().replace(/:/g, '')}`, root = useRef(null);
     const [loaded, setLoaded] = useState(initial), [error, setError] = useState('');
     useEffect(() => {
         if (!menuID || (initial && String(initial.id) === menuID))
             return;
         const controller = new AbortController();
-        fetch(`/api/menu-render/${encodeURIComponent(menuID)}`, { signal: controller.signal })
+        publicFetch(`/api/menu-render/${encodeURIComponent(menuID)}`, { signal: controller.signal })
             .then(async (response) => {
             if (!response.ok)
                 throw Error('Unavailable menu');
@@ -21,7 +23,7 @@ export function Menu({ menuID, initial, editing, depth = 5, orientation = 'horiz
                 setError(menuID);
         });
         return () => controller.abort();
-    }, [menuID, initial]);
+    }, [menuID, initial, publicFetch]);
     const menu = initial && String(initial.id) === menuID
         ? initial
         : loaded && String(loaded.id) === menuID
@@ -83,7 +85,7 @@ export function Menu({ menuID, initial, editing, depth = 5, orientation = 'horiz
         return editing ? _jsx("p", { children: "Select a menu in the inspector." }) : null;
     if (!menu)
         return editing ? (_jsx("p", { role: "status", children: error === menuID ? 'This menu is unavailable. Choose another menu.' : 'Loading menu…' })) : null;
-    const render = (items, level) => (_jsx("ul", { children: items.map((item) => (_jsx("li", { children: _jsxs("div", { className: "vc-menu__item", children: [_jsx("a", { href: item.href, target: item.newTab ? '_blank' : undefined, rel: item.newTab ? 'noopener noreferrer' : undefined, onClick: editing ? (event) => event.preventDefault() : undefined, children: item.label }), item.children.length > 0 && level < depth && (_jsxs("details", { onToggle: (event) => {
+    const render = (items, level) => (_jsx("ul", { children: items.map((item) => (_jsx("li", { children: _jsxs("div", { className: "vc-menu__item", children: [_jsx(SiteAnchor, { href: item.href, target: item.newTab ? '_blank' : undefined, rel: item.newTab ? 'noopener noreferrer' : undefined, onClick: editing ? (event) => event.preventDefault() : undefined, children: item.label }), item.children.length > 0 && level < depth && (_jsxs("details", { onToggle: (event) => {
                             const disclosure = event.currentTarget, list = disclosure.querySelector(':scope > ul');
                             if (!list || !disclosure.open)
                                 return;

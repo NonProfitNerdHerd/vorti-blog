@@ -8,7 +8,14 @@ const social = (name: string, label: string): Field => ({ name, label, type: 'te
 export const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
   label: 'Site Settings',
-  admin: { group: 'Admin' },
+  admin: {
+    group: 'Admin',
+    components: {
+      elements: {
+        beforeDocumentControls: ['./organizations/SubSitesNavigation#SubSitesNavigation'],
+      },
+    },
+  },
   access: { read: () => true, update: canManageDesign },
   hooks: {
     beforeValidate: [validateSiteSettings],
@@ -145,6 +152,16 @@ export const SiteSettings: GlobalConfig = {
             { name: 'copyrightText', type: 'text' },
             { name: 'contactEmail', label: 'Public contact email', type: 'email' },
             { name: 'contactInformation', type: 'textarea' },
+          ],
+        },
+        {
+          label: 'SubSites',
+          fields: [
+            {
+              name: 'subsitesWorkspace',
+              type: 'ui',
+              admin: { components: { Field: './organizations/SubSitesField#SubSitesField' } },
+            },
           ],
         },
       ],

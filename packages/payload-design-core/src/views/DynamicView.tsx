@@ -1,4 +1,5 @@
 'use client'
+import { usePublicFetch, SiteAnchor } from '../PublicSiteContext'
 /* eslint-disable @next/next/no-img-element -- Media is resolved by the application adapter. */
 import { useEffect, useId, useRef, useState } from 'react'
 import { useSiteFormat } from '../SiteFormatContext'
@@ -108,6 +109,7 @@ export function DynamicView({
     [result, setResult] = useState<ViewResult | undefined>(initial),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
+  const publicFetch = usePublicFetch()
   const categoriesEnabled = useCategoriesEnabled() && result?.categoriesEnabled !== false
   const [search, setSearch] = useState(''),
     [category, setCategory] = useState(''),
@@ -174,7 +176,7 @@ export function DynamicView({
           })
           if (viewID) params.set('view', String(viewID))
           if (editing) params.set('draft', 'true')
-          const response = await fetch(
+          const response = await publicFetch(
             configurationKey ? '/api/content-views' : `/api/content-views?${params}`,
             {
               signal: controller.signal,
@@ -211,7 +213,7 @@ export function DynamicView({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh, categoriesEnabled]) // configurationKey captures the full configuration
+  }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh, categoriesEnabled, publicFetch]) // configurationKey captures the full configuration
   useEffect(() => {
     const update = () => {
       setRefresh((v) => v + 1)
@@ -249,9 +251,9 @@ export function DynamicView({
     return (
       <article key={item.id} className={`cv-card cv-item-${index}`}>
         {cfg.image !== false && item.image && (
-          <a href={item.url} tabIndex={-1} aria-hidden="true">
+          <SiteAnchor href={item.url} tabIndex={-1} aria-hidden="true">
             <img className="cv-image" src={item.image} alt="" loading="lazy" />
-          </a>
+          </SiteAnchor>
         )}
         <div className="cv-content">
           {categoriesEnabled && cfg.taxonomy !== false && !!item.categories?.length && (
@@ -263,7 +265,7 @@ export function DynamicView({
                 {item.title}
               </button>
             ) : (
-              <a href={item.url}>{item.title}</a>
+              <SiteAnchor href={item.url}>{item.title}</SiteAnchor>
             )}
           </h3>
           {cfg.date !== false && (item.occurrence || item.date) && (
@@ -283,9 +285,9 @@ export function DynamicView({
               {item.excerpt.length > (cfg.excerptLength || 180) ? '…' : ''}
             </p>
           )}
-          <a className="cv-more" href={item.url}>
+          <SiteAnchor className="cv-more" href={item.url}>
             {item.occurrence ? 'Event details' : 'Read more'} <span aria-hidden="true">→</span>
-          </a>
+          </SiteAnchor>
         </div>
       </article>
     )
@@ -746,7 +748,7 @@ export function DynamicView({
                 )}
                 <p>{selected.location}</p>
                 <p>{selected.excerpt}</p>
-                <a href={selected.url}>Open full page</a>
+                <SiteAnchor href={selected.url}>Open full page</SiteAnchor>
               </>
             )}
           </dialog>

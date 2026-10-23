@@ -73,6 +73,8 @@ import { ImportPreview as ImportPreview_cdf7e044479f899a31f804427d568b36 } from 
 import { ImportSaveButton as ImportSaveButton_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { MenuWorkspace as MenuWorkspace_6c0db9710895c6dc08eed1e5a9bee5b1 } from '../../../menus/MenuWorkspace'
 import { SettingsHubLink as SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f } from '../../../components/SettingsHubLink'
+import { SubSitesField as SubSitesField_53bab11528cf66f91aee26cbf07bed10 } from '../../../organizations/SubSitesField'
+import { SubSitesNavigation as SubSitesNavigation_b7b54baa8609952cfb9aa55d2d34c50d } from '../../../organizations/SubSitesNavigation'
 import { SystemSettingsTable as SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68 } from '../../../components/SystemSettingsTable'
 import { SettingsHub as SettingsHub_cd94f594cada3901a15a9f15dbaa2349 } from '../../../components/SettingsHub'
 import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from '../../../components/SiteDesignNav'
@@ -82,8 +84,8 @@ import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
 import { Dashboard as Dashboard_0e35033058204011832f5374d42fa864 } from '../../../dashboard/Dashboard'
-import { ContactWorkspace as ContactWorkspace_93f286701ae61b4128fab398343ad5bf } from '../../../crm/ContactWorkspace'
-import { OrganizationWorkspace as OrganizationWorkspace_1e9ea2965bd2690185c7e4601d733c8c } from '../../../organizations/OrganizationWorkspace'
+import { CRMAdminView as CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
+import { SitesCompatibilityView as SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -163,6 +165,8 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ImportSaveButton": ImportSaveButton_cdf7e044479f899a31f804427d568b36,
   "./menus/MenuWorkspace#MenuWorkspace": MenuWorkspace_6c0db9710895c6dc08eed1e5a9bee5b1,
   "./components/SettingsHubLink#SettingsHubLink": SettingsHubLink_4715d1f90f773b18b4da78aff198ab8f,
+  "./organizations/SubSitesField#SubSitesField": SubSitesField_53bab11528cf66f91aee26cbf07bed10,
+  "./organizations/SubSitesNavigation#SubSitesNavigation": SubSitesNavigation_b7b54baa8609952cfb9aa55d2d34c50d,
   "./components/SystemSettingsTable#SystemSettingsTable": SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68,
   "./components/SettingsHub#SettingsHub": SettingsHub_cd94f594cada3901a15a9f15dbaa2349,
   "./components/SiteDesignNav#SiteDesignNav": SiteDesignNav_146389be3746eb1a45b524567d6e0718,
@@ -172,7 +176,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,
   "./dashboard/Dashboard#Dashboard": Dashboard_0e35033058204011832f5374d42fa864,
-  "./crm/ContactWorkspace#ContactWorkspace": ContactWorkspace_93f286701ae61b4128fab398343ad5bf,
-  "./organizations/OrganizationWorkspace#OrganizationWorkspace": OrganizationWorkspace_1e9ea2965bd2690185c7e4601d733c8c,
+  "./organizations/AdminWorkspaces#CRMAdminView": CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4,
+  "./organizations/AdminWorkspaces#SitesCompatibilityView": SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

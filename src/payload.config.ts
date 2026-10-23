@@ -1,3 +1,6 @@
+import { authorityClaim } from './organizations/claims'
+import { publicFormsSite } from './organizations/public-site-headers'
+import { websiteCopyRecords } from './organizations/website-copy'
 import fs from 'fs'
 import { after } from 'next/server'
 import path from 'path'
@@ -73,7 +76,8 @@ const isCLI = process.argv.some((value) => {
   )
 })
 const isProduction = process.env.NODE_ENV === 'production'
-const localPersistPath = process.env.DESIGN_CORE_TEST_PERSIST_PATH || process.env.E2E_TEST_PERSIST_PATH
+const localPersistPath =
+  process.env.DESIGN_CORE_TEST_PERSIST_PATH || process.env.E2E_TEST_PERSIST_PATH
 
 const createLog =
   (level: string, fn: typeof console.log) => (objOrMsg: object | string, msg?: string) => {
@@ -92,7 +96,7 @@ const cloudflareLogger = {
   warn: createLog('warn', console.warn),
   error: createLog('error', console.error),
   fatal: createLog('fatal', console.error),
-  silent: () => { },
+  silent: () => {},
 } as any // Use PayloadLogger type when it's exported
 
 const cloudflare =
@@ -114,20 +118,46 @@ const migrationManaged =
 export default buildConfig({
   admin: {
     user: Users.slug,
-    meta: { titleSuffix: ' | VortiCause', icons: { icon: '/vorticause-icon.svg', shortcut: '/vorticause-icon.svg' }, applicationName: 'VortiCause', description: 'VortiCause content and collaboration workspace.', openGraph: { siteName: 'VortiCause', title: 'VortiCause', description: 'Content. Collaboration. Community.', images: [{ url: '/vorticause-social.svg', width: 1200, height: 630, alt: 'VortiCause' }] } },
+    meta: {
+      titleSuffix: ' | VortiCause',
+      icons: { icon: '/vorticause-icon.svg', shortcut: '/vorticause-icon.svg' },
+      applicationName: 'VortiCause',
+      description: 'VortiCause content and collaboration workspace.',
+      openGraph: {
+        siteName: 'VortiCause',
+        title: 'VortiCause',
+        description: 'Content. Collaboration. Community.',
+        images: [{ url: '/vorticause-social.svg', width: 1200, height: 630, alt: 'VortiCause' }],
+      },
+    },
     components: {
-      graphics: { Icon: './components/VortiCauseBrand#VortiCauseIcon', Logo: './components/VortiCauseBrand#VortiCauseLogo' },
+      graphics: {
+        Icon: './components/VortiCauseBrand#VortiCauseIcon',
+        Logo: './components/VortiCauseBrand#VortiCauseLogo',
+      },
       Nav: './components/SiteDesignNav#SiteDesignNav',
       providers: ['./components/AdminPolicy#AdminPolicy'],
       views: { dashboard: { Component: './dashboard/Dashboard#Dashboard' } },
     },
     livePreview: {
       collections: ['posts', 'pages'],
-      url: async ({ collectionConfig, data }) => {
+      url: async ({ collectionConfig, data, req }) => {
         if (!collectionConfig || !['posts', 'pages'].includes(collectionConfig.slug)) return null
         const slug = typeof data.slug === 'string' && data.slug ? data.slug : '__preview__'
-        const path = collectionConfig.slug === 'posts' ? documentURL({ slug }) : `/${encodeURIComponent(slug)}`
+        const path =
+          collectionConfig.slug === 'posts' ? documentURL({ slug }) : `/${encodeURIComponent(slug)}`
         const id = typeof data.id === 'number' || typeof data.id === 'string' ? data.id : 'new'
+        const site = String(data.editorSite || data.platformSite || 'default')
+        if (site !== 'default') {
+          const { cmsDatabase } = await import('./organizations/cms-scope')
+          const { OrganizationRepository } = await import('./organizations/repository')
+          if (!req.user) return null
+          const selected = await new OrganizationRepository(
+            cmsDatabase(req),
+            Number(req.user.id),
+          ).require(site, 'content', 'read')
+          return `/sites/${selected.route_key}${path}?preview=1&livePreview=${encodeURIComponent(String(id))}`
+        }
         return `${path}?livePreview=${encodeURIComponent(String(id))}`
       },
       breakpoints: [
@@ -140,10 +170,55 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Posts, Pages, Categories, Tags, Media, SiteTemplates, Users, Menus, ReviewTasks, ReviewComments, ReviewActivity, ...workspaceCollections, ...projectCollections, TaskProjectChanges, TaskNotificationEvents, SavedViews, EventSeries],
+  collections: [
+    Posts,
+    Pages,
+    Categories,
+    Tags,
+    Media,
+    SiteTemplates,
+    Users,
+    Menus,
+    ReviewTasks,
+    ReviewComments,
+    ReviewActivity,
+    ...workspaceCollections,
+    ...projectCollections,
+    TaskProjectChanges,
+    TaskNotificationEvents,
+    SavedViews,
+    EventSeries,
+  ],
   globals: [Navigation, SiteSettings, SystemSettings],
-  endpoints: [menuRenderEndpoint, ...workspaceEndpoints, ...projectSharingEndpoints, ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES)],
-  editor: lexicalEditor({features:({defaultFeatures})=>[...defaultFeatures,BlocksFeature({blocks:[{slug:'savedViewEmbed',labels:{singular:'Saved View',plural:'Saved Views'},fields:[{name:'viewID',label:'Saved View',type:'relationship',relationTo:'saved-views',required:true,filterOptions:{_status:{equals:'published'}}}]}]})]}),
+  endpoints: [
+    menuRenderEndpoint,
+    ...workspaceEndpoints,
+    ...projectSharingEndpoints,
+    ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES),
+  ],
+  editor: lexicalEditor({
+    features: ({ defaultFeatures }) => [
+      ...defaultFeatures,
+      BlocksFeature({
+        blocks: [
+          {
+            slug: 'savedViewEmbed',
+            labels: { singular: 'Saved View', plural: 'Saved Views' },
+            fields: [
+              {
+                name: 'viewID',
+                label: 'Saved View',
+                type: 'relationship',
+                relationTo: 'saved-views',
+                required: true,
+                filterOptions: { _status: { equals: 'published' } },
+              },
+            ],
+          },
+        ],
+      }),
+    ],
+  }),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
@@ -180,7 +255,14 @@ export default buildConfig({
       collections: ['posts', 'pages'],
       overrides: { admin: { group: 'Admin' } },
     }),
-    formsModule({ db: cloudflare.env.D1, storage: cloudflare.env.R2, local: Boolean(localPersistPath), defer: after }),
+    formsModule({
+      resolveSite: (req) =>
+        publicFormsSite(req.url, req.headers) || authorityClaim(req.user)?.site || 'default',
+      db: cloudflare.env.D1,
+      storage: cloudflare.env.R2,
+      local: Boolean(localPersistPath),
+      defer: after,
+    }),
     importExportPlugin({
       collections: [
         { slug: 'posts', export: { disableJobsQueue: true }, import: { disableJobsQueue: true } },
@@ -205,9 +287,14 @@ export default buildConfig({
     tenantWorkspace,
     tenantMutationGuards,
     tenantEditorSite,
-    organizationAdministration({ enabled: Boolean(localPersistPath) ||
-      (cloudflare.env as CloudflareEnv & { ORGANIZATION_ADMIN_ENABLED?: string }).ORGANIZATION_ADMIN_ENABLED === 'true' }),
+    organizationAdministration({
+      enabled:
+        Boolean(localPersistPath) ||
+        (cloudflare.env as CloudflareEnv & { ORGANIZATION_ADMIN_ENABLED?: string })
+          .ORGANIZATION_ADMIN_ENABLED === 'true',
+    }),
     tenantAuthority,
+    websiteCopyRecords,
     accountStatusGuards(cloudflare.env.D1),
   ],
 })
@@ -217,7 +304,9 @@ function getCloudflareContextFromWrangler(): Promise<CloudflareContext> {
   return import(/* webpackIgnore: true */ `${'__wrangler'.replaceAll('_', '')}`).then(
     ({ getPlatformProxy }) =>
       getPlatformProxy({
-        ...(localPersistPath ? { configPath: path.resolve(dirname, '../wrangler.test.jsonc') } : {}),
+        ...(localPersistPath
+          ? { configPath: path.resolve(dirname, '../wrangler.test.jsonc') }
+          : {}),
         environment: process.env.CLOUDFLARE_ENV,
         remoteBindings: isProduction && !process.env.DESIGN_CORE_TEST_PERSIST_PATH,
         ...(localPersistPath ? { persist: { path: localPersistPath } } : {}),

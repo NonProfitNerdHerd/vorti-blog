@@ -1,3 +1,4 @@
+import { SiteAnchor } from '../PublicSiteContext'
 /* eslint-disable @next/next/no-img-element */
 import React, { type CSSProperties, type ReactNode } from 'react'
 import { RichText, type JSXConvertersFunction } from '@payloadcms/richtext-lexical/react'
@@ -136,9 +137,9 @@ export function ContentBlock({
         break
       case 'button':
         content = (
-          <a className="content-button" href={safeURL(node.url)}>
+          <SiteAnchor className="content-button" href={safeURL(node.url)}>
             {node.text || 'Link'}
-          </a>
+          </SiteAnchor>
         )
         break
       case 'video':
@@ -262,14 +263,14 @@ export function ContentBlock({
     )
   else if (safeURL(presentation.link?.url))
     rendered = (
-      <a
+      <SiteAnchor
         href={safeURL(presentation.link?.url)}
         target={presentation.link?.newTab ? '_blank' : undefined}
         rel={presentation.link?.newTab ? 'noopener noreferrer' : presentation.link?.rel}
         title={presentation.link?.title}
       >
         {rendered}
-      </a>
+      </SiteAnchor>
     )
   const imageRule = (device: Viewport) => {
     const resolved = resolveStyle(node.styles, device)

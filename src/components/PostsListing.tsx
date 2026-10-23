@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { publicPath } from '@/lib/public-site-context'
+import { SiteAnchor as Link } from '@design-system/payload-design-core/content'
 import { notFound } from 'next/navigation'
 import { PostCard } from './PostCard'
 import { getPublishedPosts } from '@/lib/frontend'
@@ -12,6 +13,7 @@ export async function PostsListing({
   path?: string
   title?: string
 }) {
+  path = await publicPath(path)
   const page = Number(rawPage || 1)
   if (!Number.isSafeInteger(page) || page < 1) notFound()
   const posts = await getPublishedPosts(page, 10)

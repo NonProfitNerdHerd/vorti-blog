@@ -1,3 +1,4 @@
+import { publicWebsite } from '../organizations/public-website'
 import type { Answers, FormAction, FormField, PaymentQuote } from '@design-system/payload-design-core/forms'
 import { FormHTTPError } from './security'
 
@@ -40,11 +41,15 @@ export async function acceptSubmission(db: D1Database, input: Acceptance, now = 
   // Recheck ownership inside the transaction, not only in application reads before acceptance.
   const validFiles = input.attachments.map(() => `EXISTS (SELECT 1 FROM form_attachments WHERE id=? AND field_i_d=? AND site=? AND revision=? AND session_hash=? AND submission_i_d IS NULL AND expires_at>? AND scan_status IN ('unscanned','clean'))`)
   const validHolds = bookings.map(() => `EXISTS (SELECT 1 FROM form_booking_holds h JOIN form_booking_slots s ON h.slot_id=s.id JOIN form_resources r ON CAST(r.id AS TEXT)=s.resource AND r.site=s.site WHERE h.token_hash=? AND h.site=? AND h.session_hash=? AND h.status='held' AND h.expires_ms>? AND s.resource=? AND s.starts_at=? AND EXISTS (SELECT 1 FROM json_each(r.availability) a WHERE json_extract(a.value,'$.id')=s.id))`)
-  const guards = [...validFiles, ...validHolds]
+  const website = site === 'default' ? null : await publicWebsite(db,site)
+  if (site !== 'default' && !website) throw new FormHTTPError('This website is paused. Your answers have not been cleared.',404)
+  const websiteGuards = website ? [`EXISTS(SELECT 1 FROM vc_organizations WHERE id=? AND authority_revision=?)`] : []
+  const guards = [...validFiles, ...validHolds, ...websiteGuards]
   const insert = db.prepare(`INSERT OR IGNORE INTO form_submissions (form_id, site, revision, idempotency_key, answers, schema_snapshot, workflow_status, payment_status, session_hash, created_at, updated_at) SELECT ?, ?, ?, ?, ?, ?, 'received', ?, ?, ?, ?${guards.length ? ` WHERE ${guards.join(' AND ')}` : ''}`).bind(
     input.formID, site, revision, key, answers, JSON.stringify(input.snapshot), input.payment ? 'pending' : 'none', sessionHash, now, now,
     ...input.attachments.flatMap(file => [file.id, file.fieldID, site, revision, sessionHash, now]),
     ...bookings.flatMap(hold => [hold.tokenHash, site, sessionHash, Date.parse(now), hold.resource, hold.startsAt]),
+    ...(website ? [website.organization_id,website.authority_revision] : []),
   )
   // Concurrent retries with different answers must not add jobs or claim files for the winner.
   const winner = 'SELECT id FROM form_submissions WHERE idempotency_key=? AND site=? AND answers=?'

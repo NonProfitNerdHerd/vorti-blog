@@ -1,4 +1,5 @@
 'use client'
+import { SiteAnchor, usePublicFetch } from '../PublicSiteContext'
 /* eslint-disable @next/next/no-img-element -- Media URLs are already resolved by the host application. */
 import { useSiteFormat } from '../SiteFormatContext'
 import { formatSiteDate } from '../site-format'
@@ -7,6 +8,7 @@ import { safeURL, type ContentNode } from '../content/model'
 import type { ListingResult } from './resolve'
 const emptyProps: Record<string, unknown> = {}
 export default function Listing({ node, editing }: { node: ContentNode; editing?: boolean }) {
+  const publicFetch = usePublicFetch()
   const siteFormat = useSiteFormat()
   const props = node.props ?? emptyProps
   const [result, setResult] = useState<ListingResult>({
@@ -30,7 +32,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
       setLoading(true)
       setError('')
       try {
-        const response = await fetch(`/api/block-listing?${query}&draft=true`, {
+        const response = await publicFetch(`/api/block-listing?${query}&draft=true`, {
           signal: controller.signal,
           credentials: 'same-origin',
         })
@@ -46,7 +48,7 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
       clearTimeout(timer)
       controller.abort()
     }
-  }, [editing, query])
+  }, [editing, query, publicFetch])
   useEffect(() => {
     const element = document.getElementById(`listing-${node.id}`)
     if (!element) return
@@ -127,13 +129,13 @@ export default function Listing({ node, editing }: { node: ContentNode; editing?
             )}
             {props.showTaxonomy !== false && <p className="listing-meta">{item.taxonomy}</p>}
             {props.showLink !== false && (
-              <a
+              <SiteAnchor
                 className="listing-link"
                 href={safeURL(item.url)}
                 onClick={editing ? (event) => event.preventDefault() : undefined}
               >
                 Read more
-              </a>
+              </SiteAnchor>
             )}
           </article>
         ))}

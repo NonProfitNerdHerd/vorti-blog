@@ -187,7 +187,7 @@ export const crmModule =
           ...config.admin?.components,
           views: {
             ...config.admin?.components?.views,
-            crm: { Component: './crm/ContactWorkspace#ContactWorkspace', path: '/crm' },
+            crm: { Component: './organizations/AdminWorkspaces#CRMAdminView', path: '/crm' },
           },
         },
       },

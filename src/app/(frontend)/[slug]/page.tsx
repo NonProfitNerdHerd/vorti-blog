@@ -1,3 +1,4 @@
+import { publicPath } from '@/lib/public-site-context'
 import type { Metadata } from 'next'
 import { homePage, postsPath } from '@/lib/site-pages'
 import { PostsListing } from '@/components/PostsListing'
@@ -15,7 +16,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if ((await searchParams).livePreview) return { robots: { index: false, follow: false } }
   const page = await getPublishedPage((await params).slug)
   const site = await getSiteSettings()
-  return page ? { ...contentMetadata(page, site), alternates: { canonical: homePage(site)?.id === page.id ? '/' : `/${encodeURIComponent(page.slug!)}` } } : {}
+  return page ? { ...contentMetadata(page, site), alternates: { canonical: await publicPath(homePage(site)?.id === page.id ? '/' : `/${encodeURIComponent(page.slug!)}`) } } : {}
 }
 
 export default async function PageDetail({ params, searchParams }: Props) {

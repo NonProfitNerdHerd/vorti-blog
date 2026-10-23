@@ -1,10 +1,12 @@
 import { createRoot } from 'react-dom/client'
 import { FormHost } from '../../packages/payload-design-core/src/forms/FormHost'
+import { PublicSiteProvider } from '../../packages/payload-design-core/src/PublicSiteContext'
 import './embed.css'
 
 const root = document.getElementById('form-root')
 if (root?.dataset.slug) {
-  createRoot(root).render(<FormHost slug={root.dataset.slug} embedded />)
+  const prefix = /^\/sites\/[a-zA-Z0-9_-]{1,80}$/.test(root.dataset.sitePrefix || '') ? root.dataset.sitePrefix! : ''
+  createRoot(root).render(<PublicSiteProvider prefix={prefix}><FormHost slug={root.dataset.slug} embedded /></PublicSiteProvider>)
   const parentOrigin = root.dataset.parentOrigin, id = root.dataset.instance
   if (parentOrigin && id && window.parent !== window) {
     let frame = 0, ready = false

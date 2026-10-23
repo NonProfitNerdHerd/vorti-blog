@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { SiteAnchor as Link } from '@design-system/payload-design-core/content'
 import type { SiteSetting } from '@/payload-types'
 import { privacyPath } from '@/lib/site-pages'
 export function PrivacyPolicyLink({ site }: { site: SiteSetting }) {

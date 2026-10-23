@@ -1,4 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { SiteAnchor } from '../PublicSiteContext.js';
 /* eslint-disable @next/next/no-img-element */
 import React from 'react';
 import { RichText } from '@payloadcms/richtext-lexical/react';
@@ -77,7 +78,7 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
                     }) }));
                 break;
             case 'button':
-                content = (_jsx("a", { className: "content-button", href: safeURL(node.url), children: node.text || 'Link' }));
+                content = (_jsx(SiteAnchor, { className: "content-button", href: safeURL(node.url), children: node.text || 'Link' }));
                 break;
             case 'video':
                 content = safeURL(node.url) ? (_jsx("video", { controls: true, src: safeURL(node.url), style: { maxWidth: '100%' }, "aria-label": node.text || 'Video' })) : null;
@@ -146,7 +147,7 @@ export function ContentBlock({ node, children, body, viewport, document = {}, })
     if (presentation.link?.lightbox)
         rendered = (_jsx(React.Suspense, { fallback: rendered, children: _jsx(InteractiveBlock, { node: node, editing: !!viewport, children: rendered }) }));
     else if (safeURL(presentation.link?.url))
-        rendered = (_jsx("a", { href: safeURL(presentation.link?.url), target: presentation.link?.newTab ? '_blank' : undefined, rel: presentation.link?.newTab ? 'noopener noreferrer' : presentation.link?.rel, title: presentation.link?.title, children: rendered }));
+        rendered = (_jsx(SiteAnchor, { href: safeURL(presentation.link?.url), target: presentation.link?.newTab ? '_blank' : undefined, rel: presentation.link?.newTab ? 'noopener noreferrer' : presentation.link?.rel, title: presentation.link?.title, children: rendered }));
     const imageRule = (device) => {
         const resolved = resolveStyle(node.styles, device);
         return `.${className} > figure > .block-image-surface > img{width:100%;object-fit:${resolved.objectFit ?? 'cover'};object-position:${resolved.objectPosition ?? '50% 50%'};aspect-ratio:${resolved.aspectRatio ?? 'auto'}}`;

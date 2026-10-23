@@ -1,4 +1,4 @@
-export declare function SavedDrafts({ slug, refresh, onResume, onRevoke }: {
+export declare function SavedDrafts({ slug, refresh, onResume, onRevoke, }: {
     slug: string;
     refresh: string;
     onResume: (id: number) => Promise<boolean>;

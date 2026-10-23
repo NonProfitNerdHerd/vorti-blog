@@ -1,3 +1,4 @@
+import { requireWebsitePublishing } from './websites'
 import {
   APIError,
   type Access,
@@ -202,6 +203,19 @@ export const tenantCMS = (config: Config): Config => ({
       },
       hooks: {
         ...collection.hooks,
+        afterRead: [
+          ...(collection.hooks?.afterRead || []),
+          async ({req,doc}) => {
+            if (collection.slug !== 'media' || migrationRequest(req)) return doc
+            const scope = await cmsScope(req,'read')
+            if (scope.site === 'default' || !doc.filename) return doc
+            const site = await cmsDatabase(req).prepare('SELECT route_key FROM vc_sites WHERE id=?').bind(scope.site).first<{route_key:string}>()
+            if (!site) throw new APIError('Site unavailable.',404)
+            const path = `/sites/${site.route_key}/api/media/file/${encodeURIComponent(String(doc.filename))}`
+            doc.url = path + (scope.actor ? '?preview=1' : '')
+            return doc
+          },
+        ],
         beforeRead: [
           async ({ doc, req }) => {
             if (migrationRequest(req)) return doc
@@ -282,6 +296,7 @@ export const tenantCMS = (config: Config): Config => ({
                 platformSite: originalDoc?.platformSite || data.platformSite || 'default',
               }
             const scope = await authorizeWrite(data, originalDoc, req)
+            if (['posts','pages'].includes(collection.slug) && data._status === 'published') await requireWebsitePublishing(cmsDatabase(req),scope.site)
             await validateCMSRelations(req, fields, data, originalDoc)
             await confirmCMSScope(req, scope)
             return {

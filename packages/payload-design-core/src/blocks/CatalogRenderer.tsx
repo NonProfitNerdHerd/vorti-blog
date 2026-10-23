@@ -1,4 +1,5 @@
 import { isViewPlacement } from '../views/model'
+import { SiteAnchor } from '../PublicSiteContext'
 import React, { lazy, Suspense, type ReactNode } from 'react'
 import type { ContentNode } from '../content/model'
 import { safeURL } from '../content/model'
@@ -11,7 +12,9 @@ import type { ViewResult } from '../views/model'
 import { Menu } from '../menus/Menu'
 import type { ResolvedMenu } from '../menus/model'
 const Listing = lazy(() => import('./Listing'))
-const FormPlacement = lazy(() => import('../forms/FormPlacement').then(module => ({ default: module.FormPlacement })))
+const FormPlacement = lazy(() =>
+  import('../forms/FormPlacement').then((module) => ({ default: module.FormPlacement })),
+)
 const ListingNavigation = lazy(() =>
   import('./Listing').then((module) => ({ default: module.ListingNavigation })),
 )
@@ -42,11 +45,49 @@ export function CatalogRenderer({
   const props = node.props ?? {},
     text = (key: string, fallback = '') => String(props[key] ?? fallback)
   const definition = getBlockDefinition(node.kind)
-  if (node.kind === 'menu') return <Menu menuID={text('menuID')} initial={props.resolvedMenu as ResolvedMenu | null | undefined} editing={editing} depth={Math.max(1, Math.min(5, Number(props.depth) || 5))} orientation={text('orientation', 'horizontal')} alignment={text('alignment', 'start')} gap={text('gap', '1rem')} mobile={text('mobile', 'collapse')} label={text('label', 'Navigation')} submenuBackground={text('submenuBackground', '#ffffff')} submenuColor={text('submenuColor', '#1a1a1a')} submenuPadding={text('submenuPadding', '.5rem')} submenuBorder={text('submenuBorder', '1px solid #8884')} submenuRadius={text('submenuRadius', '8px')} hoverColor={text('hoverColor', '#4f46e5')} activeColor={text('activeColor', '#4f46e5')} />
-  if (node.kind === 'form') return <Suspense fallback={<p>Loading form…</p>}><FormPlacement formID={text('formID')} editing={editing} /></Suspense>
-  if(isViewPlacement(node.kind)) return !props.viewID && editing
-    ? <div role="status"><strong>{definition?.label}</strong><p>Select this block to set up its content filters in the inspector, or choose an existing Saved View.</p></div>
-    : <DynamicView viewID={text('viewID')} initial={props.resolvedView as ViewResult|undefined} editing={editing}/>
+  if (node.kind === 'menu')
+    return (
+      <Menu
+        menuID={text('menuID')}
+        initial={props.resolvedMenu as ResolvedMenu | null | undefined}
+        editing={editing}
+        depth={Math.max(1, Math.min(5, Number(props.depth) || 5))}
+        orientation={text('orientation', 'horizontal')}
+        alignment={text('alignment', 'start')}
+        gap={text('gap', '1rem')}
+        mobile={text('mobile', 'collapse')}
+        label={text('label', 'Navigation')}
+        submenuBackground={text('submenuBackground', '#ffffff')}
+        submenuColor={text('submenuColor', '#1a1a1a')}
+        submenuPadding={text('submenuPadding', '.5rem')}
+        submenuBorder={text('submenuBorder', '1px solid #8884')}
+        submenuRadius={text('submenuRadius', '8px')}
+        hoverColor={text('hoverColor', '#4f46e5')}
+        activeColor={text('activeColor', '#4f46e5')}
+      />
+    )
+  if (node.kind === 'form')
+    return (
+      <Suspense fallback={<p>Loading form…</p>}>
+        <FormPlacement formID={text('formID')} editing={editing} />
+      </Suspense>
+    )
+  if (isViewPlacement(node.kind))
+    return !props.viewID && editing ? (
+      <div role="status">
+        <strong>{definition?.label}</strong>
+        <p>
+          Select this block to set up its content filters in the inspector, or choose an existing
+          Saved View.
+        </p>
+      </div>
+    ) : (
+      <DynamicView
+        viewID={text('viewID')}
+        initial={props.resolvedView as ViewResult | undefined}
+        editing={editing}
+      />
+    )
   if (definition?.render) return <>{definition.render(node, children)}</>
   if (
     [
@@ -77,13 +118,13 @@ export function CatalogRenderer({
       )
     case 'iconButton':
       return (
-        <a
+        <SiteAnchor
           className="icon-button"
           href={safeURL(props.url)}
           aria-label={text('label', 'Learn more')}
         >
           {icon}
-        </a>
+        </SiteAnchor>
       )
     case 'iconLabel':
       return (
@@ -111,7 +152,11 @@ export function CatalogRenderer({
               }}
             >
               <BlockIcon name={item.icon ?? text('icon', 'check')} />{' '}
-              {item.url ? <a href={safeURL(item.url)}>{item.label}</a> : item.label}
+              {item.url ? (
+                <SiteAnchor href={safeURL(item.url)}>{item.label}</SiteAnchor>
+              ) : (
+                item.label
+              )}
             </li>
           ))}
         </ul>
@@ -274,7 +319,7 @@ export function CatalogRenderer({
         <nav aria-label="Social links">
           {blockItems(props.links, true).map((item, index) => {
             return (
-              <a
+              <SiteAnchor
                 key={index}
                 className="social-button"
                 href={safeURL(item.url)}
@@ -282,7 +327,7 @@ export function CatalogRenderer({
                 style={{ marginInlineEnd: '1rem' }}
               >
                 {item.icon && <BlockIcon name={item.icon} />} {item.label}
-              </a>
+              </SiteAnchor>
             )
           })}
         </nav>
@@ -305,7 +350,9 @@ export function CatalogRenderer({
             style={{ width: '100%', minHeight: '320px', border: 0 }}
           />
           <figcaption>
-            <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a>
+            <SiteAnchor href="https://www.openstreetmap.org/copyright">
+              © OpenStreetMap contributors
+            </SiteAnchor>
           </figcaption>
         </figure>
       )
@@ -330,10 +377,10 @@ export function CatalogRenderer({
                   breakInside: 'avoid',
                 }}
               >
-                <a href={`#${heading.id}`}>
+                <SiteAnchor href={`#${heading.id}`}>
                   {props.numbered ? `${index + 1}. ` : ''}
                   {heading.text}
-                </a>
+                </SiteAnchor>
               </div>
             )
           })}

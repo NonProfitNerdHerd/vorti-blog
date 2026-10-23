@@ -1,3 +1,7 @@
+import { resolveMenu, legacyMenu } from '@/menus/server'
+import { websiteReferences } from '@/organizations/website-fields'
+import type { CollectionSlug } from 'payload'
+import { publicSiteContext } from './public-site-context'
 import { userIdentity } from '@design-system/payload-design-core'
 import { getPayload } from 'payload'
 import { cache } from 'react'
@@ -12,6 +16,25 @@ export const fallbackPublicSiteData = {
 
 export const getPublicSiteData = cache(async () => {
   const payload = await getPayload({ config })
+  const selected = await publicSiteContext()
+  if (selected.website) {
+    const settings = JSON.parse(selected.website.presentation)
+    for (const [key,collection] of Object.entries(websiteReferences)) {
+      if (!settings[key]) continue
+      try { settings[key] = await payload.findByID({collection: collection as CollectionSlug,id:settings[key],context:selected.context,user:selected.user || null,overrideAccess:false,depth:1}) } catch { settings[key]=null }
+    }
+    const navigation = JSON.parse(selected.website.navigation)
+    for(const slot of ['primary','footer']) {
+      if(navigation[slot+'Menu']) {
+        const menu = await resolveMenu(payload,navigation[slot+'Menu'],selected.site)
+        navigation[slot]=menu?legacyMenu(menu.items):[]
+      }
+    }
+    return {
+    navigation: { id: 0, ...navigation } as Navigation,
+    siteSettings: { id: 0, ...settings, siteName: settings.siteName || selected.website.name } as SiteSetting,
+  }
+  }
   const [navigation, siteSettings] = await Promise.all([
     payload.findGlobal({
       slug: 'navigation',
@@ -27,7 +50,8 @@ export const getPublicSiteData = cache(async () => {
 export const getPublicSiteDataSafe = cache(async () => {
   try {
     return await getPublicSiteData()
-  } catch {
+  } catch (error) {
+    if ((await publicSiteContext()).site !== 'default') throw error
     return fallbackPublicSiteData
   }
 })

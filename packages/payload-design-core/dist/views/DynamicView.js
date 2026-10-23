@@ -1,5 +1,6 @@
 'use client';
 import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { usePublicFetch, SiteAnchor } from '../PublicSiteContext.js';
 /* eslint-disable @next/next/no-img-element -- Media is resolved by the application adapter. */
 import { useEffect, useId, useRef, useState } from 'react';
 import { useSiteFormat } from '../SiteFormatContext.js';
@@ -50,6 +51,7 @@ export function ViewThumbnail({ kind }) {
 }
 export function DynamicView({ viewID, initial, configuration, editing = false, }) {
     const id = useId(), [result, setResult] = useState(initial), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+    const publicFetch = usePublicFetch();
     const categoriesEnabled = useCategoriesEnabled() && result?.categoriesEnabled !== false;
     const [search, setSearch] = useState(''), [category, setCategory] = useState(''), [tag, setTag] = useState(''), [page, setPage] = useState(1), [anchor, setAnchor] = useState(() => new Date()), [mode, setMode] = useState('month'), [slide, setSlide] = useState(0), [selected, setSelected] = useState(null), [refresh, setRefresh] = useState(0);
     const dialog = useRef(null), trigger = useRef(null), append = useRef(false);
@@ -100,7 +102,7 @@ export function DynamicView({ viewID, initial, configuration, editing = false, }
                     params.set('view', String(viewID));
                 if (editing)
                     params.set('draft', 'true');
-                const response = await fetch(configurationKey ? '/api/content-views' : `/api/content-views?${params}`, {
+                const response = await publicFetch(configurationKey ? '/api/content-views' : `/api/content-views?${params}`, {
                     signal: controller.signal,
                     credentials: 'same-origin',
                     ...(configurationKey
@@ -135,7 +137,7 @@ export function DynamicView({ viewID, initial, configuration, editing = false, }
             clearTimeout(timer);
             controller.abort();
         };
-    }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh, categoriesEnabled]); // configurationKey captures the full configuration
+    }, [viewID, configurationKey, editing, page, search, category, tag, from, to, refresh, categoriesEnabled, publicFetch]); // configurationKey captures the full configuration
     useEffect(() => {
         const update = () => {
             setRefresh((v) => v + 1);
@@ -171,7 +173,7 @@ export function DynamicView({ viewID, initial, configuration, editing = false, }
         ...new Map(items.flatMap((i) => i.tags || []).map((c) => [c.id, c])).values(),
     ];
     function card(item, index) {
-        return (_jsxs("article", { className: `cv-card cv-item-${index}`, children: [cfg.image !== false && item.image && (_jsx("a", { href: item.url, tabIndex: -1, "aria-hidden": "true", children: _jsx("img", { className: "cv-image", src: item.image, alt: "", loading: "lazy" }) })), _jsxs("div", { className: "cv-content", children: [categoriesEnabled && cfg.taxonomy !== false && !!item.categories?.length && (_jsx("p", { className: "cv-taxonomy", children: item.categories.map((c) => c.name).join(' · ') })), _jsx("h3", { className: "cv-title", children: cfg.dialog ? (_jsx("button", { type: "button", onClick: () => open(item), children: item.title })) : (_jsx("a", { href: item.url, children: item.title })) }), cfg.date !== false && (item.occurrence || item.date) && (_jsxs("p", { className: "cv-meta", children: [_jsx("time", { dateTime: item.occurrence?.start || item.date, children: format(item.occurrence?.start || item.date) }), item.occurrence?.allDay ? ' · All day' : ''] })), cfg.author && item.author && _jsxs("span", { className: "cv-meta", children: ["By ", item.author, " "] }), cfg.readingTime && _jsxs("span", { className: "cv-meta", children: [item.readingTime, " min read"] }), item.location && _jsx("p", { children: item.location }), cfg.excerpt !== false && item.excerpt && (_jsxs("p", { className: "cv-excerpt", children: [item.excerpt.slice(0, cfg.excerptLength || 180), item.excerpt.length > (cfg.excerptLength || 180) ? '…' : ''] })), _jsxs("a", { className: "cv-more", href: item.url, children: [item.occurrence ? 'Event details' : 'Read more', " ", _jsx("span", { "aria-hidden": "true", children: "\u2192" })] })] })] }, item.id));
+        return (_jsxs("article", { className: `cv-card cv-item-${index}`, children: [cfg.image !== false && item.image && (_jsx(SiteAnchor, { href: item.url, tabIndex: -1, "aria-hidden": "true", children: _jsx("img", { className: "cv-image", src: item.image, alt: "", loading: "lazy" }) })), _jsxs("div", { className: "cv-content", children: [categoriesEnabled && cfg.taxonomy !== false && !!item.categories?.length && (_jsx("p", { className: "cv-taxonomy", children: item.categories.map((c) => c.name).join(' · ') })), _jsx("h3", { className: "cv-title", children: cfg.dialog ? (_jsx("button", { type: "button", onClick: () => open(item), children: item.title })) : (_jsx(SiteAnchor, { href: item.url, children: item.title })) }), cfg.date !== false && (item.occurrence || item.date) && (_jsxs("p", { className: "cv-meta", children: [_jsx("time", { dateTime: item.occurrence?.start || item.date, children: format(item.occurrence?.start || item.date) }), item.occurrence?.allDay ? ' · All day' : ''] })), cfg.author && item.author && _jsxs("span", { className: "cv-meta", children: ["By ", item.author, " "] }), cfg.readingTime && _jsxs("span", { className: "cv-meta", children: [item.readingTime, " min read"] }), item.location && _jsx("p", { children: item.location }), cfg.excerpt !== false && item.excerpt && (_jsxs("p", { className: "cv-excerpt", children: [item.excerpt.slice(0, cfg.excerptLength || 180), item.excerpt.length > (cfg.excerptLength || 180) ? '…' : ''] })), _jsxs(SiteAnchor, { className: "cv-more", href: item.url, children: [item.occurrence ? 'Event details' : 'Read more', " ", _jsx("span", { "aria-hidden": "true", children: "\u2192" })] })] })] }, item.id));
     }
     function dayCell(date) {
         const key = date.toISOString().slice(0, 10), matching = items.filter((item) => item.occurrence &&
@@ -266,7 +268,7 @@ export function DynamicView({ viewID, initial, configuration, editing = false, }
                     }, onClick: (e) => {
                         if (e.target === dialog.current)
                             close();
-                    }, children: selected && (_jsxs(_Fragment, { children: [_jsx("button", { type: "button", onClick: close, autoFocus: true, "aria-label": "Close event details", children: "\u00D7" }), _jsx("h2", { children: selected.title }), selected.occurrence && (_jsxs("p", { children: [format(selected.occurrence.start), " \u2013 ", format(selected.occurrence.end), " (", selected.occurrence.timezone, ")"] })), _jsx("p", { children: selected.location }), _jsx("p", { children: selected.excerpt }), _jsx("a", { href: selected.url, children: "Open full page" })] })) })] }) }));
+                    }, children: selected && (_jsxs(_Fragment, { children: [_jsx("button", { type: "button", onClick: close, autoFocus: true, "aria-label": "Close event details", children: "\u00D7" }), _jsx("h2", { children: selected.title }), selected.occurrence && (_jsxs("p", { children: [format(selected.occurrence.start), " \u2013 ", format(selected.occurrence.end), " (", selected.occurrence.timezone, ")"] })), _jsx("p", { children: selected.location }), _jsx("p", { children: selected.excerpt }), _jsx(SiteAnchor, { href: selected.url, children: "Open full page" })] })) })] }) }));
 }
 function Countdown({ instant }) {
     const [now, setNow] = useState(0);

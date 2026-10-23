@@ -1,3 +1,4 @@
+import { PUBLIC_PREFIX_HEADER, publicWebsite } from '../organizations/public-website'
 import { runGraph, graphScope, graphAnswers, type GraphEvent } from '@design-system/payload-design-core/forms'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { validateAnswers, validateTemporal, publicDefinition, flattenFields, answerFields, attachmentReferences, type Answers, type FormDefinition } from '@design-system/payload-design-core/forms'
@@ -42,6 +43,7 @@ async function session(req: PayloadRequest, revision: string, issue = false, fre
 }
 async function published(req: PayloadRequest, platform: FormPlatform, revisionID?: string) {
   const site = platform.resolveSite?.(req) || FORM_SITE
+  if (site !== FORM_SITE && !await publicWebsite(platform.db,site)) throw new FormHTTPError('Form unavailable.',404)
   const slug = String(req.routeParams?.slug || '')
   // Deliberate public read: query is server-built, published-only and site-scoped; private data never leaves projection.
   const forms = await req.payload.find({ collection: 'forms', overrideAccess: true, draft: false, depth: 0, limit: 1,
@@ -65,7 +67,7 @@ export function formRuntimeEndpoints(platform: FormPlatform): Endpoint[] {
       const parent = url.searchParams.get('parentOrigin') || own, instance = url.searchParams.get('instance') || ''
       if (![own, ...allowed].includes(parent)) throw new FormHTTPError('This website is not allowed to embed this form.', 403)
       if (instance && !/^[a-zA-Z0-9_-]{1,100}$/.test(instance)) throw new FormHTTPError('Invalid embed instance.')
-      const html = `<!doctype html><html lang="${escapeHTML(definition.locale)}" dir="${definition.direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escapeHTML(form.title)}</title><link rel="stylesheet" href="/forms-assets/runtime.css"></head><body><div id="form-root" data-slug="${escapeHTML(String(form.slug))}" data-parent-origin="${escapeHTML(parent)}" data-instance="${escapeHTML(instance)}"><p>Loading form…</p></div><script src="/forms-assets/runtime.js" defer></script></body></html>`
+      const html = `<!doctype html><html lang="${escapeHTML(definition.locale)}" dir="${definition.direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escapeHTML(form.title)}</title><link rel="stylesheet" href="/forms-assets/runtime.css"></head><body><div id="form-root" data-slug="${escapeHTML(String(form.slug))}" data-site-prefix="${escapeHTML(req.headers.get(PUBLIC_PREFIX_HEADER) || '')}" data-parent-origin="${escapeHTML(parent)}" data-instance="${escapeHTML(instance)}"><p>Loading form…</p></div><script src="/forms-assets/runtime.js" defer></script></body></html>`
       return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' ${allowed.join(' ')}` } })
     }) },
     { path: '/forms-options', method: 'get', handler: errors(async req => {
@@ -96,7 +98,7 @@ export function formRuntimeEndpoints(platform: FormPlatform): Endpoint[] {
       const draft = await platform.db.prepare('SELECT id FROM form_drafts WHERE site=? AND revision=? AND token_hash=? AND session_hash=? AND revoked_at IS NULL AND expires_at>? AND (owner_i_d IS NULL OR owner_i_d=?)').bind(site, revision, tokenHash, auth.hash, new Date().toISOString(), String(req.user?.id || '')).first<{ id: number }>()
       if (!draft) throw new FormHTTPError('Saved progress is unavailable in this session. Save it again before requesting an email.', 404)
       const eventID = randomToken(), now = new Date().toISOString()
-      const url = new URL(`/forms/${encodeURIComponent(String(req.routeParams?.slug))}`, req.url).href + `#resume=${token}`
+      const url = new URL(`${req.headers.get(PUBLIC_PREFIX_HEADER) || ''}/forms/${encodeURIComponent(String(req.routeParams?.slug))}`, req.url).href + `#resume=${token}`
       const envelope = await sealMessage(req.payload.secret, `${site}:${eventID}`, JSON.stringify({ email, url, title: form.title }))
       const action = { id: eventID, kind: 'resume-email', name: 'Resume saved progress', config: { draftID: draft.id, tokenHash, envelope } }
       await platform.db.prepare("INSERT INTO form_outbox(label,site,event_i_d,revision,kind,status,payload,attempts,next_attempt_at,created_at,updated_at) VALUES(?,?,?,?,'resume-email','pending',?,0,?,?,?)").bind('Resume email', site, eventID, revision, JSON.stringify({ action }), now, now, now).run()

@@ -1,6 +1,7 @@
 import { PrivacyPolicyLink } from './PrivacyPolicyLink'
 import { postsPath } from '@/lib/site-pages'
-import Link from 'next/link'
+import { publicPath } from '@/lib/public-site-context'
+import { SiteAnchor as Link } from '@design-system/payload-design-core/content'
 import type { Navigation, SiteSetting } from '@/payload-types'
 import { Menu as SavedMenu } from '@design-system/payload-design-core/content'
 import { legacyMenuLinks } from '@/menus/legacy'
@@ -9,7 +10,7 @@ function Menu({ items }: { items: Navigation['primary'] }) {
     <SavedMenu menuID="1" initial={{ id: 1, name: 'Navigation', items: legacyMenuLinks(items) }} />
   )
 }
-export function LegacyHeader({
+export async function LegacyHeader({
   navigation,
   siteSettings,
 }: {
@@ -19,11 +20,11 @@ export function LegacyHeader({
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link className="site-title" href="/">
+        <Link className="site-title" href={await publicPath('/')}>
           {siteSettings.siteName || 'VortiCause'}
         </Link>
         <nav className="site-nav" aria-label="Primary navigation">
-          <Link href={postsPath(siteSettings)}>Posts</Link>
+          <Link href={await publicPath(postsPath(siteSettings))}>Posts</Link>
           <Menu items={navigation.primary} />
         </nav>
       </div>

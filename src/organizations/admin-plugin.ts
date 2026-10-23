@@ -1,3 +1,8 @@
+import { saveWebsiteSettings } from './website-settings'
+import { cmsSiteContext } from './cms-scope'
+import { initializeWebsite } from './website-copy'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
+import { WebsiteRepository } from './websites'
 import { APIError, type Config, type PayloadRequest } from 'payload'
 import { readBoundedJSON } from '../forms/security'
 import { errorResponse } from '../crm/plugin'
@@ -32,6 +37,36 @@ export const organizationAdministration =
                 params = new URL(req.url!).searchParams
               const context = await repo.context()
               const site = params.get('site')
+              if (site && params.has('websiteChoices')) {
+                await repo.require(site, 'content', 'read')
+                const result: Record<string, unknown> = {}
+                for (const collection of ['pages', 'media', 'site-templates', 'menus'] as const) {
+                  const data = await req.payload.find({
+                    collection,
+                    req: { ...req, context: cmsSiteContext(site) },
+                    depth: 0,
+                    limit: 100,
+                    overrideAccess: false,
+                  })
+                  result[collection] = data.docs.map((doc) => ({
+                    id: doc.id,
+                    label:
+                      'title' in doc
+                        ? doc.title
+                        : 'name' in doc
+                          ? doc.name
+                          : 'alt' in doc
+                            ? doc.alt
+                            : String((doc as { id: number }).id),
+                  }))
+                }
+                return Response.json(result, { headers })
+              }
+              if (site && params.has('website'))
+                return Response.json(
+                  await new WebsiteRepository(cmsDatabase(req), Number(req.user!.id)).status(site),
+                  { headers },
+                )
               if (site && params.has('settings'))
                 return Response.json(await repo.settings(site), { headers })
               if (site && params.has('user'))
@@ -80,6 +115,29 @@ export const organizationAdministration =
               const base = { site, expectedRevision, operationKey }
               let result: Record<string, unknown>
               switch (body.action) {
+                case 'website-settings':
+                  result = await saveWebsiteSettings(req, { ...base, settings: body.settings })
+                  break
+                case 'initialize-website':
+                  result = await initializeWebsite(
+                    req,
+                    site,
+                    (await getCloudflareContext({ async: true })).env.R2,
+                    expectedRevision,
+                  )
+                  break
+                case 'subsites':
+                case 'publication':
+                  result = await new WebsiteRepository(
+                    cmsDatabase(req),
+                    Number(req.user!.id),
+                  ).update({
+                    ...base,
+                    action: body.action,
+                    enabled: body.enabled as boolean,
+                    confirmedDescendants: body.confirmedDescendants as number,
+                  })
+                  break
                 case 'create-organization':
                   result = await repo.createOrganization({
                     name: String(body.name || ''),
@@ -90,10 +148,33 @@ export const organizationAdministration =
                 case 'create-site':
                   result = await repo.createSite({
                     parent: site,
+                    routeKey: typeof body.routeKey === 'string' ? body.routeKey : undefined,
                     name: String(body.name || ''),
                     expectedRevision,
                     operationKey,
                   })
+                  try {
+                    await initializeWebsite(
+                      req,
+                      String(result.site),
+                      (await getCloudflareContext({ async: true })).env.R2,
+                    )
+                  } catch {
+                    // Creation has committed even when a dependency copy fails.
+                    // Acknowledge that audited mutation only while the actor still
+                    // has current authority to maintain the parent and new child.
+                    await repo.require(site, 'content', 'configure')
+                    await repo.require(String(result.site), 'content', 'configure')
+                    ;(req.context as Record<symbol, unknown>)[AUTHORITY_MUTATION_COMMITTED] = true
+                    return Response.json(
+                      {
+                        doc: result,
+                        initializationError:
+                          'Child site created unpublished. Its design copy did not finish; select Initialize website to retry safely.',
+                      },
+                      { status: 201, headers },
+                    )
+                  }
                   break
                 case 'membership':
                   result = await repo.setMembership({
@@ -163,7 +244,7 @@ export const organizationAdministration =
           views: {
             ...config.admin?.components?.views,
             organizations: {
-              Component: './organizations/OrganizationWorkspace#OrganizationWorkspace',
+              Component: './organizations/AdminWorkspaces#SitesCompatibilityView',
               path: '/sites',
             },
           },

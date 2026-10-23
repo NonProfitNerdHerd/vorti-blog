@@ -1,3 +1,4 @@
+import { PUBLIC_PREFIX_HEADER } from '../organizations/public-website'
 import type { Endpoint, PayloadRequest } from 'payload'
 import type { PaymentView } from '@design-system/payload-design-core/forms'
 import { canForm, FORM_SITE, type FormsUser } from './access'
@@ -68,7 +69,7 @@ export function formPaymentEndpoints(platform: FormPlatform): Endpoint[] {
           const form = await platform.db.prepare('SELECT slug FROM forms WHERE id=(SELECT form_id FROM form_submissions WHERE id=? AND site=?)').bind(row.submission_id, site).first<{ slug: string }>()
           if (!form) throw new FormHTTPError('This payment form is unavailable.', 410)
           const view = await paymentView(platform.db, row, platform), token = await paymentToken(req.payload.secret, row)
-          const checkout = await stripeTestProvider().checkout({ amount: row.amount, currency: row.currency, submissionKey: key, title: view.title, returnURL: `${new URL(req.url!).origin}/forms/${encodeURIComponent(form.slug)}#payment=${token}` })
+          const checkout = await stripeTestProvider().checkout({ amount: row.amount, currency: row.currency, submissionKey: key, title: view.title, returnURL: `${new URL(req.url!).origin}${req.headers.get(PUBLIC_PREFIX_HEADER) || ''}/forms/${encodeURIComponent(form.slug)}#payment=${token}` })
           await platform.db.prepare('UPDATE form_payment_sessions SET checkout_ref=?,checkout_url=?,updated_at=? WHERE submission_key=? AND site=? AND checkout_ref IS NULL').bind(checkout.reference, checkout.url, new Date().toISOString(), key, site).run()
         }
         row = (await platform.db.prepare('SELECT * FROM form_payment_sessions WHERE submission_key=? AND site=?').bind(key, site).first<PaymentRow>())!

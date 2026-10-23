@@ -1,3 +1,4 @@
+import { rendererRequest, type RenderScope } from '../lib/render-scope'
 import { publicAuthorIdentity } from '@design-system/payload-design-core'
 import { publicAuthors } from '../lib/public-attribution'
 import { CMS_DERIVED_READ } from '../organizations/cms-scope'
@@ -15,9 +16,10 @@ import {
 import { mediaURL } from '../lib/media'
 import { validateView } from './validation'
 import { readCategoriesEnabled } from '../lib/system-settings'
-type Context = { user?: PayloadRequest['user']; draft?: boolean }
+type Context = RenderScope
 export async function readSavedView(payload: Payload, id: string, context: Context = {}) {
-  const result = await payload.find({
+  const req=await rendererRequest(payload,context)
+  const result = await payload.find({req,
     collection: 'saved-views' as CollectionSlug,
     where: {
       and: [
@@ -41,6 +43,7 @@ export async function queryView(
   params: URLSearchParams = new URLSearchParams(),
   context: Context = {},
 ): Promise<ViewResult> {
+  const req=await rendererRequest(payload,context)
   validateView(config)
   const categoriesEnabled = await readCategoriesEnabled(payload)
   const query = config.query,
@@ -79,9 +82,9 @@ export async function queryView(
     if (!context.draft) {
       const candidates: Array<string | number> = []
       for (let p = 1; ; p++) {
-        const series = await payload.find({
+        const series = await payload.find({req,
           collection: 'event-series' as CollectionSlug,
-          context: { contentOperation: 'published-event-candidates', [CMS_DERIVED_READ]: true },
+          context: { ...req.context, contentOperation: 'published-event-candidates', [CMS_DERIVED_READ]: true },
           where: {
             or: [
               { recurring: { equals: true } },
@@ -118,7 +121,7 @@ export async function queryView(
   let total = 0,
     totalPages = 1
   for (let p = collect ? 1 : page; ; p++) {
-    const response = await payload.find({
+    const response = await payload.find({req,
       collection: query.source,
       draft: !!context.draft && !!context.user,
       user: context.user,
@@ -217,7 +220,7 @@ export async function queryView(
       (['categories', 'tags'] as const).map((collection) =>
         collection === 'categories' && !categoriesEnabled
           ? Promise.resolve({ docs: [] })
-          : payload.find({
+          : payload.find({req,
               collection,
               overrideAccess: false,
               user: context.user,

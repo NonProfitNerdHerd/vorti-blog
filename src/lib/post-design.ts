@@ -1,3 +1,4 @@
+import { rendererRequest, type RenderScope } from './render-scope'
 import { userIdentity } from '@design-system/payload-design-core'
 import { getPayload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
@@ -23,7 +24,10 @@ type TemplatedDocumentExtras = {
   templateValues?: Record<string, unknown> | null
 }
 
-export async function resolveContentDesign(source: Post | Page, context: { draft?: boolean; user?: PayloadRequest['user'] } = {}): Promise<PostDesignSection[]> {
+export async function resolveContentDesign(source: Post | Page, context: RenderScope = {}): Promise<PostDesignSection[]> {
+  context={...context,site:source.platformSite || context.site}
+  const renderPayload=await getPayload({config})
+  const req=await rendererRequest(renderPayload,context)
   const categoriesEnabled = await readCategoriesEnabled(await getPayload({ config }))
   if('author' in source) source=await withPostAuthor(await getPayload({config}),source as unknown as Record<string,unknown>) as unknown as Post
   if (('templateSnapshot' in source && source.templateSnapshot) || (source.designTemplate && process.env.CONTENT_WORKSPACE_ENABLED === 'true') || ('contentLayout' in source && source.contentLayout)) {
@@ -38,8 +42,8 @@ export async function resolveContentDesign(source: Post | Page, context: { draft
   const payload = await getPayload({ config })
   const values = (document.templateValues ?? {}) as Record<string, unknown>
   const pendingOverrides = (values.__designOverrides ?? {}) as Record<string, string | number | null>
-  const resolved = await resolveContentTemplate(createPayloadDesignStore(payload), { id: document.id, template, templateValues: values as never, designOverrides: { ...((document.designOverrides ?? {}) as Record<string, string | number | null>), ...pendingOverrides } })
-  async function mediaValue(reference: unknown) { try { const media = typeof reference === 'object' ? reference : await payload.findByID({ collection: 'media', id: Number(reference), depth: 0, overrideAccess: false }); return { url: mediaURL(media as never) ?? '', alt: (media as { alt?: string }).alt ?? '' } } catch { return null } }
+  const resolved = await resolveContentTemplate(createPayloadDesignStore(payload,req), { id: document.id, template, templateValues: values as never, designOverrides: { ...((document.designOverrides ?? {}) as Record<string, string | number | null>), ...pendingOverrides } })
+  async function mediaValue(reference: unknown) { try { const media = typeof reference === 'object' ? reference : await payload.findByID({ collection: 'media', req, id: Number(reference), depth: 0, overrideAccess: false }); return { url: mediaURL(media as never) ?? '', alt: (media as { alt?: string }).alt ?? '' } } catch { return null } }
   function documentValue(field: string): unknown {
     if (field === 'categories' && !categoriesEnabled) return undefined
     if (field === 'author' && 'author' in document) return typeof document.author === 'object' ? userIdentity(document.author, document.author.displayName || document.author.email) : document.author
@@ -54,7 +58,7 @@ export async function resolveContentDesign(source: Post | Page, context: { draft
       const id = choices[device]
       if (!id) continue
       try {
-        const variant = await payload.findByID({ collection: 'design-block-designs', id, depth: 0, overrideAccess: false }) as unknown as { design?: Record<string, unknown> }
+        const variant = await payload.findByID({ collection: 'design-block-designs', req, id, depth: 0, overrideAccess: false }) as unknown as { design?: Record<string, unknown> }
         if (variant.design) result[device] = variant.design
       } catch { /* A removed or inaccessible variant safely falls back to the Template. */ }
     }
@@ -70,5 +74,5 @@ export async function resolveContentDesign(source: Post | Page, context: { draft
   return [...legacy, ...modern]
 }
 
-export const resolvePostDesign = (post: Post) => resolveContentDesign(post)
-export const resolvePageDesign = (page: Page) => resolveContentDesign(page)
+export const resolvePostDesign = (post: Post,context: RenderScope={}) => resolveContentDesign(post,context)
+export const resolvePageDesign = (page: Page,context: RenderScope={}) => resolveContentDesign(page,context)
