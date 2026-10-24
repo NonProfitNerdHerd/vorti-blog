@@ -2,6 +2,15 @@
   padding-top: 24px;
   padding-bottom: 32px;
 }
+.vc-crm-modules,
+.vc-crm-domain .vc-crm-toolbar { flex-wrap: wrap; }
+.vc-crm-domain { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.vc-crm.vc-crm-domain table,
+.vc-crm .vc-crm-domain table { display: block; overflow-x: auto; min-width: 0; max-width: 100%; }
+.vc-crm-domain th, .vc-crm-domain td { min-width: 90px; }
+.vc-crm-domain fieldset { min-width: 0; display: grid; gap: 12px; margin-block: 16px; padding: 16px; border: 1px solid var(--theme-elevation-200); }
+.vc-crm-domain section { margin-block: 16px; }
+.vc-crm-domain button { max-width: 100%; white-space: normal; }
 .vc-crm-heading,
 .vc-crm-heading > div:last-child,
 .vc-crm-toolbar,

@@ -77,6 +77,8 @@ export function financeEndpoints(
               allocations: body.allocations as Array<Money & { fund: string }>,
               reference: body.reference as string,
               notes: body.notes as string,
+              campaign: typeof body.campaign === 'string' ? body.campaign : undefined,
+              appeal: typeof body.appeal === 'string' ? body.appeal : undefined,
             })
           else if (body.action === 'adjust-gift')
             result = await repository.adjust({

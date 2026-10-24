@@ -1,6 +1,6 @@
 import type { AdminViewServerProps } from 'payload'
 import { DefaultTemplate } from '@payloadcms/next/templates'
-import { ContactWorkspace } from '../crm/ContactWorkspace'
+import { CRMWorkspace } from '../crm/CRMWorkspace'
 import { redirect } from 'next/navigation'
 
 export function CRMAdminView(props: AdminViewServerProps) {
@@ -16,7 +16,7 @@ export function CRMAdminView(props: AdminViewServerProps) {
       payload={req.payload}
       user={req.user}
     >
-      <ContactWorkspace />
+      <CRMWorkspace />
     </DefaultTemplate>
   )
 }

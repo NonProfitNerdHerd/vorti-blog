@@ -145,6 +145,8 @@ export class FinanceRepository {
     allocations: Array<Money & { fund: string }>
     reference?: string
     notes?: string
+    campaign?: string
+    appeal?: string
     operationKey: string
   }): Promise<Record<string, unknown>> {
     const site = await this.authority.require(input.site, 'finances', 'edit')
@@ -179,6 +181,8 @@ export class FinanceRepository {
       allocations: input.allocations,
       reference,
       notes,
+      ...(input.campaign ? { campaign: input.campaign } : {}),
+      ...(input.appeal ? { appeal: input.appeal } : {}),
     }
     const affiliation = await this.db
       .prepare(
@@ -246,6 +250,7 @@ export class FinanceRepository {
           now,
           now,
         ),
+      dependent: input.campaign || input.appeal ? [this.db.prepare('INSERT INTO vc_crm_gift_attribution(gift_id,campaign_id,appeal_id) VALUES(?,?,?)').bind(id, input.campaign || null, input.appeal || null)] : [],
       result: { id, revision: 1 },
     })
   }

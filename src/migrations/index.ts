@@ -1,3 +1,9 @@
+import * as migration_20261024_140000_crm_households from './20261024_140000_crm_households';
+import * as migration_20261024_150000_crm_fundraising from './20261024_150000_crm_fundraising';
+import * as migration_20261024_160000_crm_activities from './20261024_160000_crm_activities';
+import * as migration_20261024_170000_crm_jobs from './20261024_170000_crm_jobs';
+import * as migration_20261024_180000_crm_commitments from './20261024_180000_crm_commitments';
+import * as migration_20261024_190000_crm_memberships from './20261024_190000_crm_memberships';
 import * as migration_20261023_200000_subsite_websites from './20261023_200000_subsite_websites';
 import * as migration_20261020_213000_organization_foundation from './20261020_213000_organization_foundation';
 import * as migration_20261020_222000_crm_contacts from './20261020_222000_crm_contacts';
@@ -204,4 +210,10 @@ export const migrations = [
   { up: migration_20261023_163000_global_commit_guards.up, down: migration_20261023_163000_global_commit_guards.down, name: '20261023_163000_global_commit_guards' },
   { up: migration_20261023_170000_native_authentication_guards.up, down: migration_20261023_170000_native_authentication_guards.down, name: '20261023_170000_native_authentication_guards' },
   { up: migration_20261023_200000_subsite_websites.up, down: migration_20261023_200000_subsite_websites.down, name: '20261023_200000_subsite_websites' },
+  { up: migration_20261024_140000_crm_households.up, down: migration_20261024_140000_crm_households.down, name: '20261024_140000_crm_households' },
+  { up: migration_20261024_150000_crm_fundraising.up, down: migration_20261024_150000_crm_fundraising.down, name: '20261024_150000_crm_fundraising' },
+  { up: migration_20261024_160000_crm_activities.up, down: migration_20261024_160000_crm_activities.down, name: '20261024_160000_crm_activities' },
+  { up: migration_20261024_170000_crm_jobs.up, down: migration_20261024_170000_crm_jobs.down, name: '20261024_170000_crm_jobs' },
+  { up: migration_20261024_180000_crm_commitments.up, down: migration_20261024_180000_crm_commitments.down, name: '20261024_180000_crm_commitments' },
+  { up: migration_20261024_190000_crm_memberships.up, down: migration_20261024_190000_crm_memberships.down, name: '20261024_190000_crm_memberships' },
 ];

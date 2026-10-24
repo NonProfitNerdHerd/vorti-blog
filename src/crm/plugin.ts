@@ -4,6 +4,11 @@ import { OrganizationRepository } from '../organizations/repository'
 import type { ConstituentRole } from './contact-model'
 import { readBoundedJSON } from '../forms/security'
 import { financeEndpoints } from './finance-endpoints'
+import { householdEndpoints } from './household-endpoints'
+import { fundraisingEndpoints } from './fundraising-endpoints'
+import { activityEndpoints } from './activity-endpoints'
+import { commitmentEndpoints } from './commitment-endpoints'
+import { membershipEndpoints } from './membership-endpoints'
 
 export interface CRMPlatform {
   db: D1Database
@@ -180,6 +185,11 @@ export const crmModule =
         mutations,
         context,
         ...financeEndpoints(platform.db, errorResponse),
+        ...householdEndpoints(platform.db, errorResponse),
+        ...fundraisingEndpoints(platform.db, errorResponse),
+        ...activityEndpoints(platform.db, errorResponse),
+        ...commitmentEndpoints(platform.db, errorResponse),
+        ...membershipEndpoints(platform.db, errorResponse),
       ],
       admin: {
         ...config.admin,
