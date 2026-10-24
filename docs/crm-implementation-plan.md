@@ -2,6 +2,16 @@
 
 ## October 24 implementation continuation — in progress
 
+### Opportunities and volunteers — verified release candidate
+
+Added chapter-scoped opportunity pipelines with the eight seeded stages, configurable/archivable stages, list and pipeline views, exact currency-tagged estimates, qualified staff owners, campaign/target/next-action fields, immutable stage-label history and explicit links to existing gifts or pledges. Staff create pledges through the existing giving screen, then explicitly link the saved record. Stage moves never create commitments, payments or received revenue. Financial links require finance read access in addition to opportunity edit access. Contact views include the same opportunity workflows.
+
+Added volunteer skills/interests/availability discovery, persistent chapter do-not-contact preferences that also honor shared-contact consent, private chapter activities, participation and attendance, recorded outreach/individual responses, and submitted/approved/rejected dated minutes. Private notes reuse existing communications. Discovery, chapter activity, correspondence and hours require their separate categories; discovery does not expose private notes, invitations or hours. Hours require attended participation and retain original submitted minutes; reviewed corrections reject the old entry and record a separate submission. Complete authorized time totals are separate from the paginated rows. Contact views include skills, linked participation, outreach and hours.
+
+Added migrations `20261024_200000_crm_opportunities` and `20261024_210000_crm_volunteers`, and expanded the isolated upgrade/retry verifier to all eight October 24 migration functions. All 91 focused CRM/site regression cases and all five authenticated optimized-Worker browser scenarios passed, including mobile layout, save/reload, explicit financial linking, invitation declines versus persistent preferences, attendance and approved hours. The native fixture upgrade ran twice and retained every original field across 176 pre-existing application tables. TypeScript, focused lint, full snapshot lint with zero errors (1,078 existing warnings), the optimized Linux build and both deployment dry-runs passed. The frozen Worker verifies 961 source inputs; SHA-256: `b2a61601ed208c8f0f58d1786dc2846136eb11a8c0456c0693b44ff13948522c`.
+
+Read-only production preflight identified exactly these two migrations pending, recorded counts for 182 historical application tables, and captured a new recovery point under ignored `.wrangler/releases/crm-phase4-20261024/`. At this checkpoint, neither production migration has been applied and this candidate is not deployed. The later correspondence, import/merge, reporting/export, attachment/timeline, job-handler and CRM-linked Tasks/Boards work remains open.
+
 ### Production rollout of households, giving and memberships
 
 Source `8df101bfddbe36fb7b8922b7710638ae8fc36c9f` is pushed on `codex/crm-expansion-20261024` and merged into `main` by fast-forward, bringing the preceding CRM/Sites, SubSites and header releases into `main` as well. The verified artifact is deployed as Worker `65b59880-7c9a-4085-8b5d-ae173a28efdb`, deployment `b63b793f-692a-4998-bb84-fe554badcfc9`, at 2026-10-24T20:45:49.038124Z.

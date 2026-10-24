@@ -9,6 +9,8 @@ import * as activities from '../../src/migrations/20261024_160000_crm_activities
 import * as jobs from '../../src/migrations/20261024_170000_crm_jobs'
 import * as commitments from '../../src/migrations/20261024_180000_crm_commitments'
 import * as memberships from '../../src/migrations/20261024_190000_crm_memberships'
+import * as opportunities from '../../src/migrations/20261024_200000_crm_opportunities'
+import * as volunteers from '../../src/migrations/20261024_210000_crm_volunteers'
 type RawStatement = {
   toQuery(config: {
     escapeName: (value: string) => string
@@ -65,7 +67,16 @@ describe('additive CRM expansion migrations', () => {
         },
       } as unknown as Parameters<typeof households.up>[0]
       for (let repeat = 0; repeat < 2; repeat++)
-        for (const migration of [households, fundraising, activities, jobs, commitments, memberships])
+        for (const migration of [
+          households,
+          fundraising,
+          activities,
+          jobs,
+          commitments,
+          memberships,
+          opportunities,
+          volunteers,
+        ])
           await migration.up(args)
       for (const [table, count] of before)
         expect(

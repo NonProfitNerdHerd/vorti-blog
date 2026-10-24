@@ -7,10 +7,18 @@ import { hasUnsavedSiteChanges } from '../organizations/admin-site'
 import { FundraisingWorkspace } from './FundraisingWorkspace'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
+import { OpportunityWorkspace } from './OpportunityWorkspace'
+import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { Gutter, useConfig } from '@payloadcms/ui'
 export function CRMWorkspace() {
   const [view, setView] = useState<
-    'contacts' | 'households' | 'fundraising' | 'giving' | 'memberships'
+    | 'contacts'
+    | 'households'
+    | 'fundraising'
+    | 'giving'
+    | 'memberships'
+    | 'opportunities'
+    | 'volunteers'
   >('contacts')
   const { config } = useConfig()
   const { binding } = useAdminSite()
@@ -60,6 +68,20 @@ export function CRMWorkspace() {
         >
           Memberships
         </button>
+        <button
+          type="button"
+          aria-pressed={view === 'opportunities'}
+          onClick={() => navigate('opportunities')}
+        >
+          Opportunities
+        </button>
+        <button
+          type="button"
+          aria-pressed={view === 'volunteers'}
+          onClick={() => navigate('volunteers')}
+        >
+          Volunteers
+        </button>
       </nav>
       {view === 'contacts' ? (
         <ContactWorkspace />
@@ -70,6 +92,22 @@ export function CRMWorkspace() {
       ) : view === 'giving' ? (
         <Gutter className="vc-crm">
           <CommitmentWorkspace
+            key={binding?.site.id}
+            api={config.routes.api}
+            site={binding?.site.id || ''}
+          />
+        </Gutter>
+      ) : view === 'opportunities' ? (
+        <Gutter className="vc-crm">
+          <OpportunityWorkspace
+            key={binding?.site.id}
+            api={config.routes.api}
+            site={binding?.site.id || ''}
+          />
+        </Gutter>
+      ) : view === 'volunteers' ? (
+        <Gutter className="vc-crm">
+          <VolunteerWorkspace
             key={binding?.site.id}
             api={config.routes.api}
             site={binding?.site.id || ''}

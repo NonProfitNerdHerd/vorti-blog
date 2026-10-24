@@ -7,7 +7,11 @@ if (workerURL && !['localhost', '127.0.0.1', '[::1]'].includes(new URL(workerURL
   throw new Error('CRM browser fixtures may only run against a local Worker.')
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: ['crm-expansion.e2e.spec.ts'],
+  testMatch: [
+    'crm-expansion.e2e.spec.ts',
+    'crm-opportunities.e2e.spec.ts',
+    'crm-volunteers.e2e.spec.ts',
+  ],
   workers: 1,
   timeout: 360000,
   expect: { timeout: 30000 },

@@ -9,6 +9,8 @@ import { fundraisingEndpoints } from './fundraising-endpoints'
 import { activityEndpoints } from './activity-endpoints'
 import { commitmentEndpoints } from './commitment-endpoints'
 import { membershipEndpoints } from './membership-endpoints'
+import { opportunityEndpoints } from './opportunity-endpoints'
+import { volunteerEndpoints } from './volunteer-endpoints'
 
 export interface CRMPlatform {
   db: D1Database
@@ -190,6 +192,8 @@ export const crmModule =
         ...activityEndpoints(platform.db, errorResponse),
         ...commitmentEndpoints(platform.db, errorResponse),
         ...membershipEndpoints(platform.db, errorResponse),
+        ...opportunityEndpoints(platform.db, errorResponse),
+        ...volunteerEndpoints(platform.db, errorResponse),
       ],
       admin: {
         ...config.admin,

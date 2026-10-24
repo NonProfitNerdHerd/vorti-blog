@@ -9,6 +9,8 @@ import { ContactRelationships } from './ContactRelationships'
 import { ContactActivities } from './ContactActivities'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
+import { OpportunityWorkspace } from './OpportunityWorkspace'
+import { VolunteerWorkspace } from './VolunteerWorkspace'
 import Link from 'next/link'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import './workspace.css'
@@ -83,7 +85,7 @@ export function ContactWorkspace() {
     operation.current = null
     setError('Your CRM access changed. Reload the workspace to check your current permissions.')
   }, [])
-  const [tab, setTab] = useState<'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships'>('profile'),
+  const [tab, setTab] = useState<'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships' | 'opportunities' | 'volunteers'>('profile'),
     [tagInput, setTagInput] = useState('')
   const read = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...init, cache: 'no-store' }),
@@ -225,7 +227,7 @@ export function ContactWorkspace() {
   }
   const editable =
     editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
-  const switchTab = (nextTab: 'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships') => {
+  const switchTab = (nextTab: 'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships' | 'opportunities' | 'volunteers') => {
     if (
       saving ||
       !editor ||
@@ -243,7 +245,7 @@ export function ContactWorkspace() {
     operation.current = null
   }
   const save = async () => {
-    if (!site || !editor || saving || tab === 'corrections' || tab === 'gifts' || tab === 'relationships' || tab === 'communications' || tab === 'giving' || tab === 'memberships') return
+    if (!site || !editor || saving || tab === 'corrections' || tab === 'gifts' || tab === 'relationships' || tab === 'communications' || tab === 'giving' || tab === 'memberships' || tab === 'opportunities' || tab === 'volunteers') return
     setSaving(true)
     setSaveError('')
     operation.current ||= crypto.randomUUID()
@@ -486,6 +488,8 @@ export function ContactWorkspace() {
               <button type="button" role="tab" aria-selected={tab === 'communications'} onClick={() => switchTab('communications')}>Communications</button>
               <button type="button" role="tab" aria-selected={tab === 'giving'} onClick={() => switchTab('giving')}>Pledges and recurring</button>
               <button type="button" role="tab" aria-selected={tab === 'memberships'} onClick={() => switchTab('memberships')}>Memberships</button>
+              <button type="button" role="tab" aria-selected={tab === 'opportunities'} onClick={() => switchTab('opportunities')}>Opportunities</button>
+              <button type="button" role="tab" aria-selected={tab === 'volunteers'} onClick={() => switchTab('volunteers')}>Volunteers</button>
             </div>
           )}
           <div className="vc-crm-dialog-body">
@@ -494,6 +498,8 @@ export function ContactWorkspace() {
             {tab === 'communications' && editor && editor !== 'new' && site && <ContactActivities key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
             {tab === 'giving' && editor && editor !== 'new' && site && <CommitmentWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
             {tab === 'memberships' && editor && editor !== 'new' && site && <MembershipWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
+            {tab === 'opportunities' && editor && editor !== 'new' && site && <OpportunityWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
+            {tab === 'volunteers' && editor && editor !== 'new' && site && <VolunteerWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
             {tab === 'corrections' && editor && editor !== 'new' && site && (
               <ContactCorrections
                 api={api}
@@ -802,7 +808,7 @@ export function ContactWorkspace() {
             <button type="button" disabled={saving} onClick={close}>
               Cancel
             </button>
-            {tab !== 'corrections' && tab !== 'gifts' && tab !== 'relationships' && tab !== 'communications' && tab !== 'giving' && tab !== 'memberships' && (
+            {tab !== 'corrections' && tab !== 'gifts' && tab !== 'relationships' && tab !== 'communications' && tab !== 'giving' && tab !== 'memberships' && tab !== 'opportunities' && tab !== 'volunteers' && (
               <button
                 className="vc-crm-primary"
                 type="submit"

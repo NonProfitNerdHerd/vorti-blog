@@ -11,6 +11,8 @@ import { activitySchemaV1 } from '../../src/crm/activity-schema-v1'
 import { crmJobSchemaV1 } from '../../src/crm/job-schema-v1'
 import { commitmentSchemaV1 } from '../../src/crm/commitment-schema-v1'
 import { membershipSchemaV1 } from '../../src/crm/membership-schema-v1'
+import { opportunitySchemaV1 } from '../../src/crm/opportunity-schema-v1'
+import { volunteerSchemaV1 } from '../../src/crm/volunteer-schema-v1'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
 if (
@@ -57,6 +59,8 @@ for (const statement of [
   ...crmJobSchemaV1,
   ...commitmentSchemaV1,
   ...membershipSchemaV1,
+  ...opportunitySchemaV1,
+  ...volunteerSchemaV1,
 ]) {
   const column = /^ALTER TABLE vc_crm_funds ADD COLUMN (\w+)/.exec(statement)?.[1]
   if (column && fundColumns.some((c) => c.name === column)) continue

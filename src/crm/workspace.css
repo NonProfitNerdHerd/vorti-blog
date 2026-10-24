@@ -11,6 +11,9 @@
 .vc-crm-domain fieldset { min-width: 0; display: grid; gap: 12px; margin-block: 16px; padding: 16px; border: 1px solid var(--theme-elevation-200); }
 .vc-crm-domain section { margin-block: 16px; }
 .vc-crm-domain button { max-width: 100%; white-space: normal; }
+.vc-crm-pipeline { display: flex; gap: 16px; overflow-x: auto; max-width: 100%; padding-block: 12px; }
+.vc-crm-pipeline > section { flex: 0 0 min(280px, 85vw); padding: 12px; border: 1px solid var(--theme-elevation-200); border-radius: 8px; }
+.vc-crm-pipeline article { margin-block: 12px; padding: 12px; background: var(--theme-elevation-50); border-radius: 6px; }
 .vc-crm-heading,
 .vc-crm-heading > div:last-child,
 .vc-crm-toolbar,
