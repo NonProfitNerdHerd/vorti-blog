@@ -5,6 +5,42 @@ import { PUBLIC_PREFIX_HEADER, PUBLIC_SITE_HEADER } from './organizations/public
  * Authority and availability are checked in forms-worker before reaching this rewrite.
  * A framework rewrite preserves the browser's child URL during hydration and navigation. */
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === '/admin' || request.nextUrl.pathname.startsWith('/admin/')) {
+    const headers = new Headers(request.headers)
+    // A site ID selects context only. Every repository still checks current authority.
+    headers.delete('x-vorticause-site')
+    let site = request.nextUrl.searchParams.get('site')
+    const authentication = /^\/admin\/(?:login|logout|forgot|reset)(?:\/|$)/.test(
+      request.nextUrl.pathname,
+    )
+    if (!site && !authentication) {
+      try {
+        const source = new URL(request.headers.get('referer') || '')
+        if (
+          source.origin === request.nextUrl.origin &&
+          (source.pathname === '/admin' || source.pathname.startsWith('/admin/'))
+        )
+          site = source.searchParams.get('site')
+      } catch {
+        /* Direct visits use the authorized preference until the client pins the URL. */
+      }
+      if (site && request.method === 'GET') {
+        const destination = request.nextUrl.clone()
+        destination.searchParams.set('site', site)
+        if (site !== 'default' && destination.pathname === '/admin/globals/site-settings')
+          destination.searchParams.set('tab', 'SubSites')
+        if (site !== 'default' && destination.pathname === '/admin/globals/navigation')
+          destination.pathname = '/admin/collections/menus'
+        return NextResponse.redirect(destination)
+      }
+    }
+    if (site) {
+      if (!/^[a-zA-Z0-9_-]{1,80}$/.test(site))
+        return new NextResponse('Invalid site', { status: 400 })
+      headers.set('x-vorticause-site', site)
+    }
+    return NextResponse.next({ request: { headers } })
+  }
   const prefix = request.headers.get(PUBLIC_PREFIX_HEADER)
   if (
     !prefix ||
@@ -17,4 +53,4 @@ export function middleware(request: NextRequest) {
   destination.pathname = request.nextUrl.pathname.slice(prefix.length) || '/'
   return NextResponse.rewrite(destination, { request: { headers: new Headers(request.headers) } })
 }
-export const config = { matcher: ['/sites/:siteKey/:path*'] }
+export const config = { matcher: ['/sites/:siteKey/:path*', '/admin/:path*'] }

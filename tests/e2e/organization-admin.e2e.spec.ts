@@ -94,10 +94,15 @@ test('integrated SubSites keeps the sidebar, isolates child websites, and preser
     console.log('Child key entered')
     await workspace.getByRole('button', { name: 'Save reviewed change', exact: true }).click()
     console.log('Child creation submitted')
+    await expect(workspace.getByText('Saved. The change has been audited.')).toBeVisible()
+    const available = await (await page.request.get('/api/organization-admin')).json()
+    const child = available.sites.find((site: { name: string }) => site.name === name).id as string
+    // Site selection is now shared in the header and always opens that site's dashboard.
+    await admin.reload()
+    await admin.getByRole('combobox', { name: 'Current site', exact: true }).selectOption(child)
+    await expect(admin).toHaveURL(new RegExp('/admin\\?site=' + child))
+    await admin.goto('/admin/globals/site-settings?tab=SubSites&site=' + child)
     await expect(workspace.getByRole('heading', { name, exact: true })).toBeVisible()
-    const child = await workspace
-      .getByRole('combobox', { name: 'Site to administer', exact: true })
-      .inputValue()
     const initialized = await website(child)
     expect(initialized.initialized).toBe(1)
     const copiedLogo = JSON.parse(initialized.presentation).logo as number

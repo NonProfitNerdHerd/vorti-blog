@@ -10,6 +10,7 @@ import {
   type AuthorityDecision,
 } from './policy'
 import './workspace.css'
+import { useAdminSite } from './AdminSiteProvider'
 import { WebsiteControls } from './WebsiteControls'
 import type { ScopedSiteSettings } from './site-settings'
 
@@ -48,24 +49,19 @@ type Action =
   | 'sharing'
   | 'move-site'
   | 'create-organization'
-  | 'context'
   | 'site-settings'
 export function OrganizationWorkspace() {
   const { config } = useConfig(),
     api = config.routes.api + '/organization-admin'
   const [sites, setSites] = useState<Site[]>([]),
     [next, setNext] = useState<string | null>(null)
-  const [selected, setSelected] = useState(() =>
-      typeof window === 'undefined'
-        ? 'default'
-        : new URLSearchParams(window.location.search).get('site') || 'default',
-    ),
-    [detail, setDetail] = useState<Detail | null>(null)
+  const { binding } = useAdminSite()
+  const selected = binding?.site.id || ''
+  const [detail, setDetail] = useState<Detail | null>(null)
   const [operator, setOperator] = useState(false),
     [error, setError] = useState(''),
     [message, setMessage] = useState('')
-  const [contextRevision, setContextRevision] = useState(0),
-    [memberUser, setMemberUser] = useState(''),
+  const [memberUser, setMemberUser] = useState(''),
     [restrictionsLoaded, setRestrictionsLoaded] = useState(false)
   const [restrictionOwner, setRestrictionOwner] = useState('')
   const [busy, setBusy] = useState(false),
@@ -104,7 +100,6 @@ export function OrganizationWorkspace() {
       setSites((current) => (after ? [...current, ...result.sites] : result.sites))
       setNext(result.next)
       setOperator(result.operator)
-      setContextRevision(result.context.revision)
     },
     [api, request],
   )
@@ -216,9 +211,7 @@ export function OrganizationWorkspace() {
       action,
       site: selected,
       expectedRevision:
-        action === 'context'
-          ? contextRevision
-          : action === 'site-settings'
+        action === 'site-settings'
             ? detail?.settings?.revision
             : (detail?.site.revision ?? 0),
       settings:
@@ -266,8 +259,7 @@ export function OrganizationWorkspace() {
       setRestrictionsLoaded(false)
       setMemberUser('')
       await list()
-      if (action === 'create-site' && saved.doc.site) setSelected(saved.doc.site)
-      else if (selected) await load(selected)
+      if (selected) await load(selected)
       setMessage(saved.initializationError || 'Saved. The change has been audited.')
     } catch (cause) {
       setError(
@@ -322,54 +314,6 @@ export function OrganizationWorkspace() {
           Open CRM in the selected site
         </Link>
       </p>
-      <label>
-        Site to administer
-        <select
-          value={selected}
-          disabled={busy}
-          onChange={(event) =>
-            change(() => {
-              setDetail(null)
-              setSelected(event.target.value)
-            })
-          }
-        >
-          <option value="">Choose a site</option>
-          {sites.map((site) => (
-            <option value={site.id} key={site.id}>
-              {siteLabel(site)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        disabled={!selected || busy || dirty || websiteDirty}
-        onClick={() => {
-          setBusy(true)
-          setError('')
-          void request<{ doc: { revision: number } }>(api, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'context',
-              site: selected,
-              expectedRevision: contextRevision,
-              operationKey: crypto.randomUUID(),
-            }),
-          })
-            .then((data) => {
-              setContextRevision(data.doc.revision)
-              setMessage(
-                'Site preference saved for new editors. Existing editors keep their original site.',
-              )
-            })
-            .catch((cause) => setError(cause.message))
-            .finally(() => setBusy(false))
-        }}
-      >
-        Use selected site for new editors
-      </button>
       {selected && (
         <WebsiteControls
           key={selected}
@@ -470,7 +414,6 @@ export function OrganizationWorkspace() {
                 <option value="policy">Set inherited policy</option>
                 <option value="sharing">Review sharing</option>
                 <option value="move-site">Move site</option>
-                <option value="context">Use site for new editors</option>
                 {detail?.settings && <option value="site-settings">Site identity settings</option>}
                 {operator && (
                   <option value="create-organization">Create separate organization</option>
@@ -766,12 +709,6 @@ export function OrganizationWorkspace() {
                     cycles, and subtrees larger than 200 sites are rejected.
                   </p>
                 </>
-              )}
-              {action === 'context' && (
-                <p>
-                  New editors use this site. Existing contact and native document editors retain
-                  their original site. Another tab’s preference change cannot retarget their saves.
-                </p>
               )}
               <button
                 type="button"

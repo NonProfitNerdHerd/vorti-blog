@@ -52,6 +52,10 @@ export async function identityAuthority(
     requestedSite ||
     (req.context as Record<symbol, unknown>)[CMS_SITE] ||
     req.headers?.get('x-vorticause-site')
+  if (!selected) {
+    try { selected = (await (await import('next/headers')).headers()).get('x-vorticause-site') || undefined }
+    catch { /* Non-HTTP jobs keep their explicitly supplied context or saved preference. */ }
+  }
   if (!selected)
     selected =
       (

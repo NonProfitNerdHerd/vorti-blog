@@ -4,6 +4,7 @@ import { SiteFormatProvider } from '@design-system/payload-design-core/content'
 import { readCategoriesEnabled } from '@/lib/system-settings'
 import { AdminPolicyClient } from './AdminPolicyClient'
 import { WorkspaceDialogs } from '../review/WorkspaceDialogs'
+import { AdminSiteProvider } from '../organizations/AdminSiteProvider'
 
 export async function AdminPolicy({
   payload,
@@ -37,7 +38,9 @@ export async function AdminPolicy({
       initialCategoriesEnabled={categoriesEnabled}
       initialDashboardOpen={value?.open !== false}
     >
-      {children}
+      {payload.config.endpoints.some(endpoint => endpoint.path === '/organization-admin')
+        ? <AdminSiteProvider>{children}</AdminSiteProvider>
+        : children}
       <WorkspaceDialogs/>
     </AdminPolicyClient></SiteFormatProvider>
   )

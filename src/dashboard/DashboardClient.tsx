@@ -7,12 +7,20 @@ import Link from 'next/link'
 import { useAuth, useConfig } from '@payloadcms/ui'
 import type { Where } from 'payload'
 import { Tasks } from '../review/Tasks'
-import { query, reviewAPI, statuses, type Task } from '../review/client'
+import { query, reviewAPI as nativeReviewAPI, statuses, type Task } from '../review/client'
 import { localTaskDay, taskFiltersWhere, taskPresetFilters } from '../review/dashboard-model'
 import '../review/tasks.css'
 import './dashboard.css'
 import { BoardIcon } from '../review/BoardIcon'
-import { activeProjects, activeBoards } from './workspace-model'
+import { activeProjects, activeBoards, dashboardRequestPath } from './workspace-model'
+import { useAdminSite } from '../organizations/AdminSiteProvider'
+
+function reviewAPI<T>(api: string, path: string): Promise<T> {
+  const site = new URLSearchParams(window.location.search).get('site')
+  // Installations without the administration feature retain their native dashboard.
+  // When enabled, AdminSiteProvider pins the URL before any widget is mounted.
+  return nativeReviewAPI<T>(api, site ? dashboardRequestPath(path, site) : path)
+}
 
 type Content = {
   id: number
@@ -482,6 +490,7 @@ function BoardsPanel({
   )
 }
 export function DashboardClient({ collections }: { collections: string[] }) {
+  const { binding } = useAdminSite()
   const {
     config: {
       routes: { api, admin },
@@ -524,7 +533,7 @@ export function DashboardClient({ collections }: { collections: string[] }) {
         <div>
           <p>Your workspace</p>
           <h1>{name ? `Welcome back, ${name}` : 'Welcome back'}</h1>
-          <span className="vp-dashboard__muted">A clear view of your site and what’s next.</span>
+          <span className="vp-dashboard__muted">{binding?.site.name} · A clear view of your site and what’s next.</span>
         </div>
         <div className="vp-dashboard__actions">
           <button type="button" onClick={() => void refreshAll()} aria-label="Refresh Dashboard">

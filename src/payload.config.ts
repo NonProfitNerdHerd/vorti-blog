@@ -131,6 +131,7 @@ export default buildConfig({
       },
     },
     components: {
+      actions: ['./organizations/AdminSiteProvider#AdminSiteSwitcher'],
       graphics: {
         Icon: './components/VortiCauseBrand#VortiCauseIcon',
         Logo: './components/VortiCauseBrand#VortiCauseLogo',

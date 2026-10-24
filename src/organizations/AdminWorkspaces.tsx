@@ -8,6 +8,7 @@ export function CRMAdminView(props: AdminViewServerProps) {
   return (
     <DefaultTemplate
       req={req}
+      viewActions={req.payload.config.admin.components.actions}
       visibleEntities={visibleEntities}
       permissions={permissions}
       locale={locale}

@@ -83,7 +83,7 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
     throw new APIError('Site unavailable.', 404)
   const explicit = publicFile
     ? publicSite || 'default'
-    : (context[CMS_SITE] ?? publicSite ?? (actor ? req.headers?.get('x-vorticause-site') : null))
+    : (context[CMS_SITE] ?? publicSite ?? (actor ? req.headers?.get('x-vorticause-site') || routeHeaders?.get('x-vorticause-site') : null))
   let states = context[requestState] as Map<string, Promise<State>> | undefined
   if (!states) {
     states = new Map()

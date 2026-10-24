@@ -34,6 +34,8 @@ vi.mock('@/review/client', async () => ({
 const network = vi.mocked(reviewAPI)
 const collections = ['posts', 'pages', 'review-tasks']
 beforeEach(() => {
+  // The shared admin provider binds the dashboard URL before widgets mount.
+  window.history.replaceState({}, '', '/admin?site=default')
   delete auth.permissions.collections['task-projects']
   delete auth.permissions.collections['task-boards']
   select.mockReset()

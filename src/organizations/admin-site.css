@@ -1,0 +1,106 @@
+.app-header:has(.vc-site-tab) {
+  position: sticky;
+  top: 0;
+  background: var(--theme-bg);
+}
+.app-header__actions-wrapper:has(.vc-site-tab) {
+  align-self: stretch;
+  margin-block-start: 8px;
+}
+.app-header__actions:has(.vc-site-tab),
+.app-header__actions > div:has(.vc-site-tab) {
+  display: flex;
+  align-self: stretch;
+  max-width: none;
+  margin-right: 0;
+}
+.vc-site-tab {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-inline-end: 0;
+  border: 1px solid var(--theme-elevation-150);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+  font-size: 12px;
+}
+.vc-site-tab select {
+  appearance: auto;
+  field-sizing: content;
+  max-width: min(220px, 38vw);
+  min-width: 90px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.vc-site-tab option {
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+}
+.vc-site-tab > span {
+  padding: 9px 12px;
+}
+.vc-site-tab > span[aria-label='Current site'] {
+  max-width: min(260px, 38vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vc-site-tab select:focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: -2px;
+}
+.vc-site-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.vc-site-error {
+  position: fixed;
+  top: calc(var(--app-header-height) + 8px);
+  right: var(--gutter-h, 16px);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  padding: 10px;
+  background: var(--theme-elevation-100);
+  color: var(--theme-error-500);
+  border: 1px solid var(--theme-error-500);
+  z-index: calc(var(--z-modal) + 1);
+}
+.vc-site-confirm {
+  max-width: min(460px, 90vw);
+  padding: 24px;
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 8px;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+}
+.vc-site-confirm::backdrop {
+  background: #0008;
+}
+.vc-site-confirm button {
+  margin: 8px 12px 0 0;
+  padding: 8px 12px;
+}
+.vc-site-loading {
+  padding: 32px;
+}
+@media (max-width: 600px) {
+  .vc-site-tab select {
+    max-width: 38vw;
+    min-width: 60px;
+    padding: 8px;
+  }
+}

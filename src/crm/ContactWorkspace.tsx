@@ -6,6 +6,7 @@ import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
 import Link from 'next/link'
+import { useAdminSite } from '../organizations/AdminSiteProvider'
 import './workspace.css'
 
 type Detail = ContactSummary & {
@@ -62,17 +63,7 @@ export function ContactWorkspace() {
     requestSequence = useRef(0)
   const accessGeneration = useRef(0)
   const pinnedSite = useRef<string | null>(null)
-  const [availableSites, setAvailableSites] = useState<Array<{ id: string; name: string }>>([])
-  useEffect(() => {
-    const controller = new AbortController()
-    void fetch(api + '/organization-admin', { cache: 'no-store', signal: controller.signal }).then(async response => {
-      if (response.ok) {
-        const data = await response.json() as { sites: Array<{ id: string; name: string }> }
-        setAvailableSites(data.sites)
-      }
-    }).catch(() => {})
-    return () => controller.abort()
-  }, [api])
+  const { binding } = useAdminSite()
   const loseAccess = useCallback((): void => {
     accessGeneration.current++
     requestSequence.current++
@@ -320,20 +311,7 @@ export function ContactWorkspace() {
         <div>
           <h1>CRM</h1>
           <p>{site?.name || 'Constituent workspace'}</p>
-            {availableSites.length > 0 && <>
-              <label>CRM site <select value={site?.id || ''} onChange={event => {
-                if (event.target.value) {
-                  // A full navigation runs the unsaved-input guard and resets the site-bound editor.
-                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                  window.location.assign(`${admin}/crm?site=${encodeURIComponent(event.target.value)}`)
-                }
-              }}>
-                <option value="" disabled>Choose a site</option>
-                {site && !availableSites.some(value => value.id === site.id) && <option value={site.id}>{site.name}</option>}
-                {availableSites.map(value => <option value={value.id} key={value.id}>{value.name}</option>)}
-              </select></label>
-              <Link href={`${admin}/sites`}>Sites and permissions</Link>
-            </>}
+          {binding && <Link href={`${admin}/globals/site-settings?tab=SubSites&site=${encodeURIComponent(binding.site.id)}`}>Sites and permissions</Link>}
         </div>
         <div>
           <button type="button" disabled={loading} onClick={() => void refresh()}>
