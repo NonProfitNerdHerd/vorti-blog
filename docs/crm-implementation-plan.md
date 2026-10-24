@@ -2,6 +2,16 @@
 
 ## October 24 implementation continuation — in progress
 
+### Production rollout of households, giving and memberships
+
+Source `8df101bfddbe36fb7b8922b7710638ae8fc36c9f` is pushed on `codex/crm-expansion-20261024` and merged into `main` by fast-forward, bringing the preceding CRM/Sites, SubSites and header releases into `main` as well. The verified artifact is deployed as Worker `65b59880-7c9a-4085-8b5d-ae173a28efdb`, deployment `b63b793f-692a-4998-bb84-fe554badcfc9`, at 2026-10-24T20:45:49.038124Z.
+
+All six October 24 additive CRM migrations completed, bringing the production Payload ledger to 48. Verification confirmed 16 new tables, 20 indexes, 30 triggers and three additive fund columns. All 166 historical application-table counts were unchanged both after migration and after smoke testing. Pre-apply recovery bookmark: `00000c64-00000008-0000510e-d6c5215b691fc94def79c7f2e610a677`. Prior Worker: `1eb5e0db-72fc-485e-a750-c5aa0a67f1fc`. These migrations retain existing IDs and financial history; database recovery remains separate from Worker rollback.
+
+Release validation: 72 focused integration/rendered cases, three authenticated optimized-Worker browser scenarios (including mobile and save/reload), repeated native-fixture upgrades retaining every original field across 160 application tables, TypeScript, full lint with no errors, Linux build, source/artifact checksums and both deployment dry-runs passed. Authenticated production smoke opened and cancelled household, campaign, pledge, recurring and membership/type editors. Public main/child pages and anonymous-denial checks passed. No fictional production accounts, donor records, gifts, commitments, memberships or correspondence were created or sent. Operational receipts and the frozen artifact are retained under ignored `.wrangler/releases/crm-expansion-20261024/`.
+
+The full implementation objective remains active. Next are opportunities and volunteers, followed by correspondence, reviewed imports/merges, reporting/exports and CRM-linked Tasks/Boards, together with the unfinished attachment/timeline and job-handler integration work.
+
 ### Release preparation for households, giving and memberships
 
 Continued on `codex/crm-expansion-20261024`, based on the already deployed header-switcher branch. Remote `main` is an ancestor; the prior CRM/Sites, SubSites and header releases are already in this branch's history. Concurrent installation-settings changes and `src/system-management/` remain outside this candidate.
