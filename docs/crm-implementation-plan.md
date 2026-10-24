@@ -2,6 +2,16 @@
 
 ## October 24 implementation continuation — in progress
 
+### Production rollout of opportunities and volunteers
+
+Source `65ab373ba5d1155d4384af4e0a7bcaab92edf8fa` is committed, pushed and fast-forwarded into `main`. The verified artifact is deployed as Worker `c2a0acb3-5f7e-44e9-9f51-a110f8edc92f`, deployment `3427b186-cb3b-42fd-a4f8-3180c507eca8`, at 2026-10-24T21:42:12.092353Z.
+
+Both additive opportunity/volunteer migrations completed, bringing the production ledger to 50. Read-only verification confirmed all 125 CRM schema objects (26 tables, 34 indexes, 65 triggers) and three fund upgrade columns. All 182 historical application-table counts remained unchanged after migrations and authenticated smoke checks. Recovery bookmark: `00000c65-00000000-0000510e-5e5387aa62e1d4e1c8e83df97856b476`; prior Worker: `65b59880-7c9a-4085-8b5d-ae173a28efdb`. Database recovery remains separate from Worker rollback.
+
+The 91 focused tests, five authenticated optimized-Worker browser scenarios, repeated native migration upgrades retaining all historical fields, TypeScript, lint with zero errors, optimized build and deployment dry-runs passed. Public main/child pages and anonymous CRM access denials passed in production. Signed-in smoke verified opportunity list/pipeline and configuration, volunteer profile/activity editors and hours/approval views. Editors were closed without saving; no fictional production records were created and no correspondence was sent. Frozen artifact, hashes and operational receipts are retained under ignored `.wrangler/releases/crm-phase4-20261024/`.
+
+The full approved objective remains open. Correspondence/receipts, private attachments/unified timelines, reviewed imports and controlled merges, saved reports/complete exports, domain job handlers/scheduling and CRM-linked Tasks/Boards remain to be delivered.
+
 ### Opportunities and volunteers — verified release candidate
 
 Added chapter-scoped opportunity pipelines with the eight seeded stages, configurable/archivable stages, list and pipeline views, exact currency-tagged estimates, qualified staff owners, campaign/target/next-action fields, immutable stage-label history and explicit links to existing gifts or pledges. Staff create pledges through the existing giving screen, then explicitly link the saved record. Stage moves never create commitments, payments or received revenue. Financial links require finance read access in addition to opportunity edit access. Contact views include the same opportunity workflows.
