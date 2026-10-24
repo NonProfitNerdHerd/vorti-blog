@@ -1,12 +1,13 @@
 'use client'
 /* eslint-disable react-hooks/set-state-in-effect -- Resolve and validate the page's explicit site before mounting request-producing views. */
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useAuth, useConfig } from '@payloadcms/ui'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { hasUnsavedSiteChanges, siteLabel, type AdminSite } from './admin-site'
+import { ActionsProvider, AppHeader, useAuth, useConfig } from '@payloadcms/ui'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { hasUnsavedSiteChanges, navigateAdminSite, siteLabel, type AdminSite } from './admin-site'
+import { VortiCauseIcon } from '../components/VortiCauseBrand'
 import './admin-site.css'
 
-type Binding = { site: AdminSite; sites: AdminSite[]; revision: number }
+type Binding = { site: AdminSite; sites: AdminSite[]; revision: number; needsChoice?: boolean }
 type SiteContext = {
   binding: Binding | null
   switchSite: (site: string) => void
@@ -24,8 +25,7 @@ export const useAdminSite = () => useContext(Context)
 export function AdminSiteProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth(),
     { config } = useConfig(),
-    params = useSearchParams(),
-    router = useRouter()
+    params = useSearchParams()
   const userID = user?.id
   const requested = params.get('site'),
     api = config.routes.api,
@@ -67,7 +67,23 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
       } while (after)
       const selected = requested || context.site,
         site = sites.find((item) => item.id === selected)
-      if (!site) throw new Error('This site is unavailable. Your page has not been switched.')
+      if (!site) {
+        if (requested || context.revision > 0 || !sites.length)
+          throw new Error('This site is unavailable. Your page has not been switched.')
+        if (!live) return
+        // A new child-only account has no preference; never silently substitute
+        // a different tenant for an explicit URL or a previously saved choice.
+        const initial: Binding = {
+          site: { id: '', name: 'Choose a site', parent_id: null },
+          sites,
+          revision: 0,
+          needsChoice: true,
+        }
+        current.current = initial
+        setBinding(initial)
+        setReady(true)
+        return
+      }
       if (!live) return
       const next = { site, sites, revision: context.revision }
       current.current = next
@@ -139,7 +155,7 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
         throw new Error(
           'Could not switch sites. Your access or site preference changed; please retry.',
         )
-      router.push(`${admin}?site=${encodeURIComponent(site)}`)
+      navigateAdminSite(`${admin}?site=${encodeURIComponent(site)}`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not switch sites.')
     } finally {
@@ -148,7 +164,7 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
   }
   function switchSite(site: string) {
     if (busy || site === binding?.site.id) return
-    if (hasUnsavedSiteChanges()) {
+    if (!binding?.needsChoice && hasUnsavedSiteChanges()) {
       setPending(site)
       confirm.current?.showModal()
     } else void apply(site)
@@ -158,7 +174,19 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
   return (
     <Context.Provider value={{ binding: matches ? binding : null, switchSite, busy, error }}>
       {ready && matches ? (
-        children
+        binding.needsChoice ? (
+          <section className="vc-site-initial">
+            <ActionsProvider Actions={{ site: <AdminSiteSwitcher /> }}>
+              <AppHeader CustomIcon={<VortiCauseIcon />} />
+            </ActionsProvider>
+            <main className="vc-site-loading">
+              <h1>Choose a site</h1>
+              <p>Use the dropdown beside your avatar to open your site’s dashboard.</p>
+            </main>
+          </section>
+        ) : (
+          children
+        )
       ) : (
         <main role="status" className="vc-site-loading">
           {error || 'Loading site…'}
@@ -207,7 +235,7 @@ export function AdminSiteSwitcher() {
       {path.endsWith('/globals/system-settings') && (
         <span className="vc-site-installation">Installation-wide settings</span>
       )}
-      {sites.length === 1 ? (
+      {sites.length === 1 && !binding.needsChoice ? (
         <span aria-label="Current site">{site.name}</span>
       ) : (
         <label>
@@ -218,6 +246,11 @@ export function AdminSiteSwitcher() {
             disabled={busy}
             onChange={(event) => switchSite(event.target.value)}
           >
+            {binding.needsChoice && (
+              <option value="" disabled>
+                Choose a site
+              </option>
+            )}
             {sites.map((item) => (
               <option key={item.id} value={item.id}>
                 {siteLabel(item, sites)}

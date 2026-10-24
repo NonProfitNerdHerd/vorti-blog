@@ -97,6 +97,9 @@
 .vc-site-loading {
   padding: 32px;
 }
+.vc-site-initial .app-header__mobile-nav-toggler {
+  display: none;
+}
 @media (max-width: 600px) {
   .vc-site-tab select {
     max-width: 38vw;

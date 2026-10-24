@@ -52,3 +52,14 @@ export function hasUnsavedSiteChanges(): boolean {
   window.dispatchEvent(event)
   return event.defaultPrevented
 }
+
+/** The caller has already run the page's leave guard and, when needed, obtained
+ * discard confirmation. A full navigation refreshes Payload's permission state
+ * and releases editor-specific styles/caches before another tenant is shown. */
+export function navigateAdminSite(url: string): void {
+  window.addEventListener('beforeunload', (event) => event.stopImmediatePropagation(), {
+    capture: true,
+    once: true,
+  })
+  window.location.assign(url)
+}

@@ -16,6 +16,71 @@ test.afterEach(async ({ page, baseURL }) => {
   expect(restored.ok(), await restored.text()).toBe(true)
 })
 
+test('child-only first sign-in makes an explicit choice and site changes refresh native permissions', async ({
+  page,
+  browser,
+  baseURL,
+}) => {
+  const origin = new URL(baseURL!).origin
+  expect(
+    (
+      await page.request.post('/api/users/login', {
+        data: { email: 'dev@payloadcms.com', password: 'test' },
+      })
+    ).ok(),
+  ).toBe(true)
+  const initial = await (await page.request.get('/api/organization-admin')).json()
+  originalSite = initial.context.site
+  const child = initial.sites.find(
+    (site: { parent_id: string; archived: number }) =>
+      site.parent_id === 'default' && !site.archived,
+  )
+  expect(child).toBeTruthy()
+  const stamp = Date.now().toString(36),
+    email = `header-child-${stamp}@example.invalid`,
+    password = 'local-header-child-only'
+  const created = await page.request.post('/api/users', {
+    headers: { Origin: origin, 'x-vorticause-site': child.id },
+    data: { username: 'header-child-' + stamp, email, password, role: 'editor' },
+  })
+  expect(created.ok(), await created.text()).toBe(true)
+  const user = (await created.json()).doc
+  const scoped = await browser.newContext({ baseURL })
+  try {
+    expect(
+      (await scoped.request.post('/api/users/login', { data: { email, password } })).ok(),
+    ).toBe(true)
+    const tab = await scoped.newPage()
+    await tab.goto('/admin')
+    await expect(tab.getByRole('heading', { name: 'Choose a site', exact: true })).toBeVisible()
+    await tab.getByRole('combobox', { name: 'Current site', exact: true }).selectOption(child.id)
+    await expect(tab).toHaveURL(new RegExp('/admin\\?site=' + child.id + '$'))
+    await expect(tab.getByLabel('Current site', { exact: true })).toContainText(child.name)
+    await expect(tab.getByRole('link', { name: /New post/ })).toBeVisible()
+    const root = await (await page.request.get('/api/organization-admin?site=default')).json()
+    const membership = await page.request.post('/api/organization-admin', {
+      headers: { Origin: origin, 'x-vorticause-site': 'default' },
+      data: {
+        action: 'membership',
+        site: 'default',
+        expectedRevision: root.site.revision,
+        user: user.id,
+        role: 'reader',
+        active: true,
+        operationKey: crypto.randomUUID(),
+      },
+    })
+    expect(membership.ok(), await membership.text()).toBe(true)
+    await tab.reload()
+    await tab.getByRole('combobox', { name: 'Current site', exact: true }).selectOption('default')
+    await expect(tab).toHaveURL(/\/admin\?site=default$/)
+    await expect(tab.getByRole('heading', { name: /Welcome back/ })).toBeVisible()
+    await expect(tab.getByRole('link', { name: /New post/ })).toHaveCount(0)
+  } finally {
+    await scoped.close()
+  }
+})
+
 test('one shared header selector opens scoped dashboards and preserves independent editors', async ({
   page,
   context,
@@ -49,7 +114,10 @@ test('one shared header selector opens scoped dashboards and preserves independe
     expect(Math.abs(tabBox!.y - avatarBox!.y)).toBeLessThan(55)
   }
   await page.goto('/admin/collections/posts/create?site=default')
-  const chooser = page.getByRole('dialog', { name: 'Create a Post · Choose a template', exact: true })
+  const chooser = page.getByRole('dialog', {
+    name: 'Create a Post · Choose a template',
+    exact: true,
+  })
   await chooser.getByRole('button', { name: /Blank/ }).click()
   await chooser.getByRole('button', { name: 'Create Post', exact: true }).click()
   const title = page.getByRole('textbox', { name: /^Title/ })
@@ -112,10 +180,12 @@ test('one shared header selector opens scoped dashboards and preserves independe
     .boundingBox()
   expect(mobileTab!.x).toBeGreaterThanOrEqual(0)
   // Payload animates the desktop sidebar closed after its breakpoint changes.
-  await expect.poll(async () => {
-    const avatar = await page.getByRole('link', { name: 'Account', exact: true }).boundingBox()
-    return avatar!.x + avatar!.width
-  }).toBeLessThanOrEqual(390)
+  await expect
+    .poll(async () => {
+      const avatar = await page.getByRole('link', { name: 'Account', exact: true }).boundingBox()
+      return avatar!.x + avatar!.width
+    })
+    .toBeLessThanOrEqual(390)
   await page.screenshot({ path: '.wrangler/header-site-mobile.png' })
   await other.close()
 })

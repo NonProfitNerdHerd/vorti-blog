@@ -7,8 +7,25 @@ import { dashboardRequestPath } from '../../src/dashboard/workspace-model'
 
 const mocks = vi.hoisted(() => ({ push: vi.fn(), user: { id: 1 }, path: '/admin' }))
 vi.mock('@payloadcms/ui', () => ({
+  ActionsProvider: ({
+    Actions,
+    children,
+  }: {
+    Actions: Record<string, import('react').ReactNode>
+    children: import('react').ReactNode
+  }) => (
+    <>
+      {Object.entries(Actions).map(([key, node]) => <div key={key}>{node}</div>)}
+      {children}
+    </>
+  ),
+  AppHeader: () => <header aria-label="Admin header" />,
   useAuth: () => ({ user: mocks.user }),
   useConfig: () => ({ config: { routes: { api: '/api', admin: '/admin' } } }),
+}))
+vi.mock('../../src/organizations/admin-site', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/organizations/admin-site')>()),
+  navigateAdminSite: mocks.push,
 }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push }),
@@ -151,6 +168,29 @@ it('uses a noninteractive label for a single accessible site', async () => {
   )
   await screen.findByLabelText('Current site')
   expect(screen.queryByRole('combobox')).toBeNull()
+})
+
+it('lets a new child-only user explicitly choose a first site without mounting default-site content', async () => {
+  window.history.replaceState({}, '', '/admin')
+  transport.mockImplementation(
+    async (_url: unknown, options?: RequestInit) =>
+      new Response(
+        JSON.stringify(
+          options?.method === 'POST'
+            ? { doc: { revision: 1 } }
+            : { sites: [sites[1]], next: null, context: { site: 'default', revision: 0 } },
+        ),
+      ),
+  )
+  render(
+    <AdminSiteProvider>
+      <input aria-label="Default-site content" />
+    </AdminSiteProvider>,
+  )
+  const select = await screen.findByRole('combobox', { name: 'Current site' })
+  expect(screen.queryByLabelText('Default-site content')).toBeNull()
+  fireEvent.change(select, { target: { value: 'child' } })
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/admin?site=child'))
 })
 it('preserves explicit targets and external/auth links while scoping child settings', () => {
   expect(siteURL('/admin/collections/posts/create', 'child', '/admin', 'https://app.test')).toBe(
