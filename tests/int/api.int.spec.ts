@@ -1,3 +1,5 @@
+import { retireFixtureUser } from '../helpers/native-authority'
+import { fixtureRequest } from '../helpers/native-authority'
 import { getPayload, Payload } from 'payload'
 import config from '@/payload.config'
 import { getPublicAuthorProfile, getPublicSiteData } from '@/lib/publicContent'
@@ -16,14 +18,14 @@ describe('API', () => {
   })
 
   it('fetches users', async () => {
-    const users = await payload.find({
+    const users = await payload.find({ req: await fixtureRequest(payload),
       collection: 'users',
     })
     expect(users).toBeDefined()
   })
 
   it('publishes only opted-in author profile fields', async () => {
-    const user = await payload.create({
+    const user = await payload.create({ req: await fixtureRequest(payload),
       collection: 'users',
       data: { username: ('public-author-validation@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
         email: 'public-author-validation@example.invalid',
@@ -40,23 +42,23 @@ describe('API', () => {
       expect(profile?.shortBio).toBe('A public biography.')
       expect(JSON.stringify(profile)).not.toMatch(/email|password|hash|salt|session|token/i)
 
-      await payload.update({
+      await payload.update({ req: await fixtureRequest(payload),
         collection: 'users',
         id: user.id,
         data: { profilePublic: false },
       })
       expect(await getPublicAuthorProfile('public-author-validation')).toBeNull()
     } finally {
-      await payload.delete({ collection: 'users', id: user.id })
+      await retireFixtureUser(payload, user.id)
     }
   })
 
   it('manages categories and tags independently with generated slugs', async () => {
-    const category = await payload.create({
+    const category = await payload.create({ req: await fixtureRequest(payload),
       collection: 'categories',
       data: { name: 'Storm Chasing', slug: '' },
     })
-    const tag = await payload.create({
+    const tag = await payload.create({ req: await fixtureRequest(payload),
       collection: 'tags',
       data: { name: 'Cloudflare', slug: '' },
     })
@@ -64,26 +66,26 @@ describe('API', () => {
     try {
       expect(category.slug).toBe('storm-chasing')
       expect(tag.slug).toBe('cloudflare')
-      expect((await payload.find({ collection: 'categories' })).docs).toEqual(
+      expect((await payload.find({ req: await fixtureRequest(payload), collection: 'categories' })).docs).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: category.id })]),
       )
-      expect((await payload.find({ collection: 'tags' })).docs).toEqual(
+      expect((await payload.find({ req: await fixtureRequest(payload), collection: 'tags' })).docs).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: tag.id })]),
       )
     } finally {
-      await payload.delete({ collection: 'categories', id: category.id })
-      await payload.delete({ collection: 'tags', id: tag.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'categories', id: category.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'tags', id: tag.id })
     }
   })
 
   it('provides public navigation and site settings from Payload', async () => {
-    await payload.updateGlobal({
+    await payload.updateGlobal({ req: await fixtureRequest(payload),
       slug: 'site-settings',
       data: { siteName: 'Vorti' },
     })
-    const menu = await payload.create({ collection: 'menus', data: { name: 'API navigation', items: [{ key: 'vortiquest', label: 'VortiQuest', kind: 'custom', url: 'https://vorti.quest' }] } })
-    const navigationBefore = await payload.findGlobal({ slug: 'navigation', depth: 0 })
-    await payload.updateGlobal({
+    const menu = await payload.create({ req: await fixtureRequest(payload), collection: 'menus', data: { name: 'API navigation', items: [{ key: 'vortiquest', label: 'VortiQuest', kind: 'custom', url: 'https://vorti.quest' }] } })
+    const navigationBefore = await payload.findGlobal({ req: await fixtureRequest(payload), slug: 'navigation', depth: 0 })
+    await payload.updateGlobal({ req: await fixtureRequest(payload),
       slug: 'navigation',
       data: { primaryMenu: menu.id, footerMenu: null, expectedUpdatedAt: navigationBefore.updatedAt },
     })
@@ -94,7 +96,7 @@ describe('API', () => {
   })
 
   it('hides draft pages from anonymous readers and shows published pages', async () => {
-    const page = await payload.create({
+    const page = await payload.create({ req: await fixtureRequest(payload),
       collection: 'pages',
       draft: true,
       data: {
@@ -133,7 +135,7 @@ describe('API', () => {
       })
       expect(draftRead.docs).toHaveLength(0)
 
-      await payload.update({
+      await payload.update({ req: await fixtureRequest(payload),
         collection: 'pages',
         id: page.id,
         data: { _status: 'published' },
@@ -146,7 +148,7 @@ describe('API', () => {
       })
       expect(publishedRead.docs).toHaveLength(1)
     } finally {
-      await payload.delete({ collection: 'pages', id: page.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'pages', id: page.id })
     }
   })
 
@@ -160,27 +162,27 @@ describe('API', () => {
           children: [{ type: 'text', text: 'Visible body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }],
       },
     }
-    const author = await payload.create({ collection: 'users', data: { username: (`frontend-validation-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
+    const author = await payload.create({ req: await fixtureRequest(payload), collection: 'users', data: { username: (`frontend-validation-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
       email: `frontend-validation-${suffix}@example.invalid`, password: 'local-validation-password',
     } })
-    const page = await payload.create({ collection: 'pages', draft: true, data: {
+    const page = await payload.create({ req: await fixtureRequest(payload), collection: 'pages', draft: true, data: {
       title: 'Frontend Validation Page', slug: `frontend-validation-page-${suffix}`, content,
     } })
-    const post = await payload.create({ collection: 'posts', draft: true, data: {
+    const post = await payload.create({ req: await fixtureRequest(payload), collection: 'posts', draft: true, data: {
       title: 'Frontend Validation Post', slug: `frontend-validation-post-${suffix}`, content, author: author.id,
     } })
     try {
       expect(await getPublishedPage(page.slug)).toBeNull()
       expect(await getPublishedPost(post.slug)).toBeNull()
-      await payload.update({ collection: 'pages', id: page.id, data: { _status: 'published' } })
-      await payload.update({ collection: 'posts', id: post.id, data: { _status: 'published' } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'pages', id: page.id, data: { _status: 'published' } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, data: { _status: 'published' } })
       expect((await getPublishedPage(page.slug))?.title).toBe(page.title)
       expect((await getPublishedPost(post.slug))?.title).toBe(post.title)
       expect((await getPublishedPosts(1, 5)).docs.map((doc) => doc.id)).toContain(post.id)
     } finally {
-      await payload.delete({ collection: 'posts', id: post.id })
-      await payload.delete({ collection: 'pages', id: page.id })
-      await payload.delete({ collection: 'users', id: author.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'posts', id: post.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'pages', id: page.id })
+      await retireFixtureUser(payload, author.id)
     }
   })
 })

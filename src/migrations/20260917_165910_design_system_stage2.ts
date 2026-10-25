@@ -17,7 +17,7 @@ const heroBoardDesigns = [
   { name: 'Hero Board - Feature', slug: 'hero-board-feature', design: { alignment: 'left', width: 'wide', spacing: 'extra-large', imageTreatment: 'feature', overlay: 'dark', textContrast: 'light', buttonStyle: 'minimal' } },
 ] as const
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   // Vorti Blog owns role assignment. Check before any schema or seed writes so
   // an existing installation can never lose its sole administrator account.
   const existingUsers = await db.all<{ id: number }>(sql`SELECT \`id\` FROM \`users\`;`)
@@ -69,20 +69,23 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.run(sql`ALTER TABLE \`_design_block_designs_v\` ADD \`version_design_overlay\` text;`)
   await db.run(sql`ALTER TABLE \`_design_block_designs_v\` ADD \`version_design_text_contrast\` text;`)
   await db.run(sql`ALTER TABLE \`_design_block_designs_v\` ADD \`version_design_button_style\` text;`)
-  const hero = await payload.create({
-    collection: 'design-block-types', overrideAccess: true, req,
-    data: {
-      name: 'Hero Board', slug: 'hero-board',
-      description: 'Reusable hero/banner component for prominent introductory content.',
-      rendererKey: 'hero-board', schemaVersion: 1, status: 'published', _status: 'published',
-      fields: heroBoardFields as never,
-    },
-  })
+  // Use this migration's schema. Today's Local API includes columns that do
+  // not exist yet during a clean installation.
+  await db.run(sql`INSERT INTO design_block_types(name,slug,description,renderer_key,schema_version,status,_status)
+    VALUES('Hero Board','hero-board','Reusable hero/banner component for prominent introductory content.','hero-board',1,'published','published');`)
+  const [hero] = await db.all<{ id: number }>(sql`SELECT id FROM design_block_types WHERE slug='hero-board';`)
+  for (const [order, field] of heroBoardFields.entries()) {
+    const id = crypto.randomUUID()
+    await db.run(sql`INSERT INTO design_block_types_fields(_order,_parent_id,id,"key",label,kind,required)
+      VALUES(${order + 1},${hero.id},${id},${field.key},${field.label},${field.kind},${'required' in field && field.required ? 1 : 0});`)
+    if ('children' in field) for (const [childOrder, child] of field.children.entries())
+      await db.run(sql`INSERT INTO design_block_types_fields_children(_order,_parent_id,id,"key",label,kind,required)
+        VALUES(${childOrder + 1},${id},${crypto.randomUUID()},${child.key},${child.label},${child.kind},0);`)
+  }
   for (const variant of heroBoardDesigns) {
-    await payload.create({
-      collection: 'design-block-designs', overrideAccess: true, req,
-      data: { name: variant.name, slug: variant.slug, blockType: hero.id, status: 'published', _status: 'published', design: variant.design as never },
-    })
+    const design = variant.design
+    await db.run(sql`INSERT INTO design_block_designs(name,slug,block_type_id,status,_status,design_alignment,design_width,design_spacing,design_image_treatment,design_overlay,design_text_contrast,design_button_style)
+      VALUES(${variant.name},${variant.slug},${hero.id},'published','published',${design.alignment},${design.width},${design.spacing},${design.imageTreatment},${design.overlay},${design.textContrast},${design.buttonStyle});`)
   }
 }
 

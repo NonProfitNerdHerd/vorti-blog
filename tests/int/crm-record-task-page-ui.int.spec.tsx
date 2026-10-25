@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// DOM environment is selected by the dom Vitest project.
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { RecordTaskPage } from '../../src/crm/RecordTaskPage'

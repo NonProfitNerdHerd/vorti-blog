@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
@@ -10,7 +11,7 @@ describe('Saved View publication and Page queries', () => {
   const stamp = Date.now()
   beforeAll(async () => {
     payload = await getPayload({ config })
-    const user = await payload.create({ collection: 'users', data: { username: `views-${stamp}`, email: `views-${stamp}@example.invalid`, password: 'local-view-check', role: 'administrator' } })
+    const user = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: `views-${stamp}`, email: `views-${stamp}@example.invalid`, password: 'local-view-check', role: 'administrator' } })
     req = await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
   })
   it('isolates drafts and protects definitions referenced by published Pages', async () => {

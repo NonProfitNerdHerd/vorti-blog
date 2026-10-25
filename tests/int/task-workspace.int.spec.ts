@@ -1,3 +1,4 @@
+import { createChapterUser, fixtureOperator } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import type { User } from '@/payload-types'
@@ -32,7 +33,7 @@ describe('Task workspace access, multi-board sharing, and notifications', native
     const suffix = Date.now()
     for (let i = 0; i < 6; i++)
       users.push(
-        await payload.create({
+        i === 5 ? await fixtureOperator(payload) : await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `board-${suffix}-${i}`,
@@ -42,6 +43,18 @@ describe('Task workspace access, multi-board sharing, and notifications', native
           },
         }),
       )
+  })
+  it('denies a global editor without chapter workspace permission', async () => {
+    const suffix = Date.now()
+    const user = await payload.create({ collection: 'users', data: {
+      username: `ungranted-${suffix}`, email: `ungranted-${suffix}@example.invalid`,
+      password: 'local-ungranted-password', role: 'editor',
+    } })
+    await expect(payload.create({
+      collection: 'task-boards', overrideAccess: false,
+      req: await createLocalReq({ user: { ...user, collection: 'users' } }, payload),
+      data: { name: 'Must be denied', visibility: 'private', owner: user.id },
+    })).rejects.toThrow()
   })
   it('creates private boards, standalone tasks, and inherited subtasks', async () => {
     board = (

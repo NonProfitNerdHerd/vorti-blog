@@ -1,3 +1,5 @@
+import { fixtureRequest } from '../helpers/native-authority'
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -5,7 +7,6 @@ import type { User } from '@/payload-types'
 import { resolveMenu } from '@/menus/server'
 import { resolveDocumentBlocks } from '@/lib/content-layout'
 import type { MenuItem } from '@design-system/payload-design-core'
-import { up } from '@/migrations/20261020_170954_reusable_menus'
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
 describe('named menus, authorization and public rendering', () => {
   let payload: Payload, user: User, administrator: User
@@ -13,10 +14,9 @@ describe('named menus, authorization and public rendering', () => {
   const stamp = Date.now()
   beforeAll(async () => {
     payload = await getPayload({ config })
-    administrator = (await payload.find({ collection: 'users', where: { role: { equals: 'administrator' } }, limit: 1 })).docs[0]
+    administrator = (await payload.find({ req: await fixtureRequest(payload), collection: 'users', where: { role: { equals: 'administrator' } }, limit: 1 })).docs[0]
     if (!administrator) throw new Error('Seed a fictional administrator before this integration test.')
-    await up({ db: (payload.db as unknown as { drizzle: unknown }).drizzle } as never)
-    user = await payload.create({
+    user = await createChapterUser(payload, 'administrator', {
       collection: 'users',
       data: {
         username: `menu-${stamp}`,
@@ -191,7 +191,7 @@ describe('named menus, authorization and public rendering', () => {
       req: await req(),
       data: { title: 'Menu home', slug: `menu-home-${stamp}`, _status: 'published' },
     })
-    const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0 })
+    const settings = await payload.findGlobal({ req: await fixtureRequest(payload), slug: 'site-settings', depth: 0 })
     await payload.updateGlobal({
       slug: 'site-settings',
       user: administrator,

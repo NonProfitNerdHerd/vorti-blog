@@ -1,3 +1,4 @@
+import { createChapterUser, fixtureOperator } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
@@ -39,15 +40,17 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
     const suffix = Date.now()
     for (let i = 0; i < 5; i++)
       users.push(
-        await payload.create({
-          collection: 'users',
-          data: {
-            username: `project-${suffix}-${i}`,
-            email: `project-${suffix}-${i}@example.invalid`,
-            password: 'local-project-password',
-            role: i === 4 ? 'administrator' : 'editor',
-          },
-        }),
+        i === 4
+          ? await fixtureOperator(payload)
+          : await createChapterUser(payload, 'editor', {
+              collection: 'users',
+              data: {
+                username: `project-${suffix}-${i}`,
+                email: `project-${suffix}-${i}@example.invalid`,
+                password: 'local-project-password',
+                role: i === 4 ? 'administrator' : 'editor',
+              },
+            }),
       )
     project = (
       await payload.create({
@@ -260,36 +263,39 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
       }),
     ).rejects.toThrow()
   })
-  it('supports every shared field type and keeps computed fields read-only', async () => {
-    const make = async (kind: string, configuration: object = {}) => {
-      const definition = await payload.create({
-        collection: 'task-field-definitions',
-        req: await req(0),
-        overrideAccess: false,
-        data: { name: `Verify ${kind}`, kind, configuration } as never,
-      })
-      await payload.create({
-        collection: 'task-board-fields',
-        req: await req(0),
-        overrideAccess: false,
-        data: { board, field: definition.id },
-      })
-      return definition
-    }
-    const options = {
-      options: [
-        { id: 'first', label: 'First', color: '#3498db' },
-        { id: 'second', label: 'Second', color: '#e67e22' },
-      ],
-    }
-    for (const [kind, value, configuration] of [
-      ['single-select', 'first', options],
-      ['multi-select', ['first', 'second'], options],
-      ['text', 'Shared note', {}],
-      ['date', '2026-10-20', {}],
-      ['people', [users[2].id], {}],
-    ] as const) {
-      const definition = await make(kind, configuration),
+  const makeField = async (kind: string, configuration: object = {}) => {
+    const definition = await payload.create({
+      collection: 'task-field-definitions',
+      req: await req(0),
+      overrideAccess: false,
+      data: { name: `Verify ${kind}`, kind, configuration } as never,
+    })
+    await payload.create({
+      collection: 'task-board-fields',
+      req: await req(0),
+      overrideAccess: false,
+      data: { board, field: definition.id },
+    })
+    return definition
+  }
+  it.each(['single-select', 'multi-select', 'text', 'date', 'people'] as const)(
+    'persists the shared %s field through the native editor',
+    async (kind) => {
+      const options = {
+        options: [
+          { id: 'first', label: 'First', color: '#3498db' },
+          { id: 'second', label: 'Second', color: '#e67e22' },
+        ],
+      }
+      const values = {
+        'single-select': 'first',
+        'multi-select': ['first', 'second'],
+        text: 'Shared note',
+        date: '2026-10-20',
+        people: [users[2].id],
+      }
+      const value = values[kind],
+        definition = await makeField(kind, kind.endsWith('select') ? options : {}),
         current = await payload.findByID({ collection: 'review-tasks', id: task, depth: 0 })
       await endpoint(
         0,
@@ -302,26 +308,16 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
         (await taskFields(await req(1), task)).find((item) => item.definition.id === definition.id)
           ?.value,
       ).toEqual(value)
-    }
-    const identifier = await make('id', { prefix: 'TASK-' }),
-      timer = await make('timer'),
-      tracking = await make('time-tracking')
+    },
+  )
+  it('derives identifiers and time tracking and rejects forged computed values', async () => {
+    const identifier = await makeField('id', { prefix: 'TASK-' }),
+      tracking = await makeField('time-tracking')
     const result = await taskFields(await req(1), task)
     expect(String(result.find((item) => item.definition.id === identifier.id)?.value)).toContain(
       String(task),
     )
     expect(result.find((item) => item.definition.id === tracking.id)?.value).toBe(0)
-    await endpoint(
-      1,
-      '/task-workspace/tasks/:id',
-      'post',
-      { action: 'countdown', field: timer.id, seconds: 60, running: true },
-      { id: String(task) },
-    )
-    const remaining = (await taskFields(await req(1), task)).find(
-      (item) => item.definition.id === timer.id,
-    )?.value
-    expect(Number(remaining)).toBeGreaterThan(0)
     await expect(
       endpoint(
         1,
@@ -337,6 +333,20 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
         { id: String(task) },
       ),
     ).rejects.toThrow()
+  })
+  it('starts a shared countdown and returns its remaining time', async () => {
+    const timer = await makeField('timer')
+    await endpoint(
+      1,
+      '/task-workspace/tasks/:id',
+      'post',
+      { action: 'countdown', field: timer.id, seconds: 60, running: true },
+      { id: String(task) },
+    )
+    const remaining = (await taskFields(await req(1), task)).find(
+      (item) => item.definition.id === timer.id,
+    )?.value
+    expect(Number(remaining)).toBeGreaterThan(0)
   })
   it('duplicates rich board pages and changes the default view atomically', async () => {
     const view = await payload.create({
@@ -424,7 +434,7 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
       ).totalDocs,
     ).toBe(1)
   })
-  it('validates dates and dependency cycles without automatic rescheduling', async () => {
+  it('rejects a due date before the start date', async () => {
     const current = await payload.findByID({ collection: 'review-tasks', id: task, depth: 0 })
     await expect(
       payload.update({
@@ -439,6 +449,9 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
         },
       }),
     ).rejects.toThrow()
+  })
+  it('rejects dependency cycles without automatic rescheduling', async () => {
+    const current = await payload.findByID({ collection: 'review-tasks', id: task, depth: 0 })
     const second = await payload.create({
       collection: 'review-tasks',
       req: await req(1),
@@ -688,7 +701,12 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
     ])
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
   })
-  it('requires all shared-board owners and invalidates project-change approvals after membership edits', async () => {
+  const changeProject = async (index: number, body: Record<string, unknown>) => {
+    const request = await req(index)
+    request.json = async () => body
+    return projectSharingEndpoints[0].handler(request)
+  }
+  it('retains a shared task across the source and destination board audiences', async () => {
     await payload.create({
       collection: 'task-board-memberships',
       req: await req(1),
@@ -710,21 +728,19 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
     actionRequest.routeParams = { id: String(shared.id) }
     actionRequest.json = async () => ({ action: 'share', board: privateBoard, confirm: true })
     expect((await workspaceEndpoint.handler(actionRequest)).ok).toBe(true)
-    const change = async (index: number, body: Record<string, unknown>) => {
-      const request = await req(index)
-      request.json = async () => body
-      return projectSharingEndpoints[0].handler(request)
-    }
-    const pending: any = await (
-      await change(1, {
+  })
+  it('requires all shared-board owners and rejects approval after membership edits', async () => {
+    const pending = (await (
+      await changeProject(1, {
         action: 'request',
         board: privateBoard,
         project,
         inheritProject: true,
         confirm: true,
       })
-    ).json()
+    ).json()) as { pending: boolean; id: number }
     expect(pending.pending).toBe(true)
+    expect(Number.isSafeInteger(pending.id)).toBe(true)
     const member = (
       await payload.find({
         collection: 'task-project-memberships',
@@ -739,17 +755,19 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
       overrideAccess: false,
       data: { role: 'commenter', expectedUpdatedAt: member.updatedAt },
     })
-    await expect(change(0, { action: 'approve', request: pending.id })).rejects.toThrow()
-    const renewed: any = await (
-      await change(1, {
+    await expect(changeProject(0, { action: 'approve', request: pending.id })).rejects.toThrow()
+  })
+  it('applies renewed project sharing approval from a different source owner', async () => {
+    const renewed = (await (
+      await changeProject(1, {
         action: 'request',
         board: privateBoard,
         project,
         inheritProject: true,
         confirm: true,
       })
-    ).json()
-    expect((await change(0, { action: 'approve', request: renewed.id })).ok).toBe(true)
+    ).json()) as { id: number }
+    expect((await changeProject(0, { action: 'approve', request: renewed.id })).ok).toBe(true)
     expect(
       (await payload.findByID({ collection: 'task-boards', id: privateBoard, depth: 0 }))
         .inheritProject,

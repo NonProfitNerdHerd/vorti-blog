@@ -27,8 +27,15 @@ async function changeSnapshot(
     overrideAccess: true,
     depth: 0,
   })
-  const destination = await req.payload.findByID({ collection: 'task-projects', id: projectID, req: workspaceReq(req), overrideAccess: true, depth: 0 })
-  if ((board.platformSite || null) !== (destination.platformSite || null)) reject('Boards cannot move between site audiences.')
+  const destination = await req.payload.findByID({
+    collection: 'task-projects',
+    id: projectID,
+    req: workspaceReq(req),
+    overrideAccess: true,
+    depth: 0,
+  })
+  if ((board.platformSite || null) !== (destination.platformSite || null))
+    reject('Boards cannot move between site audiences.')
   const tasks = await req.payload.find({
     collection: 'review-tasks',
     req,
@@ -61,7 +68,18 @@ async function changeSnapshot(
   const projects = new Set<number>([projectID])
   const inheritedSources = new Set<number>()
   const authority = workspaceAuthority(req)
-  if (authority) { checks.push(workspaceAuthorityCheck(authority)); fingerprint.push({ authority }) }
+  if (authority) {
+    checks.push(workspaceAuthorityCheck(authority))
+    // Other source owners review the same scope under their own live actor
+    // check; changing reviewers must not invalidate an unchanged audience.
+    fingerprint.push({
+      authority: {
+        organization: authority.organization,
+        site: authority.site,
+        epoch: authority.epoch,
+      },
+    })
+  }
   if (board.project) projects.add(Number(relationID(board.project)))
   for (const id of boards) {
     const item = await req.payload.findByID({

@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-d1-sqlite'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.run(sql`ALTER TABLE \`posts\` ADD \`design_template_id\` integer REFERENCES design_templates(id);`)
   await db.run(sql`ALTER TABLE \`posts\` ADD \`template_values\` text;`)
   await db.run(sql`ALTER TABLE \`posts\` ADD \`design_overrides\` text;`)
@@ -15,15 +15,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.run(sql`ALTER TABLE \`_design_templates_v_version_sections\` ADD \`block_type_id\` integer REFERENCES design_block_types(id);`)
   await db.run(sql`UPDATE \`_design_templates_v_version_sections\` SET \`block_type_id\` = (SELECT \`block_type_id\` FROM \`design_block_designs\` WHERE \`design_block_designs\`.\`id\` = \`_design_templates_v_version_sections\`.\`block_design_id\`) WHERE \`block_design_id\` IS NOT NULL;`)
   await db.run(sql`CREATE INDEX \`_design_templates_v_version_sections_block_type_idx\` ON \`_design_templates_v_version_sections\` (\`block_type_id\`);`)
-  const heroType = await payload.find({ collection: 'design-block-types', where: { slug: { equals: 'hero-board' } }, limit: 1, depth: 0, overrideAccess: true, req })
-  const feature = await payload.find({ collection: 'design-block-designs', where: { slug: { equals: 'hero-board-feature' } }, limit: 1, depth: 0, overrideAccess: true, req })
-  if (!heroType.docs[0] || !feature.docs[0]) throw new Error('Stage 3 requires the Stage 2 Hero Board seed')
+  const [heroType] = await db.all<{ id: number }>(sql`SELECT id FROM design_block_types WHERE slug='hero-board';`)
+  const [feature] = await db.all<{ id: number }>(sql`SELECT id FROM design_block_designs WHERE slug='hero-board-feature';`)
+  if (!heroType || !feature) throw new Error('Stage 3 requires the Stage 2 Hero Board seed')
   // Seed against this migration's schema, not the current Payload model. Later
   // migrations add layout/custom_fields; using today's Local API breaks clean installs.
   await db.run(sql`INSERT INTO design_templates (name,slug,status,_status) VALUES ('Standard Article','standard-article','published','published');`)
   const template = await db.all<{ id: number }>(sql`SELECT id FROM design_templates WHERE slug='standard-article';`)
   await db.run(sql`INSERT INTO design_templates_allowed_collections ("order",parent_id,value) VALUES (1,${template[0].id},'posts');`)
-  await db.run(sql`INSERT INTO design_templates_sections (_order,_parent_id,id,"key",name,block_type_id,block_design_id,required,allow_design_override) VALUES (1,${template[0].id},${crypto.randomUUID()},'hero','Hero',${heroType.docs[0].id},${feature.docs[0].id},1,1);`)
+  await db.run(sql`INSERT INTO design_templates_sections (_order,_parent_id,id,"key",name,block_type_id,block_design_id,required,allow_design_override) VALUES (1,${template[0].id},${crypto.randomUUID()},'hero','Hero',${heroType.id},${feature.id},1,1);`)
 }
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {

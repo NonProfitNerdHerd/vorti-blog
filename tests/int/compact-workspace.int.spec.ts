@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { taskFields } from '@/review/workspace-fields'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
@@ -13,7 +14,7 @@ describe('compact workspace preferences and inline task creation', () => {
     payload = await getPayload({ config })
     for (let i = 0; i < 2; i++)
       users.push(
-        await payload.create({
+        await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `compact-${Date.now()}-${i}`,

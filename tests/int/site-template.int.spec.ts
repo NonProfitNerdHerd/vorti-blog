@@ -1,3 +1,6 @@
+import { retireFixtureUser } from '../helpers/native-authority'
+import { fixtureRequest } from '../helpers/native-authority'
+import { createChapterUser } from '../helpers/native-authority'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -13,9 +16,9 @@ describe('Site Template persistence foundation', () => {
   beforeAll(async () => {
     payload = await getPayload({ config })
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const administrator = await payload.create({ collection: 'users', data: { username: (`site-template-admin-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-admin-${suffix}@example.invalid`, password: 'local-validation-password', role: 'administrator' } })
-    const designer = await payload.create({ collection: 'users', data: { username: (`site-template-designer-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-designer-${suffix}@example.invalid`, password: 'local-validation-password', role: 'designer' } })
-    const editor = await payload.create({ collection: 'users', data: { username: (`site-template-editor-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-editor-${suffix}@example.invalid`, password: 'local-validation-password', role: 'editor' } })
+    const administrator = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: (`site-template-admin-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-admin-${suffix}@example.invalid`, password: 'local-validation-password', role: 'administrator' } })
+    const designer = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: (`site-template-designer-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-designer-${suffix}@example.invalid`, password: 'local-validation-password', role: 'designer' } })
+    const editor = await createChapterUser(payload, 'editor', { collection: 'users', data: { username: (`site-template-editor-${suffix}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: `site-template-editor-${suffix}@example.invalid`, password: 'local-validation-password', role: 'editor' } })
     administratorID = administrator.id
     designerID = designer.id
     editorID = editor.id
@@ -30,10 +33,10 @@ describe('Site Template persistence foundation', () => {
 
   afterAll(async () => {
     if (!payload || !administratorID) return
-    const user = await payload.findByID({ collection: 'users', id: administratorID })
+    const user = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: administratorID })
     await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: null }, overrideAccess: false, user })
     if (templateID) await payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: false, user })
-    for (const id of [administratorID, designerID, editorID]) if (id) await payload.delete({ collection: 'users', id, overrideAccess: true })
+    for (const id of [administratorID, designerID, editorID]) if (id) await retireFixtureUser(payload, id)
   })
 
   it('registers the versioned collection without changing content Template registration', () => {
@@ -43,15 +46,15 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('persists independent Header and Footer trees', async () => {
-    const stored = await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0 })
+    const stored = await payload.findByID({ req: await fixtureRequest(payload), collection: 'site-templates', id: templateID, depth: 0 })
     expect(stored.header.layout).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'header-row' })]))
     expect(stored.footer.layout).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'footer-stack' })]))
     expect(stored.header.layout).not.toEqual(stored.footer.layout)
   })
 
   it('keeps draft shell edits private until publication and restores saved trees', async () => {
-    const designer = await payload.findByID({ collection: 'users', id: designerID })
-    const footerBefore = (await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0 })).footer.layout
+    const designer = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: designerID })
+    const footerBefore = (await payload.findByID({ req: await fixtureRequest(payload), collection: 'site-templates', id: templateID, depth: 0 })).footer.layout
     const draftLayout = [{ id: 'draft-header', type: 'layout' as const, layout: 'container' as const, children: [{ id: 'draft-name', type: 'element' as const, element: 'siteName' as const, props: { source: 'siteSettings.siteName' } }] }]
     await payload.update({ collection: 'site-templates', id: templateID, draft: true, overrideAccess: false, user: designer, data: { header: { layout: draftLayout }, _status: 'draft' } })
     const publicVersion = await payload.findByID({ collection: 'site-templates', id: templateID, depth: 0, overrideAccess: false })
@@ -65,7 +68,7 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('allows published reads but keeps drafts private', async () => {
-    const designer = await payload.findByID({ collection: 'users', id: designerID })
+    const designer = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: designerID })
     const published = await payload.find({ collection: 'site-templates', where: { id: { equals: templateID } }, overrideAccess: false })
     expect(published.totalDocs).toBe(1)
     const draft = await payload.create({ collection: 'site-templates', draft: true, overrideAccess: false, user: designer, data: {
@@ -80,9 +83,9 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('allows administrators and designers to manage designs but denies editors', async () => {
-    const administrator = await payload.findByID({ collection: 'users', id: administratorID })
-    const designer = await payload.findByID({ collection: 'users', id: designerID })
-    const editor = await payload.findByID({ collection: 'users', id: editorID })
+    const administrator = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: administratorID })
+    const designer = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: designerID })
+    const editor = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: editorID })
     await payload.update({ collection: 'site-templates', id: templateID, data: { description: 'Administrator update' }, overrideAccess: false, user: administrator })
     await payload.update({ collection: 'site-templates', id: templateID, data: { description: 'Designer update' }, overrideAccess: false, user: designer })
     await expect(payload.update({ collection: 'site-templates', id: templateID, data: { description: 'Editor update' }, overrideAccess: false, user: editor })).rejects.toThrow()
@@ -90,16 +93,16 @@ describe('Site Template persistence foundation', () => {
   })
 
   it('validates Site Shell nodes and Additional CSS', async () => {
-    const user = await payload.findByID({ collection: 'users', id: designerID })
+    const user = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: designerID })
     await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { header: { layout: [{ id: 'content-field', type: 'field' }] } } })).rejects.toThrow('invalid')
     await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { additionalCSS: '@import "remote.css";' } })).rejects.toThrow('invalid')
     await expect(payload.update({ collection: 'site-templates', id: templateID, user, overrideAccess: false, data: { additionalCSS: '</style><script>bad()</script>' } })).rejects.toThrow('invalid')
   })
 
   it('stores the authoritative default relationship and prevents deleting it', async () => {
-    const user = await payload.findByID({ collection: 'users', id: administratorID })
+    const user = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: administratorID })
     await payload.updateGlobal({ slug: 'site-settings', data: { siteName: 'Vorti Blog', defaultSiteTemplate: templateID }, overrideAccess: false, user })
-    const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0 })
+    const settings = await payload.findGlobal({ req: await fixtureRequest(payload), slug: 'site-settings', depth: 0 })
     expect(settings.defaultSiteTemplate).toBe(templateID)
     await expect(payload.delete({ collection: 'site-templates', id: templateID, overrideAccess: false, user })).rejects.toThrow('selected as the default')
   })

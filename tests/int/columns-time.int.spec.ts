@@ -1,3 +1,4 @@
+import { createChapterUser, fixtureOperator } from '../helpers/native-authority'
 import { beforeAll, describe, it, expect } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -13,7 +14,7 @@ describe('Collaborators and atomic, protected work time', () => {
     payload = await getPayload({ config })
     for (let i = 0; i < 4; i++)
       users.push(
-        await payload.create({
+        i === 3 ? await fixtureOperator(payload) : await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `time-${Date.now()}-${i}`,

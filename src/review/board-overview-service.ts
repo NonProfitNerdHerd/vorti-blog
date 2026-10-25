@@ -2,7 +2,7 @@ import type { PayloadRequest, Where } from 'payload'
 import { userIdentity } from '@design-system/payload-design-core'
 import { relationID } from './documents'
 import { boardRole, reject, requireBoard, taskReadWhere } from './workspace-access'
-import { crmTaskWhere, crmTaskLinksActive } from '../crm/task-where'
+import { crmTaskWhere, crmTaskLinksActive, crmTaskInternalRead } from '../crm/task-where'
 
 export async function boardPeople(req: PayloadRequest, board: string) {
   await requireBoard(req, board)
@@ -44,6 +44,14 @@ export type BoardActivityItem = {
 const sources = ['board', 'comment', 'file', 'task'] as const
 export async function boardActivity(req: PayloadRequest, board: string, params: URLSearchParams) {
   await requireBoard(req, board)
+  // These server-owned predicates traverse the private CRM context join. The
+  // caller keeps their normal workspace/domain ACL; only internal query-path
+  // validation can inspect the join. Returned rows are projected below.
+  const queryReq = {
+    ...req,
+    query: { ...req.query },
+    context: { ...req.context, crmQueryScope: 'board-activity', [crmTaskInternalRead]: true },
+  } as PayloadRequest
   const limit = Number(params.get('limit') ?? 50)
   if (![10, 25, 50, 100, 200].includes(limit)) reject('Choose a supported row count.', 400)
   let cursor: Cursor | undefined
@@ -127,7 +135,8 @@ export async function boardActivity(req: PayloadRequest, board: string, params: 
     const { source, collection, where } = definition
     // requireBoard above authorizes this exact board scope, including private file metadata.
     const overrideAccess = true
-    totalDocs += (await req.payload.count({ collection, req, overrideAccess, where })).totalDocs
+    totalDocs += (await req.payload.count({ collection, req: queryReq, overrideAccess, where }))
+      .totalDocs
     let after: Where = {}
     if (cursor) {
       const sameDay: Where = { createdAt: { equals: cursor.date } }
@@ -144,7 +153,7 @@ export async function boardActivity(req: PayloadRequest, board: string, params: 
     }
     const result = await req.payload.find({
       collection,
-      req,
+      req: queryReq,
       overrideAccess,
       depth: 0,
       limit: limit + 1,

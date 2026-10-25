@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -36,7 +37,7 @@ describe('per-user starter workspace', () => {
     users = []
     for (let i = 0; i < 4; i++)
       users.push(
-        await payload.create({
+        await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `starter-${Date.now()}-${i}`,

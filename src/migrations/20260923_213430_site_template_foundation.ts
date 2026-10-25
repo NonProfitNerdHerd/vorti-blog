@@ -1,6 +1,6 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-d1-sqlite'
 
-export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
+export async function up({ db }: MigrateUpArgs): Promise<void> {
   const runSchema = async (statement: Parameters<typeof db.run>[0]) => {
     try {
       await db.run(statement)
@@ -85,10 +85,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await runSchema(sql`CREATE INDEX \`site_settings_blog_page_idx\` ON \`site_settings\` (\`blog_page_id\`);`)
   await runSchema(sql`CREATE INDEX \`site_settings_default_site_template_idx\` ON \`site_settings\` (\`default_site_template_id\`);`)
 
-  const existing = await payload.find({ collection: 'site-templates', where: { slug: { equals: 'default-website-template' } }, limit: 1, depth: 0, draft: true, overrideAccess: true, req })
-  const siteTemplate = existing.docs[0] ?? await payload.create({
-    collection: 'site-templates',
-    data: {
+  const seed = {
       name: 'Default Website Template',
       slug: 'default-website-template',
       description: 'Compatibility Site Shell created by the Phase 4 schema migration.',
@@ -124,23 +121,16 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
       additionalCSS: '',
       assignment: { mode: 'default', priority: 0 },
       _status: 'published',
-    },
-    draft: false,
-    overrideAccess: true,
-    req,
-  })
-  const settings = await payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: true, req })
-  if (!settings.defaultSiteTemplate) {
-    await payload.updateGlobal({
-      slug: 'site-settings',
-      data: {
-        defaultSiteTemplate: siteTemplate.id,
-        siteName: settings.siteName?.trim() || 'Vorti Blog',
-      },
-      overrideAccess: true,
-      req,
-    })
   }
+  // Later migrations add columns/hooks to this collection and global. Seed
+  // against the historical schema rather than querying the current Local API.
+  await db.run(sql`INSERT INTO site_tpl(name,slug,description,header_layout,header_settings,footer_layout,footer_settings,typography,colors,buttons,dimensions,mobile,additional_c_s_s,assignment_mode,assignment_priority,_status)
+    SELECT ${seed.name},${seed.slug},${seed.description},${JSON.stringify(seed.header.layout)},${JSON.stringify(seed.header.settings)},${JSON.stringify(seed.footer.layout)},${JSON.stringify(seed.footer.settings)},${JSON.stringify(seed.typography)},${JSON.stringify(seed.colors)},${JSON.stringify(seed.buttons)},${JSON.stringify(seed.dimensions)},${JSON.stringify(seed.mobile)},${seed.additionalCSS},${seed.assignment.mode},${seed.assignment.priority},${seed._status}
+    WHERE NOT EXISTS(SELECT 1 FROM site_tpl WHERE slug=${seed.slug});`)
+  const [siteTemplate] = await db.all<{ id: number }>(sql`SELECT id FROM site_tpl WHERE slug=${seed.slug};`)
+  await db.run(sql`INSERT INTO site_settings(site_name,default_site_template_id)
+    SELECT 'Vorti Blog',${siteTemplate.id} WHERE NOT EXISTS(SELECT 1 FROM site_settings);`)
+  await db.run(sql`UPDATE site_settings SET default_site_template_id=${siteTemplate.id},site_name=COALESCE(NULLIF(trim(site_name),''),'Vorti Blog') WHERE default_site_template_id IS NULL;`)
 }
 
 export async function down({ db }: MigrateDownArgs): Promise<void> {

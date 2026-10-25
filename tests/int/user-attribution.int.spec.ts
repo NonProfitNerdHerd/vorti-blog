@@ -1,3 +1,5 @@
+import { fixtureRequest } from '../helpers/native-authority'
+import { grantFixtureMembership } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
@@ -13,7 +15,11 @@ describe('Usernames and consistent attribution', () => {
   const username = `writer-${suffix}`
   beforeAll(async () => {
     payload = await getPayload({ config })
-    const administrator = await payload.findByID({ collection: 'users', id: 1, depth: 0 })
+    // Model an actual pre-username account, rather than assuming the fresh
+    // installation operator has legacy identity fields.
+    await (payload.db as unknown as { client: D1Database }).client
+      .prepare('UPDATE users SET username=NULL,attribution_preference=NULL,attribution_label=email WHERE id=1').run()
+    const administrator = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: 1, depth: 0 })
     admin = await createLocalReq({ user: { ...administrator, collection: 'users' } }, payload)
     owner = await payload.create({
       collection: 'users',
@@ -28,7 +34,7 @@ describe('Usernames and consistent attribution', () => {
         profilePublic: false,
       },
     })
-    other = await payload.create({
+    other = await payload.create({ req: await fixtureRequest(payload),
       collection: 'users',
       data: {
         username: `other-${suffix}`,
@@ -37,6 +43,9 @@ describe('Usernames and consistent attribution', () => {
         role: 'designer',
       },
     })
+    await grantFixtureMembership(payload, owner, 'administrator')
+    await grantFixtureMembership(payload, other, 'editor')
+    admin = await createLocalReq({ user: { ...administrator, collection: 'users' } }, payload)
     req = await createLocalReq({ user: { ...owner, collection: 'users' } }, payload)
   })
   it('normalizes unique usernames, defaults new attribution and supports both native logins', async () => {
@@ -45,12 +54,12 @@ describe('Usernames and consistent attribution', () => {
     expect(owner.attributionLabel).toBe(username)
     expect(owner.slug).toBe(username)
     for (const credentials of [{ email: owner.email }, { username: username.toUpperCase() }]) {
-      expect(
-        (await payload.login({ collection: 'users', data: { ...credentials, password } })).user.id,
-      ).toBe(owner.id)
+      const login = await payload.login({ collection: 'users', data: { ...credentials, password } })
+      expect(login.user.id).toBe(owner.id)
+      expect(login.user).not.toHaveProperty('siteDirectory')
     }
     await expect(
-      payload.create({
+      payload.create({ req: await fixtureRequest(payload),
         collection: 'users',
         data: {
           email: `duplicate-${suffix}@example.invalid`,
@@ -61,18 +70,18 @@ describe('Usernames and consistent attribution', () => {
     ).rejects.toThrow()
     for (const invalid of ['', 'ab', 'has space', 'name@example.com', 'x'.repeat(33)]) {
       await expect(
-        payload.update({ collection: 'users', id: owner.id, data: { username: invalid } }),
+        payload.update({ req: await fixtureRequest(payload), collection: 'users', id: owner.id, data: { username: invalid } }),
       ).rejects.toThrow()
     }
     await expect(
-      payload.create({
+      payload.create({ req: await fixtureRequest(payload),
         collection: 'users',
         data: { email: `missing-${suffix}@example.invalid`, password },
       }),
     ).rejects.toThrow()
   })
   it('retains existing email login, sessions and legacy attribution during unrelated edits', async () => {
-    const legacy = await payload.findByID({ collection: 'users', id: 1, depth: 0 })
+    const legacy = await payload.findByID({ req: await fixtureRequest(payload), collection: 'users', id: 1, depth: 0 })
     expect(legacy.attributionPreference).toBeFalsy()
     expect(
       (
@@ -82,7 +91,7 @@ describe('Usernames and consistent attribution', () => {
         })
       ).user.id,
     ).toBe(1)
-    const changed = await payload.update({
+    const changed = await payload.update({ req: await fixtureRequest(payload),
       collection: 'users',
       id: 1,
       data: { biography: legacy.biography },
@@ -107,11 +116,11 @@ describe('Usernames and consistent attribution', () => {
     } finally {
       sendEmail.mockRestore()
     }
-    const first = await payload.create({
+    const first = await payload.create({ req: await fixtureRequest(payload),
       collection: 'users',
       data: { username: `slug_${suffix}`, email: `slug-a-${suffix}@example.invalid`, password },
     })
-    const second = await payload.create({
+    const second = await payload.create({ req: await fixtureRequest(payload),
       collection: 'users',
       data: { username: `slug-${suffix}`, email: `slug-b-${suffix}@example.invalid`, password },
     })
@@ -189,7 +198,7 @@ describe('Usernames and consistent attribution', () => {
       },
     })
     expect(typeof post.author === 'object' ? post.author.id : post.author).toBe(owner.id)
-    const before = await payload.findByID({ collection: 'posts', id: post.id, depth: 0 })
+    const before = await payload.findByID({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, depth: 0 })
     const named = (await publicAuthors(payload, [owner.id])).get(owner.id)!
     expect(publicAuthorIdentity(named)).toBe(`${username}-a`)
     expect(JSON.stringify(named)).not.toContain(owner.email)
@@ -207,7 +216,7 @@ describe('Usernames and consistent attribution', () => {
     ).toBe(owner.id)
     const email = (await publicAuthors(payload, [owner.id])).get(owner.id)!
     expect(publicAuthorIdentity(email)).toBe(owner.email)
-    const after = await payload.findByID({ collection: 'posts', id: post.id, depth: 0 })
+    const after = await payload.findByID({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, depth: 0 })
     expect(after.author).toBe(before.author)
     expect(after.updatedAt).toBe(before.updatedAt)
     const published = await payload.update({

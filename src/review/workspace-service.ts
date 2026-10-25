@@ -92,8 +92,24 @@ async function audience(
     ])
   }
   const authority = workspaceAuthority(req)
+  // Each owner reviews the same audience under their own live authority.
+  // Keep actor checks in the publication guard; retain scope and epoch here.
+  const fingerprint = JSON.stringify([
+    ...snapshot,
+    ...(authority
+      ? [
+          {
+            authority: {
+              organization: authority.organization,
+              site: authority.site,
+              epoch: authority.epoch,
+            },
+          },
+        ]
+      : []),
+  ])
   if (authority) snapshot.push({ authority })
-  return { owners: [...owners], fingerprint: JSON.stringify(snapshot), snapshot }
+  return { owners: [...owners], fingerprint, snapshot }
 }
 
 /** D1 batch is atomic. A failed guard rolls back the complete audience/placement change. */

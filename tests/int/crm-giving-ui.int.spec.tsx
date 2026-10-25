@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// DOM environment is selected by the dom Vitest project.
 import { webcrypto } from 'node:crypto'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, afterEach, it, expect, vi } from 'vitest'

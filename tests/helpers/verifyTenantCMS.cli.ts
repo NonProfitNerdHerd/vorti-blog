@@ -68,6 +68,11 @@ assert.equal(
   false,
   'A site administrator must not become an installation operator.',
 )
+// The publishing fixture needs explicit chapter capabilities; its global
+// editor role does not grant organization-level content or workspace editing.
+const membershipSite = await db.prepare('SELECT revision FROM vc_sites WHERE id=?').bind(a).first<{ revision: number }>()
+await repository.setMembership({ site: a, user: userA.id, role: 'administrator', active: true,
+  expectedRevision: membershipSite!.revision, operationKey: crypto.randomUUID() })
 const measured = await req(userA, a)
 let initializationQueries = 0
 measured.payload = { db: { client: { prepare(sql: string) { initializationQueries++; return db.prepare(sql) } } } } as unknown as PayloadRequest['payload']
@@ -367,6 +372,12 @@ assert.equal(
     .totalDocs,
   1,
 )
+// Publishing content does not require granting Forms design. Keep this
+// negative case explicit after provisioning chapter publishing capabilities.
+const formsRestrictionSite = await db.prepare('SELECT revision FROM vc_sites WHERE id=?').bind(a).first<{ revision: number }>()
+await repository.setRestrictions({ site: a, user: userA.id,
+  denied: [{ category: 'forms', operation: 'edit' }],
+  expectedRevision: formsRestrictionSite!.revision, operationKey: crypto.randomUUID() })
 await assert.rejects(
   payload.create({
     collection: 'forms',

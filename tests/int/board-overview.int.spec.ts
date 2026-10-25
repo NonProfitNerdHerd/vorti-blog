@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -16,7 +17,7 @@ describe('board Overview permissions, description and merged activity', () => {
     payload = await getPayload({ config })
     for (let i = 0; i < 3; i++)
       users.push(
-        await payload.create({
+        await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `overview-${Date.now()}-${i}`,
@@ -62,27 +63,30 @@ describe('board Overview permissions, description and merged activity', () => {
       overrideAccess: false,
       data: { task, body: 'Hidden moderated discussion' },
     })
-    await workspaceDB(await req())
-      .prepare('UPDATE review_comments SET moderated=1 WHERE id=?')
-      .bind(moderated.id)
-      .run()
-    for (const comment of [undefined, moderated.id])
-      await payload.create({
+    for (const comment of [undefined, moderated.id]) {
+      const attachment = await payload.create({
         collection: 'task-attachments',
         req: await req(),
         overrideAccess: true,
         data: {
           board,
           task,
-          comment,
+          ...(comment ? { comment } : {}),
           uploader: users[0].id,
           filename: comment ? 'hidden.pdf' : 'visible.pdf',
           objectKey: `overview/${Date.now()}/${comment || 0}`,
           mimeType: 'application/pdf',
           size: 20,
-          state: 'ready',
+          state: 'staged',
         },
       })
+      await payload.update({ collection: 'task-attachments', id: attachment.id,
+        req: await req(), overrideAccess: true, data: { state: 'ready' } })
+    }
+    await workspaceDB(await req())
+      .prepare('UPDATE review_comments SET moderated=1 WHERE id=?')
+      .bind(moderated.id)
+      .run()
     const hiddenBoard = (
       await payload.create({
         collection: 'task-boards',
@@ -97,7 +101,14 @@ describe('board Overview permissions, description and merged activity', () => {
       overrideAccess: false,
       data: { title: 'SECRET TASK', initialBoard: hiddenBoard, status: 'open', priority: 'normal' },
     })
-    for (let i = 0; i < 52; i++) await boardAudit(await req(), String(board), `Board event ${i}`)
+    await boardAudit(await req(), String(board), 'Board event 0')
+    // One live audited write exercises native authorization. The remaining
+    // historical rows exercise pagination, without repeating 51 full staff
+    // mutation workflows during fixture setup or increasing the hook timeout.
+    const fixtureDB = workspaceDB(await req())
+    await fixtureDB.batch(Array.from({ length: 51 }, (_, index) => fixtureDB
+      .prepare('INSERT INTO task_board_activity(board_id,actor_id,message) VALUES(?,?,?)')
+      .bind(board, users[0].id, `Board event ${index + 1}`)))
     // Equal timestamps exercise deterministic cross-collection cursor ordering.
     for (const table of [
       'task_board_activity',

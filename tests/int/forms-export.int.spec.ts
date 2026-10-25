@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// DOM environment is selected by the dom Vitest project.
 import { describe, expect, it } from 'vitest'
 import { unzipSync, strFromU8 } from 'fflate'
 import { csvDocument, xlsxDocument, exportRow, safeSpreadsheetText } from '@/forms/export-format'

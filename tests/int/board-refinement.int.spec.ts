@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, it, expect } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -11,7 +12,7 @@ describe('board completion, colors, grouped creation and formulas', () => {
     payload = await getPayload({ config })
     for (let i = 0; i < 2; i++)
       users.push(
-        await payload.create({
+        await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `refine-${Date.now()}-${i}`,

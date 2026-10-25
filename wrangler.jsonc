@@ -9,6 +9,7 @@
   "name": "vorti-blog",
   "vars": {
     "CONTENT_WORKSPACE_ENABLED": "true",
+    "CRM_EMAIL_LIVE_SEND_ENABLED": "false",
     "ORGANIZATION_ADMIN_ENABLED": "true",
   },
   "compatibility_date": "2025-08-15",
@@ -27,8 +28,8 @@
   "d1_databases": [
     {
       "binding": "D1",
-      "database_id": "28b5c157-b1e1-43a8-978c-a8266f861ad7",
-      "database_name": "vorti-blog-db",
+      "database_id": "2e5282ec-dc28-4408-bb39-bf60a2bf3311",
+      "database_name": "vorti-blog-reset-20261025",
       "remote": true,
     },
   ],
@@ -40,10 +41,10 @@
     // },
   ],
   "r2_buckets": [
-    { "binding": "WORKSPACE_FILES", "bucket_name": "vorti-workspace-private" },
+    { "binding": "WORKSPACE_FILES", "bucket_name": "vorti-workspace-reset-20261025" },
     {
       "binding": "R2",
-      "bucket_name": "vorti-blog","preview_bucket_name": "vorti-blog",
+      "bucket_name": "vorti-blog-reset-20261025","preview_bucket_name": "vorti-blog-reset-20261025",
     },
     // Create a R2 binding with the binding name "NEXT_INC_CACHE_R2_BUCKET"
     // {

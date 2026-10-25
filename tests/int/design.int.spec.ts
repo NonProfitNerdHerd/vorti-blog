@@ -1,3 +1,6 @@
+import { retireFixtureUser } from '../helpers/native-authority'
+import { fixtureRequest } from '../helpers/native-authority'
+import { createChapterUser } from '../helpers/native-authority'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -18,20 +21,20 @@ describe('Design Core integration', () => {
   const values = { hero: { headline: 'Original Headline', subheadline: 'Unchanged summary', primaryCTA: { label: 'Learn More', url: '/example' } } }
 
   it('uses native draft and publish status without replacing the published template', async () => {
-    const doc = await payload.create({ collection: 'design-templates', data: { name: 'Native lifecycle', allowedCollections: ['pages'], _status: 'published' } as never })
+    const doc = await payload.create({ req: await fixtureRequest(payload), collection: 'design-templates', data: { name: 'Native lifecycle', allowedCollections: ['pages'], _status: 'published' } as never })
     try {
       expect(doc.slug).toBe('native-lifecycle')
       expect(doc.status).toBe('published')
-      const draft = await payload.update({ collection: 'design-templates', id: doc.id, draft: true, data: { name: 'Native draft', _status: 'draft' } })
+      const draft = await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id, draft: true, data: { name: 'Native draft', _status: 'draft' } })
       expect(draft.status).toBe('draft')
-      const live = await payload.findByID({ collection: 'design-templates', id: doc.id, draft: false })
+      const live = await payload.findByID({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id, draft: false })
       expect(live.name).toBe('Native lifecycle')
       expect(live.status).toBe('published')
-      const published = await payload.update({ collection: 'design-templates', id: doc.id, data: { name: 'Native draft', _status: 'published' } })
+      const published = await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id, data: { name: 'Native draft', _status: 'published' } })
       expect(published.status).toBe('published')
-      await expect(payload.update({ collection: 'design-templates', id: doc.id, data: { allowedCollections: [] } })).rejects.toThrow()
-      await expect(payload.update({ collection: 'design-templates', id: doc.id, data: { name: ' ' } })).rejects.toThrow()
-    } finally { await payload.delete({ collection: 'design-templates', id: doc.id }) }
+      await expect(payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id, data: { allowedCollections: [] } })).rejects.toThrow()
+      await expect(payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id, data: { name: ' ' } })).rejects.toThrow()
+    } finally { await payload.delete({ req: await fixtureRequest(payload), collection: 'design-templates', id: doc.id }) }
   })
 
   it('renders structured Template Lexical content without exposing JSON', () => {
@@ -50,19 +53,19 @@ describe('Design Core integration', () => {
 
   beforeAll(async () => {
     payload = await getPayload({ config })
-    const type = await payload.create({ collection: 'design-block-types', data: {
+    const type = await payload.create({ req: await fixtureRequest(payload), collection: 'design-block-types', data: {
       name: 'Hero Board Test', slug: 'hero-board-test', rendererKey: 'hero-board', schemaVersion: 1, status: 'published', _status: 'published', fields: heroBoardFields as never,
     } })
     typeID = type.id
-    const feature = await payload.create({ collection: 'design-block-designs', data: {
+    const feature = await payload.create({ req: await fixtureRequest(payload), collection: 'design-block-designs', data: {
       name: 'Feature Test', slug: 'feature-test', blockType: typeID, status: 'published', _status: 'published', design: heroBoardDesigns[3].design as never,
     } })
     featureID = feature.id
-    const split = await payload.create({ collection: 'design-block-designs', data: {
+    const split = await payload.create({ req: await fixtureRequest(payload), collection: 'design-block-designs', data: {
       name: 'Split Test', slug: 'split-test', blockType: typeID, status: 'published', _status: 'published', design: heroBoardDesigns[2].design as never,
     } })
     splitID = split.id
-    const template = await payload.create({ collection: 'design-templates', data: {
+    const template = await payload.create({ req: await fixtureRequest(payload), collection: 'design-templates', data: {
       name: 'Test Template', slug: 'test-template', status: 'published', _status: 'published', allowedCollections: ['posts'],
       sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: featureID, required: true }],
     } })
@@ -70,10 +73,10 @@ describe('Design Core integration', () => {
   })
 
   afterAll(async () => {
-    if (templateID) await payload.delete({ collection: 'design-templates', id: templateID })
-    if (featureID) await payload.delete({ collection: 'design-block-designs', id: featureID })
-    if (splitID) await payload.delete({ collection: 'design-block-designs', id: splitID })
-    if (typeID) await payload.delete({ collection: 'design-block-types', id: typeID })
+    if (templateID) await payload.delete({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID })
+    if (featureID) await payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: featureID })
+    if (splitID) await payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: splitID })
+    if (typeID) await payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-types', id: typeID })
   })
 
   it('separates designer permissions from editor permissions', async () => {
@@ -81,7 +84,7 @@ describe('Design Core integration', () => {
     expect(isDesignManager({ role: 'designer' })).toBe(true)
     expect(isDesignManager({ role: 'editor' })).toBe(false)
     expect(isDesignManager(null)).toBe(false)
-    const editor = await payload.create({ collection: 'users', data: { username: ('design-editor-test@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'design-editor-test@example.invalid', password: 'local-validation-password', role: 'editor' } })
+    const editor = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: ('design-editor-test@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'design-editor-test@example.invalid', password: 'local-validation-password', role: 'editor' } })
     try {
       await expect(payload.update({ collection: 'design-block-designs', id: featureID, data: { name: 'Unauthorized edit' }, overrideAccess: false, user: editor })).rejects.toThrow()
       await expect(payload.update({ collection: 'design-templates', id: templateID, data: { name: 'Unauthorized edit' }, overrideAccess: false, user: editor })).rejects.toThrow()
@@ -94,9 +97,9 @@ describe('Design Core integration', () => {
         title: 'Editor Template Post', slug: 'editor-template-post', author: editor.id, content: body,
         designTemplate: templateID, templateValues: values, _status: 'published',
       } })
-      await payload.delete({ collection: 'posts', id: post.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'posts', id: post.id })
     } finally {
-      await payload.delete({ collection: 'users', id: editor.id })
+      await retireFixtureUser(payload, editor.id)
     }
   })
 
@@ -115,14 +118,14 @@ describe('Design Core integration', () => {
     expect(initial.sections[0].blockDesign.id).toBe(featureID)
     expect(initial.sections[0].values.headline).toBe('Original Headline')
 
-    await payload.update({ collection: 'design-block-designs', id: featureID, draft: true, data: { design: { ...heroBoardDesigns[3].design, alignment: 'right' } } })
+    await payload.update({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: featureID, draft: true, data: { design: { ...heroBoardDesigns[3].design, alignment: 'right' } } })
     expect((await resolveContentTemplate(store, content)).sections[0].blockDesign.design.alignment).toBe(heroBoardDesigns[3].design.alignment)
-    await payload.update({ collection: 'design-block-designs', id: featureID, data: { _status: 'published', design: { ...heroBoardDesigns[3].design, alignment: 'right' } } })
+    await payload.update({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: featureID, data: { _status: 'published', design: { ...heroBoardDesigns[3].design, alignment: 'right' } } })
     expect((await resolveContentTemplate(store, content)).sections[0].blockDesign.design.alignment).toBe('right')
 
-    await payload.update({ collection: 'design-templates', id: templateID, draft: true, data: { sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true }] } })
+    await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, draft: true, data: { sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true }] } })
     expect((await resolveContentTemplate(store, content)).sections[0].blockDesign.id).toBe(featureID)
-    await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true }] } })
+    await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true }] } })
     const next = await resolveContentTemplate(store, content)
     expect(next.sections[0].blockDesign.id).toBe(splitID)
     expect(next.sections[0].values).toEqual(values.hero)
@@ -133,25 +136,25 @@ describe('Design Core integration', () => {
     const source = createPayloadDependencySource(payload, [])
     const dependencies = await getBlockDesignDependencies(source, splitID)
     expect(dependencies.templates).toEqual(expect.arrayContaining([expect.objectContaining({ id: templateID })]))
-    await expect(payload.delete({ collection: 'design-block-designs', id: splitID })).rejects.toThrow('referenced')
-    await expect(payload.update({ collection: 'design-block-designs', id: splitID, data: { status: 'archived' } })).rejects.toThrow('referenced')
-    await expect(payload.delete({ collection: 'design-block-types', id: typeID })).rejects.toThrow('referenced')
+    await expect(payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: splitID })).rejects.toThrow('referenced')
+    await expect(payload.update({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: splitID, data: { status: 'archived' } })).rejects.toThrow('referenced')
+    await expect(payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-types', id: typeID })).rejects.toThrow('referenced')
   })
 
   it('resolves a real Post through published Template and Design changes', async () => {
-    const author = await payload.create({ collection: 'users', data: { username: ('stage3-post@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'stage3-post@example.invalid', password: 'local-validation-password', role: 'editor' } })
-    const classic = await payload.create({ collection: 'design-block-designs', data: {
+    const author = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: ('stage3-post@example.invalid').split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32), email: 'stage3-post@example.invalid', password: 'local-validation-password', role: 'editor' } })
+    const classic = await payload.create({ req: await fixtureRequest(payload), collection: 'design-block-designs', data: {
       name: 'Classic Test', slug: 'classic-stage3-test', blockType: typeID, status: 'published', _status: 'published', design: { alignment: 'left' },
     } })
     const content = { root: { type: 'root' as const, format: '' as const, indent: 0, version: 1, direction: 'ltr' as const,
       children: [{ type: 'paragraph', format: '' as const, indent: 0, version: 1, direction: 'ltr' as const,
         children: [{ type: 'text', text: 'Post body', format: 0, mode: 'normal', style: '', detail: 0, version: 1 }] }] } }
-    await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: featureID, required: true, allowDesignOverride: true }] } })
-    const post = await payload.create({ collection: 'posts', data: { title: 'Stage 3 Post', slug: 'stage3-post', author: author.id,
+    await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: featureID, required: true, allowDesignOverride: false }] } })
+    const post = await payload.create({ req: await fixtureRequest(payload), collection: 'posts', data: { title: 'Stage 3 Post', slug: 'stage3-post', author: author.id,
       content, designTemplate: templateID, templateValues: values, designOverrides: {}, _status: 'published' } })
     const store = createPayloadDesignStore(payload)
     async function resolved() {
-      const current = await payload.findByID({ collection: 'posts', id: post.id, depth: 0 })
+      const current = await payload.findByID({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, depth: 0 })
       return resolveContentTemplate(store, { id: current.id, template: templateID,
         templateValues: current.templateValues as typeof values, designOverrides: current.designOverrides as Record<string, number | null> })
     }
@@ -160,33 +163,41 @@ describe('Design Core integration', () => {
       const markup = renderToStaticMarkup(createElement(PostDesignSections, { sections: await resolvePostDesign(post) }))
       expect(markup).toContain('Original Headline')
       expect(markup).toContain('hero-board')
-      await payload.update({ collection: 'design-block-designs', id: featureID, data: { _status: 'published', design: { alignment: 'center' } } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: featureID, data: { _status: 'published', design: { alignment: 'center' } } })
       expect((await resolved()).sections[0].blockDesign.design.alignment).toBe('center')
-      await payload.update({ collection: 'design-templates', id: templateID, draft: true, data: { sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true }] } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, draft: true, data: { sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true }] } })
       expect((await resolved()).sections[0].blockDesign.id).toBe(featureID)
-      await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true }] } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [{ key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true }] } })
       expect((await resolved()).sections[0].blockDesign.id).toBe(splitID)
-      const override = () => payload.update({ collection: 'posts', id: post.id, data: { designOverrides: { hero: classic.id } } })
+      const override = async () => payload.update({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, data: { _status: 'published', designOverrides: { hero: classic.id } } })
       await expect(override()).rejects.toThrow('controlled by the template')
       expect((await resolved()).sections[0].blockDesign.id).toBe(splitID)
-      await payload.update({ collection: 'design-block-designs', id: classic.id, data: { _status: 'published', design: { alignment: 'right' } } })
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: classic.id, data: { _status: 'published', design: { alignment: 'right' } } })
       expect((await resolved()).sections[0].blockDesign.id).toBe(splitID)
       expect((await resolved()).sections[0].values.headline).toBe('Original Headline')
-      await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [
         { key: 'hero', name: 'Hero', blockType: typeID, blockDesign: splitID, required: true, allowDesignOverride: true },
         { key: 'introduction', name: 'Introduction', blockType: typeID, blockDesign: featureID, required: true },
       ] } })
       expect((await resolved()).sections).toHaveLength(2)
       expect((await resolved()).sections[1].values).toEqual({})
-      await expect(payload.update({ collection: 'posts', id: post.id, data: { title: 'Should require Introduction' } })).rejects.toThrow('headline')
-      await payload.update({ collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [] } })
+      const retained = await payload.update({ req: await fixtureRequest(payload), collection: 'posts', id: post.id,
+        data: { _status: 'published', title: 'Retains its frozen required fields' } })
+      expect(retained.templateSnapshot).toMatchObject({ template: { sections: [{ key: 'hero' }] } })
+      // New content uses the new required section; existing Posts retain their
+      // historical definition and remain publishable after a Template change.
+      await expect(payload.create({ req: await fixtureRequest(payload), collection: 'posts', data: {
+        title: 'New Post requires Introduction', slug: `new-introduction-${Date.now()}`, author: author.id, content, designTemplate: templateID,
+        templateValues: values, _status: 'published',
+      } })).rejects.toThrow('headline')
+      await payload.update({ req: await fixtureRequest(payload), collection: 'design-templates', id: templateID, data: { _status: 'published', sections: [] } })
       expect((await resolved()).sections).toHaveLength(0)
-      const stored = await payload.findByID({ collection: 'posts', id: post.id, depth: 0 })
+      const stored = await payload.findByID({ req: await fixtureRequest(payload), collection: 'posts', id: post.id, depth: 0 })
       expect((stored.templateValues as typeof values).hero.headline).toBe('Original Headline')
     } finally {
-      await payload.delete({ collection: 'posts', id: post.id })
-      await payload.delete({ collection: 'design-block-designs', id: classic.id })
-      await payload.delete({ collection: 'users', id: author.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'posts', id: post.id })
+      await payload.delete({ req: await fixtureRequest(payload), collection: 'design-block-designs', id: classic.id })
+      await retireFixtureUser(payload, author.id)
     }
   }, 60_000)
 })

@@ -1,6 +1,6 @@
-// @vitest-environment jsdom
+// DOM environment is selected by the dom Vitest project.
 import { webcrypto } from 'node:crypto'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { Config, PayloadRequest } from 'payload'
 import { crmImportFixture } from '../helpers/crm-import-fixture'
@@ -31,6 +31,14 @@ it('completes upload, preview, staging, mapping, bulk review, explicit approval 
     bucket = importStorage(),
     wakes: CRMJobWake[] = []
   let pauseDispatch = false
+  let resolveContext!: () => void
+  let resolveInitialPage!: () => void
+  const contextReady = new Promise<void>((resolve) => {
+    resolveContext = resolve
+  })
+  const initialPageReady = new Promise<void>((resolve) => {
+    resolveInitialPage = resolve
+  })
   try {
     const runner = new CRMJobs(fixture.db),
       handlers = { 'import-apply': importJob(fixture.db, bucket.storage) },
@@ -54,14 +62,27 @@ it('completes upload, preview, staging, mapping, bulk review, explicit approval 
         method = (init?.method || 'GET').toLowerCase(),
         endpoint = config.endpoints!.find((entry) => entry.path === path && entry.method === method)
       if (!endpoint) throw Error(`Unexpected endpoint ${method} ${path}`)
-      return endpoint.handler({
+      const response = await endpoint.handler({
         url: incoming.url,
         headers: incoming.headers,
         body: incoming.body,
         user: { id: 1, collection: 'users' },
       } as PayloadRequest)
+      if (method === 'get' && path === '/crm/imports') {
+        if (url.searchParams.get('view') === 'context') resolveContext()
+        else if (!url.searchParams.has('view')) resolveInitialPage()
+      }
+      return response
     })
     render(<ImportWorkspace api="/api" site="default" />)
+    // Wait for the real authority and list handlers, then flush each dependent
+    // effect. Query polling should not impose a one-second database deadline.
+    await act(async () => {
+      await contextReady
+    })
+    await act(async () => {
+      await initialPageReady
+    })
     fireEvent.click(await screen.findByRole('button', { name: 'Start an import' }))
     fireEvent.change(screen.getByLabelText('Import name'), {
       target: { value: 'Connected migration' },

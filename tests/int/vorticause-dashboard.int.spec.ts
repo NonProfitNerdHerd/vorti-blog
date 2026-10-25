@@ -1,3 +1,4 @@
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -15,7 +16,7 @@ describe('VortiCause Dashboard authorized workspace queries', () => {
     payload = await getPayload({ config })
     for (let i = 0; i < 2; i++)
       users.push(
-        await payload.create({
+        await createChapterUser(payload, 'editor', {
           collection: 'users',
           data: {
             username: `dash-${Date.now()}-${i}`,

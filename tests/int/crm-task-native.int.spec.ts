@@ -1,3 +1,4 @@
+import { grantFixtureMembership } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
@@ -5,13 +6,10 @@ import { crmTimelineSchema } from '../helpers/crm-timeline-fixture'
 import { applyCRMTaskSchemaV1 } from '@/crm/task-schema-v1'
 import { CRMTasks } from '@/crm/tasks'
 import { ContactRepository } from '@/crm/contacts'
-import { OrganizationRepository } from '@/organizations/repository'
 import { cmsSiteContext } from '@/organizations/cms-scope'
 import { ContactTimeline } from '@/crm/timeline'
-import {
-  workspaceProjectionSchemaV1,
-  workspaceProjectionBackfillV1,
-} from '@/organizations/workspace-projection-v1'
+import { workspaceEndpoint } from '@/review/workspace-service'
+import { boardActivity } from '@/review/board-overview-service'
 
 let payload: Payload, db: D1Database, actor: number, assignee: number, contact: string
 describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-bridge-'))(
@@ -36,44 +34,10 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
             },
           }),
         )
+      await grantFixtureMembership(payload, users[0], 'administrator')
+      await grantFixtureMembership(payload, users[1], 'editor')
       actor = users[0].id
       assignee = users[1].id
-      for (const statement of crmTimelineSchema) await db.prepare(statement).run()
-      for (const table of ['vc_crm_task_contexts', 'vc_crm_task_constituents']) {
-        const physical = await db
-          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
-          .bind(table)
-          .first()
-        if (!physical) continue
-        expect(
-          (await db.prepare(`SELECT count(*) AS n FROM ${table}`).first<{ n: number }>())!.n,
-        ).toBe(0)
-        await db.prepare(`DROP TABLE ${table}`).run()
-      }
-      for (const statement of [...workspaceProjectionSchemaV1, ...workspaceProjectionBackfillV1])
-        await db.prepare(statement).run()
-      await applyCRMTaskSchemaV1(
-        async (statement) => db.prepare(statement).run(),
-        async (table = 'review_tasks') =>
-          (await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>()).results,
-        async () =>
-          (
-            await db
-              .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-              .all<{ name: string }>()
-          ).results,
-      )
-      const site = await db
-        .prepare("SELECT revision FROM vc_sites WHERE id='default'")
-        .first<{ revision: number }>()
-      await new OrganizationRepository(db, actor).setMembership({
-        site: 'default',
-        user: assignee,
-        role: 'editor',
-        active: true,
-        expectedRevision: site!.revision,
-        operationKey: crypto.randomUUID(),
-      })
       contact = String(
         (
           await new ContactRepository(db, actor).create({
@@ -154,6 +118,29 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
           .bind(created.id)
           .first<{ actor_id: number }>())!.actor_id,
       ).toBe(assignee)
+      const boardReq = await createLocalReq(
+        { user: { ...user, collection: 'users' }, context: cmsSiteContext('default') },
+        payload,
+      )
+      const board = await payload.create({
+        collection: 'task-boards',
+        req: boardReq,
+        overrideAccess: false,
+        data: { name: 'Fictional CRM follow-ups', visibility: 'private', owner: actor },
+      })
+      const sharing = await createLocalReq(
+        { user: { ...user, collection: 'users' }, context: cmsSiteContext('default') },
+        payload,
+      )
+      sharing.routeParams = { id: String(created.id) }
+      sharing.json = async () => ({ action: 'share', board: board.id, confirm: true })
+      expect((await workspaceEndpoint.handler(sharing)).ok).toBe(true)
+      const activity = await boardActivity(
+        boardReq,
+        String(board.id),
+        new URLSearchParams({ limit: '100' }),
+      )
+      expect(activity.docs.some((row) => row.task === created.id)).toBe(true)
       await db
         .prepare(
           'UPDATE vc_crm_affiliations SET archived=1,revision=revision+1 WHERE constituent_id=?',
@@ -168,6 +155,13 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
         where: { id: { equals: created.id } },
       })
       expect(count.totalDocs).toBe(0)
+      const revokedActivity = await boardActivity(
+        boardReq,
+        String(board.id),
+        new URLSearchParams({ limit: '100' }),
+      )
+      expect(revokedActivity.docs.every((row) => row.task !== created.id)).toBe(true)
+      expect(JSON.stringify(revokedActivity)).not.toContain(intent.title)
     }, 180000)
   },
 )

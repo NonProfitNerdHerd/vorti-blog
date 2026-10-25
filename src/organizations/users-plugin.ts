@@ -85,6 +85,9 @@ export const tenantUsers = (config: Config): Config => ({
             type: 'join',
             collection: 'platform-user-sites' as CollectionSlug,
             on: 'user',
+            // SQL predicates use this join, but authentication must never
+            // hydrate its internal composite IDs into account responses.
+            maxDepth: 0,
             admin: { hidden: true },
             access: { read: () => false },
           },
@@ -163,6 +166,7 @@ export const tenantUsers = (config: Config): Config => ({
           afterRead: [
             ...(collection.hooks?.afterRead || []),
             async ({ doc, req }) => {
+              delete doc.siteDirectory
               if (migrationRequest(req)) return doc
               if (
                 (!req.user && !(req.context as Record<symbol, unknown>)[directoryList]) ||

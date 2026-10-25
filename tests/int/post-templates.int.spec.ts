@@ -1,3 +1,5 @@
+import { fixtureDerivedRequest } from '../helpers/native-authority'
+import { createChapterUser } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type CollectionSlug, type Payload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
@@ -10,7 +12,7 @@ describe('Posts and reusable starting templates', () => {
   const stamp = Date.now()
   beforeAll(async () => {
     payload = await getPayload({ config })
-    const user = await payload.create({ collection: 'users', data: { username: `templates-${stamp}`, email: `templates-${stamp}@example.invalid`, password: 'local-template-test', role: 'administrator' } })
+    const user = await createChapterUser(payload, 'administrator', { collection: 'users', data: { username: `templates-${stamp}`, email: `templates-${stamp}@example.invalid`, password: 'local-template-test', role: 'administrator' } })
     req = await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
   })
   it('has no Post Type collection or fields and keeps workspace collections', () => {
@@ -59,10 +61,10 @@ describe('Posts and reusable starting templates', () => {
     expect(result.items).toHaveLength(3)
     expect(result.items[0].url).toBe(`/posts/event-${stamp}`)
     await payload.update({ collection: 'posts', id: post.id, req, draft: true, data: { event: { schedule: { ...schedule, start: '2026-10-12T12:00', end: '2026-10-12T13:00' } } } })
-    const series = await payload.find({ collection: 'event-series', where: { post: { equals: post.id } } })
+    const series = await payload.find({ req: await fixtureDerivedRequest(payload), collection: 'event-series', where: { post: { equals: post.id } } })
     expect(series.docs[0].start).toBe('2026-10-12T14:00:00.000Z')
     await payload.update({ collection: 'posts', id: post.id, req, data: { event: null, _status: 'published' } })
-    expect((await payload.count({ collection: 'event-series', where: { post: { equals: post.id } } })).totalDocs).toBe(0)
+    expect((await payload.count({ req: await fixtureDerivedRequest(payload), collection: 'event-series', where: { post: { equals: post.id } } })).totalDocs).toBe(0)
   })
   it('requires an enabled event schedule for publication while permitting unfinished drafts', async () => {
     const data = { title: 'Incomplete event', slug: `incomplete-${stamp}`, author: req.user!.id, event: {}, _status: 'published' as const }

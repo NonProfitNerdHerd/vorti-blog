@@ -1,6 +1,9 @@
+import { fixtureRequest } from '../helpers/native-authority'
+import { grantFixtureMembership, fixtureOperator } from '../helpers/native-authority'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { createLocalReq, getPayload, type Payload, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
+import type { User } from '@/payload-types'
 
 describe('Document review workflow and access', () => {
   let payload: Payload, editor: PayloadRequest, admin: PayloadRequest, other: PayloadRequest
@@ -8,18 +11,31 @@ describe('Document review workflow and access', () => {
   beforeAll(async () => {
     payload = await getPayload({ config })
     const suffix = Date.now()
-    const users = await Promise.all(
-      ['editor', 'administrator', 'editor'].map((role, i) =>
-        payload.create({
-          collection: 'users',
-          data: { username: (`review-${suffix}-${i}@example.invalid`).split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(-32),
-            email: `review-${suffix}-${i}@example.invalid`,
-            password: 'local-review-test-password',
-            role: role as 'editor' | 'administrator',
-          },
-        }),
-      ),
-    )
+    const users: User[] = []
+    // Account provisioning changes chapter authority; create each fixture
+    // under a fresh request after the preceding provisioning has completed.
+    for (const [i, role] of ['editor', 'administrator', 'editor'].entries()) {
+      users.push(
+        i === 1
+          ? await fixtureOperator(payload)
+          : await payload.create({
+              req: await fixtureRequest(payload),
+              collection: 'users',
+              data: {
+                username: `review-${suffix}-${i}@example.invalid`
+                  .split('@')[0]
+                  .toLowerCase()
+                  .replace(/[^a-z0-9._-]/g, '-')
+                  .slice(-32),
+                email: `review-${suffix}-${i}@example.invalid`,
+                password: 'local-review-test-password',
+                role: role as 'editor' | 'administrator',
+              },
+            }),
+      )
+    }
+    for (const [index, user] of users.entries())
+      if (index !== 1) await grantFixtureMembership(payload, user, 'editor')
     editor = await createLocalReq({ user: { ...users[0], collection: 'users' } }, payload)
     admin = await createLocalReq({ user: { ...users[1], collection: 'users' } }, payload)
     other = await createLocalReq({ user: { ...users[2], collection: 'users' } }, payload)
@@ -55,7 +71,15 @@ describe('Document review workflow and access', () => {
       where: { task: { equals: task } },
     })
     expect(activity.docs[0].message).toBe('Task created')
-    expect((await payload.findByID({ collection: 'pages', id: page }))._status).toBe('draft')
+    expect(
+      (
+        await payload.findByID({
+          req: await fixtureRequest(payload),
+          collection: 'pages',
+          id: page,
+        })
+      )._status,
+    ).toBe('draft')
   })
   it('enforces subtask inheritance, depth, and completion', async () => {
     child = (
@@ -73,7 +97,12 @@ describe('Document review workflow and access', () => {
         },
       })
     ).id
-    const sub = await payload.findByID({ collection: 'review-tasks', id: child, depth: 0 })
+    const sub = await payload.findByID({
+      req: await fixtureRequest(payload),
+      collection: 'review-tasks',
+      id: child,
+      depth: 0,
+    })
     expect(sub.documentID).toBe(String(page))
     expect(sub.documentType).toBe('pages')
     await expect(
@@ -121,7 +150,15 @@ describe('Document review workflow and access', () => {
       overrideAccess: false,
       data: { status: 'open' },
     })
-    expect((await payload.findByID({ collection: 'review-tasks', id: task })).status).toBe('open')
+    expect(
+      (
+        await payload.findByID({
+          req: await fixtureRequest(payload),
+          collection: 'review-tasks',
+          id: task,
+        })
+      ).status,
+    ).toBe('open')
   })
   it('denies anonymous access and forged document references', async () => {
     await expect(
@@ -175,7 +212,14 @@ describe('Document review workflow and access', () => {
       })
     ).id
     expect(
-      (await payload.findByID({ collection: 'review-comments', id: comment, depth: 0 })).author,
+      (
+        await payload.findByID({
+          req: await fixtureRequest(payload),
+          collection: 'review-comments',
+          id: comment,
+          depth: 0,
+        })
+      ).author,
     ).toBe(editor.user!.id)
     await expect(
       payload.update({
@@ -231,7 +275,7 @@ describe('Document review workflow and access', () => {
     await expect(
       payload.delete({ collection: 'review-tasks', id: task, req: admin, overrideAccess: false }),
     ).rejects.toThrow()
-    await payload.delete({ collection: 'pages', id: page })
+    await payload.delete({ req: await fixtureRequest(payload), collection: 'pages', id: page })
     await expect(
       payload.findByID({
         collection: 'review-tasks',

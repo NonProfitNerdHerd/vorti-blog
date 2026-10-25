@@ -1,5 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+// Loader tests supply their own data; importing the application must not start
+// an unrelated workerd database or require a Next request.
+vi.mock('@/payload.config', () => ({ default: Promise.resolve({}) }))
 import type { Navigation, SiteSetting, SiteTemplate } from '@/payload-types'
 import { resolveSiteShellFromLoaders, selectPublishedSiteTemplate } from '@/lib/siteTemplate'
 import { compileSiteTemplateCSS, SiteTemplateFooter, SiteTemplateHeader, SiteTemplateStyles } from '@/components/site-shell/SiteTemplateShell'
