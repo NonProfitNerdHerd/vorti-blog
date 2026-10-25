@@ -1,5 +1,6 @@
 import type { InformationCategory } from '../organizations/policy'
 import type { TimelineGroup } from './timeline-model'
+import { timelineAttachmentSources } from './timeline-attachments'
 
 type Source = { group: TimelineGroup; sql: string }
 const quote = (value: string) => `'${value.replaceAll("'", "''")}'`
@@ -232,22 +233,9 @@ export function timelineSources(read: Set<InformationCategory>) {
       `SELECT 'email:'||e.id,e.created_at,'correspondence','Email delivery event',d.subject,e.event,NULL,'correspondence',d.id,NULL,NULL,NULL,NULL
       FROM vc_crm_email_events e JOIN vc_crm_email_outbox o ON o.id=e.outbox_id JOIN vc_crm_documents d ON d.id=o.document_id AND d.site_id=o.site_id CROSS JOIN chosen q WHERE ${documentWhere}`,
     )
-    const categories = [
-      'communications',
-      'finances',
-      'memberships',
-      'volunteer-experience',
-      'volunteer-hours',
-      'restricted-activity',
-    ].filter((c) => read.has(c as InformationCategory))
-    add(
-      'attachments',
-      `SELECT 'attachment:'||e.id,e.created_at,'attachments','Private attachment '||e.action,f.filename,NULL,NULL,'attachment',f.id,NULL,NULL,NULL,NULL
-      FROM vc_crm_attachment_events e JOIN vc_crm_attachments f ON f.id=e.attachment_id CROSS JOIN chosen q
-      WHERE f.site_id=q.site_id AND f.record_type='contact' AND f.record_id=q.contact_id
-      AND (f.ready_at IS NOT NULL OR f.created_by=q.actor_id) AND f.category IN(${categories.map(() => '?').join(',')})`,
-    )
-    params.push(...categories)
   }
+  const attachments = timelineAttachmentSources(read)
+  for (const sql of attachments.sources) add('attachments', sql)
+  params.push(...attachments.params)
   return { sources, params }
 }

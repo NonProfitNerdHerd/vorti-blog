@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import type { ContactTimeline as TimelineService } from './timeline'
+import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { crmRecordTypes, type CRMRecordType } from './record-model'
 import {
   timelineLabels,
   type TimelineEvent,
@@ -155,14 +157,22 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
                     </p>
                   )}
                   {row.detail && <p style={{ whiteSpace: 'pre-wrap' }}>{row.detail}</p>}
-                  {onOpen && (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => onOpen(destination(row))}
-                    >
-                      View {timelineLabels[row.group].toLowerCase()}
-                    </button>
+                  {row.group === 'attachments' &&
+                  crmRecordTypes.includes(row.targetType as CRMRecordType) ? (
+                    <RecordAttachmentLink
+                      site={site}
+                      link={{ type: row.targetType as CRMRecordType, id: row.targetID }}
+                    />
+                  ) : (
+                    onOpen && (
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => onOpen(destination(row))}
+                      >
+                        View {timelineLabels[row.group].toLowerCase()}
+                      </button>
+                    )
                   )}
                 </article>
               </li>

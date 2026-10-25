@@ -35,6 +35,12 @@ test('typed record files persist in their pinned tab while the original househol
     })
   ).id
   const refs: Array<{ type: CRMRecordType; id: string }> = [{ type: 'household', id: house }]
+  await post('households', {
+    action: 'add-member',
+    id: house,
+    expectedRevision: 1,
+    values: { constituent: contact, role: 'Member', startedOn: '2026-01-01' },
+  })
   const fund = (
     await post('finance', { action: 'create-fund', name: `Fictional file fund ${token}` })
   ).id
@@ -137,6 +143,16 @@ test('typed record files persist in their pinned tab while the original househol
       })
     ).id,
   })
+  await post('volunteers', {
+    action: 'participate',
+    values: {
+      activity: refs.at(-1)!.id,
+      activityRevision: 1,
+      constituent: contact,
+      state: 'registered',
+      notes: '',
+    },
+  })
 
   await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
   await page
@@ -207,5 +223,35 @@ test('typed record files persist in their pinned tab while the original househol
     giftFiles.getByRole('link', { name: 'Download Fictional-gift.txt', exact: true }),
   ).toBeVisible()
   await giftFiles.close()
+  await dialog.getByRole('tab', { name: 'Timeline', exact: true }).click()
+  const timeline = dialog.getByRole('region', { name: 'Authorized contact timeline' })
+  await timeline.getByLabel('Timeline area').selectOption('attachments')
+  await expect(timeline.getByText('14 authorized events. Showing 14 on this page.')).toBeVisible()
+  for (const ref of refs)
+    await expect(
+      timeline.getByText(`Related record: Fictional-${ref.type}.txt`, { exact: true }),
+    ).toHaveCount(2)
+  const giftEvent = timeline
+    .getByRole('article')
+    .filter({ hasText: 'Related record: Fictional-gift.txt' })
+    .first()
+  const [historyFiles] = await Promise.all([
+    page.context().waitForEvent('page'),
+    giftEvent
+      .getByRole('link', { name: 'Private record attachments (opens in another tab)', exact: true })
+      .click(),
+  ])
+  await expect(historyFiles).toHaveURL(/recordType=gift/)
+  const historyURL = new URL(historyFiles.url())
+  expect(historyURL.searchParams.get('site')).toBe('default')
+  expect(historyURL.searchParams.get('recordID')).toBe(gift)
+  await expect(
+    historyFiles.getByRole('link', { name: 'Download Fictional-gift.txt', exact: true }),
+  ).toBeVisible()
+  await historyFiles.close()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    .toBe(true)
   await dialog.getByRole('button', { name: 'Close contact', exact: true }).click()
 })
