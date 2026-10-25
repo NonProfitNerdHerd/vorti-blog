@@ -11,6 +11,8 @@ import { OpportunityWorkspace } from './OpportunityWorkspace'
 import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { Gutter, useConfig } from '@payloadcms/ui'
+import { useSearchParams } from 'next/navigation'
+import { RecordAttachmentPage } from './RecordAttachmentPage'
 export function CRMWorkspace() {
   const [view, setView] = useState<
     | 'contacts'
@@ -24,6 +26,7 @@ export function CRMWorkspace() {
   >('contacts')
   const { config } = useConfig()
   const { binding } = useAdminSite()
+  const params = useSearchParams()
   const navigate = (next: typeof view) => {
     if (
       next !== view &&
@@ -31,6 +34,22 @@ export function CRMWorkspace() {
         window.confirm('Discard unsaved changes before changing CRM sections?'))
     )
       setView(next)
+  }
+  if (params.get('view') === 'attachments') {
+    const requested = params.get('site')
+    if (!requested || requested !== binding?.site.id)
+      return (
+        <Gutter>
+          <p role="alert">Open attachments with their authorized chapter selected.</p>
+        </Gutter>
+      )
+    return (
+      <RecordAttachmentPage
+        site={requested}
+        type={params.get('recordType')}
+        id={params.get('recordID')}
+      />
+    )
   }
   return (
     <>

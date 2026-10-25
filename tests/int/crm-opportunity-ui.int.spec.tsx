@@ -143,7 +143,8 @@ it('waits for the selected pipeline stages before opening a new opportunity', as
     ids.push(((await response.json()) as { doc: { id: string } }).doc.id)
   }
   render(<OpportunityWorkspace api="/api" site="default" contact={contact} />)
-  await screen.findByRole('button', { name: 'Create opportunity' })
+  // The real scoped list/stage queries can outlast the default one-second DOM wait during a Worker build.
+  await screen.findByRole('button', { name: 'Create opportunity' }, { timeout: 10000 })
   const picker = screen.getByRole('combobox', { name: /^Pipeline$/ })
   if (!(picker instanceof HTMLSelectElement)) throw new Error('Pipeline selector is required.')
   const other = ids.find((id) => id !== picker.value)!

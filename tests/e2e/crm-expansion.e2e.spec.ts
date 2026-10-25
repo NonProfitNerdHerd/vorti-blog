@@ -42,6 +42,12 @@ test('household, relationship, communication and fundraising editors persist in 
   await household.getByLabel('Name', { exact: true }).fill(`Household ${token}`)
   await household.getByLabel('Mailing address').fill('123 Fictional Lane')
   await household.getByRole('button', { name: 'Save household', exact: true }).click()
+  await expect(
+    household.getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
+  ).toBeVisible()
   await household.getByRole('searchbox', { name: 'Search contact', exact: true }).fill(contactName)
   await household
     .getByRole('combobox', { name: 'Contact', exact: true })
@@ -189,6 +195,12 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await expect(page.getByLabel('Installment 2 date')).toHaveValue('2026-02-28')
   await page.getByRole('button', { name: 'Save giving record' }).click()
   const detail = page.getByRole('region', { name: 'Giving record details' })
+  await expect(
+    detail.getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
+  ).toBeVisible()
   const value = (label: string) =>
     detail
       .locator('dt')
@@ -228,6 +240,14 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await page.getByRole('button', { name: 'Use type term length' }).click()
   await page.getByRole('button', { name: 'Save membership term' }).click()
   await expect(page.getByRole('region', { name: 'Membership term details' })).toBeVisible()
+  await expect(
+    page
+      .getByRole('region', { name: 'Membership term details' })
+      .getByRole('link', {
+        name: 'Private record attachments (opens in another tab)',
+        exact: true,
+      }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Manage recorded dues payments' }).click()
   await page.getByRole('button', { name: 'Open membership dues' }).click()
   await expect(value('Recorded payment credit')).toHaveText('USD 0.00')
@@ -278,6 +298,12 @@ test('recurring expectations pause and resume without recording revenue', async 
   await page.getByLabel('Ends on (optional)').fill('2026-04-30')
   await page.getByRole('button', { name: 'Save giving record' }).click()
   const detail = page.getByRole('region', { name: 'Giving record details' })
+  await expect(
+    detail.getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
+  ).toBeVisible()
   const expected = detail
     .locator('dt')
     .filter({ hasText: /^Expected$/ })

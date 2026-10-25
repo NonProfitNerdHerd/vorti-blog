@@ -1,4 +1,5 @@
 'use client'
+import { RecordAttachmentLink } from './RecordAttachmentLink'
 /* eslint-disable react-hooks/set-state-in-effect -- Fetch explicitly scoped membership lists. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
@@ -697,6 +698,7 @@ export function MembershipWorkspace({
           <h3>
             {detail.doc.label} — {detail.doc.type_name}
           </h3>
+          <RecordAttachmentLink site={site} link={{ type: 'membership', id: detail.doc.id }} />
           <p>
             {detail.doc.starts_on} through {detail.doc.ends_on};{' '}
             {membershipStatus(detail.doc, asOf)}. Dues {detail.doc.currency}{' '}

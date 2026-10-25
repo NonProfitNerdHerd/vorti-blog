@@ -229,6 +229,7 @@ function PrivateAttachments({ api, site, link, onDirty, onSaving, onDenied }: Pr
   return (
     <section className="vc-crm-domain" aria-label="Private CRM attachments">
       <h2>Private attachments</h2>
+      {page && <p>Related record: {page.record.label}</p>}
       <p>
         Files require both record access and their selected information category. Archived published
         files remain available in history.

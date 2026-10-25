@@ -45,6 +45,12 @@ test('opportunity pipeline, explicit financial links and stage history persist i
   await editor.getByLabel('Next action date').fill('2026-11-01')
   await editor.getByRole('button', { name: 'Save opportunity' }).click()
   await page.getByRole('button', { name: proposal, exact: true }).click()
+  await expect(
+    editor.getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
+  ).toBeVisible()
   await editor
     .getByRole('combobox', { name: 'Opportunity stage', exact: true })
     .selectOption({ label: 'Received' })

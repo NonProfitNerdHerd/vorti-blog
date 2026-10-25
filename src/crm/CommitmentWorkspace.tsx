@@ -1,4 +1,5 @@
 'use client'
+import { RecordAttachmentLink } from './RecordAttachmentLink'
 /* eslint-disable react-hooks/set-state-in-effect -- Resolve data for explicit pinned site/contact contexts. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
@@ -577,6 +578,7 @@ export function CommitmentWorkspace({
           <h3>
             {detail.doc.name} — {detail.doc.label}
           </h3>
+          <RecordAttachmentLink site={site} link={{ type: detail.doc.kind, id: detail.doc.id }} />
           <label>
             Reconcile through
             <input

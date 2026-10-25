@@ -47,6 +47,12 @@ test('volunteer skills, outreach preferences, attendance and approved hours pers
   await activity.getByLabel('Activity ends on').fill('2026-11-01')
   await activity.getByLabel('Needed skills (comma separated)').fill('Logistics')
   await activity.getByRole('button', { name: 'Save volunteer activity', exact: true }).click()
+  await expect(
+    activity.getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
+  ).toBeVisible()
   await activity.getByRole('button', { name: 'Invitations and responses', exact: true }).click()
   await activity.getByRole('button', { name: 'Record outreach invitation', exact: true }).click()
   await activity

@@ -112,6 +112,7 @@ export class CRMAttachments {
     if (current.site.authorityRevision !== context.site.authorityRevision)
       throw new SiteAccessError()
     return {
+      record: { type: input.link.type, id: current.record.id, label: current.record.label },
       docs: rows
         .slice(0, 50)
         .map((file) => ({ ...publicFile(file), canEdit: editable.includes(file.category) })),

@@ -1,4 +1,5 @@
 'use client'
+import { RecordAttachmentLink } from './RecordAttachmentLink'
 /* eslint-disable react-hooks/set-state-in-effect -- Explicit site changes discard the old site's private data before fetching. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Gutter, useConfig } from '@payloadcms/ui'
@@ -321,6 +322,7 @@ export function HouseholdWorkspace() {
       {(creating || detail) && (
         <section aria-label="Household editor" onChange={() => setDirty(true)}>
           <h3>{creating ? 'New household' : detail?.doc.name}</h3>
+          {detail && <RecordAttachmentLink site={site} link={{ type: 'household', id: detail.doc.id }} />}
           <form
             onSubmit={(e) => {
               e.preventDefault()
