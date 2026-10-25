@@ -2,6 +2,18 @@
 
 ## October 24 implementation continuation — in progress
 
+### Bulk correspondence production milestone — October 24 local time
+
+Source `99f24082737ae52d340b4205608ab023078794a7` is committed, pushed and fast-forwarded into `main`. Worker `64469db2-013e-4ad8-85ce-7fac482995bc`, deployment `1ead0150-5613-476f-b112-b439cc58e457`, was deployed at 2026-10-25T03:22:02.748386Z. Staff can prepare paginated contact/gift/membership recipient selections, retain draft reviews, preview, explicitly approve issuance, monitor/cancel/retry durable generation, reopen remaining selections, and print/download private historical PDFs. Complete annual statements retain exact currency arithmetic. Changed source data invalidates pending reviews; generation validates the entire selection before issuing the first document and rechecks each atomic issuance. Issued documents survive cancellation and reopening without duplication. No email is queued automatically.
+
+The additive migration `20261025_030000_crm_correspondence_batches` completed; the ledger now has 55 entries. All 188 CRM schema objects (38 tables, 48 indexes, 102 triggers) and three fund upgrade columns were verified. All 202 historical application tables retained their counts. Public main/child pages and anonymous private-access denials passed. No fictional production donor records or real correspondence were created.
+
+Validation passed 158 CRM/organization cases across 37 files, eleven authenticated optimized-Worker browser scenarios, TypeScript, full lint with zero errors (1,078 existing warnings), native D1/private R2/PDF validation, repeated upgrades across 196 historical local tables, optimized build and both deployment dry-runs. Frozen Worker SHA-256: `511fb7e332db186efc975c507e026f0af9fe476e5786e8c1d671c1fe25387ceb`; 1,025 runtime inputs and 128 assets were verified. Receipts remain under ignored `.wrangler/releases/crm-bulk-20261025/`.
+
+Recovery bookmark: `00000ca6-00000000-0000510f-a991f9aac12e7befa1d88c4bce430618`; prior Worker: `f8701714-cc2e-4aa7-b01c-bd1dce3259ec`. The production admin session remains at login, so signed-in production smoke is pending; authenticated local Worker acceptance passed. Email provider/sender/live settings remain unconfigured and live sending stays disabled.
+
+The full approved implementation remains active. Linked-record attachment events in contact timelines, reviewed CSV/XLSX imports, controlled merges, saved reports/complete exports, their domain jobs, and CRM-linked existing Tasks/Boards remain unfinished. This milestone does not complete the full plan.
+
 ### Bulk correspondence — verified release candidate
 
 Added reviewed batch/recipient persistence and services, paginated selection across contacts, recorded gifts and billing membership terms, complete matching counts, configuration revision invalidation, controlled removal/reopening, and owner-scoped job management. Batch access requires communications/identity plus all applicable financial/membership grants and current recipient chapter affiliations. Generation validates the entire pending selection before the first issuance, then rechecks each reviewed source as its immutable document and PDF job commit in the same fenced durable checkpoint. Cancellation keeps issued documents; reopening retains their links and allows remaining reviews to be refreshed. No email is queued as an issuance side effect.
