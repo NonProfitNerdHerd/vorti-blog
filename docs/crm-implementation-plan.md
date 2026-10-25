@@ -2,6 +2,19 @@
 
 ## October 24 implementation continuation — in progress
 
+### Typed-record attachment production milestone — October 24 local time
+
+Source `9ffd6968b81b187106bf52f6280475afde9add33` is committed, pushed and fast-forwarded into `main`. Worker `f8701714-cc2e-4aa7-b01c-bd1dce3259ec`, deployment `44a4cdfd-c75f-4bfb-b787-de1827b6bf30`, was deployed at 2026-10-25T01:48:56.453719Z (October 24 locally). Staff can open private files from household, gift, pledge, recurring-schedule, membership-term, opportunity and volunteer-activity editors in a separate tab pinned to the original chapter/record. Existing contact attachments remain available in the contact editor. Unsaved source drafts remain intact. The current parent label is shown only after authorized server resolution and disappears with the panel when access is revoked.
+
+No migration was required or applied. Production has no pending migrations; the ledger remains at 54. All 174 CRM schema objects and three fund upgrade columns were verified, with unchanged counts across all 202 historical application tables. Main/child public pages and anonymous CRM/private-file access denials passed. No fictional production records/files or real correspondence were created.
+
+Validation passed 30 focused cases and all nine authenticated optimized-Worker browser scenarios, including private upload/download/reload for all seven additional record types, source-draft preservation, staff-editor links and mobile layout. TypeScript, full lint with zero errors (1,078 existing warnings), native D1/private R2 validation, optimized build and both dry-runs passed. Frozen artifact SHA-256: `e8f07a8642bee765ec5dd7bd0550b934bdbfdf21e6ccb3cf4728eb146c9cf4a5`; 1,014 runtime inputs were verified. Receipts remain under ignored `.wrangler/releases/crm-record-files-20261025/`.
+
+Recovery bookmark: `00000c95-00000000-0000510f-c60658de314f67973628a024726ae105`; prior Worker: `dafafcb4-07a7-47ad-bf3f-cdf9aa2111d6`. The production admin session remains at login, so signed-in production UI smoke is pending; authenticated local Worker acceptance passed. Email remains visibly unconfigured.
+
+The approved full implementation remains active. Linked-record file events in contact timelines, bulk correspondence, reviewed CSV/XLSX imports, controlled merges, saved reports/complete exports, their domain jobs and CRM-linked existing Tasks/Boards remain unfinished. This is a deployed milestone, not completion of the full plan.
+
+
 ### Typed-record attachment placements — verified release candidate
 
 Connected protected attachment links in household, gift, pledge/recurring, membership-term, opportunity and volunteer-activity editors. Files open in a separate tab with explicit record/chapter parameters so unsaved source editors remain intact. The existing CRM view validates the selected chapter and record type before mounting the shared upload/download workspace. The attachment API returns the currently authorized parent label after its final permission check; revoked access removes the file panel and label. Existing authentication, private R2 storage, categories, resumable uploads, history and permissions remain in use.
