@@ -232,6 +232,7 @@ export function OpportunityWorkspace({
   }
   const open = async (row: Opportunity | 'new') => {
     if (!discard()) return
+    if (row === 'new' && !stages.some((s) => s.pipeline_id === pipeline && !s.archived)) return
     setError('')
     setNotice('')
     setConfigEditor(null)
@@ -270,7 +271,11 @@ export function OpportunityWorkspace({
               archived: !!record.archived,
               reason: '',
             }
-          : empty(contact, pipeline, stages.find((s) => !s.archived)?.id || ''),
+          : empty(
+              contact,
+              pipeline,
+              stages.find((s) => s.pipeline_id === pipeline && !s.archived)?.id || '',
+            ),
       )
       mark(false)
       void loadOwners()
@@ -455,6 +460,10 @@ export function OpportunityWorkspace({
               onChange={(e) => {
                 if (discard()) {
                   setPipeline(e.target.value)
+                  setStages([])
+                  setDocs([])
+                  setTotal(0)
+                  setNext(null)
                   clearLinkedDraft()
                   setStage('')
                   setAfter('')
@@ -524,7 +533,7 @@ export function OpportunityWorkspace({
           >
             Pipeline view
           </button>
-          {canEdit && pipeline && stages.some((s) => !s.archived) && (
+          {canEdit && pipeline && stages.some((s) => s.pipeline_id === pipeline && !s.archived) && (
             <button type="button" onClick={() => void open('new')}>
               Create opportunity
             </button>

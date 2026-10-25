@@ -6,6 +6,8 @@ import * as migration_20261024_180000_crm_commitments from './20261024_180000_cr
 import * as migration_20261024_190000_crm_memberships from './20261024_190000_crm_memberships';
 import * as migration_20261024_200000_crm_opportunities from './20261024_200000_crm_opportunities';
 import * as migration_20261024_210000_crm_volunteers from './20261024_210000_crm_volunteers';
+import * as migration_20261024_220000_crm_correspondence from './20261024_220000_crm_correspondence';
+import * as migration_20261024_230000_crm_email from './20261024_230000_crm_email';
 import * as migration_20261023_200000_subsite_websites from './20261023_200000_subsite_websites';
 import * as migration_20261020_213000_organization_foundation from './20261020_213000_organization_foundation';
 import * as migration_20261020_222000_crm_contacts from './20261020_222000_crm_contacts';
@@ -220,4 +222,6 @@ export const migrations = [
   { up: migration_20261024_190000_crm_memberships.up, down: migration_20261024_190000_crm_memberships.down, name: '20261024_190000_crm_memberships' },
   { up: migration_20261024_200000_crm_opportunities.up, down: migration_20261024_200000_crm_opportunities.down, name: '20261024_200000_crm_opportunities' },
   { up: migration_20261024_210000_crm_volunteers.up, down: migration_20261024_210000_crm_volunteers.down, name: '20261024_210000_crm_volunteers' },
+  { up: migration_20261024_220000_crm_correspondence.up, down: migration_20261024_220000_crm_correspondence.down, name: '20261024_220000_crm_correspondence' },
+  { up: migration_20261024_230000_crm_email.up, down: migration_20261024_230000_crm_email.down, name: '20261024_230000_crm_email' },
 ];

@@ -4,6 +4,7 @@
   "name": "vorti-blog-local-test",
   "compatibility_date": "2025-08-15",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "vars": { "CRM_EMAIL_ENVIRONMENT": "test", "CRM_EMAIL_LIVE_SEND_ENABLED": "false" },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "d1_databases": [{
     "binding": "D1",

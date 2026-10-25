@@ -16,6 +16,7 @@ import { searchPlugin } from '@payloadcms/plugin-search'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { formsModule } from './forms/plugin'
 import { crmModule } from './crm/plugin'
+import { emailRuntimeFromBindings } from './crm/email-provider'
 import { accountStatusGuards } from './organizations/account-guards'
 import { tenantCMS } from './organizations/cms-plugin'
 import { tenantUsers } from './organizations/users-plugin'
@@ -227,7 +228,7 @@ export default buildConfig({
   db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: !migrationManaged }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
-    crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES }),
+    crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES, email: emailRuntimeFromBindings(cloudflare.env as CloudflareEnv & { CRM_EMAIL_ENVIRONMENT?: string; CRM_EMAIL_LIVE_SEND_ENABLED?: string; CRM_EMAIL_RESEND_API_KEY?: string }, isCLI || !isProduction || Boolean(localPersistPath)) }),
     menuInvalidation,
     designSystemPlugin({
       enabled: true,

@@ -56,7 +56,7 @@ async function snapshot() {
 }
 const before = await snapshot(),
   pending = migrations.filter((m) => m.name.startsWith('20261024_'))
-if (pending.length !== 8) throw new Error('Review the exact migration set before upgrading.')
+if (pending.length !== 10) throw new Error('Review the exact migration set before upgrading.')
 const batch = Number(
   (await db
     .prepare('SELECT COALESCE(MAX(batch),0)+1 AS n FROM payload_migrations')

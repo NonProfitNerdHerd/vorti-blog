@@ -11,10 +11,16 @@ import { commitmentEndpoints } from './commitment-endpoints'
 import { membershipEndpoints } from './membership-endpoints'
 import { opportunityEndpoints } from './opportunity-endpoints'
 import { volunteerEndpoints } from './volunteer-endpoints'
+import { crmJobEndpoints } from './job-endpoints'
+import { correspondenceEndpoints } from './correspondence-endpoints'
+import { emailSettingsEndpoints } from './email-endpoints'
+import { emailDeliveryEndpoints } from './email-delivery-endpoints'
+import type { EmailRuntime } from './email-provider'
 
 export interface CRMPlatform {
   db: D1Database
   storage: R2Bucket
+  email?: EmailRuntime
 }
 export function errorResponse(error: unknown): Response {
   if (error instanceof Error && /no such table:.*vc_/i.test(error.message))
@@ -165,7 +171,9 @@ export const crmModule =
           return Response.json({ message: 'Sign in to use CRM.' }, { status: 401 })
         try {
           const authority = new OrganizationRepository(platform.db, Number(req.user.id))
-          const selected = (req.url ? new URL(req.url).searchParams.get('site') : null) || (await authority.context()).site
+          const selected =
+            (req.url ? new URL(req.url).searchParams.get('site') : null) ||
+            (await authority.context()).site
           const site = await authority.require(selected, 'identity', 'read')
           return Response.json(
             {
@@ -194,6 +202,10 @@ export const crmModule =
         ...membershipEndpoints(platform.db, errorResponse),
         ...opportunityEndpoints(platform.db, errorResponse),
         ...volunteerEndpoints(platform.db, errorResponse),
+        ...correspondenceEndpoints(platform.db, errorResponse, platform.storage),
+        ...crmJobEndpoints(platform, errorResponse),
+        ...emailSettingsEndpoints(platform.db, errorResponse, platform.email),
+        ...emailDeliveryEndpoints(platform.db, errorResponse, platform.email),
       ],
       admin: {
         ...config.admin,

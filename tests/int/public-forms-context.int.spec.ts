@@ -29,6 +29,7 @@ it('leaves native Forms administration and background jobs on their explicit edi
     '/api/forms/1',
     '/api/forms-placements',
     '/api/forms-actions/tick',
+    '/api/crm/jobs/tick',
   ])
     expect(publicFormsSite('https://example.invalid' + path, new Headers())).toBeUndefined()
 })

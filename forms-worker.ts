@@ -71,6 +71,7 @@ export default {
       '/api/forms-actions/tick',
       '/api/review-tasks/notifications/tick',
       '/api/task-workspace/maintenance',
+      '/api/crm/jobs/tick',
     ]) {
       try {
         const response = await handler.fetch(

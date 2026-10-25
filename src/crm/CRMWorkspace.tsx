@@ -9,6 +9,7 @@ import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
 import { OpportunityWorkspace } from './OpportunityWorkspace'
 import { VolunteerWorkspace } from './VolunteerWorkspace'
+import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { Gutter, useConfig } from '@payloadcms/ui'
 export function CRMWorkspace() {
   const [view, setView] = useState<
@@ -19,6 +20,7 @@ export function CRMWorkspace() {
     | 'memberships'
     | 'opportunities'
     | 'volunteers'
+    | 'correspondence'
   >('contacts')
   const { config } = useConfig()
   const { binding } = useAdminSite()
@@ -82,6 +84,13 @@ export function CRMWorkspace() {
         >
           Volunteers
         </button>
+        <button
+          type="button"
+          aria-pressed={view === 'correspondence'}
+          onClick={() => navigate('correspondence')}
+        >
+          Receipts and correspondence
+        </button>
       </nav>
       {view === 'contacts' ? (
         <ContactWorkspace />
@@ -100,6 +109,14 @@ export function CRMWorkspace() {
       ) : view === 'opportunities' ? (
         <Gutter className="vc-crm">
           <OpportunityWorkspace
+            key={binding?.site.id}
+            api={config.routes.api}
+            site={binding?.site.id || ''}
+          />
+        </Gutter>
+      ) : view === 'correspondence' ? (
+        <Gutter className="vc-crm">
+          <CorrespondenceWorkspace
             key={binding?.site.id}
             api={config.routes.api}
             site={binding?.site.id || ''}

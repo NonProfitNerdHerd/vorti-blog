@@ -37,6 +37,16 @@ export interface CRMJobHandler {
   /** Recheck domain-specific permissions, record revisions and reviewed approval here on every batch. */
   prepare(job: CRMJob): Promise<JobStep>
 }
+/** Only fixed, non-private domain explanations may be exposed as permanent failures. */
+export class CRMJobPermanentError extends Error {
+  constructor(reason: 'unsupported-document-text' | 'invalid-request') {
+    super(
+      reason === 'unsupported-document-text'
+        ? 'PDF text requires a supported font. Printable HTML remains available.'
+        : 'The job request is invalid. Review it before retrying.',
+    )
+  }
+}
 const kindOf = (kind: string): CRMJobKind => {
   if (!Object.hasOwn(jobPermissions, kind)) throw new Error('Choose a supported CRM job.')
   return kind as CRMJobKind
@@ -93,7 +103,13 @@ export class CRMJobs {
       result: { id },
     })
   }
-  async cancel(actor: number, siteID: string, id: string, operationKey: string) {
+  async cancel(
+    actor: number,
+    siteID: string,
+    id: string,
+    operationKey: string,
+    expectedFence?: number,
+  ) {
     const job = await this.db
       .prepare('SELECT * FROM vc_crm_jobs WHERE id=? AND site_id=? AND actor_id=?')
       .bind(id, siteID, actor)
@@ -105,7 +121,7 @@ export class CRMJobs {
         permission.category,
         permission.operation,
       )
-    const intent = { id },
+    const intent = { id, ...(expectedFence === undefined ? {} : { expectedFence }) },
       replay = await replayCRM(this.db, actor, operationKey, {
         site: siteID,
         action: 'job.cancelled',
@@ -113,6 +129,11 @@ export class CRMJobs {
         intent,
       })
     if (replay) return replay
+    if (
+      expectedFence !== undefined &&
+      (!Number.isSafeInteger(expectedFence) || expectedFence !== job.fence)
+    )
+      throw new SiteConflictError()
     return commitCRM({
       db: this.db,
       actor,
@@ -128,9 +149,64 @@ export class CRMJobs {
       intent,
       write: this.db
         .prepare(
-          "UPDATE vc_crm_jobs SET status='cancelled',fence=fence+1,lease_until=NULL,updated_at=? WHERE id=? AND actor_id=? AND status IN('pending','running','failed')",
+          "UPDATE vc_crm_jobs SET status='cancelled',fence=fence+1,lease_until=NULL,updated_at=? WHERE id=? AND actor_id=? AND fence=? AND status IN('pending','running','failed')",
         )
-        .bind(new Date(this.now()).toISOString(), id, actor),
+        .bind(new Date(this.now()).toISOString(), id, actor, job.fence),
+      result: { id },
+    })
+  }
+  async retry(
+    actor: number,
+    siteID: string,
+    id: string,
+    expectedFence: number,
+    operationKey: string,
+  ) {
+    const job = await this.db
+      .prepare('SELECT * FROM vc_crm_jobs WHERE id=? AND site_id=? AND actor_id=?')
+      .bind(id, siteID, actor)
+      .first<CRMJob>()
+    if (!job) throw new SiteAccessError()
+    const permission = jobPermissions[kindOf(job.kind)]
+    const site = await new OrganizationRepository(this.db, actor).require(
+      siteID,
+      permission.category,
+      permission.operation,
+    )
+    const intent = { id, expectedFence }
+    const replay = await replayCRM(this.db, actor, operationKey, {
+      site: siteID,
+      action: 'job.retried',
+      type: 'crm-job',
+      intent,
+    })
+    if (replay) return replay
+    if (
+      !Number.isSafeInteger(expectedFence) ||
+      expectedFence < 0 ||
+      expectedFence !== job.fence ||
+      !['failed', 'cancelled'].includes(job.status)
+    )
+      throw new SiteConflictError()
+    const now = new Date(this.now()).toISOString()
+    return commitCRM({
+      db: this.db,
+      actor,
+      key: operationKey,
+      site: siteID,
+      organization: site.organization_id,
+      authorityRevision: site.authorityRevision,
+      action: 'job.retried',
+      type: 'crm-job',
+      id,
+      before: { status: job.status, fence: job.fence },
+      after: { status: 'pending' },
+      intent,
+      write: this.db
+        .prepare(
+          "UPDATE vc_crm_jobs SET status='pending',fence=fence+1,attempts=0,error=NULL,result=NULL,lease_until=NULL,next_attempt_at=?,updated_at=? WHERE id=? AND actor_id=? AND fence=? AND status IN('failed','cancelled')",
+        )
+        .bind(now, now, id, actor, expectedFence),
       result: { id },
     })
   }
@@ -216,7 +292,10 @@ export class CRMJobs {
       return true
     } catch (error) {
       if (step?.abandon) await step.abandon()
-      const terminal = error instanceof SiteAccessError || job.attempts >= 5
+      const terminal =
+        error instanceof SiteAccessError ||
+        error instanceof CRMJobPermanentError ||
+        job.attempts >= 5
       const next = new Date(this.now() + Math.min(3600000, 1000 * 2 ** job.attempts)).toISOString()
       await this.db
         .prepare(
@@ -224,9 +303,11 @@ export class CRMJobs {
         )
         .bind(
           terminal ? 'failed' : 'pending',
-          error instanceof SiteAccessError
-            ? 'Access changed. Review authorization before retrying.'
-            : 'Processing failed. Review the job before retrying.',
+          error instanceof CRMJobPermanentError
+            ? error.message
+            : error instanceof SiteAccessError
+              ? 'Access changed. Review authorization before retrying.'
+              : 'Processing failed. Review the job before retrying.',
           next,
           new Date(this.now()).toISOString(),
           job.id,

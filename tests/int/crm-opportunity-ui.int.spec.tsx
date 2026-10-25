@@ -126,6 +126,58 @@ async function createOpportunity() {
   fireEvent.click(await screen.findByRole('button', { name: 'Fictional proposal' }))
   await screen.findByRole('region', { name: 'Opportunity editor' })
 }
+it('waits for the selected pipeline stages before opening a new opportunity', async () => {
+  const ids: string[] = []
+  for (const name of ['First pipeline', 'Second pipeline']) {
+    const response = await fetch('/api/crm/opportunities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save-pipeline',
+        site: 'default',
+        values: { name },
+        operationKey: crypto.randomUUID(),
+      }),
+    })
+    expect(response.ok).toBe(true)
+    ids.push(((await response.json()) as { doc: { id: string } }).doc.id)
+  }
+  render(<OpportunityWorkspace api="/api" site="default" contact={contact} />)
+  await screen.findByRole('button', { name: 'Create opportunity' })
+  const picker = screen.getByRole('combobox', { name: /^Pipeline$/ })
+  if (!(picker instanceof HTMLSelectElement)) throw new Error('Pipeline selector is required.')
+  const other = ids.find((id) => id !== picker.value)!
+  const transport = globalThis.fetch
+  let release!: () => void
+  let requested = false
+  const pending = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+    const url = new URL(input, 'http://localhost')
+    if (url.searchParams.get('view') === 'stages' && url.searchParams.get('pipeline') === other) {
+      requested = true
+      await pending
+    }
+    return transport(input, init)
+  })
+  fireEvent.change(picker, { target: { value: other } })
+  expect(screen.queryByRole('button', { name: 'Create opportunity' })).toBeNull()
+  await waitFor(() => expect(requested).toBe(true))
+  expect(screen.queryByRole('button', { name: 'Create opportunity' })).toBeNull()
+  release()
+  fireEvent.click(await screen.findByRole('button', { name: 'Create opportunity' }))
+  fill('Opportunity name', 'New pipeline proposal')
+  fireEvent.click(screen.getByRole('button', { name: 'Save opportunity' }))
+  await screen.findByRole('button', { name: 'New pipeline proposal' })
+  const row = fixture.sqlite
+    .prepare(
+      'SELECT o.pipeline_id,s.pipeline_id AS stage_pipeline FROM vc_crm_opportunities o JOIN vc_crm_opportunity_stages s ON s.id=o.stage_id WHERE o.name=?',
+    )
+    .get('New pipeline proposal')!
+  expect(row.pipeline_id).toBe(other)
+  expect(row.stage_pipeline).toBe(other)
+})
 it('creates, reloads and moves an opportunity with stage history and no implicit revenue', async () => {
   await createOpportunity()
   expect((screen.getByLabelText('Expected amount (optional)') as HTMLInputElement).value).toBe(

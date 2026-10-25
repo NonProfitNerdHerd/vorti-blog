@@ -15,7 +15,7 @@ describe('CRM endpoint authentication and mutation boundaries', () => {
   it('rejects anonymous access to every endpoint before touching persistence', async () => {
     for (const endpoint of config.endpoints || []) {
       const response = await endpoint.handler({} as PayloadRequest)
-      expect(response.status).toBe(401)
+      expect(response.status).toBe(endpoint.path === '/crm/jobs/tick' ? 403 : 401)
     }
   })
   it('rejects foreign-origin state changes even with an authenticated account', async () => {
