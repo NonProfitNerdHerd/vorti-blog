@@ -1,13 +1,26 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Posts } from '@/collections/Posts'
 import { Categories } from '@/collections/Categories'
-import { categoriesEnabledForRequest, sameCategories, protectCategoryValues } from '@/lib/system-settings'
+import {
+  categoriesEnabledForRequest,
+  sameCategories,
+  protectCategoryValues,
+} from '@/lib/system-settings'
 import { queryView } from '@/content-framework/query'
 import { queryBlockListing } from '@/lib/block-listings'
 import { defaultView } from '@design-system/payload-design-core'
 
 function fixture(enabled = false) {
   const payload = {
+    config: {
+      i18n: {
+        fallbackLanguage: 'en',
+        supportedLanguages: { en: { translations: {}, dateFNSKey: 'en-US' } },
+      },
+      admin: { user: 'users' },
+      serverURL: 'http://localhost',
+      routes: { api: '/api' },
+    },
     findGlobal: vi.fn().mockResolvedValue({ categoriesEnabled: enabled }),
     find: vi.fn().mockImplementation(async ({ collection }: { collection: string }) => ({
       docs:
@@ -32,9 +45,22 @@ function fixture(enabled = false) {
 describe('Categories system setting', () => {
   it('also protects category relationships in structured post and template fields', async () => {
     const { req } = fixture()
-    const fields = [{ id: 'topic', relationTo: 'categories' }, { id: 'tag', relationTo: 'tags' }]
-    await expect(protectCategoryValues(req as never, fields, { topic: 2 }, { topic: 1 }, 'templateValues')).rejects.toThrow()
-    await expect(protectCategoryValues(req as never, fields, { topic: 1, tag: 4 }, { topic: { id: 1 } }, 'templateValues')).resolves.toBeUndefined()
+    const fields = [
+      { id: 'topic', relationTo: 'categories' },
+      { id: 'tag', relationTo: 'tags' },
+    ]
+    await expect(
+      protectCategoryValues(req as never, fields, { topic: 2 }, { topic: 1 }, 'templateValues'),
+    ).rejects.toThrow()
+    await expect(
+      protectCategoryValues(
+        req as never,
+        fields,
+        { topic: 1, tag: 4 },
+        { topic: { id: 1 } },
+        'templateValues',
+      ),
+    ).resolves.toBeUndefined()
   })
   it('preserves populated or unpopulated category assignments and caches access checks per request', async () => {
     expect(sameCategories([1, { id: 2 }], [2, 1])).toBe(true)
