@@ -3,16 +3,14 @@ import { mutationFence } from '../organizations/mutation-guards'
 import { workspaceMutationFence } from './workspace-commit'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { relationID, isAdministrator } from './documents'
-import {
-  ids,
-  reject,
-  requireBoard,
-  requireTask,
-  workspaceDB,
-} from './workspace-access'
+import { ids, reject, requireBoard, requireTask, workspaceDB } from './workspace-access'
 import { boardAudit } from './workspace-collections'
 import { queueBoardEvent } from './notifications'
-import { workspaceAuthority, workspaceAuthorityCheck, type WorkspaceAuthority } from '../organizations/workspace-authority'
+import {
+  workspaceAuthority,
+  workspaceAuthorityCheck,
+  type WorkspaceAuthority,
+} from '../organizations/workspace-authority'
 
 async function audience(
   req: PayloadRequest,
@@ -128,10 +126,11 @@ async function placementBatch(
     )
     bindings.push(sharingRequest.id, sharingRequest.fingerprint, sharingRequest.updatedAt)
   }
-  const audiences = snapshot.filter(item => {
+  const audiences = snapshot.filter((item) => {
     if (item && typeof item === 'object' && 'authority' in item) {
       const check = workspaceAuthorityCheck(item.authority as WorkspaceAuthority)
-      checks.push(check.query); bindings.push(...check.values)
+      checks.push(check.query)
+      bindings.push(...check.values)
       return false
     }
     return true
@@ -404,7 +403,7 @@ export const workspaceEndpoint: Endpoint = {
           ? { id: request.id, fingerprint: current.fingerprint, updatedAt: request.updatedAt }
           : undefined,
       )
-      await boardAudit(req, target, `Task #${task.id} added to board`)
+      await boardAudit(req, target, `Task #${task.id} added to board`, task.id)
       return Response.json({ ok: true })
     }
     if (action === 'remove') {
@@ -424,7 +423,7 @@ export const workspaceEndpoint: Endpoint = {
         current.snapshot,
         last ? String(body.lastAction) : undefined,
       )
-      await boardAudit(req, destination, `Task #${task.id} removed from board`)
+      await boardAudit(req, destination, `Task #${task.id} removed from board`, task.id)
       return Response.json({ ok: true })
     }
     if (action === 'move') {
@@ -458,26 +457,30 @@ export const workspaceEndpoint: Endpoint = {
       const sectionID = section?.id ?? null,
         next = new Date(Math.max(Date.now(), Date.parse(current.updatedAt) + 1)).toISOString()
       const db = workspaceDB(req)
-      const changes = await db.batch([...(await workspaceMutationFence(req, { task: task.id, board: destination }, async () => {
-        await requireTask(req, task.id, 'edit'); await requireBoard(req, destination, 'edit')
-      })), db.prepare(
-          'UPDATE task_placements SET section_id=?,position=?,updated_at=? WHERE id=? AND updated_at=? AND active=1 AND (? IS NULL OR EXISTS(SELECT 1 FROM task_sections WHERE id=? AND board_id=? AND archived!=1))',
-        )
-        .bind(
-          sectionID,
-          position,
-          next,
-          current.id,
-          current.updatedAt,
-          sectionID,
-          sectionID,
-          Number(destination),
-        )
+      const changes = await db.batch([
+        ...(await workspaceMutationFence(req, { task: task.id, board: destination }, async () => {
+          await requireTask(req, task.id, 'edit')
+          await requireBoard(req, destination, 'edit')
+        })),
+        db
+          .prepare(
+            'UPDATE task_placements SET section_id=?,position=?,updated_at=? WHERE id=? AND updated_at=? AND active=1 AND (? IS NULL OR EXISTS(SELECT 1 FROM task_sections WHERE id=? AND board_id=? AND archived!=1))',
+          )
+          .bind(
+            sectionID,
+            position,
+            next,
+            current.id,
+            current.updatedAt,
+            sectionID,
+            sectionID,
+            Number(destination),
+          ),
       ])
       const changed = changes.at(-1)!
       if (!changed.meta.changes)
         reject('This card or its section changed. Reload before moving it again.', 409)
-      await boardAudit(req, destination, `Task #${task.id} moved`)
+      await boardAudit(req, destination, `Task #${task.id} moved`, task.id)
       return Response.json({ ok: true })
     }
     reject('Unknown workspace action.', 400)

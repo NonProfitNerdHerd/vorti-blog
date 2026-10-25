@@ -1,11 +1,11 @@
 import { initializeBoardDefaults, starterKeyField, protectStarterFields } from './workspace-starter'
-import { workspaceReq } from './workspace-access'
+import { workspaceReq, taskReadWhere } from './workspace-access'
+import { crmTaskLinksActive } from '../crm/task-where'
 import { boardColors } from './board-colors'
 import { userIdentity } from '@design-system/payload-design-core'
 import {
   type CollectionConfig,
   type PayloadRequest,
-  type Where,
   type CollectionBeforeOperationHook,
 } from 'payload'
 import { relationID, isAdministrator } from './documents'
@@ -397,12 +397,12 @@ export const TaskPlacements: CollectionConfig = {
       !req.user
         ? false
         : isAdministrator(req)
-          ? true
+          ? taskWhere(req, 'read', 'task.')
           : {
               and: [
                 { active: { equals: true } },
                 boardWhere(req, 'read', 'board.', 'directMemberships'),
-                (isAdministrator(req) ? {} : taskWhere(req, 'read', 'task.')) as Where,
+                taskReadWhere(req, 'task.'),
               ],
             },
     create: denied,
@@ -434,10 +434,7 @@ export const TaskFollowers: CollectionConfig = {
     read: ({ req }) =>
       req.user
         ? {
-            and: [
-              { user: { equals: req.user.id } },
-              (isAdministrator(req) ? {} : taskWhere(req, 'read', 'task.')) as Where,
-            ],
+            and: [{ user: { equals: req.user.id } }, taskReadWhere(req, 'task.')],
           }
         : false,
     create: signedIn,
@@ -551,10 +548,10 @@ export const TaskSharingRequests: CollectionConfig = {
       !req.user
         ? false
         : isAdministrator(req)
-          ? true
+          ? taskWhere(req, 'read', 'task.')
           : {
               and: [
-                (isAdministrator(req) ? {} : taskWhere(req, 'read', 'task.')) as Where,
+                taskReadWhere(req, 'task.'),
                 {
                   or: [
                     { requester: { equals: req.user.id } },
@@ -623,10 +620,7 @@ export const TaskNotifications: CollectionConfig = {
               {
                 or: [
                   {
-                    and: [
-                      { task: { exists: true } },
-                      (isAdministrator(req) ? {} : taskWhere(req, 'read', 'task.')) as Where,
-                    ],
+                    and: [{ task: { exists: true } }, taskReadWhere(req, 'task.')],
                   },
                   {
                     and: [
@@ -731,12 +725,24 @@ export const TaskBoardActivity: CollectionConfig = {
   },
 }
 
-export async function boardAudit(req: PayloadRequest, board: string, message: string) {
+export async function boardAudit(
+  req: PayloadRequest,
+  board: string,
+  message: string,
+  task?: number,
+) {
+  const linked =
+    task &&
+    crmTaskLinksActive(req) &&
+    (await workspaceDB(req)
+      .prepare('SELECT 1 FROM review_tasks WHERE id=? AND crm_type IS NOT NULL')
+      .bind(task)
+      .first())
   await req.payload.create({
     collection: 'task-board-activity',
     req: workspaceReq(req),
     overrideAccess: true,
-    data: { board: Number(board), actor: req.user?.id, message },
+    data: { board: Number(board), actor: req.user?.id, message, ...(linked ? { task } : {}) },
   })
 }
 

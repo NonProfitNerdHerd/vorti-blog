@@ -24,6 +24,47 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+it('opens task history in the existing workspace and clears its private title after access denial', async () => {
+  let revoked = false
+  vi.stubGlobal('fetch', async () =>
+    revoked
+      ? Response.json({ message: 'Task history access revoked.' }, { status: 403 })
+      : Response.json({
+          docs: [
+            {
+              id: 'task:event',
+              at: '2026-10-25T00:00:00.000Z',
+              group: 'tasks',
+              title: 'Follow-up completed',
+              label: 'Fictional private renewal task',
+              detail: null,
+              effectiveOn: null,
+              targetType: 'task',
+              targetID: '41',
+              amount: null,
+              moneyRole: null,
+            },
+          ],
+          total: 1,
+          groups: ['tasks'],
+          next: null,
+        }),
+  )
+  render(<ContactTimeline api="/api" site="default" contact="fictional-donor" />)
+  const link = await screen.findByRole('link', {
+    name: 'Open follow-up task (opens in another tab)',
+  })
+  expect(link.getAttribute('href')).toBe('/staff/collections/review-tasks?site=default&task=41')
+  expect(link.getAttribute('target')).toBe('_blank')
+  revoked = true
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh timeline' }))
+  await screen.findByText('Task history access revoked.')
+  expect(screen.queryByText('Related record: Fictional private renewal task')).toBeNull()
+  expect(
+    screen.queryByRole('link', { name: 'Open follow-up task (opens in another tab)' }),
+  ).toBeNull()
+})
+
 it('opens a related-record file in a separate pinned chapter tab and clears its filename after revocation', async () => {
   vi.stubGlobal('crypto', webcrypto)
   const fixture = await crmTimelineFixture(),

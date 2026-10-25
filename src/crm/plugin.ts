@@ -20,6 +20,8 @@ import { timelineEndpoints } from './timeline-endpoints'
 import { correspondenceBatchEndpoints } from './correspondence-batch-endpoints'
 import type { EmailRuntime } from './email-provider'
 import { overviewEndpoints } from './overview-endpoints'
+import { crmTaskCollections } from './task-plugin'
+import { crmTaskEndpoints } from './task-endpoints'
 
 export interface CRMPlatform {
   db: D1Database
@@ -193,6 +195,7 @@ export const crmModule =
     }
     return {
       ...config,
+      collections: crmTaskCollections(config.collections || []),
       endpoints: [
         ...(config.endpoints || []),
         contacts,
@@ -200,6 +203,7 @@ export const crmModule =
         context,
         ...financeEndpoints(platform.db, errorResponse),
         ...overviewEndpoints(platform.db, errorResponse),
+        ...crmTaskEndpoints(platform.db, errorResponse),
         ...householdEndpoints(platform.db, errorResponse),
         ...fundraisingEndpoints(platform.db, errorResponse),
         ...activityEndpoints(platform.db, errorResponse),

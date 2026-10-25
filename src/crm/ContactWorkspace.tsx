@@ -6,7 +6,7 @@ import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
 import { ContactRelationships } from './ContactRelationships'
-import { ContactActivities } from './ContactActivities'
+import { ContactFollowUps } from './ContactFollowUps'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
 import { OpportunityWorkspace } from './OpportunityWorkspace'
@@ -190,8 +190,18 @@ export function ContactWorkspace() {
   }, [dirty])
   useEffect(() => {
     const navigate = (event: MouseEvent): void => {
-      if (event.target instanceof Element && event.target.closest('[data-vc-crm-navigation]')) return
+      if (event.target instanceof Element && event.target.closest('[data-vc-crm-navigation]'))
+        return
       if (!dirty || !(event.target instanceof Element) || !event.target.closest('a[href]')) return
+      const link = event.target.closest('a[href]') as HTMLAnchorElement
+      if (
+        (link.target && link.target !== '_self') ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return
       if (!window.confirm('Discard the unsaved contact changes?')) {
         event.preventDefault()
         event.stopPropagation()
@@ -552,7 +562,14 @@ export function ContactWorkspace() {
             </button>
           </header>
           {editor && editor !== 'new' && (
-            <ConstituentSummary api={api} site={site?.id || ''} contact={editor.id} roles={editor.roles} onOpen={switchTab} onUnavailable={loseAccess}/>
+            <ConstituentSummary
+              api={api}
+              site={site?.id || ''}
+              contact={editor.id}
+              roles={editor.roles}
+              onOpen={switchTab}
+              onUnavailable={loseAccess}
+            />
           )}
           {editor && editor !== 'new' && (
             <div className="vc-crm-toolbar" role="tablist" aria-label="Contact details">
@@ -684,9 +701,10 @@ export function ContactWorkspace() {
               />
             )}
             {tab === 'communications' && editor && editor !== 'new' && site && (
-              <ContactActivities
+              <ContactFollowUps
                 key={`${site.id}:${editor.id}`}
                 api={api}
+                admin={admin}
                 site={site.id}
                 contact={editor.id}
                 onDirty={setDirty}

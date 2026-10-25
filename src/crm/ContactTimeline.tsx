@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import type { ContactTimeline as TimelineService } from './timeline'
 import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordTaskLink } from './RecordTaskLink'
 import { crmRecordTypes, type CRMRecordType } from './record-model'
 import {
   timelineLabels,
@@ -33,7 +34,13 @@ type Props = {
 }
 type Page = Awaited<ReturnType<TimelineService['list']>>
 const destination = (row: TimelineEvent): TimelineDestination =>
-  row.group === 'giving' ? (row.targetType === 'gift' ? 'gifts' : 'giving') : row.group
+  row.group === 'tasks'
+    ? 'communications'
+    : row.group === 'giving'
+      ? row.targetType === 'gift'
+        ? 'gifts'
+        : 'giving'
+      : row.group
 const amountLabels = {
   'received-gift': 'Recorded gift amount',
   'gift-adjustment': 'Adjustment amount',
@@ -157,8 +164,10 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
                     </p>
                   )}
                   {row.detail && <p style={{ whiteSpace: 'pre-wrap' }}>{row.detail}</p>}
-                  {row.group === 'attachments' &&
-                  crmRecordTypes.includes(row.targetType as CRMRecordType) ? (
+                  {row.group === 'tasks' ? (
+                    <RecordTaskLink site={site} task={row.targetID} />
+                  ) : row.group === 'attachments' &&
+                    crmRecordTypes.includes(row.targetType as CRMRecordType) ? (
                     <RecordAttachmentLink
                       site={site}
                       link={{ type: row.targetType as CRMRecordType, id: row.targetID }}

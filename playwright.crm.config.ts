@@ -17,6 +17,7 @@ export default defineConfig({
     'crm-record-attachments.e2e.spec.ts',
     'crm-bulk-correspondence.e2e.spec.ts',
     'crm-overview.e2e.spec.ts',
+    'crm-tasks.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 360000,

@@ -88,7 +88,7 @@ async function projectAudit(req: PayloadRequest, project: unknown, message: stri
 const boardAccess = ({ req }: { req: PayloadRequest }) =>
   !req.user ? false : isAdministrator(req) ? true : boardWhere(req, 'read', 'board.')
 export const taskRecordAccess = ({ req }: { req: PayloadRequest }) =>
-  !req.user ? false : isAdministrator(req) ? true : taskWhere(req, 'read', 'task.')
+  taskWhere(req, 'read', 'task.')
 export function boardRecord(slug: string, fields: Field[], ownerOnly = false): CollectionConfig {
   return {
     slug,

@@ -108,6 +108,8 @@ export interface Config {
     'task-notification-events': TaskNotificationEvent;
     'saved-views': SavedView;
     'event-series': EventSery;
+    'crm-task-contexts': CrmTaskContext;
+    'crm-task-constituents': CrmTaskConstituent;
     'design-block-types': DesignBlockType;
     'design-block-designs': DesignBlockDesign;
     'design-templates': DesignTemplate;
@@ -141,6 +143,10 @@ export interface Config {
   collectionsJoins: {
     users: {
       siteDirectory: 'platform-user-sites';
+    };
+    'review-tasks': {
+      crmContext: 'crm-task-contexts';
+      crmConstituents: 'crm-task-constituents';
     };
     'task-boards': {
       memberships: 'task-board-memberships';
@@ -203,6 +209,8 @@ export interface Config {
     'task-notification-events': TaskNotificationEventsSelect<false> | TaskNotificationEventsSelect<true>;
     'saved-views': SavedViewsSelect<false> | SavedViewsSelect<true>;
     'event-series': EventSeriesSelect<false> | EventSeriesSelect<true>;
+    'crm-task-contexts': CrmTaskContextsSelect<false> | CrmTaskContextsSelect<true>;
+    'crm-task-constituents': CrmTaskConstituentsSelect<false> | CrmTaskConstituentsSelect<true>;
     'design-block-types': DesignBlockTypesSelect<false> | DesignBlockTypesSelect<true>;
     'design-block-designs': DesignBlockDesignsSelect<false> | DesignBlockDesignsSelect<true>;
     'design-templates': DesignTemplatesSelect<false> | DesignTemplatesSelect<true>;
@@ -1004,6 +1012,24 @@ export interface ReviewTask {
   completedAt?: string | null;
   creator?: (number | null) | User;
   archived?: boolean | null;
+  crmSite?: string | null;
+  crmType?: string | null;
+  crmID?: string | null;
+  crmActivityID?: string | null;
+  crmOperationKey?: string | null;
+  crmIntentHash?: string | null;
+  crmRecordRevision?: number | null;
+  crmAuthorityRevision?: number | null;
+  crmContext?: {
+    docs?: (string | CrmTaskContext)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  crmConstituents?: {
+    docs?: (string | CrmTaskConstituent)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   documentSite?: string | null;
   platformMutationProof?:
     | {
@@ -1332,6 +1358,25 @@ export interface TaskView {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-task-contexts".
+ */
+export interface CrmTaskContext {
+  id: string;
+  task: number | ReviewTask;
+  site?: string | null;
+  category?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-task-constituents".
+ */
+export interface CrmTaskConstituent {
+  id: string;
+  task: number | ReviewTask;
+  constituent?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "review-comments".
  */
 export interface ReviewComment {
@@ -1590,6 +1635,7 @@ export interface TaskBoardActivity {
   board: number | TaskBoard;
   actor?: (number | null) | User;
   message: string;
+  task?: (number | null) | ReviewTask;
   platformMutationProof?:
     | {
         [k: string]: unknown;
@@ -3601,6 +3647,16 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   completedAt?: T;
   creator?: T;
   archived?: T;
+  crmSite?: T;
+  crmType?: T;
+  crmID?: T;
+  crmActivityID?: T;
+  crmOperationKey?: T;
+  crmIntentHash?: T;
+  crmRecordRevision?: T;
+  crmAuthorityRevision?: T;
+  crmContext?: T;
+  crmConstituents?: T;
   documentSite?: T;
   platformMutationProof?: T;
   editorSite?: T;
@@ -3798,6 +3854,7 @@ export interface TaskBoardActivitySelect<T extends boolean = true> {
   board?: T;
   actor?: T;
   message?: T;
+  task?: T;
   platformMutationProof?: T;
   editorSite?: T;
   updatedAt?: T;
@@ -4152,6 +4209,25 @@ export interface EventSeriesSelect<T extends boolean = true> {
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-task-contexts_select".
+ */
+export interface CrmTaskContextsSelect<T extends boolean = true> {
+  id?: T;
+  task?: T;
+  site?: T;
+  category?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-task-constituents_select".
+ */
+export interface CrmTaskConstituentsSelect<T extends boolean = true> {
+  id?: T;
+  task?: T;
+  constituent?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5194,6 +5270,8 @@ export interface TaskCreateCollectionExport {
       | 'task-notification-events'
       | 'saved-views'
       | 'event-series'
+      | 'crm-task-contexts'
+      | 'crm-task-constituents'
       | 'design-block-types'
       | 'design-block-designs'
       | 'design-templates'

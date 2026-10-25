@@ -1,6 +1,12 @@
 export type Task = {
   id: number
   title: string
+  crmSite?:string|null
+  crmType?:import('../crm/record-model').CRMRecordType|null
+  crmID?:string|null
+  crmActivityID?:string|null
+  crmRecordRevision?:number|null
+  crmAuthorityRevision?:number|null
   description?: string
   documentType?: string | null
   documentID?: string | null

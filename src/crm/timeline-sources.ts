@@ -1,11 +1,12 @@
 import type { InformationCategory } from '../organizations/policy'
 import type { TimelineGroup } from './timeline-model'
 import { timelineAttachmentSources } from './timeline-attachments'
+import { timelineTaskSources } from './timeline-tasks'
 
 type Source = { group: TimelineGroup; sql: string }
 const quote = (value: string) => `'${value.replaceAll("'", "''")}'`
 /** Only server-authored SQL fragments enter this builder. Site/contact/cursors remain bound values. */
-export function timelineSources(read: Set<InformationCategory>) {
+export function timelineSources(read: Set<InformationCategory>, withTasks = false) {
   const sources: Source[] = [],
     params: string[] = []
   const add = (group: TimelineGroup, sql: string) => sources.push({ group, sql })
@@ -237,5 +238,10 @@ export function timelineSources(read: Set<InformationCategory>) {
   const attachments = timelineAttachmentSources(read)
   for (const sql of attachments.sources) add('attachments', sql)
   params.push(...attachments.params)
+  if (withTasks) {
+    const tasks = timelineTaskSources(read)
+    for (const sql of tasks.sources) add('tasks', sql)
+    params.push(...tasks.params)
+  }
   return { sources, params }
 }

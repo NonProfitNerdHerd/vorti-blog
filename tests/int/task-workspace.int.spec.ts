@@ -4,8 +4,13 @@ import type { User } from '@/payload-types'
 import config from '@/payload.config'
 import { workspaceEndpoint } from '@/review/workspace-service'
 import { canTask } from '@/review/workspace-access'
+import {
+  workspaceProjectionSchemaV1,
+  workspaceProjectionBackfillV1,
+} from '@/organizations/workspace-projection-v1'
 
-describe('Task workspace access, multi-board sharing, and notifications', () => {
+const nativeIO = { timeout: 120000 }
+describe('Task workspace access, multi-board sharing, and notifications', nativeIO, () => {
   let payload: Payload
   const users: User[] = []
   let board: number, second: number, task: number, child: number
@@ -19,6 +24,11 @@ describe('Task workspace access, multi-board sharing, and notifications', () => 
   }
   beforeAll(async () => {
     payload = await getPayload({ config })
+    // Development schema push creates the derived table, but production access
+    // uses its migration-installed projection triggers. Exercise that same ACL.
+    const db = (payload.db as unknown as { client: D1Database }).client
+    for (const statement of [...workspaceProjectionSchemaV1, ...workspaceProjectionBackfillV1])
+      await db.prepare(statement).run()
     const suffix = Date.now()
     for (let i = 0; i < 6; i++)
       users.push(

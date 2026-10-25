@@ -1,7 +1,8 @@
 import type { PayloadRequest, Where } from 'payload'
 import { userIdentity } from '@design-system/payload-design-core'
 import { relationID } from './documents'
-import { boardRole, reject, requireBoard } from './workspace-access'
+import { boardRole, reject, requireBoard, taskReadWhere } from './workspace-access'
+import { crmTaskWhere, crmTaskLinksActive } from '../crm/task-where'
 
 export async function boardPeople(req: PayloadRequest, board: string) {
   await requireBoard(req, board)
@@ -65,12 +66,21 @@ export async function boardActivity(req: PayloadRequest, board: string, params: 
   // Read access to this board grants read access to its attached tasks. Scope the query
   // to that exact relationship instead of duplicating the full task ACL joins (D1 has
   // a 64-table join limit). No accessible-ID list or client-supplied permission is used.
-  const taskScope: Where = { 'task.boards': { equals: board } }
+  const taskScope = crmTaskWhere(req, 'read', 'task.', {
+    'task.boards': { equals: board },
+  }) as Where
   const definitions = [
     {
       source: 'board' as const,
       collection: 'task-board-activity' as const,
-      where: { board: { equals: board } } as Where,
+      where: {
+        and: [
+          { board: { equals: board } },
+          ...(crmTaskLinksActive(req)
+            ? [{ or: [{ task: { exists: false } }, taskReadWhere(req, 'task.')] }]
+            : []),
+        ],
+      } as Where,
     },
     { source: 'task' as const, collection: 'review-activity' as const, where: taskScope },
     {

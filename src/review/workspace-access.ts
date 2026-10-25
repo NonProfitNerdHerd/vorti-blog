@@ -4,6 +4,7 @@ import { projectRole, roleRank } from './project-access'
 import { workspaceGrantWhere } from '../organizations/workspace-scope'
 import { authorityClaim } from '../organizations/claims'
 import { claimRequest } from '../organizations/identity-authority'
+import { crmTaskWhere } from '../crm/task-where'
 
 /** Only server code can authorize changes to the shared task audience. */
 export const workspaceWrite = Symbol('workspace-write')
@@ -44,10 +45,30 @@ export function boardWhere(
   prefix = '',
   _membershipJoin = 'memberships',
 ): Where {
-  return workspaceGrantWhere(req, permission, prefix, prefix.endsWith('boards.') ? 'taskSiteAccessGrants' : prefix ? 'directSiteAccessGrants' : 'siteAccessGrants')
+  return workspaceGrantWhere(
+    req,
+    permission,
+    prefix,
+    prefix.endsWith('boards.')
+      ? 'taskSiteAccessGrants'
+      : prefix
+        ? 'directSiteAccessGrants'
+        : 'siteAccessGrants',
+  )
 }
 
 export function taskWhere(
+  req: PayloadRequest,
+  permission: 'read' | 'edit' | 'comment' = 'read',
+  prefix = '',
+): boolean | Where {
+  return crmTaskWhere(req, permission, prefix, workspaceTaskWhere(req, permission, prefix))
+}
+export function taskReadWhere(req: PayloadRequest, prefix = 'task.'): Where {
+  const access = taskWhere(req, 'read', prefix)
+  return access === true ? {} : access || { id: { equals: -1 } }
+}
+function workspaceTaskWhere(
   req: PayloadRequest,
   permission: 'read' | 'edit' | 'comment' = 'read',
   prefix = '',
@@ -84,7 +105,11 @@ export function taskWhere(
               {
                 and: [
                   { [field('personal')]: { not_equals: true } },
-                  { [field('documentSite')]: { equals: authorityClaim(req.user)?.site || '__unavailable__' } },
+                  {
+                    [field('documentSite')]: {
+                      equals: authorityClaim(req.user)?.site || '__unavailable__',
+                    },
+                  },
                   {
                     [field('documentType')]: {
                       in: reviewDocuments.filter((type) => canReviewCollection(req, type)),
@@ -148,7 +173,11 @@ export async function boardRole(req: PayloadRequest, id: unknown): Promise<Board
     depth: 0,
   })
   if (isAdministrator(req)) return 'owner'
-  if (board.platformSite && (board.platformSite !== claim?.site || !claim.allowed.workspace?.includes('read'))) return null
+  if (
+    board.platformSite &&
+    (board.platformSite !== claim?.site || !claim.allowed.workspace?.includes('read'))
+  )
+    return null
   if (relationID(board.owner) === String(req.user.id)) return 'owner'
   const members = await req.payload.find({
     collection: 'task-board-memberships',
@@ -158,7 +187,13 @@ export async function boardRole(req: PayloadRequest, id: unknown): Promise<Board
     limit: 1,
     where: { and: [{ board: { equals: board.id } }, { user: { equals: req.user.id } }] },
   })
-  const direct = members.docs[0]?.role ?? (board.visibility === 'team' && board.platformSite === claim?.site && claim.allowed.workspace?.includes('read') ? 'viewer' : null)
+  const direct =
+    members.docs[0]?.role ??
+    (board.visibility === 'team' &&
+    board.platformSite === claim?.site &&
+    claim.allowed.workspace?.includes('read')
+      ? 'viewer'
+      : null)
   const inherited = board.inheritProject ? await projectRole(req, board.project) : null
   return direct && inherited
     ? roleRank[direct] >= roleRank[inherited]
@@ -174,8 +209,15 @@ export async function requireBoard(
 ) {
   const role = await boardRole(req, id)
   if (permission !== 'read') {
-    const board = await req.payload.findByID({ collection: 'task-boards', id: relationID(id), req: workspaceReq(req), overrideAccess: true, depth: 0 })
-    if (board.platformSite && !authorityClaim(req.user)?.allowed.workspace?.includes('edit')) reject('Workspace editing is unavailable in this site.')
+    const board = await req.payload.findByID({
+      collection: 'task-boards',
+      id: relationID(id),
+      req: workspaceReq(req),
+      overrideAccess: true,
+      depth: 0,
+    })
+    if (board.platformSite && !authorityClaim(req.user)?.allowed.workspace?.includes('edit'))
+      reject('Workspace editing is unavailable in this site.')
   }
   if (permission === 'edit') {
     const board = await req.payload.findByID({

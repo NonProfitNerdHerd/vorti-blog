@@ -9,12 +9,14 @@ export function ContactActivities({
   contact,
   onDirty,
   onSaving,
+  onFollowUp,
 }: {
   api: string
   site: string
   contact: string
   onDirty: (dirty: boolean) => void
   onSaving: (busy: boolean) => void
+  onFollowUp?: (activity: { id: string; subject: string }) => void
 }) {
   const [docs, setDocs] = useState<Activity[]>([]),
     [next, setNext] = useState<string | null>(null),
@@ -42,6 +44,7 @@ export function ContactActivities({
         setNext(data.next)
         setCanEdit(data.canEdit)
         setError('')
+        return true
       }
     } catch (cause) {
       if (version === generation.current) {
@@ -51,6 +54,7 @@ export function ContactActivities({
         setError((cause as Error).message)
       }
     }
+    return false
   }, [api, site, contact, after])
   useEffect(() => {
     void load()
@@ -76,7 +80,7 @@ export function ContactActivities({
     onDirty(false)
     operation.current = null
   }
-  const save = async () => {
+  const save = async (followUp = false) => {
     if (!editor || busy) return
     const version = generation.current,
       intent = {
@@ -93,7 +97,7 @@ export function ContactActivities({
     onSaving(true)
     setError('')
     try {
-      await crmRead(`${api}/crm/activities`, {
+      const saved = await crmRead<{ doc: { id: string } }>(`${api}/crm/activities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...intent, operationKey: operation.current.key }),
@@ -103,7 +107,9 @@ export function ContactActivities({
       setEditor(null)
       setDirty(false)
       onDirty(false)
-      await load()
+      const loaded = await load()
+      if (followUp && loaded && version + 1 === generation.current)
+        onFollowUp?.({ id: saved.doc.id, subject: subject.trim() })
     } catch (cause) {
       if (version === generation.current) {
         setError((cause as Error).message)
@@ -230,6 +236,15 @@ export function ContactActivities({
           >
             Save communication
           </button>
+          {onFollowUp && (
+            <button
+              type="button"
+              disabled={!subject.trim() || !body.trim() || !date || archived}
+              onClick={() => void save(true)}
+            >
+              Save and assign follow-up
+            </button>
+          )}
         </fieldset>
       )}
       {editor && !canEdit && (

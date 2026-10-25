@@ -18,6 +18,12 @@ import { correspondenceSchemaV1 } from '../../src/crm/correspondence-schema-v1'
 import { emailSchemaV1 } from '../../src/crm/email-schema-v1'
 import { attachmentSchemaV1 } from '../../src/crm/attachment-schema-v1'
 import { timelineIndexesV1 } from '../../src/crm/timeline-indexes-v1'
+import { applyCRMTaskSchemaV1 } from '../../src/crm/task-schema-v1'
+import { OrganizationRepository } from '../../src/organizations/repository'
+import {
+  workspaceProjectionSchemaV1,
+  workspaceProjectionBackfillV1,
+} from '../../src/organizations/workspace-projection-v1'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
 if (
@@ -75,6 +81,68 @@ for (const statement of [
   const column = /^ALTER TABLE vc_crm_funds ADD COLUMN (\w+)/.exec(statement)?.[1]
   if (column && fundColumns.some((c) => c.name === column)) continue
   await payload.db.drizzle.run(sql.raw(statement))
+}
+// Payload schema push models joins as tables. In this explicitly isolated fixture
+// only, replace empty derived tables with the migration's read-only views.
+for (const table of ['vc_crm_task_contexts', 'vc_crm_task_constituents']) {
+  const physical = await payload.db.drizzle.all<{ name: string }>(
+    sql.raw(`SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`),
+  )
+  if (!physical.length) continue
+  const rows = await payload.db.drizzle.all<{ n: number }>(
+    sql.raw(`SELECT count(*) AS n FROM ${table}`),
+  )
+  if (rows[0]?.n !== 0) throw new Error('Refusing to replace a populated local CRM access table.')
+  await payload.db.drizzle.run(sql.raw(`DROP TABLE ${table}`))
+}
+for (const statement of [...workspaceProjectionSchemaV1, ...workspaceProjectionBackfillV1])
+  await payload.db.drizzle.run(sql.raw(statement))
+await applyCRMTaskSchemaV1(
+  async (statement) => payload.db.drizzle.run(sql.raw(statement)),
+  async (table = 'review_tasks') =>
+    payload.db.drizzle.all<{ name: string }>(sql.raw(`PRAGMA table_info(${table})`)),
+  async () =>
+    payload.db.drizzle.all<{ name: string }>(
+      sql.raw("SELECT name FROM sqlite_master WHERE type='table'"),
+    ),
+)
+const existingAssignee = await payload.find({
+  collection: 'users',
+  where: { username: { equals: 'crm-followup-assignee' } },
+  limit: 1,
+  depth: 0,
+})
+const assignee =
+  existingAssignee.docs[0] ||
+  (await payload.create({
+    collection: 'users',
+    data: {
+      username: 'crm-followup-assignee',
+      email: 'crm-followup-assignee@example.invalid',
+      password: 'local-followup-only-password',
+      role: 'editor',
+    },
+  }))
+const membership = await payload.db.drizzle.all<{ role: string; active: number }>(
+  sql.raw(
+    `SELECT role,active FROM vc_site_memberships WHERE site_id='default' AND user_id=${Number(assignee.id)}`,
+  ),
+)
+if (membership[0]?.role !== 'editor' || membership[0]?.active !== 1) {
+  const revision = await payload.db.drizzle.all<{ revision: number }>(
+    sql.raw("SELECT revision FROM vc_sites WHERE id='default'"),
+  )
+  await new OrganizationRepository(
+    (payload.db as unknown as { client: D1Database }).client,
+    session.user.id,
+  ).setMembership({
+    site: 'default',
+    user: assignee.id,
+    role: 'editor',
+    active: true,
+    expectedRevision: revision[0].revision,
+    operationKey: crypto.randomUUID(),
+  })
 }
 console.log('Isolated CRM expansion schema and authenticated fictional operator are ready.')
 process.exit(0)

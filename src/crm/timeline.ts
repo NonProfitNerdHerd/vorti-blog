@@ -70,9 +70,15 @@ export class ContactTimeline {
       'volunteer-hours',
       'communications',
       'restricted-activity',
+      'workspace',
     ] as const)
       if ((await this.authority.authority(input.site, category, 'read')).allowed) read.add(category)
-    const built = timelineSources(read)
+    const withTasks =
+      read.has('workspace') &&
+      !!(await this.db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vc_crm_task_events'")
+        .first())
+    const built = timelineSources(read, withTasks)
     const eventColumns = [
       'id',
       'at',
@@ -104,7 +110,7 @@ export class ContactTimeline {
       selects = next
     }
     // Count and rows share one SQLite statement/snapshot, including an empty page after the last cursor.
-    const sql = `WITH chosen AS (SELECT ? AS site_id,? AS contact_id,? AS actor_id), ${compounds.length ? `${compounds.join(',')},` : ''}
+    const sql = `WITH chosen AS (SELECT ? AS site_id,? AS contact_id,CAST(? AS INTEGER) AS actor_id), ${compounds.length ? `${compounds.join(',')},` : ''}
       events(${eventColumns.join(',')}) AS (${selects.join(' UNION ALL ')}),
       normalized AS (SELECT *,coalesce(strftime('%Y-%m-%dT%H:%M:%fZ',at),'') AS timestamp FROM events)
       SELECT * FROM normalized WHERE 1=1 ${input.group ? 'AND kind=?' : ''}`

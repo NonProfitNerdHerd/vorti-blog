@@ -16,30 +16,31 @@ import { attachmentSchemaV1 } from '../../src/crm/attachment-schema-v1'
 import { timelineIndexesV1 } from '../../src/crm/timeline-indexes-v1'
 import { ContactRepository } from '../../src/crm/contacts'
 
+export const crmTimelineSchema = [
+  ...organizationSchema,
+  ...defaultOrganizationSeed,
+  ...contactSchemaV1,
+  ...financeSchemaV1,
+  ...fundraisingSchemaV1,
+  ...householdSchemaV1,
+  ...commitmentSchemaV1,
+  ...membershipSchemaV1,
+  ...opportunitySchemaV1,
+  ...volunteerSchemaV1,
+  ...activitySchemaV1,
+  ...crmJobSchemaV1,
+  ...correspondenceSchemaV1,
+  ...emailSchemaV1,
+  ...attachmentSchemaV1,
+  ...timelineIndexesV1,
+] as const
+
 export async function crmTimelineFixture() {
   const fixture = localD1()
   fixture.sqlite.exec(
     "CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT,attribution_label TEXT);INSERT INTO users VALUES(1,'administrator','Fictional operator'),(2,'editor','Fictional reader')",
   )
-  for (const sql of [
-    ...organizationSchema,
-    ...defaultOrganizationSeed,
-    ...contactSchemaV1,
-    ...financeSchemaV1,
-    ...fundraisingSchemaV1,
-    ...householdSchemaV1,
-    ...commitmentSchemaV1,
-    ...membershipSchemaV1,
-    ...opportunitySchemaV1,
-    ...volunteerSchemaV1,
-    ...activitySchemaV1,
-    ...crmJobSchemaV1,
-    ...correspondenceSchemaV1,
-    ...emailSchemaV1,
-    ...attachmentSchemaV1,
-    ...timelineIndexesV1,
-  ])
-    fixture.sqlite.exec(sql)
+  for (const sql of crmTimelineSchema) fixture.sqlite.exec(sql)
   const contact = String(
     (
       await new ContactRepository(fixture.db, 1).create({

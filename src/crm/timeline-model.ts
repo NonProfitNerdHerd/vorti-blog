@@ -8,6 +8,7 @@ export const timelineGroups = [
   'volunteers',
   'correspondence',
   'attachments',
+  'tasks',
 ] as const
 export type TimelineGroup = (typeof timelineGroups)[number]
 export const timelineLabels: Record<TimelineGroup, string> = {
@@ -20,6 +21,7 @@ export const timelineLabels: Record<TimelineGroup, string> = {
   volunteers: 'Volunteer activity',
   correspondence: 'Issued correspondence',
   attachments: 'Private attachments',
+  tasks: 'Follow-up tasks',
 }
 export type TimelineEvent = {
   id: string
