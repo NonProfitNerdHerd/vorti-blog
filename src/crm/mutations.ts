@@ -1,4 +1,4 @@
-import { atomicSiteMutation } from '../organizations/atomic'
+import { atomicSiteMutation, prepareAtomicSiteCheckpoint } from '../organizations/atomic'
 import { SiteConflictError } from '../organizations/atomic'
 type Intent = { action: string; site: string; type: string; intent: unknown }
 async function hashIntent(input: Intent): Promise<string> {
@@ -100,30 +100,12 @@ export async function commitCRM(input: CRMCommit): Promise<Record<string, unknow
  * No domain write or audit is committed by preparation; every CAS/epoch guard remains atomic.
  */
 export async function prepareCRMCheckpoint(input: CRMCommit): Promise<D1PreparedStatement[]> {
-  if (
-    !/^[a-zA-Z0-9_-]{16,128}$/.test(input.key) ||
-    !Number.isSafeInteger(input.actor) ||
-    input.actor <= 0
-  )
-    throw new Error('Invalid mutation operation identity.')
-  const { db } = input
-  return [
-    input.write,
-    db
-      .prepare('INSERT INTO vc_write_guards(operation_key,affected) VALUES(?,changes())')
-      .bind(input.key),
-    ...afterWrite(input),
-    db
-      .prepare(
-        'INSERT INTO vc_platform_operations(operation_key,actor_id,fingerprint,result,created_at) VALUES(?,?,?,?,?)',
-      )
-      .bind(
-        input.key,
-        input.actor,
-        await hashIntent(input),
-        JSON.stringify(input.result),
-        new Date().toISOString(),
-      ),
-    db.prepare('DELETE FROM vc_write_guards WHERE operation_key=?').bind(input.key),
-  ]
+  return prepareAtomicSiteCheckpoint(input.db, {
+    actor: input.actor,
+    operationKey: input.key,
+    fingerprint: await hashIntent(input),
+    write: input.write,
+    afterWrite: afterWrite(input),
+    result: input.result,
+  })
 }

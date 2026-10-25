@@ -66,6 +66,7 @@ export class ContactRepository {
   constructor(
     private readonly db: D1Database,
     private readonly actor: number,
+    private readonly commit: typeof atomicSiteMutation = atomicSiteMutation,
   ) {
     this.authority = new OrganizationRepository(db, actor)
   }
@@ -127,7 +128,7 @@ export class ContactRepository {
     const id = crypto.randomUUID(),
       affiliation = crypto.randomUUID(),
       now = new Date().toISOString()
-    return atomicSiteMutation(this.db, {
+    return this.commit(this.db, {
       actor: this.actor,
       operationKey: input.operationKey,
       fingerprint: await digest({ action: 'contact.create', site: site.id, profile, roles, tags }),
@@ -231,7 +232,8 @@ export class ContactRepository {
     )
       throw new Error('Invalid page cursor.')
     const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`
-    if (new TextEncoder().encode(pattern).length > 50) throw new Error('Search contains too many wildcard characters.')
+    if (new TextEncoder().encode(pattern).length > 50)
+      throw new Error('Search contains too many wildcard characters.')
     const where = `a.site_id=? AND c.organization_id=? AND a.archived=0 AND c.archived=0
       AND c.label LIKE ? ESCAPE '\\' ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''}`
     const parameters: Array<string | number> = [
@@ -285,7 +287,7 @@ export class ContactRepository {
     const profile = validateContactProfile(input.profile)
     if (profile.kind !== original.kind)
       throw new Error('Create a separate constituent to change Person/Organization identity type.')
-    return atomicSiteMutation(this.db, {
+    return this.commit(this.db, {
       actor: this.actor,
       operationKey: input.operationKey,
       fingerprint: await digest({
@@ -333,7 +335,7 @@ export class ContactRepository {
     const original = await this.row(site.id, input.id)
     const roles = validateRoles(input.roles),
       tags = validateContactTags(input.tags)
-    return atomicSiteMutation(this.db, {
+    return this.commit(this.db, {
       actor: this.actor,
       operationKey: input.operationKey,
       fingerprint: await digest({
@@ -461,7 +463,7 @@ export class ContactRepository {
       .bind(input.correction, context.id, input.id)
       .first<{ status: string; revision: number }>()
     if (!original) throw new SiteAccessError()
-    return atomicSiteMutation(this.db, {
+    return this.commit(this.db, {
       actor: this.actor,
       operationKey: input.operationKey,
       fingerprint: await digest({
@@ -506,7 +508,7 @@ export class ContactRepository {
     const id = crypto.randomUUID(),
       message = input.message.trim(),
       now = new Date().toISOString()
-    return atomicSiteMutation(this.db, {
+    return this.commit(this.db, {
       actor: this.actor,
       operationKey: input.operationKey,
       fingerprint: await digest({

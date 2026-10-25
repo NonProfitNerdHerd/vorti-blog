@@ -119,6 +119,8 @@ export const importDomains = {
       reference('billingContact', 'Billing contact', 'contacts'),
       field('startsOn', 'Term start date', 'date'),
       field('endsOn', 'Term end date', 'date'),
+      field('cancelledOn', 'Cancellation date', 'date'),
+      field('cancellationReason', 'Cancellation reason'),
       reference('renewedFrom', 'Previous membership term', 'memberships'),
     ],
   },

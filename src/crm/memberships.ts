@@ -14,6 +14,7 @@ export class MembershipRepository {
   constructor(
     private db: D1Database,
     private actor: number,
+    private commit: typeof commitCRM = commitCRM,
   ) {
     this.authority = new OrganizationRepository(db, actor)
   }
@@ -140,7 +141,7 @@ export class MembershipRepository {
             exponent,
             archived,
           )
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -405,7 +406,7 @@ export class MembershipRepository {
             now,
           )
       : term
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -430,11 +431,11 @@ export class MembershipRepository {
             ]
           : []),
         ...guards,
-        ...covered.map((c) =>
-          this.db
-            .prepare('INSERT INTO vc_crm_membership_coverage(term_id,constituent_id) VALUES(?,?)')
-            .bind(id, c),
-        ),
+        this.db
+          .prepare(
+            'INSERT INTO vc_crm_membership_coverage(term_id,constituent_id) SELECT ?,value FROM json_each(?)',
+          )
+          .bind(id, JSON.stringify(covered)),
       ],
       result: { id },
     })
@@ -472,7 +473,7 @@ export class MembershipRepository {
     const current = await this.get(input.site, input.id, date)
     if (date < current.doc.starts_on || current.doc.cancelled_on)
       throw new Error('Choose a cancellation date within or after the term start.')
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,

@@ -46,6 +46,7 @@ export class VolunteerRepository {
   constructor(
     private db: D1Database,
     private actor: number,
+    private commit: typeof commitCRM = commitCRM,
   ) {
     this.authority = new OrganizationRepository(db, actor)
   }
@@ -97,7 +98,7 @@ export class VolunteerRepository {
     write: D1PreparedStatement,
     dependent: D1PreparedStatement[] = [],
   ) {
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,

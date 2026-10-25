@@ -62,6 +62,7 @@ export class HouseholdRepository {
   constructor(
     private db: D1Database,
     private actor: number,
+    private commit: typeof commitCRM = commitCRM,
   ) {
     this.authority = new OrganizationRepository(db, actor)
   }
@@ -226,7 +227,8 @@ export class HouseholdRepository {
     const id = input.id || crypto.randomUUID()
     let write: D1PreparedStatement,
       before: unknown = null,
-      after: unknown
+      after: unknown,
+      memberID: string | undefined
     const dependent: D1PreparedStatement[] = []
     if (input.action === 'create-household') {
       const name = text(values.name, 180, true),
@@ -295,19 +297,13 @@ export class HouseholdRepository {
           const contact = text(values.constituent, 100, true),
             period = dates(values)
           await this.contact(input.site, contact)
+          memberID = crypto.randomUUID()
           dependent.push(
             this.db
               .prepare(
                 'INSERT INTO vc_crm_household_members(id,household_id,constituent_id,role,started_on,ended_on) VALUES(?,?,?,?,?,?)',
               )
-              .bind(
-                crypto.randomUUID(),
-                id,
-                contact,
-                text(values.role ?? '', 120),
-                period.start,
-                period.end,
-              ),
+              .bind(memberID, id, contact, text(values.role ?? '', 120), period.start, period.end),
           )
         } else {
           const member = household.members.find((m) => m.id === values.member && !m.ended_on)
@@ -389,7 +385,7 @@ export class HouseholdRepository {
         )
         .bind(notes, period.start, period.end, id, input.site, input.expectedRevision!)
     } else throw new Error('Choose a supported household action.')
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -404,7 +400,7 @@ export class HouseholdRepository {
       intent,
       write,
       dependent,
-      result: { id },
+      result: { id, ...(memberID ? { memberID } : {}) },
     })
   }
 }

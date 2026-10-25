@@ -5,7 +5,9 @@ import type { InformationCategory, SiteOperation } from '../organizations/policy
 
 export const jobPermissions = {
   'report-export': { category: 'reports', operation: 'export' },
-  'import-apply': { category: 'identity', operation: 'edit' },
+  // The import handler requires the selected domain's edit grant on every step.
+  // Finance/volunteer staff may legitimately have identity read access only.
+  'import-apply': { category: 'identity', operation: 'read' },
   'contact-merge': { category: 'identity', operation: 'edit' },
   correspondence: { category: 'communications', operation: 'edit' },
 } as const satisfies Record<string, { category: InformationCategory; operation: SiteOperation }>
@@ -44,7 +46,7 @@ export class CRMJobPermanentError extends Error {
       reason === 'unsupported-document-text'
         ? 'PDF text requires a supported font. Printable HTML remains available.'
         : reason === 'stale-review'
-          ? 'Batch records or permissions changed. Refresh pending reviews before approving again.'
+          ? 'Reviewed records or permissions changed. Refresh pending reviews before approving again.'
           : 'The job request is invalid. Review it before retrying.',
     )
   }

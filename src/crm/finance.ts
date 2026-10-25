@@ -73,6 +73,7 @@ export class FinanceRepository {
   constructor(
     private readonly db: D1Database,
     private readonly actor: number,
+    private readonly commit: typeof commitCRM = commitCRM,
   ) {
     this.authority = new OrganizationRepository(db, actor)
   }
@@ -115,7 +116,7 @@ export class FinanceRepository {
       id = crypto.randomUUID(),
       now = new Date().toISOString()
     const intent = { name }
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -216,7 +217,7 @@ export class FinanceRepository {
       throw new Error('Use the existing currency precision for this chapter.')
     const id = crypto.randomUUID(),
       now = new Date().toISOString()
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -250,7 +251,16 @@ export class FinanceRepository {
           now,
           now,
         ),
-      dependent: input.campaign || input.appeal ? [this.db.prepare('INSERT INTO vc_crm_gift_attribution(gift_id,campaign_id,appeal_id) VALUES(?,?,?)').bind(id, input.campaign || null, input.appeal || null)] : [],
+      dependent:
+        input.campaign || input.appeal
+          ? [
+              this.db
+                .prepare(
+                  'INSERT INTO vc_crm_gift_attribution(gift_id,campaign_id,appeal_id) VALUES(?,?,?)',
+                )
+                .bind(id, input.campaign || null, input.appeal || null),
+            ]
+          : [],
       result: { id, revision: 1 },
     })
   }
@@ -427,7 +437,7 @@ export class FinanceRepository {
     const now = new Date().toISOString(),
       state = input.action === 'void' ? 'void' : 'posted',
       after = { netMinor: net.toString(), netAllocations: nextAllocations, state }
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
