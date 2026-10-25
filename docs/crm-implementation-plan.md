@@ -2,6 +2,17 @@
 
 ## October 24 implementation continuation — in progress
 
+### Unified contact timeline production milestone — October 24 local time
+
+Source `17e7199c3c06f0c8bdb967009c2bf39351eed8c4` is committed, pushed and fast-forwarded into `main`. The verified timeline artifact is deployed as Worker `dafafcb4-07a7-47ad-bf3f-cdf9aa2111d6`, deployment `019d8703-6311-4155-be17-bc1f4dda2898`, at 2026-10-25T01:25:52.805529Z (October 24 locally). Additive migration `20261025_020000_crm_timeline_indexes` completed; the production ledger is 54. Read-only verification confirmed all 174 CRM schema objects (36 tables, 45 indexes, 93 triggers), three fund upgrade columns and unchanged counts across all 202 historical application tables. Public main/child pages and anonymous CRM/timeline/private-file access denials passed. No fictional production records or real correspondence were created.
+
+Validation passed 142 focused CRM/policy cases and all eight authenticated optimized-Worker browser scenarios. Repeated native upgrades preserved every original field across 196 local historical tables; native D1/private R2 history paging, TypeScript, lint with zero errors, optimized build and both deployment dry-runs passed. Frozen artifact SHA-256: `16a33365a8cb3b0fe6fb3f892995b0a66385bbddee42ffb30d445763137dd319`; 1,012 runtime inputs were verified. Receipts remain under ignored `.wrangler/releases/crm-timeline-20261025/`.
+
+Recovery bookmark: `00000c8d-00000004-0000510f-7e623455b3d2b01d72f0aebda814e5ee`; prior Worker: `9c5971f5-ad51-4a8c-a4d5-a2bb3f882ae4`. Worker rollback and database recovery remain separate reviewed operations. The production administrator session was rechecked and remains at login, so signed-in production UI smoke is pending; authenticated local Worker acceptance passed.
+
+The approved full CRM implementation remains active. Other-domain attachment placements, bulk correspondence, reviewed CSV/XLSX imports, controlled merges, saved reports/complete exports, their domain jobs and CRM-linked existing Tasks/Boards remain unfinished. Email remains visibly unconfigured. This is a deployed milestone, not completion of the full plan.
+
+
 ### Unified contact timeline — verified release candidate
 
 Added a staff contact Timeline tab combining authorized chapter history for identity, affiliations, households/relationships, communications, gifts/retained adjustments, pledges/recurring schedules, membership terms, opportunities, volunteer activity, issued correspondence/delivery events and published contact attachments. Area filters, complete counts, stable keyset pagination, related-area navigation, reload and mobile layouts use the existing contact workspace. Unknown legacy timestamps remain visible without invented dates. Money remains exact, currencies stay explicit and in-kind valuations are excluded.
