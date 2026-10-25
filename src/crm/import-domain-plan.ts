@@ -540,8 +540,6 @@ export async function prepareImportDomain(
       } else allocations.push({ fund: (await v.required(ctx, 'fund')).id, ...amount })
       const campaign = await v.ref(ctx, 'campaign'),
         appeal = await v.ref(ctx, 'appeal')
-      if (appeal?.campaign_id && appeal.campaign_id !== campaign?.id)
-        throw new Error('Choose the campaign associated with this appeal.')
       const desired = {
         constituent: contact.id,
         kind: v.text('kind', 'cash') as GiftKind,

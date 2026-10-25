@@ -189,9 +189,11 @@ export type ImportColumnMapping = {
   value?: string
   clearBlank: boolean
   referenceMode: 'record' | 'source'
+  translations?: Array<{ source: string; value: string }>
+  unmatched?: 'error' | 'source'
 }
 export type ImportMapping = {
-  version: 1
+  version: 1 | 2
   domain: ImportDomain
   headers: string[]
   columns: ImportColumnMapping[]
@@ -203,7 +205,7 @@ export function importMapping(raw: unknown): ImportMapping {
     domain = importDomain(value.domain),
     fields = importFields(domain)
   if (
-    value.version !== 1 ||
+    (value.version !== 1 && value.version !== 2) ||
     !Array.isArray(value.headers) ||
     !value.headers.length ||
     value.headers.length > 256 ||
@@ -243,14 +245,50 @@ export function importMapping(raw: unknown): ImportMapping {
       throw new Error('Choose source-identifier resolution only for a linked record.')
     if (c.clearBlank && ['sourceID', 'recordID'].includes(definition.id))
       throw new Error('Choose preserve for record identifiers; import lineage is retained.')
+    let translations: ImportColumnMapping['translations']
+    if (c.translations !== undefined || c.unmatched !== undefined) {
+      if (
+        value.version !== 2 ||
+        !byColumn ||
+        ['sourceID', 'recordID'].includes(definition.id) ||
+        !Array.isArray(c.translations) ||
+        !c.translations.length ||
+        c.translations.length > 1000 ||
+        !['error', 'source'].includes(String(c.unmatched))
+      )
+        throw new Error(
+          'Choose version 2 source-value translations with an explicit unmatched-value action; identifiers retain their original lineage.',
+        )
+      const sourceValues = new Set<string>()
+      translations = c.translations.map((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+          throw new Error('Enter valid source-value translations.')
+        const pair = entry as Record<string, unknown>
+        if (
+          typeof pair.source !== 'string' ||
+          !pair.source.trim() ||
+          pair.source.length > 32768 ||
+          typeof pair.value !== 'string' ||
+          !pair.value.trim() ||
+          pair.value.length > 32768 ||
+          sourceValues.has(pair.source)
+        )
+          throw new Error('Enter unique nonblank original values and nonblank translated values.')
+        sourceValues.add(pair.source)
+        return { source: pair.source, value: pair.value }
+      })
+      if (new TextEncoder().encode(JSON.stringify(translations)).length > 1048576)
+        throw new Error('Choose source-value translations smaller than 1 MiB.')
+    }
     return {
       field: definition.id,
       ...(byColumn ? { column: Number(c.column) } : { value: c.value as string }),
       clearBlank: c.clearBlank,
       referenceMode: c.referenceMode as 'record' | 'source',
+      ...(translations ? { translations, unmatched: c.unmatched as 'error' | 'source' } : {}),
     }
   })
-  return { version: 1, domain, headers, columns }
+  return { version: value.version as 1 | 2, domain, headers, columns }
 }
 export function importHeadersMatch(mapping: ImportMapping, headers: string[]) {
   return (
@@ -262,7 +300,7 @@ export type MappedImportCell = { value: string; clear: boolean; referenceMode: '
 export function mapImportRow(row: ImportTableRow, mapping: ImportMapping) {
   const values: Record<string, MappedImportCell> = Object.create(null)
   const used = new Set(mapping.columns.flatMap((c) => (c.column === undefined ? [] : [c.column])))
-  const issues = row.issues
+  const issues: Array<{ column: number; field?: string; message: string }> = row.issues
     .filter((issue) => issue.column < 0 || used.has(issue.column))
     .map((issue) => ({ ...issue }))
   for (const column of mapping.columns) {
@@ -271,8 +309,22 @@ export function mapImportRow(row: ImportTableRow, mapping: ImportMapping) {
     if (raw === undefined) continue
     const blank = !raw.trim()
     if (blank && !column.clearBlank) continue
+    let translated = raw
+    if (!blank && column.translations) {
+      const pair = column.translations.find((entry) => entry.source === raw)
+      if (pair) translated = pair.value
+      else if (column.unmatched !== 'source') {
+        issues.push({
+          column: column.column ?? -1,
+          field: column.field,
+          message:
+            'Choose a translation for this source value or explicitly retain unmatched source values.',
+        })
+        continue
+      }
+    }
     values[column.field] = {
-      value: blank ? '' : raw,
+      value: blank ? '' : translated,
       clear: blank,
       referenceMode: column.referenceMode,
     }

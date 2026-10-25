@@ -22,11 +22,15 @@ import type { EmailRuntime } from './email-provider'
 import { overviewEndpoints } from './overview-endpoints'
 import { crmTaskCollections } from './task-plugin'
 import { crmTaskEndpoints } from './task-endpoints'
+import { importEndpoints } from './import-endpoints'
+import { importMappingEndpoints } from './import-mapping-endpoints'
+import { wakeCRMJob, type CRMJobWake } from './job-dispatch'
 
 export interface CRMPlatform {
   db: D1Database
   storage: R2Bucket
   email?: EmailRuntime
+  queue?: Pick<Queue<CRMJobWake>, 'send'>
 }
 export function errorResponse(error: unknown): Response {
   if (error instanceof Error && /no such table:.*vc_/i.test(error.message))
@@ -204,6 +208,11 @@ export const crmModule =
         ...financeEndpoints(platform.db, errorResponse),
         ...overviewEndpoints(platform.db, errorResponse),
         ...crmTaskEndpoints(platform.db, errorResponse),
+        ...importEndpoints(
+          { ...platform, wake: (job) => wakeCRMJob(platform.queue, job) },
+          errorResponse,
+        ),
+        ...importMappingEndpoints(platform.db, errorResponse),
         ...householdEndpoints(platform.db, errorResponse),
         ...fundraisingEndpoints(platform.db, errorResponse),
         ...activityEndpoints(platform.db, errorResponse),

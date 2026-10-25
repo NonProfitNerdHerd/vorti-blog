@@ -1,5 +1,68 @@
 import { expect, test } from '@playwright/test'
 
+test('household follow-ups open in a pinned tab and persist through completion and reload', async ({
+  page,
+}) => {
+  expect(
+    (
+      await page.request.post('/api/users/login', {
+        data: { email: 'dev@payloadcms.com', password: 'test' },
+        timeout: 120000,
+      })
+    ).ok(),
+  ).toBe(true)
+  const name = `Fictional household follow-up ${Date.now()}`
+  const response = await page.request.post('/api/crm/households', {
+    data: {
+      site: 'default',
+      action: 'create-household',
+      values: { name, address: '123 Fictional Lane' },
+      operationKey: crypto.randomUUID(),
+    },
+  })
+  expect(response.ok(), await response.text()).toBe(true)
+  const household = (await response.json()).doc
+  await page.goto(
+    `/admin/crm?${new URLSearchParams({ view: 'households', site: 'default', household: household.id })}`,
+  )
+  const editor = page.getByRole('region', { name: 'Household editor' })
+  await expect(editor.getByLabel('Name', { exact: true })).toHaveValue(name)
+  const [followups] = await Promise.all([
+    page.waitForEvent('popup'),
+    editor
+      .getByRole('link', { name: 'Record follow-up tasks (opens in another tab)', exact: true })
+      .click(),
+  ])
+  await expect(followups).toHaveURL(/view=record-tasks/)
+  expect(new URL(followups.url()).searchParams.get('recordID')).toBe(household.id)
+  await expect(editor.getByLabel('Name', { exact: true })).toHaveValue(name)
+  await followups.getByRole('button', { name: 'New follow-up', exact: true }).click()
+  await followups.getByLabel('Task title', { exact: true }).fill(`Household renewal ${name}`)
+  await followups.getByRole('button', { name: 'Create follow-up task', exact: true }).click()
+  const title = followups.getByRole('link', { name: `Household renewal ${name}`, exact: true })
+  await expect(title).toBeVisible()
+  await followups.reload()
+  await expect(title).toBeVisible()
+  await followups
+    .getByRole('button', { name: `Complete Household renewal ${name}`, exact: true })
+    .click()
+  await followups
+    .getByRole('combobox', { name: 'Task status', exact: true })
+    .selectOption('completed')
+  await expect(title).toBeVisible()
+  await followups.reload()
+  await followups
+    .getByRole('combobox', { name: 'Task status', exact: true })
+    .selectOption('completed')
+  await expect(title).toBeVisible()
+  await followups.setViewportSize({ width: 390, height: 844 })
+  await expect(title).toBeVisible()
+  expect(
+    await followups.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2),
+  ).toBe(true)
+  await followups.close()
+})
+
 test('save a donor call, assign another staff member and complete the follow-up in existing Tasks', async ({
   page,
   browser,

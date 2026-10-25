@@ -1,5 +1,5 @@
 'use client'
-import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordActions } from './RecordActions'
 /* eslint-disable react-hooks/set-state-in-effect -- Fetch data for the explicitly pinned CRM site and filters. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
@@ -746,7 +746,7 @@ export function OpportunityWorkspace({
       {editor && (
         <section aria-label="Opportunity editor">
           <h3>{editor === 'new' ? 'New opportunity' : editor.name}</h3>
-          {editor !== 'new' && <RecordAttachmentLink site={site} link={{ type: 'opportunity', id: editor.id }} />}
+          {editor !== 'new' && <RecordActions site={site} link={{ type: 'opportunity', id: editor.id }} />}
           <fieldset disabled={busy || childBusy || childDirty || financialDirty || !canEdit}>
             <label>
               Opportunity name

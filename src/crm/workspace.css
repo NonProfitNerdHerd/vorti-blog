@@ -35,6 +35,7 @@
 .vc-crm .vc-crm-domain table { display: block; overflow-x: auto; min-width: 0; max-width: 100%; }
 .vc-crm-domain th, .vc-crm-domain td { min-width: 90px; }
 .vc-crm-domain fieldset { min-width: 0; display: grid; gap: 12px; margin-block: 16px; padding: 16px; border: 1px solid var(--theme-elevation-200); }
+.vc-crm-imports fieldset { grid-template-columns: minmax(0, 1fr); }
 .vc-crm-domain section { margin-block: 16px; }
 .vc-crm-domain button { max-width: 100%; white-space: normal; }
 .vc-crm-pipeline { display: flex; gap: 16px; overflow-x: auto; max-width: 100%; padding-block: 12px; }

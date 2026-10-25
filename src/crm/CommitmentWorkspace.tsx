@@ -1,5 +1,6 @@
 'use client'
-import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordActions } from './RecordActions'
+import { GivingHistory } from './GivingHistory'
 /* eslint-disable react-hooks/set-state-in-effect -- Resolve data for explicit pinned site/contact contexts. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
@@ -72,6 +73,9 @@ export function CommitmentWorkspace({
     [gifts, setGifts] = useState<GiftSummary[]>([]),
     [giftPage, setGiftPage] = useState(1),
     [giftTotal, setGiftTotal] = useState(0)
+  const [reversalGifts, setReversalGifts] = useState<Record<string, GiftSummary>>({})
+  const [loadingSource, setLoadingSource] = useState('')
+  const sourceRequest = useRef(0)
   const generation = useRef(0),
     operation = useRef<{ fingerprint: string; key: string } | null>(null)
   const mark = (value: boolean) => {
@@ -147,6 +151,9 @@ export function CommitmentWorkspace({
       setEffective('')
       setNewName(result.doc.name)
       setGifts([])
+      setReversalGifts({})
+      setLoadingSource('')
+      sourceRequest.current++
       setGiftID('')
       setGiftTotal(0)
       setGiftPage(1)
@@ -250,11 +257,49 @@ export function CommitmentWorkspace({
       }
     }
   }
+  const loadSourceGift = async (id: string) => {
+    if (!detail) return
+    const version = generation.current
+    const request = ++sourceRequest.current
+    setLoadingSource(id)
+    setError('')
+    try {
+      const { doc } = await crmRead<{ doc: GiftSummary }>(
+        `${api}/crm/finance?${new URLSearchParams({ site, id })}`,
+      )
+      if (version !== generation.current || request !== sourceRequest.current) return
+      if (
+        doc.id !== id ||
+        doc.constituent !== detail.doc.constituent_id ||
+        doc.currency !== detail.doc.currency ||
+        doc.exponent !== detail.doc.exponent
+      )
+        throw new Error('The source gift does not match this giving record.')
+      setReversalGifts((old) => ({ ...old, [id]: doc }))
+    } catch (cause) {
+      if (version === generation.current && request === sourceRequest.current) {
+        setReversalGifts({})
+        setError((cause as Error).message)
+        if ([401, 403].includes((cause as { status: number }).status)) {
+          setDetail(null)
+          setDocs([])
+          setGifts([])
+          setCanEdit(false)
+        }
+      }
+    } finally {
+      if (version === generation.current && request === sourceRequest.current) setLoadingSource('')
+    }
+  }
   const apply = (reverse?: Detail['applications'][number]) => {
     if (!detail) return
-    const gift = gifts.find((g) => g.id === (reverse?.gift_id || giftID))
+    const gift = reverse
+      ? reversalGifts[reverse.gift_id] || gifts.find((g) => g.id === reverse.gift_id)
+      : gifts.find((g) => g.id === giftID)
     if (!gift) {
-      setError('Load the gift’s current page before applying or reversing payment.')
+      setError(
+        'Load the source gift before reversing, or select a donor gift before applying payment.',
+      )
       return
     }
     try {
@@ -578,7 +623,7 @@ export function CommitmentWorkspace({
           <h3>
             {detail.doc.name} — {detail.doc.label}
           </h3>
-          <RecordAttachmentLink site={site} link={{ type: detail.doc.kind, id: detail.doc.id }} />
+          <RecordActions site={site} link={{ type: detail.doc.kind, id: detail.doc.id }} />
           <label>
             Reconcile through
             <input
@@ -664,6 +709,7 @@ export function CommitmentWorkspace({
                 <th>Date</th>
                 <th>Applied</th>
                 <th>Current credit</th>
+                <th>Source gift</th>
                 <th>Reason/status</th>
                 <th>Action</th>
               </tr>
@@ -675,6 +721,27 @@ export function CommitmentWorkspace({
                   <td>{formatMinor(a.amount_minor, detail.doc.exponent)}</td>
                   <td>{formatMinor(a.effectiveMinor, detail.doc.exponent)}</td>
                   <td>
+                    {reversalGifts[a.gift_id] ? (
+                      <span>
+                        {reversalGifts[a.gift_id].receivedOn} —{' '}
+                        {reversalGifts[a.gift_id].reference || 'Recorded gift'} —{' '}
+                        {reversalGifts[a.gift_id].currency}{' '}
+                        {formatMinor(
+                          reversalGifts[a.gift_id].netMinor,
+                          reversalGifts[a.gift_id].exponent,
+                        )}{' '}
+                        current net
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={busy || !!loadingSource}
+                      onClick={() => void loadSourceGift(a.gift_id)}
+                    >
+                      {loadingSource === a.gift_id ? 'Loading source gift…' : 'Load source gift'}
+                    </button>
+                  </td>
+                  <td>
                     {a.reason}
                     {a.reversed ? ' (reversed)' : ''}
                   </td>
@@ -682,7 +749,7 @@ export function CommitmentWorkspace({
                     {detail.canEdit && !a.reversed && (
                       <button
                         type="button"
-                        disabled={busy || !reason.trim()}
+                        disabled={busy || !!loadingSource || !reason.trim()}
                         onClick={() => apply(a)}
                       >
                         Reverse application
@@ -693,6 +760,7 @@ export function CommitmentWorkspace({
               ))}
             </tbody>
           </table>
+          <GivingHistory api={api} site={site} id={detail.doc.id} revision={detail.doc.revision} />
           {detail.canEdit && (
             <fieldset disabled={busy}>
               <legend>Changes and recorded payments</legend>
@@ -796,8 +864,8 @@ export function CommitmentWorkspace({
                 Apply recorded payment
               </button>
               <p>
-                To reverse, load the gift’s current page and enter a reason. Refunds use unallocated
-                cash first, then reduce payment credits proportionally.
+                To reverse, load the source gift from payment history and enter a reason. Refunds
+                use unallocated cash first, then reduce payment credits proportionally.
               </p>
               {detail.doc.state !== 'cancelled' && (
                 <>

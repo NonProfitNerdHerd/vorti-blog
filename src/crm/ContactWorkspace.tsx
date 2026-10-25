@@ -28,6 +28,22 @@ type Detail = ContactSummary & {
 type Cursor = { label: string; id: string }
 type Context = { site: { id: string; name: string }; canCreate: boolean }
 type ContactPage = { docs: ContactSummary[]; total: number; next: Cursor | null }
+const contactTabs = [
+  'profile',
+  'chapter',
+  'corrections',
+  'gifts',
+  'relationships',
+  'communications',
+  'giving',
+  'memberships',
+  'opportunities',
+  'volunteers',
+  'correspondence',
+  'attachments',
+  'timeline',
+] as const
+type ContactTab = (typeof contactTabs)[number]
 const empty = (): ContactProfile => ({
   kind: 'person',
   firstName: '',
@@ -44,7 +60,9 @@ const empty = (): ContactProfile => ({
   },
 })
 export function ContactWorkspace() {
-  const requestedContact = useSearchParams().get('contact')
+  const params = useSearchParams()
+  const requestedContact = params.get('contact')
+  const requestedTab = params.get('contactTab')
   const openedLocation = useRef('')
   const {
     config: {
@@ -223,6 +241,9 @@ export function ContactWorkspace() {
     operation.current = null
     const location = new URL(window.location.href)
     location.searchParams.delete('contact')
+    location.searchParams.delete('contactTab')
+    location.searchParams.delete('receiptGift')
+    location.searchParams.delete('renewalMembership')
     window.history.replaceState(null, '', location)
     openedLocation.current = ''
   }
@@ -230,7 +251,16 @@ export function ContactWorkspace() {
     async (id?: string) => {
       if (!site) return
       setSaveError('')
-      setTab('profile')
+      const requested = new URL(window.location.href)
+      const requestedTab = requested.searchParams.get('contactTab')
+      const nextTab: ContactTab =
+        id &&
+        requested.searchParams.get('contact') === id &&
+        requested.searchParams.get('site') === site.id &&
+        contactTabs.includes(requestedTab as ContactTab)
+          ? (requestedTab as ContactTab)
+          : 'profile'
+      setTab(nextTab)
       setTagInput('')
       setConfirmed(false)
       setCorrection('')
@@ -257,6 +287,11 @@ export function ContactWorkspace() {
         location.searchParams.set('view', 'contacts')
         location.searchParams.set('site', site.id)
         location.searchParams.set('contact', id)
+        location.searchParams.set('contactTab', nextTab)
+        if (requested.searchParams.get('contact') !== id) {
+          location.searchParams.delete('receiptGift')
+          location.searchParams.delete('renewalMembership')
+        }
         window.history.replaceState(null, '', location)
       } catch (cause) {
         if (
@@ -274,11 +309,17 @@ export function ContactWorkspace() {
     [site, api, read, loseAccess],
   )
   useEffect(() => {
-    if (!site || !requestedContact || openedLocation.current === `${site.id}:${requestedContact}`)
+    if (!site || !requestedContact) return
+    if (openedLocation.current === `${site.id}:${requestedContact}`) {
+      if (params.get('site') === site.id && contactTabs.includes(requestedTab as ContactTab)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize an external Next URL change, including same-contact receipt links.
+        setTab(requestedTab as ContactTab)
+      }
       return
+    }
     openedLocation.current = `${site.id}:${requestedContact}`
     void open(requestedContact)
-  }, [site, requestedContact, open])
+  }, [site, requestedContact, requestedTab, params, open])
   const editable =
     editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
   const switchTab = (
@@ -311,6 +352,9 @@ export function ContactWorkspace() {
     setDirty(false)
     setSaveError('')
     setTab(nextTab)
+    const location = new URL(window.location.href)
+    location.searchParams.set('contactTab', nextTab)
+    window.history.replaceState(null, '', location)
     operation.current = null
   }
   const save = async () => {
@@ -372,6 +416,9 @@ export function ContactWorkspace() {
       openedLocation.current = ''
       const location = new URL(window.location.href)
       location.searchParams.delete('contact')
+      location.searchParams.delete('contactTab')
+      location.searchParams.delete('receiptGift')
+      location.searchParams.delete('renewalMembership')
       window.history.replaceState(null, '', location)
       setNotice(
         editable
@@ -757,6 +804,16 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
+                initialGift={
+                  requestedContact === editor.id && params.get('site') === site.id
+                    ? params.get('receiptGift') || undefined
+                    : undefined
+                }
+                initialMembership={
+                  requestedContact === editor.id && params.get('site') === site.id
+                    ? params.get('renewalMembership') || undefined
+                    : undefined
+                }
                 onDirty={setDirty}
                 onSaving={setSaving}
               />

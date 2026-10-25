@@ -1,5 +1,5 @@
 'use client'
-import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordActions } from './RecordActions'
 /* eslint-disable react-hooks/set-state-in-effect -- Request lifecycle state follows the existing CRM widgets. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { parseMoney } from './money'
@@ -684,7 +684,22 @@ export function ContactGifts({
           />
           <div className="vc-crm-toolbar">
             <h3>Gift on {detail.receivedOn}</h3>
-            <RecordAttachmentLink site={site} link={{ type: 'gift', id: detail.id }} />
+            <RecordActions site={site} link={{ type: 'gift', id: detail.id }} />
+            {detail.state === 'posted' && (
+              <Link
+                href={`${pathname}?${new URLSearchParams({ view: 'contacts', site, contact: detail.constituent, contactTab: 'correspondence', receiptGift: detail.id })}`}
+                onClick={(event) => {
+                  if (
+                    saving ||
+                    ((reason || delta || attributionDirty) &&
+                      !window.confirm('Discard unsaved gift changes?'))
+                  )
+                    event.preventDefault()
+                }}
+              >
+                Prepare receipt or thank-you
+              </Link>
+            )}
             <button
               type="button"
               disabled={saving}

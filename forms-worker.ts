@@ -1,5 +1,8 @@
 // @ts-ignore OpenNext generates this module after Next's type check.
 import handler from './.open-next/worker.js'
+import { consumeCRMJobWakes, recoverCRMJobWakes, type CRMJobWake } from './src/crm/job-dispatch'
+import { importJob } from './src/crm/import-job'
+import { cleanImportResults } from './src/crm/import-export-maintenance'
 import {
   PUBLIC_SITE_HEADER,
   PUBLIC_PREFIX_HEADER,
@@ -10,6 +13,12 @@ import {
 export { DOQueueHandler, DOShardedTagCache, BucketCachePurge } from './.open-next/worker.js'
 
 export default {
+  async queue(batch, env) {
+    if (!env.CRM_JOB_QUEUE) throw new Error('CRM background dispatch is not configured.')
+    await consumeCRMJobWakes(batch, env.D1, env.CRM_JOB_QUEUE, {
+      'import-apply': importJob(env.D1, env.WORKSPACE_FILES),
+    })
+  },
   async fetch(request, env, ctx) {
     const headers = new Headers(request.headers)
     for (const key of [PUBLIC_SITE_HEADER, PUBLIC_PREFIX_HEADER, PUBLIC_PREVIEW_HEADER])
@@ -88,6 +97,15 @@ export default {
         failures.push(`${path}: failed`)
       }
     }
+    if (env.CRM_JOB_QUEUE) {
+      try {
+        await recoverCRMJobWakes(env.D1, env.CRM_JOB_QUEUE, ['import-apply'])
+        const cleanup = await cleanImportResults(env.D1, env.WORKSPACE_FILES)
+        if (cleanup.uploadFailures) failures.push('CRM result upload cleanup: retry required')
+      } catch {
+        failures.push('CRM background recovery: failed')
+      }
+    }
     if (failures.length) throw new Error(`Scheduled processing failed: ${failures.join(', ')}`)
   },
-} satisfies ExportedHandler<CloudflareEnv & { FORM_JOB_TOKEN?: string }>
+} satisfies ExportedHandler<CloudflareEnv & { FORM_JOB_TOKEN?: string; CRM_JOB_QUEUE?: Queue<CRMJobWake> }>

@@ -106,6 +106,15 @@ it('records a chapter gift with an explicit donor and retains the gift and const
     render(<DonationWorkspace api="/api" site="default" />)
     await screen.findByRole('link', { name: 'Fictional timeline donor' })
     expect(screen.getAllByText('USD 23.45')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: '2026-10-25' }))
+    const receipt = await screen.findByRole('link', { name: 'Prepare receipt or thank-you' })
+    const receiptURL = new URL(receipt.getAttribute('href')!, 'https://crm.test')
+    expect(receiptURL.searchParams.get('site')).toBe('default')
+    expect(receiptURL.searchParams.get('contact')).toBe(fixture.contact)
+    expect(receiptURL.searchParams.get('contactTab')).toBe('correspondence')
+    expect(receiptURL.searchParams.get('receiptGift')).toBe(
+      (fixture.sqlite.prepare('SELECT id FROM vc_crm_gifts').get() as { id: string }).id,
+    )
   } finally {
     fixture.close()
   }

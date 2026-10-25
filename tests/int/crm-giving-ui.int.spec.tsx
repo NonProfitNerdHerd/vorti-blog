@@ -122,12 +122,14 @@ beforeEach(async () => {
         if (url.pathname.endsWith('/fundraising')) return Response.json({ docs: [], next: null })
         if (url.pathname.endsWith('/finance'))
           return Response.json(
-            await finance.list({
-              site,
-              constituent: contact,
-              page: Number(url.searchParams.get('page') || 1),
-              limit: 25,
-            }),
+            url.searchParams.get('id')
+              ? { doc: await finance.get(site, url.searchParams.get('id')!) }
+              : await finance.list({
+                  site,
+                  constituent: contact,
+                  page: Number(url.searchParams.get('page') || 1),
+                  limit: 25,
+                }),
           )
         if (init?.method === 'POST') {
           const b = JSON.parse(String(init.body))
@@ -145,19 +147,30 @@ beforeEach(async () => {
         }
         const id = url.searchParams.get('id')
         return Response.json(
-          id
-            ? await repo.get(
+          url.searchParams.get('view') === 'history'
+            ? await repo.history(
                 site,
-                id,
-                url.searchParams.get('through')!,
-                Number(url.searchParams.get('offset') || 0),
+                id!,
+                url.searchParams.has('afterID')
+                  ? {
+                      id: url.searchParams.get('afterID')!,
+                      createdAt: url.searchParams.get('afterCreatedAt')!,
+                    }
+                  : undefined,
               )
-            : await repo.list(
-                site,
-                commitmentKind(url.searchParams.get('kind')!),
-                url.searchParams.get('after') || '',
-                url.searchParams.get('contact') || '',
-              ),
+            : id
+              ? await repo.get(
+                  site,
+                  id,
+                  url.searchParams.get('through')!,
+                  Number(url.searchParams.get('offset') || 0),
+                )
+              : await repo.list(
+                  site,
+                  commitmentKind(url.searchParams.get('kind')!),
+                  url.searchParams.get('after') || '',
+                  url.searchParams.get('contact') || '',
+                ),
         )
       } catch (cause) {
         return Response.json(
@@ -256,6 +269,49 @@ it('creates editable pledge installments, applies a recorded gift and reloads pe
   await screen.findByRole('region', { name: 'Giving record details' })
   expect(value('Recorded payment credit')).toBe('USD 5.00')
   expect(screen.queryByRole('alert')).toBeNull()
+  // The donor gift list is intentionally not loaded after remount. Resolve the
+  // retained application directly instead of searching for its original page.
+  const originalGifts = fixture.sqlite.prepare('SELECT * FROM vc_crm_gifts').all()
+  fireEvent.click(screen.getByRole('button', { name: 'Load source gift' }))
+  await screen.findByText(/USD 10.00 current net/)
+  expect(value('Recorded payment credit')).toBe('USD 5.00')
+  fill('Reason', 'Correct application to the wrong installment')
+  fireEvent.click(screen.getByRole('button', { name: 'Reverse application' }))
+  await waitFor(() => expect(value('Recorded payment credit')).toBe('USD 0.00'))
+  expect(value('Outstanding')).toBe('USD 10.00')
+  const updatedGifts = fixture.sqlite.prepare('SELECT * FROM vc_crm_gifts').all()
+  const financialSnapshot = (rows: unknown[]) =>
+    rows.map((row) =>
+      Object.fromEntries(
+        Object.entries(row as Record<string, unknown>).filter(
+          ([key]) => !['revision', 'updated_at'].includes(key),
+        ),
+      ),
+    )
+  expect(financialSnapshot(updatedGifts)).toEqual(financialSnapshot(originalGifts))
+  expect((updatedGifts[0] as { revision: number }).revision).toBe(
+    (originalGifts[0] as { revision: number }).revision + 1,
+  )
+  expect(screen.getByText(/Apply the first installment \(reversed\)/)).toBeTruthy()
+  await within(screen.getByRole('region', { name: 'Giving change history' })).findByText(
+    'Correct application to the wrong installment',
+  )
+  expect(
+    fixture.sqlite
+      .prepare("SELECT reason FROM vc_platform_audit WHERE action='giving.payment-reversed'")
+      .get(),
+  ).toEqual({ reason: 'Correct application to the wrong installment' })
+  const originalFetch = globalThis.fetch
+  vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+    const url = new URL(input, 'http://localhost')
+    return url.pathname.endsWith('/finance') && url.searchParams.has('id')
+      ? Response.json({ message: 'Financial access revoked.' }, { status: 403 })
+      : originalFetch(input, init)
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Load source gift' }))
+  await screen.findByText('Financial access revoked.')
+  expect(screen.queryByRole('region', { name: 'Giving record details' })).toBeNull()
+  expect(fixture.sqlite.prepare('SELECT * FROM vc_crm_gifts').all()).toEqual(updatedGifts)
 })
 it('creates recurring giving and exposes audited pause/resume controls without creating gifts', async () => {
   render(<CommitmentWorkspace api="/api" site="default" contact={contact} />)

@@ -41,7 +41,7 @@ export const importReferenceRules: Record<
   },
   appeals: {
     category: 'finances',
-    sql: `SELECT id,name AS label,campaign_id,revision,archived FROM vc_crm_appeals WHERE site_id=? AND id=?`,
+    sql: `SELECT id,name AS label,revision,archived FROM vc_crm_appeals WHERE site_id=? AND id=?`,
   },
   'membership-types': {
     category: 'memberships',

@@ -45,6 +45,15 @@ it('shows the selected constituent summary, opens call notes and history, and cl
     )
     await screen.findByText('0 posted monetary gifts')
     expect(screen.getByText('donor · volunteer')).toBeTruthy()
+    for (const [name, target] of [
+      ['View or record gifts', 'gifts'],
+      ['View pledges and recurring giving', 'giving'],
+      ['Review opportunities', 'opportunities'],
+      ['Review memberships and renewals', 'memberships'],
+    ]) {
+      fireEvent.click(screen.getByRole('button', { name }))
+      expect(onOpen).toHaveBeenLastCalledWith(target)
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Record a call or note' }))
     expect(onOpen).toHaveBeenLastCalledWith('communications')
     fireEvent.click(screen.getByRole('button', { name: 'Open timeline' }))

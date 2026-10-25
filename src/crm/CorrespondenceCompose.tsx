@@ -78,6 +78,8 @@ type Props = {
   api: string
   site: string
   contact?: string
+  initialGift?: string
+  initialMembership?: string
   supersedes?: string
   onIssued?: () => void
   onDirty?: (value: boolean) => void
@@ -86,7 +88,7 @@ type Props = {
 export function CorrespondenceCompose(props: Props) {
   return (
     <DocumentComposer
-      key={`${props.api}:${props.site}:${props.contact || ''}:${props.supersedes || ''}`}
+      key={`${props.api}:${props.site}:${props.contact || ''}:${props.supersedes || ''}:${props.initialGift || ''}:${props.initialMembership || ''}`}
       {...props}
     />
   )
@@ -95,6 +97,8 @@ function DocumentComposer({
   api,
   site,
   contact: initialContact,
+  initialGift,
+  initialMembership,
   supersedes,
   onIssued,
   onDirty,
@@ -174,8 +178,11 @@ function DocumentComposer({
     issuedOn: date,
     issuerName,
     issuerAddress,
-    gift: gift || undefined,
-    membership: membership || undefined,
+    gift:
+      template?.kind === 'gift-receipt' || template?.kind === 'thank-you'
+        ? gift || undefined
+        : undefined,
+    membership: template?.kind === 'membership-renewal' ? membership || undefined : undefined,
     year: template?.kind === 'annual-statement' ? Number(year) : undefined,
   }
   const prepare = async () => {
@@ -271,9 +278,18 @@ function DocumentComposer({
           <select
             value={template?.id || ''}
             onChange={(event) => {
-              setTemplate(templates.find((row) => row.id === event.target.value) || null)
-              setGift('')
-              setMembership('')
+              const selected = templates.find((row) => row.id === event.target.value) || null
+              setTemplate(selected)
+              setGift(
+                selected?.kind === 'gift-receipt' || selected?.kind === 'thank-you'
+                  ? gift || (initialContact ? initialGift || '' : '')
+                  : '',
+              )
+              setMembership(
+                selected?.kind === 'membership-renewal'
+                  ? membership || (initialContact ? initialMembership || '' : '')
+                  : '',
+              )
               change()
             }}
           >

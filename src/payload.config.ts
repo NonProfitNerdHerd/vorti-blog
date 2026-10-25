@@ -228,7 +228,7 @@ export default buildConfig({
   db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: !migrationManaged }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
-    crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES, email: emailRuntimeFromBindings(cloudflare.env as CloudflareEnv & { CRM_EMAIL_ENVIRONMENT?: string; CRM_EMAIL_LIVE_SEND_ENABLED?: string; CRM_EMAIL_RESEND_API_KEY?: string }, isCLI || !isProduction || Boolean(localPersistPath)) }),
+    crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES, queue: cloudflare.env.CRM_JOB_QUEUE, email: emailRuntimeFromBindings(cloudflare.env as CloudflareEnv & { CRM_EMAIL_ENVIRONMENT?: string; CRM_EMAIL_LIVE_SEND_ENABLED?: string; CRM_EMAIL_RESEND_API_KEY?: string }, isCLI || !isProduction || Boolean(localPersistPath)) }),
     menuInvalidation,
     designSystemPlugin({
       enabled: true,

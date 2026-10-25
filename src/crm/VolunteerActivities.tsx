@@ -1,5 +1,5 @@
 'use client'
-import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordActions } from './RecordActions'
 import { useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead } from './HouseholdWorkspace'
 import { VolunteerHours } from './VolunteerHours'
@@ -285,7 +285,7 @@ export function VolunteerActivities({
       {editor && (
         <section aria-label="Volunteer activity editor">
           <h4>{editor === 'new' ? 'New volunteer activity' : editor.doc.name}</h4>
-          {editor !== 'new' && <RecordAttachmentLink site={site} link={{ type: 'volunteer-activity', id: editor.doc.id }} />}
+          {editor !== 'new' && <RecordActions site={site} link={{ type: 'volunteer-activity', id: editor.doc.id }} />}
           <fieldset disabled={io.busy || childBusy || partDirty || childDirty || !canEdit}>
             <label>
               Activity name

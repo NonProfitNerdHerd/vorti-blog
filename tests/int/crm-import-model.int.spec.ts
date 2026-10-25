@@ -115,11 +115,89 @@ it('rejects unknown, duplicate, ambiguous or out-of-range mappings and never cle
   ])
     expect(() => importMapping({ ...map, columns: [column] })).toThrow()
   expect(() => importMapping({ ...map, columns: [first, first] })).toThrow()
-  expect(() => importMapping({ ...map, version: 2 })).toThrow()
+  expect(() => importMapping({ ...map, version: 3 })).toThrow()
 })
 it('requires a stable canonical source-system name and rejects control characters', () => {
   expect(importSourceSystem('  Old CRM  ')).toBe('Old CRM')
   expect(importSourceSystem('Cafe\u0301')).toBe('Café')
   for (const value of ['', 'x'.repeat(121), 'bad\nnamespace', null])
     expect(() => importSourceSystem(value)).toThrow()
+})
+
+it('translates exact legacy values, flags unknown codes, preserves blanks and retains exact text', () => {
+  const map = importMapping({
+    version: 2,
+    domain: 'gifts',
+    headers: ['Fund'],
+    columns: [
+      {
+        field: 'fund',
+        column: 0,
+        clearBlank: false,
+        referenceMode: 'record',
+        translations: [
+          { source: 'ANNUAL', value: 'annual-fund' },
+          { source: '__proto__', value: 'special-fund' },
+        ],
+        unmatched: 'error',
+      },
+    ],
+  })
+  expect(map.version).toBe(2)
+  expect(mapImportRow({ number: 2, values: ['ANNUAL'], issues: [] }, map).values.fund.value).toBe(
+    'annual-fund',
+  )
+  const missing = mapImportRow({ number: 3, values: ['annual'], issues: [] }, map)
+  expect(missing.values.fund).toBeUndefined()
+  expect(missing.issues[0].field).toBe('fund')
+  expect(mapImportRow({ number: 4, values: [''], issues: [] }, map).values.fund).toBeUndefined()
+  expect(mapImportRow({ number: 5, values: [], issues: [] }, map).values.fund).toBeUndefined()
+  const special = mapImportRow({ number: 6, values: ['__proto__'], issues: [] }, map)
+  expect(Object.getPrototypeOf(special.values)).toBeNull()
+  expect(special.values.fund.value).toBe('special-fund')
+  const passthrough = importMapping({
+    ...map,
+    columns: [{ ...map.columns[0], unmatched: 'source' }],
+  })
+  expect(
+    mapImportRow({ number: 7, values: ['existing-id'], issues: [] }, passthrough).values.fund.value,
+  ).toBe('existing-id')
+  const clear = importMapping({ ...map, columns: [{ ...map.columns[0], clearBlank: true }] })
+  expect(mapImportRow({ number: 8, values: [''], issues: [] }, clear).values.fund.clear).toBe(true)
+})
+
+it('rejects ambiguous translations and translating lineage identifiers while retaining old mappings', () => {
+  const old = mapping()
+  expect(importMapping(old)).toEqual(old)
+  const column = {
+    field: 'firstName',
+    column: 0,
+    clearBlank: false,
+    referenceMode: 'record',
+    translations: [{ source: 'OLD', value: 'New' }],
+    unmatched: 'error',
+  }
+  for (const invalid of [
+    { ...column, field: 'sourceID' },
+    { ...column, field: 'recordID' },
+    { ...column, translations: [{ source: 'OLD', value: '' }] },
+    {
+      ...column,
+      translations: [
+        { source: 'OLD', value: 'New' },
+        { source: 'OLD', value: 'Other' },
+      ],
+    },
+    { ...column, unmatched: 'guess' },
+    {
+      field: column.field,
+      value: 'fixed',
+      clearBlank: false,
+      referenceMode: 'record',
+      translations: column.translations,
+      unmatched: 'error',
+    },
+  ])
+    expect(() => importMapping({ ...old, version: 2, columns: [invalid] })).toThrow()
+  expect(() => importMapping({ ...old, columns: [column] })).toThrow('version 2')
 })

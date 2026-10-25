@@ -19,6 +19,8 @@ import { emailSchemaV1 } from '../../src/crm/email-schema-v1'
 import { attachmentSchemaV1 } from '../../src/crm/attachment-schema-v1'
 import { timelineIndexesV1 } from '../../src/crm/timeline-indexes-v1'
 import { applyCRMTaskSchemaV1 } from '../../src/crm/task-schema-v1'
+import { applyImportSchemaV1 } from '../../src/crm/import-schema-v1'
+import { importExportSchemaV1 } from '../../src/crm/import-export-schema-v1'
 import { OrganizationRepository } from '../../src/organizations/repository'
 import {
   workspaceProjectionSchemaV1,
@@ -82,6 +84,14 @@ for (const statement of [
   if (column && fundColumns.some((c) => c.name === column)) continue
   await payload.db.drizzle.run(sql.raw(statement))
 }
+await applyImportSchemaV1(
+  async (statement) => payload.db.drizzle.run(sql.raw(statement)),
+  async () =>
+    payload.db.drizzle.all<{ name: string }>(
+      sql.raw('PRAGMA table_info(vc_crm_source_identifiers)'),
+    ),
+)
+for (const statement of importExportSchemaV1) await payload.db.drizzle.run(sql.raw(statement))
 // Payload schema push models joins as tables. In this explicitly isolated fixture
 // only, replace empty derived tables with the migration's read-only views.
 for (const table of ['vc_crm_task_contexts', 'vc_crm_task_constituents']) {

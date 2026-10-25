@@ -18,6 +18,7 @@ export default defineConfig({
     'crm-bulk-correspondence.e2e.spec.ts',
     'crm-overview.e2e.spec.ts',
     'crm-tasks.e2e.spec.ts',
+    'crm-imports.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 360000,

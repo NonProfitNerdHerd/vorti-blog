@@ -50,8 +50,21 @@ test('staff overview, chapter donations and direct constituent links persist acr
   await expect(page.getByRole('dialog').getByRole('heading', { name, exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('dialog').getByRole('heading', { name, exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'View or record gifts', exact: true }).click()
+  await expect(page).toHaveURL(/contactTab=gifts/)
+  await expect(page.getByRole('tab', { name: 'Gifts', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await page.reload()
+  await expect(page.getByRole('tab', { name: 'Gifts', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('dialog').getByText('USD 23.45').first()).toBeVisible()
   await page.getByRole('button', { name: 'Close contact', exact: true }).click()
   await expect(page).not.toHaveURL(/contact=/)
+  await expect(page).not.toHaveURL(/contactTab=/)
   await page.setViewportSize({ width: 390, height: 844 })
   await page
     .getByRole('navigation', { name: 'CRM sections' })

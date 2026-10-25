@@ -9,15 +9,30 @@ type Props = {
   api: string
   site: string
   contact?: string
+  initialGift?: string
+  initialMembership?: string
   onDirty?: (value: boolean) => void
   onSaving?: (value: boolean) => void
 }
 export function CorrespondenceWorkspace(props: Props) {
-  return <Workspace key={`${props.api}:${props.site}:${props.contact || ''}`} {...props} />
+  return (
+    <Workspace
+      key={`${props.api}:${props.site}:${props.contact || ''}:${props.initialGift || ''}:${props.initialMembership || ''}`}
+      {...props}
+    />
+  )
 }
-function Workspace({ api, site, contact, onDirty, onSaving }: Props) {
+function Workspace({
+  api,
+  site,
+  contact,
+  initialGift,
+  initialMembership,
+  onDirty,
+  onSaving,
+}: Props) {
   const [view, setView] = useState<'templates' | 'prepare' | 'history' | 'email' | 'batches'>(
-      'history',
+      (initialGift || initialMembership) && contact ? 'prepare' : 'history',
     ),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
@@ -95,6 +110,8 @@ function Workspace({ api, site, contact, onDirty, onSaving }: Props) {
           api={api}
           site={site}
           contact={correction?.contact || contact}
+          initialGift={correction ? undefined : initialGift}
+          initialMembership={correction ? undefined : initialMembership}
           supersedes={correction?.id}
           onDirty={setDirty}
           onSaving={setBusy}

@@ -198,6 +198,55 @@ export class CommitmentRepository {
           })
     return { pauses, installments, ...page }
   }
+  async history(siteID: string, id: string, after?: { createdAt: string; id: string }) {
+    if (
+      after &&
+      (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(after.createdAt) ||
+        !after.id ||
+        after.id.length > 128)
+    )
+      throw new Error('Choose a valid giving history page.')
+    const site = await this.scope(siteID, 'read')
+    await this.row(siteID, id)
+    const rows = (
+      await this.db
+        .prepare(
+          `
+      SELECT a.id,a.created_at AS createdAt,a.action,a.reason,
+        COALESCE(u.attribution_label,'Account #'||a.actor_id) AS actorLabel,
+        CASE WHEN a.action='giving.changed' THEN json_extract(a.after_value,'$.action') ELSE NULL END AS change,
+        CASE WHEN a.action='giving.changed' THEN json_extract(a.after_value,'$.effectiveOn') ELSE NULL END AS effectiveOn,
+        CASE WHEN a.action='giving.changed' THEN json_extract(a.after_value,'$.name') ELSE NULL END AS name
+      FROM vc_platform_audit a LEFT JOIN users u ON u.id=a.actor_id
+      WHERE a.organization_id=? AND a.site_id=? AND a.record_type='giving' AND a.record_id=?
+        AND a.action IN('giving.created','giving.changed','giving.payment-applied','giving.payment-reversed')
+        ${after ? 'AND (a.created_at<? OR (a.created_at=? AND a.id<?))' : ''}
+      ORDER BY a.created_at DESC,a.id DESC LIMIT 26
+    `,
+        )
+        .bind(
+          site.organization_id,
+          siteID,
+          id,
+          ...(after ? [after.createdAt, after.createdAt, after.id] : []),
+        )
+        .all<{
+          id: string
+          createdAt: string
+          action: string
+          reason: string | null
+          actorLabel: string
+          change: string | null
+          effectiveOn: string | null
+          name: string | null
+        }>()
+    ).results
+    await this.row(siteID, id)
+    await this.fence(site.organization_id, site.authorityRevision)
+    const docs = rows.slice(0, 25)
+    const last = docs[docs.length - 1]
+    return { docs, next: rows.length > 25 ? { createdAt: last.createdAt, id: last.id } : null }
+  }
   async get(siteID: string, id: string, through: string, after = 0) {
     givingDate(through)
     if (!Number.isSafeInteger(after) || after < 0 || after > 500000)

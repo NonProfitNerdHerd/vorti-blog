@@ -4,6 +4,7 @@ import type { CRMOverview } from './overview'
 import { formatMinor } from './HouseholdWorkspace'
 export type ConstituentSummaryAction =
   | 'gifts'
+  | 'giving'
   | 'communications'
   | 'memberships'
   | 'relationships'
@@ -90,6 +91,14 @@ export function ConstituentSummary({
                   </p>
                 ))}
                 <small>Net received, all dates. In-kind gifts and commitments are separate.</small>
+                <div className="vc-crm-toolbar">
+                  <button type="button" onClick={() => onOpen('gifts')}>
+                    View or record gifts
+                  </button>
+                  <button type="button" onClick={() => onOpen('giving')}>
+                    View pledges and recurring giving
+                  </button>
+                </div>
               </>
             ) : (
               <p>Finance access is required to view giving.</p>
@@ -98,12 +107,22 @@ export function ConstituentSummary({
           <section>
             <h3>Next conversations</h3>
             {data.followups.opportunities !== null ? (
-              <p>{data.followups.opportunities} opportunity actions due</p>
+              <div>
+                <p>{data.followups.opportunities} opportunity actions due</p>
+                <button type="button" onClick={() => onOpen('opportunities')}>
+                  Review opportunities
+                </button>
+              </div>
             ) : (
               <p>Opportunity access is required.</p>
             )}
             {data.followups.membershipRenewals !== null && (
-              <p>{data.followups.membershipRenewals} membership renewals within 30 days</p>
+              <div>
+                <p>{data.followups.membershipRenewals} membership renewals within 30 days</p>
+                <button type="button" onClick={() => onOpen('memberships')}>
+                  Review memberships and renewals
+                </button>
+              </div>
             )}
             <button type="button" onClick={() => onOpen('communications')}>
               Record a call or note

@@ -2,6 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": "forms-worker.ts",
   "name": "vorti-blog-local-test",
+  "queues": {
+    "producers": [{ "binding": "CRM_JOB_QUEUE", "queue": "vorti-crm-local-test" }],
+    "consumers": [{ "queue": "vorti-crm-local-test", "max_batch_size": 1, "max_batch_timeout": 1, "max_concurrency": 2, "max_retries": 5 }],
+  },
   "compatibility_date": "2025-08-15",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "vars": { "CRM_EMAIL_ENVIRONMENT": "test", "CRM_EMAIL_LIVE_SEND_ENABLED": "false" },

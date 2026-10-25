@@ -235,10 +235,11 @@ export class ContactRepository {
     if (new TextEncoder().encode(pattern).length > 50)
       throw new Error('Search contains too many wildcard characters.')
     const where = `a.site_id=? AND c.organization_id=? AND a.archived=0 AND c.archived=0
-      AND c.label LIKE ? ESCAPE '\\' ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''}`
+      AND (c.label LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(c.profile,'$.methods') method WHERE json_extract(method.value,'$.kind')='email' AND json_extract(method.value,'$.value') LIKE ? ESCAPE '\\')) ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''}`
     const parameters: Array<string | number> = [
       site.id,
       site.organization_id,
+      pattern,
       pattern,
       ...(input.role ? [input.role] : []),
     ]

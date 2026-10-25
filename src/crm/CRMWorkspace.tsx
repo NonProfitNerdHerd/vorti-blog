@@ -14,8 +14,10 @@ import { Gutter, useConfig } from '@payloadcms/ui'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { OverviewWorkspace } from './OverviewWorkspace'
 import { DonationWorkspace } from './DonationWorkspace'
+import { ImportWorkspace } from './ImportWorkspace'
 import './workspace.css'
 import { RecordAttachmentPage } from './RecordAttachmentPage'
+import { RecordTaskPage } from './RecordTaskPage'
 export function CRMWorkspace() {
   const { config } = useConfig()
   const { binding } = useAdminSite()
@@ -32,19 +34,26 @@ export function CRMWorkspace() {
     ['opportunities', 'Opportunities'],
     ['volunteers', 'Volunteers'],
     ['correspondence', 'Receipts and correspondence'],
+    ['imports', 'Imports'],
   ] as const
   const view = sections.some(([id]) => id === params.get('view')) ? params.get('view')! : 'overview'
   const href = (next: string) =>
     `${pathname}?${new URLSearchParams({ view: next, ...(binding?.site.id ? { site: binding.site.id } : {}) })}`
-  if (params.get('view') === 'attachments') {
+  if (params.get('view') === 'attachments' || params.get('view') === 'record-tasks') {
     const requested = params.get('site')
     if (!requested || requested !== binding?.site.id)
       return (
         <Gutter>
-          <p role="alert">Open attachments with their authorized chapter selected.</p>
+          <p role="alert">Open record tools with their authorized chapter selected.</p>
         </Gutter>
       )
-    return (
+    return params.get('view') === 'record-tasks' ? (
+      <RecordTaskPage
+        site={requested}
+        type={params.get('recordType')}
+        id={params.get('recordID')}
+      />
+    ) : (
       <RecordAttachmentPage
         site={requested}
         type={params.get('recordType')}
@@ -91,6 +100,10 @@ export function CRMWorkspace() {
         ) : view === 'donations' ? (
           <Gutter className="vc-crm">
             <DonationWorkspace api={config.routes.api} site={binding?.site.id || ''} />
+          </Gutter>
+        ) : view === 'imports' ? (
+          <Gutter className="vc-crm">
+            <ImportWorkspace api={config.routes.api} site={binding?.site.id || ''} />
           </Gutter>
         ) : view === 'contacts' ? (
           <ContactWorkspace />

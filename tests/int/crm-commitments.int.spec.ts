@@ -314,4 +314,88 @@ describe('pledges and recurring giving reconciliation', () => {
     await expect(repo.get(other.site as string, id, '2026-12-31')).rejects.toThrow()
     expect((await finance.get('default', payment)).revision).toBe(1)
   })
+  it('pages complete retained change history with tied timestamps and enforces current chapter/contact access', async () => {
+    const record = await repo.create({
+      site: 'default',
+      operationKey: key(),
+      values: terms('pledge'),
+    })
+    const id = String(record.id)
+    const root = (await db
+      .prepare('SELECT organization_id FROM vc_sites WHERE id=?')
+      .bind('default')
+      .first<{ organization_id: string }>())!.organization_id
+    const insert = fixture.sqlite.prepare(
+      'INSERT INTO vc_platform_audit(id,organization_id,site_id,actor_id,action,record_type,record_id,after_value,reason,operation_key,created_at) VALUES(?,?,?,1,?,?,?,?,?,?,?)',
+    )
+    for (let index = 0; index < 28; index++) {
+      insert.run(
+        `history-${String(index).padStart(3, '0')}`,
+        root,
+        'default',
+        'giving.changed',
+        'giving',
+        id,
+        JSON.stringify({
+          action: 'rename',
+          effectiveOn: '2026-01-31',
+          name: `Recorded name ${index}`,
+        }),
+        `Retained explanation ${index}`,
+        key(),
+        '2027-01-01T00:00:00.000Z',
+      )
+    }
+    insert.run(
+      key(),
+      root,
+      'default',
+      'giving.changed',
+      'giving',
+      'unrelated-record',
+      '{}',
+      'Private unrelated reason',
+      key(),
+      '2027-01-01T00:00:00.000Z',
+    )
+    const first = await repo.history('default', id)
+    expect(first.docs).toHaveLength(25)
+    expect(first.docs[0]).toMatchObject({
+      reason: 'Retained explanation 27',
+      actorLabel: 'Manager',
+      change: 'rename',
+      name: 'Recorded name 27',
+    })
+    const secondPage = await repo.history('default', id, first.next!)
+    expect(secondPage.docs).toHaveLength(4)
+    expect(secondPage.next).toBeNull()
+    const all = [...first.docs, ...secondPage.docs]
+    expect(new Set(all.map((event) => event.id)).size).toBe(29)
+    expect(all.some((event) => event.reason === 'Private unrelated reason')).toBe(false)
+    await expect(repo.history('default', id, { createdAt: 'invalid', id: 'x' })).rejects.toThrow()
+    const restricted = new CommitmentRepository(db, 2)
+    expect((await restricted.history('default', id)).docs.length).toBe(25)
+    fixture.sqlite
+      .prepare(
+        'INSERT INTO vc_member_restrictions(site_id,user_id,category,operation) VALUES(?,2,?,?)',
+      )
+      .run('default', 'finances', 'read')
+    await expect(restricted.history('default', id)).rejects.toThrow()
+    const foreign = await new OrganizationRepository(db, 1).createOrganization({
+      name: 'History foreign root',
+      siteName: 'History foreign chapter',
+      operationKey: key(),
+    })
+    await expect(repo.history(String(foreign.site), id)).rejects.toThrow()
+    fixture.sqlite
+      .prepare('UPDATE vc_crm_affiliations SET archived=1 WHERE site_id=? AND constituent_id=?')
+      .run('default', contact)
+    try {
+      await expect(repo.history('default', id)).rejects.toThrow()
+    } finally {
+      fixture.sqlite
+        .prepare('UPDATE vc_crm_affiliations SET archived=0 WHERE site_id=? AND constituent_id=?')
+        .run('default', contact)
+    }
+  })
 })

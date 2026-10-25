@@ -2,6 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": "forms-worker.ts",
   "triggers": { "crons": ["*/5 * * * *"] },
+  "queues": {
+    "producers": [{ "binding": "CRM_JOB_QUEUE", "queue": "vorti-crm-jobs" }],
+    "consumers": [{ "queue": "vorti-crm-jobs", "max_batch_size": 1, "max_batch_timeout": 1, "max_concurrency": 2, "max_retries": 5 }],
+  },
   "name": "vorti-blog",
   "vars": {
     "CONTENT_WORKSPACE_ENABLED": "true",

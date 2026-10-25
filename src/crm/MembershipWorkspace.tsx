@@ -1,5 +1,5 @@
 'use client'
-import { RecordAttachmentLink } from './RecordAttachmentLink'
+import { RecordActions } from './RecordActions'
 /* eslint-disable react-hooks/set-state-in-effect -- Fetch explicitly scoped membership lists. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
@@ -8,6 +8,8 @@ import { membershipEnd, membershipStatus, type MembershipType } from './membersh
 import type { MembershipRepository } from './memberships'
 import type { Household, HouseholdMember } from './households'
 import { parseMoney } from './money'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 type Detail = Awaited<ReturnType<MembershipRepository['get']>>
 type Row = Awaited<ReturnType<MembershipRepository['list']>>['docs'][number]
 const emptyType = () => ({
@@ -32,6 +34,7 @@ export function MembershipWorkspace({
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
+  const pathname = usePathname()
   const [types, setTypes] = useState<MembershipType[]>([]),
     [docs, setDocs] = useState<Row[]>([]),
     [canEdit, setCanEdit] = useState(false),
@@ -698,7 +701,15 @@ export function MembershipWorkspace({
           <h3>
             {detail.doc.label} — {detail.doc.type_name}
           </h3>
-          <RecordAttachmentLink site={site} link={{ type: 'membership', id: detail.doc.id }} />
+          <RecordActions site={site} link={{ type: 'membership', id: detail.doc.id }} />
+          <Link
+            href={`${pathname}?${new URLSearchParams({ view: 'contacts', site, contact: detail.doc.billing_contact_id, contactTab: 'correspondence', renewalMembership: detail.doc.id })}`}
+            onClick={(event) => {
+              if (busy || !discard()) event.preventDefault()
+            }}
+          >
+            Prepare membership renewal letter
+          </Link>
           <p>
             {detail.doc.starts_on} through {detail.doc.ends_on};{' '}
             {membershipStatus(detail.doc, asOf)}. Dues {detail.doc.currency}{' '}

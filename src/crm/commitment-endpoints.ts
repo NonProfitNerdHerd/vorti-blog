@@ -17,19 +17,31 @@ export function commitmentEndpoints(
             repo = new CommitmentRepository(db, Number(req.user.id)),
             site = url.searchParams.get('site') || '',
             id = url.searchParams.get('id')
-          const result = id
-            ? await repo.get(
-                site,
-                id,
-                url.searchParams.get('through') || '',
-                Number(url.searchParams.get('offset') || 0),
-              )
-            : await repo.list(
-                site,
-                commitmentKind(url.searchParams.get('kind') || ''),
-                url.searchParams.get('after') || '',
-                url.searchParams.get('contact') || '',
-              )
+          const result =
+            url.searchParams.get('view') === 'history'
+              ? await repo.history(
+                  site,
+                  id || '',
+                  url.searchParams.has('afterID')
+                    ? {
+                        id: url.searchParams.get('afterID') || '',
+                        createdAt: url.searchParams.get('afterCreatedAt') || '',
+                      }
+                    : undefined,
+                )
+              : id
+                ? await repo.get(
+                    site,
+                    id,
+                    url.searchParams.get('through') || '',
+                    Number(url.searchParams.get('offset') || 0),
+                  )
+                : await repo.list(
+                    site,
+                    commitmentKind(url.searchParams.get('kind') || ''),
+                    url.searchParams.get('after') || '',
+                    url.searchParams.get('contact') || '',
+                  )
           return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
         } catch (error) {
           return errorResponse(error)

@@ -1,4 +1,6 @@
 import * as migration_20261025_040000_crm_tasks from './20261025_040000_crm_tasks';
+import * as migration_20261025_050000_crm_imports from './20261025_050000_crm_imports';
+import * as migration_20261025_060000_crm_import_results from './20261025_060000_crm_import_results';
 import * as migration_20261025_030000_crm_correspondence_batches from './20261025_030000_crm_correspondence_batches';
 import * as migration_20261024_140000_crm_households from './20261024_140000_crm_households';
 import * as migration_20261024_150000_crm_fundraising from './20261024_150000_crm_fundraising';
@@ -232,4 +234,6 @@ export const migrations = [
   { up: migration_20261025_020000_crm_timeline_indexes.up, down: migration_20261025_020000_crm_timeline_indexes.down, name: '20261025_020000_crm_timeline_indexes' },
   { up: migration_20261025_030000_crm_correspondence_batches.up, down: migration_20261025_030000_crm_correspondence_batches.down, name: '20261025_030000_crm_correspondence_batches' },
   { up: migration_20261025_040000_crm_tasks.up, down: migration_20261025_040000_crm_tasks.down, name: '20261025_040000_crm_tasks' },
+  { up: migration_20261025_050000_crm_imports.up, down: migration_20261025_050000_crm_imports.down, name: '20261025_050000_crm_imports' },
+  { up: migration_20261025_060000_crm_import_results.up, down: migration_20261025_060000_crm_import_results.down, name: '20261025_060000_crm_import_results' },
 ];

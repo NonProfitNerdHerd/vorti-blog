@@ -223,6 +223,21 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await modules.getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: `Pledge ${token}`, exact: true }).click()
   await expect(value('Recorded payment credit')).toHaveText('USD 5.00')
+  await detail.getByRole('button', { name: 'Load source gift', exact: true }).click()
+  await expect(detail.getByText(/USD 10.00 current net/)).toBeVisible()
+  await expect(value('Recorded payment credit')).toHaveText('USD 5.00')
+  await detail.getByLabel('Reason', { exact: true }).fill('Fictional application correction')
+  await detail.getByRole('button', { name: 'Reverse application', exact: true }).click()
+  await expect(value('Recorded payment credit')).toHaveText('USD 0.00')
+  await expect(value('Outstanding')).toHaveText('USD 10.00')
+  await expect(
+    detail.getByText('Fictional installment payment (reversed)', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    detail
+      .getByRole('region', { name: 'Giving change history' })
+      .getByText('Fictional application correction', { exact: true }),
+  ).toBeVisible()
   await modules.getByRole('link', { name: 'Memberships', exact: true }).click()
   await page.getByText('Membership types', { exact: true }).click()
   await page.getByRole('button', { name: 'Create membership type' }).click()
@@ -241,12 +256,10 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await page.getByRole('button', { name: 'Save membership term' }).click()
   await expect(page.getByRole('region', { name: 'Membership term details' })).toBeVisible()
   await expect(
-    page
-      .getByRole('region', { name: 'Membership term details' })
-      .getByRole('link', {
-        name: 'Private record attachments (opens in another tab)',
-        exact: true,
-      }),
+    page.getByRole('region', { name: 'Membership term details' }).getByRole('link', {
+      name: 'Private record attachments (opens in another tab)',
+      exact: true,
+    }),
   ).toBeVisible()
   await page.getByRole('button', { name: 'Manage recorded dues payments' }).click()
   await page.getByRole('button', { name: 'Open membership dues' }).click()
@@ -255,6 +268,36 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await expect(page.getByLabel('Term starts on')).toHaveValue('2027-01-01')
   await page.getByRole('button', { name: 'Save membership term' }).click()
   await expect(page.getByRole('button', { name: 'Open previous term' })).toBeVisible()
+  const renewalTemplate = await page.request.post('/api/crm/correspondence', {
+    data: {
+      action: 'save-template',
+      site: 'default',
+      operationKey: crypto.randomUUID(),
+      values: {
+        name: `Renewal ${token}`,
+        kind: 'membership-renewal',
+        subject: 'Renewal for {{recipient.name}}',
+        body: '{{membership.type}} ends {{membership.endsOn}}',
+      },
+    },
+  })
+  expect(renewalTemplate.ok(), await renewalTemplate.text()).toBe(true)
+  const renewalID = (await renewalTemplate.json()).doc.id
+  await page.getByRole('link', { name: 'Prepare membership renewal letter', exact: true }).click()
+  await expect(page).toHaveURL(/renewalMembership=/)
+  const termID = new URL(page.url()).searchParams.get('renewalMembership')!
+  await page.reload()
+  await page
+    .getByRole('combobox', { name: 'Document template', exact: true })
+    .selectOption(renewalID)
+  await expect(
+    page.getByRole('combobox', { name: 'Recorded membership term', exact: true }),
+  ).toHaveValue(termID)
+  await page.getByLabel('Issuer name', { exact: true }).fill('Fictional nonprofit')
+  await page.getByRole('button', { name: 'Preview resolved document', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Resolved document preview' })).toContainText(
+    `Annual ${token} ends 2027-12-31`,
+  )
   await page.setViewportSize({ width: 390, height: 844 })
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))

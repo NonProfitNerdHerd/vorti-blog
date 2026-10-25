@@ -63,18 +63,29 @@ test('staff issue and correct retained receipts with private PDF generation and 
   await expect(
     page.getByRole('button', { name: `Open Receipt ${token}`, exact: true }),
   ).toBeVisible()
-  await nav.getByRole('button', { name: 'Prepare document', exact: true }).click()
-  await page.getByRole('searchbox', { name: 'Search document recipient', exact: true }).fill(name)
   await page
-    .getByRole('combobox', { name: 'Document recipient', exact: true })
-    .selectOption({ label: name })
+    .getByRole('navigation', { name: 'CRM sections' })
+    .getByRole('link', { name: 'Donations', exact: true })
+    .click()
+  await page
+    .getByRole('row')
+    .filter({ has: page.getByRole('link', { name, exact: true }) })
+    .getByRole('button', { name: '2026-10-24', exact: true })
+    .click()
+  await page.getByRole('link', { name: 'Prepare receipt or thank-you', exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`receiptGift=${gift}`))
+  await page.reload()
+  await expect(
+    page.getByRole('region', { name: 'Prepare correspondence', exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('heading', { name, exact: true })).toBeVisible()
   await page
     .getByRole('combobox', { name: 'Document template', exact: true })
     .selectOption({ label: `Receipt ${token} · gift-receipt · version 1` })
   await page.getByLabel('Issuer name', { exact: true }).fill('Fictional nonprofit')
   await page.getByLabel('Issuer address', { exact: true }).fill('123 Fictional Avenue')
   await page.getByLabel('Document date', { exact: true }).fill('2026-10-24')
-  await page.getByLabel('Recorded gift', { exact: true }).selectOption(gift)
+  await expect(page.getByLabel('Recorded gift', { exact: true })).toHaveValue(gift)
   await page.getByRole('button', { name: 'Preview resolved document', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Resolved document preview' })).toContainText(
     'USD 25.00',

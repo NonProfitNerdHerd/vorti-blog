@@ -17,6 +17,7 @@ export class ImportReviewRepository {
   constructor(
     private db: D1Database,
     private actor: number,
+    private commit: typeof commitCRM = commitCRM,
   ) {}
 
   async mapping(input: {
@@ -45,7 +46,7 @@ export class ImportReviewRepository {
       throw new SiteConflictError()
     if (mapping.domain !== run.domain || !importHeadersMatch(mapping, JSON.parse(run.headers_json)))
       throw new Error('Choose a mapping matching this section and its exact source headers.')
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -146,14 +147,19 @@ export class ImportReviewRepository {
       plan.review.selection = { decision: input.decision, target: input.target ?? null }
       plan.review.issues.push({ message: error.message })
     }
-    if (input.decision !== 'skip') plan.review.issues.push(...mapped.issues)
+    if (input.decision !== 'skip')
+      plan.review.issues.push(
+        ...mapped.issues.filter(
+          (issue) => !issue.field || !Object.hasOwn(input.overrides ?? {}, issue.field),
+        ),
+      )
     const serialized = JSON.stringify(plan.review)
     if (new TextEncoder().encode(serialized).length > 1048576)
       throw new Error('Choose fewer or shorter review values for this row.')
     const hash = await importPlanHash(plan.review),
       now = new Date().toISOString(),
       guard = input.operationKey + '_run'
-    return commitCRM({
+    return this.commit({
       db: this.db,
       actor: this.actor,
       key: input.operationKey,

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead } from './HouseholdWorkspace'
 import type { Relationship, RelationshipType } from './households'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 type Data = {
   docs: Relationship[]
@@ -30,6 +32,7 @@ export function ContactRelationships({
   onDirty: (dirty: boolean) => void
   onSaving: (busy: boolean) => void
 }) {
+  const pathname = usePathname()
   const [data, setData] = useState<Data | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
@@ -126,7 +129,15 @@ export function ContactRelationships({
             <ul>
               {data.households.map((h) => (
                 <li key={`${h.id}:${h.started_on}`}>
-                  {h.name} — {h.role || 'Member'}, {h.started_on} through {h.ended_on || 'present'}
+                  <Link
+                    href={`${pathname}?${new URLSearchParams({ view: 'households', site, household: h.id })}`}
+                    onClick={(event) => {
+                      if (busy) event.preventDefault()
+                    }}
+                  >
+                    {h.name}
+                  </Link>{' '}
+                  — {h.role || 'Member'}, {h.started_on} through {h.ended_on || 'present'}
                 </li>
               ))}
             </ul>
@@ -148,7 +159,16 @@ export function ContactRelationships({
               {data.docs.map((r) => (
                 <tr key={r.id}>
                   <td>{r.label}</td>
-                  <td>{r.other_label}</td>
+                  <td>
+                    <Link
+                      href={`${pathname}?${new URLSearchParams({ view: 'contacts', site, contact: r.other_id, contactTab: 'relationships' })}`}
+                      onClick={(event) => {
+                        if (busy) event.preventDefault()
+                      }}
+                    >
+                      {r.other_label}
+                    </Link>
+                  </td>
                   <td>
                     {r.started_on} – {r.ended_on || 'present'}
                   </td>
