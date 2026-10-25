@@ -29,7 +29,11 @@ export default defineConfig({
     {
       name: 'forms-submission',
       testMatch: 'forms.e2e.spec.ts',
-      grep: /^(published graph routes branches, goes Back, submits once and rejects forged history|a new form can be built, published and submitted without configuring raw fields or a slug)$/,
+      grep: /(published graph routes branches, goes Back, submits once and rejects forged history|a new form can be built, published and submitted without configuring raw fields or a slug)$/,
+    },
+    {
+      name: 'crm-acceptance',
+      testMatch: crm.testMatch,
     },
   ],
 })

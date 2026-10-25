@@ -28,8 +28,8 @@
   "d1_databases": [
     {
       "binding": "D1",
-      "database_id": "2e5282ec-dc28-4408-bb39-bf60a2bf3311",
-      "database_name": "vorti-blog-reset-20261025",
+      "database_id": "05faeee6-e691-49d0-85b6-c85cae97decc",
+      "database_name": "vorti-blog-reset-20261025-v2",
       "remote": true,
     },
   ],

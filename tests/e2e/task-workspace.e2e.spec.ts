@@ -26,8 +26,8 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await page.getByLabel('Add task in Open', { exact: true }).fill('Prepare launch')
   await page.getByLabel('Add task in Open', { exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Prepare launch', exact: true }).click()
-  await dialog.getByLabel('Description', { exact: true }).fill('Coordinate @workspace-')
-  await expect(dialog.getByRole('option', { name: /@workspace-admin/ })).toBeVisible()
+  await dialog.getByLabel('Description', { exact: true }).fill('Coordinate @dev')
+  await expect(dialog.getByRole('option', { name: /@dev/ })).toBeVisible()
   await dialog.getByLabel('Description', { exact: true }).press('Enter')
   await dialog.getByRole('button', { name: 'Save task', exact: true }).click()
   await expect(dialog.getByRole('heading', { name: 'Task details', exact: true })).toBeVisible()
@@ -100,6 +100,14 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   })
   expect(userResponse.ok(), await userResponse.text()).toBe(true)
   const user = (await userResponse.json()).doc
+  const authority = await (await page.request.get('/api/organization-admin?site=default')).json()
+  const chapter = authority.site
+  const chapterMembership = await page.request.post('/api/organization-admin', {
+    headers: { Origin: new URL(baseURL!).origin },
+    data: { action: 'membership', site: 'default', user: user.id, role: 'editor', active: true,
+      expectedRevision: chapter.revision, operationKey: crypto.randomUUID() },
+  })
+  expect(chapterMembership.ok(), await chapterMembership.text()).toBe(true)
   const board = (
     await (
       await page.request.post('/api/task-boards', { data: { name: `Mentions ${suffix}` } })

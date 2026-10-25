@@ -40,7 +40,7 @@ test('integrated SubSites keeps the sidebar, isolates child websites, and preser
   const primaryBefore = await website('default')
   if (!primaryBefore.subsites_enabled) await toggle('default', true)
   const old = context.pages()[0]
-  await old.goto('/admin/crm?site=default')
+  await old.goto('/admin/crm?site=default&view=contacts')
   await expect(old.getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
   await expect(old.locator('.nav__wrap')).toBeVisible()
   await old.getByRole('button', { name: 'New contact', exact: true }).click()
@@ -275,7 +275,7 @@ test('integrated SubSites keeps the sidebar, isolates child websites, and preser
       .filter({ visible: true })
       .click()
     await admin.getByRole('link', { name: 'CRM', exact: true }).click()
-    await expect(admin.getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
+    await expect(admin.getByRole('region', { name: 'CRM overview', exact: true })).toBeVisible()
     await expect(admin.locator('button.nav-toggler').filter({ visible: true })).toBeVisible()
     await anonymous.close()
   } catch (error) {

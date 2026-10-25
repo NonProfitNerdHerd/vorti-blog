@@ -464,7 +464,7 @@ test('a new form can be built, published and submitted without configuring raw f
   await page.getByRole('button', { name: 'Publish changes', exact: true }).click()
   expect((await publishing).ok()).toBe(true)
   await expect(page).toHaveURL(/\/admin\/collections\/forms\/\d+/)
-  const id = page.url().split('/').pop()!
+  const id = new URL(page.url()).pathname.split('/').pop()!
   const saved = await (await page.request.get(`/api/forms/${id}`, { timeout: 15000 })).json()
   expect(saved._status).toBe('published')
   expect(saved.definition.fields).toHaveLength(1)
