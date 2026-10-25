@@ -56,9 +56,11 @@ async function snapshot() {
 }
 const before = await snapshot(),
   pending = migrations.filter(
-    (m) => m.name.startsWith('20261024_') || m.name === '20261025_010000_crm_attachments',
+    (m) =>
+      m.name.startsWith('20261024_') ||
+      ['20261025_010000_crm_attachments', '20261025_020000_crm_timeline_indexes'].includes(m.name),
   )
-if (pending.length !== 11) throw new Error('Review the exact migration set before upgrading.')
+if (pending.length !== 12) throw new Error('Review the exact migration set before upgrading.')
 const batch = Number(
   (await db
     .prepare('SELECT COALESCE(MAX(batch),0)+1 AS n FROM payload_migrations')

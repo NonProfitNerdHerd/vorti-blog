@@ -16,6 +16,7 @@ import { volunteerSchemaV1 } from '../../src/crm/volunteer-schema-v1'
 import { correspondenceSchemaV1 } from '../../src/crm/correspondence-schema-v1'
 import { emailSchemaV1 } from '../../src/crm/email-schema-v1'
 import { attachmentSchemaV1 } from '../../src/crm/attachment-schema-v1'
+import { timelineIndexesV1 } from '../../src/crm/timeline-indexes-v1'
 
 const state = process.env.E2E_TEST_PERSIST_PATH
 if (
@@ -67,6 +68,7 @@ for (const statement of [
   ...correspondenceSchemaV1,
   ...emailSchemaV1,
   ...attachmentSchemaV1,
+  ...timelineIndexesV1,
 ]) {
   const column = /^ALTER TABLE vc_crm_funds ADD COLUMN (\w+)/.exec(statement)?.[1]
   if (column && fundColumns.some((c) => c.name === column)) continue
