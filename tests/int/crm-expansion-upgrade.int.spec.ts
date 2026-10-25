@@ -13,6 +13,7 @@ import * as opportunities from '../../src/migrations/20261024_200000_crm_opportu
 import * as volunteers from '../../src/migrations/20261024_210000_crm_volunteers'
 import * as correspondence from '../../src/migrations/20261024_220000_crm_correspondence'
 import * as email from '../../src/migrations/20261024_230000_crm_email'
+import * as attachments from '../../src/migrations/20261025_010000_crm_attachments'
 type RawStatement = {
   toQuery(config: {
     escapeName: (value: string) => string
@@ -80,6 +81,7 @@ describe('additive CRM expansion migrations', () => {
           volunteers,
           correspondence,
           email,
+          attachments,
         ])
           await migration.up(args)
       for (const [table, count] of before)

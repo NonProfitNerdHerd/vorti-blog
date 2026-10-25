@@ -12,6 +12,7 @@ import { ContactRepository } from '../../src/crm/contacts'
 import { CRMJobs } from '../../src/crm/jobs'
 import { cleanDocumentOrphans } from '../../src/crm/document-maintenance'
 import { crmJobEndpoints } from '../../src/crm/job-endpoints'
+import { attachmentSchemaV1 } from '../../src/crm/attachment-schema-v1'
 let fixture: ReturnType<typeof localD1>,
   jobs: CRMJobs,
   issued: { id: string; job: string },
@@ -71,6 +72,7 @@ beforeEach(async () => {
     ...contactSchemaV1,
     ...crmJobSchemaV1,
     ...correspondenceSchemaV1,
+    ...attachmentSchemaV1,
   ])
     fixture.sqlite.exec(sql)
   contact = String(

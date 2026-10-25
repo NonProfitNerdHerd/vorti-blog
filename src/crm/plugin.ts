@@ -15,6 +15,7 @@ import { crmJobEndpoints } from './job-endpoints'
 import { correspondenceEndpoints } from './correspondence-endpoints'
 import { emailSettingsEndpoints } from './email-endpoints'
 import { emailDeliveryEndpoints } from './email-delivery-endpoints'
+import { attachmentEndpoints } from './attachment-endpoints'
 import type { EmailRuntime } from './email-provider'
 
 export interface CRMPlatform {
@@ -206,6 +207,7 @@ export const crmModule =
         ...crmJobEndpoints(platform, errorResponse),
         ...emailSettingsEndpoints(platform.db, errorResponse, platform.email),
         ...emailDeliveryEndpoints(platform.db, errorResponse, platform.email),
+        ...attachmentEndpoints(platform.db, platform.storage, errorResponse),
       ],
       admin: {
         ...config.admin,

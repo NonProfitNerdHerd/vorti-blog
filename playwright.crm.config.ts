@@ -12,6 +12,7 @@ export default defineConfig({
     'crm-opportunities.e2e.spec.ts',
     'crm-volunteers.e2e.spec.ts',
     'crm-correspondence.e2e.spec.ts',
+    'crm-attachments.e2e.spec.ts',
   ],
   workers: 1,
   timeout: 360000,

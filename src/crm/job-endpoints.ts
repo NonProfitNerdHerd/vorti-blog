@@ -3,6 +3,7 @@ import { constantEqual } from '../forms/security'
 import { CRMJobs } from './jobs'
 import { correspondenceJob } from './correspondence-job'
 import { cleanDocumentOrphans } from './document-maintenance'
+import { cleanCRMAttachments } from './attachment-maintenance'
 import { EmailDispatcher } from './email-dispatch'
 import { reconcileNextEmail } from './email-reconciliation'
 import type { EmailRuntime } from './email-provider'
@@ -35,6 +36,7 @@ export function crmJobEndpoints(
             processed++
           }
           const maintenance = await cleanDocumentOrphans(platform.db, platform.storage)
+          const attachments = await cleanCRMAttachments(platform.db, platform.storage)
           const runtime = platform.email || {
             environment: 'development' as const,
             local: true,
@@ -52,7 +54,7 @@ export function crmJobEndpoints(
             statusesChecked++
           }
           return Response.json(
-            { processed, maintenance, emailProcessed, statusesChecked },
+            { processed, maintenance, attachments, emailProcessed, statusesChecked },
             { headers: { 'Cache-Control': 'private, no-store' } },
           )
         } catch (error) {
