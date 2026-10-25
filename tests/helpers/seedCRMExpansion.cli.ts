@@ -1,3 +1,4 @@
+import { correspondenceBatchSchemaV1 } from '../../src/crm/correspondence-batch-schema-v1'
 import path from 'node:path'
 import os from 'node:os'
 import { getPayload } from 'payload'
@@ -69,6 +70,7 @@ for (const statement of [
   ...emailSchemaV1,
   ...attachmentSchemaV1,
   ...timelineIndexesV1,
+  ...correspondenceBatchSchemaV1,
 ]) {
   const column = /^ALTER TABLE vc_crm_funds ADD COLUMN (\w+)/.exec(statement)?.[1]
   if (column && fundColumns.some((c) => c.name === column)) continue

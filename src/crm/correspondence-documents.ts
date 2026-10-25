@@ -2,7 +2,7 @@ import { OrganizationRepository, SiteAccessError } from '../organizations/reposi
 import { SiteConflictError } from '../organizations/atomic'
 import { contactDocumentSnapshot, type DocumentRequest } from './correspondence-snapshot'
 import { mergeCorrespondence, printableCorrespondence } from './correspondence-model'
-import { commitCRM, replayCRM } from './mutations'
+import { commitCRM, replayCRM, type CRMCommit } from './mutations'
 import { ContactRepository } from './contacts'
 import { documentAmount } from './correspondence-giving'
 import { CRMJobs } from './jobs'
@@ -172,7 +172,7 @@ export class CorrespondenceDocuments {
   async issue(
     input: DocumentRequest & { approval: string; operationKey: string; supersedes?: string },
   ) {
-    const site = await this.authority.require(input.site, 'communications', 'edit')
+    await this.authority.require(input.site, 'communications', 'edit')
     await this.authority.require(input.site, 'identity', 'read')
     // Re-authorize the request before considering a retry result that may contain private references.
     if (input.gift) await this.authority.require(input.site, 'finances', 'read')
@@ -197,6 +197,28 @@ export class CorrespondenceDocuments {
     if (replay) {
       await this.get(input.site, String(replay.id))
       return replay
+    }
+    return commitCRM(await this.prepareIssue(input))
+  }
+  /** Build the same reviewed issuance without committing: bulk jobs include it in their fenced checkpoint. */
+  async prepareIssue(
+    input: DocumentRequest & { approval: string; operationKey: string; supersedes?: string },
+  ): Promise<CRMCommit> {
+    const site = await this.authority.require(input.site, 'communications', 'edit')
+    await this.authority.require(input.site, 'identity', 'read')
+    // Re-authorize the request before considering a retry result that may contain private references.
+    if (input.gift) await this.authority.require(input.site, 'finances', 'read')
+    const intent = {
+      contact: input.contact,
+      template: input.template,
+      issuedOn: input.issuedOn,
+      issuerName: input.issuerName,
+      issuerAddress: input.issuerAddress,
+      gift: input.gift || null,
+      year: input.year ?? null,
+      membership: input.membership || null,
+      approval: input.approval,
+      supersedes: input.supersedes || null,
     }
     const { snapshot, approval } = await this.preview(input)
     if (approval !== input.approval || snapshot.authorityRevision !== site.authorityRevision)
@@ -264,10 +286,12 @@ export class CorrespondenceDocuments {
           `${snapshot.year + 1}-01-01`,
         ],
       )
-      for (let offset = 0; offset < snapshot.annual.length; offset += 100) {
-        const chunk = snapshot.annual.slice(offset, offset + 100)
+      // JSON entries are bound data, not SQL parameters; one complete revision guard
+      // keeps large statements within the durable checkpoint's statement budget.
+      {
+        const chunk = snapshot.annual
         guard(
-          `annual-${offset}`,
+          'annual-revisions',
           "SELECT ?,CASE WHEN count(*)=? THEN 1 ELSE 0 END FROM json_each(?) e JOIN vc_crm_gifts g ON g.id=json_extract(e.value,'$.id') AND g.revision=json_extract(e.value,'$.revision') WHERE g.site_id=? AND g.constituent_id=?",
           [
             chunk.length,
@@ -284,7 +308,7 @@ export class CorrespondenceDocuments {
         'SELECT ?,count(*) FROM vc_crm_membership_terms WHERE id=? AND site_id=? AND billing_contact_id=? AND revision=?',
         [snapshot.membership.id, input.site, input.contact, snapshot.membership.revision],
       )
-    return commitCRM({
+    return {
       db: this.db,
       actor: this.actor,
       key: input.operationKey,
@@ -330,7 +354,7 @@ export class CorrespondenceDocuments {
           .bind(job, input.site, this.actor, JSON.stringify({ document: id }), now, now, now),
       ],
       result: { id, job },
-    })
+    }
   }
   async get(siteID: string, id: string) {
     const site = await this.authority.require(siteID, 'communications', 'read')

@@ -1,10 +1,12 @@
 import { CorrespondenceDocuments } from './correspondence-documents'
 import { CRMJobPermanentError, type CRMJobHandler } from './jobs'
+import { correspondenceBatchJob } from './correspondence-batch-job'
 /** Private staged objects are published only by the fenced D1 checkpoint. */
 export function correspondenceJob(db: D1Database, storage: R2Bucket): CRMJobHandler {
   return {
     async prepare(job) {
-      const payload = JSON.parse(job.payload) as { document?: unknown }
+      const payload = JSON.parse(job.payload) as { document?: unknown; batch?: unknown }
+      if (typeof payload.batch === 'string') return correspondenceBatchJob(db).prepare(job)
       if (typeof payload.document !== 'string') throw new CRMJobPermanentError('invalid-request')
       const documents = new CorrespondenceDocuments(db, job.actor_id)
       const document = await documents.get(job.site_id, payload.document)

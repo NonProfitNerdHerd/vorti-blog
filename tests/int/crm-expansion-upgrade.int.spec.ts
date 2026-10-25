@@ -1,3 +1,4 @@
+import * as batches from '../../src/migrations/20261025_030000_crm_correspondence_batches'
 import { DatabaseSync } from 'node:sqlite'
 import { describe, it, expect } from 'vitest'
 import { organizationSchema, defaultOrganizationSeed } from '../../src/organizations/schema'
@@ -84,6 +85,7 @@ describe('additive CRM expansion migrations', () => {
           email,
           attachments,
           timeline,
+        batches,
         ])
           await migration.up(args)
       for (const [table, count] of before)

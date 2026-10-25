@@ -35,8 +35,7 @@ export async function replayCRM(
     throw new SiteConflictError()
   return JSON.parse(row.result)
 }
-/** Shared private-record commit contract: actor + payload-bound retries, epoch fence, immutable audit. */
-export async function commitCRM(input: {
+export type CRMCommit = {
   db: D1Database
   actor: number
   key: string
@@ -54,43 +53,77 @@ export async function commitCRM(input: {
   write: D1PreparedStatement
   dependent?: D1PreparedStatement[]
   result: Record<string, unknown>
-}): Promise<Record<string, unknown>> {
+}
+function afterWrite(input: CRMCommit): D1PreparedStatement[] {
   const { db } = input
-  const fingerprint = await hashIntent(input)
-  return atomicSiteMutation(db, {
+  return [
+    db
+      .prepare(
+        'INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,count(*) FROM vc_organizations WHERE id=? AND authority_revision=?',
+      )
+      .bind(`${input.key}:authority`, input.organization, input.authorityRevision),
+    db.prepare('DELETE FROM vc_write_guards WHERE operation_key=?').bind(`${input.key}:authority`),
+    ...(input.dependent || []),
+    db
+      .prepare(
+        'INSERT INTO vc_platform_audit(id,organization_id,site_id,actor_id,action,record_type,record_id,before_value,after_value,reason,operation_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+      )
+      .bind(
+        crypto.randomUUID(),
+        input.organization,
+        input.site,
+        input.actor,
+        input.action,
+        input.type,
+        input.id,
+        input.before == null ? null : JSON.stringify(input.before),
+        JSON.stringify(input.after),
+        input.reason || null,
+        input.key,
+        new Date().toISOString(),
+      ),
+  ]
+}
+/** Shared private-record commit contract: actor + payload-bound retries, epoch fence, immutable audit. */
+export async function commitCRM(input: CRMCommit): Promise<Record<string, unknown>> {
+  return atomicSiteMutation(input.db, {
     actor: input.actor,
     operationKey: input.key,
-    fingerprint,
+    fingerprint: await hashIntent(input),
     write: input.write,
-    afterWrite: [
-      db
-        .prepare(
-          'INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,count(*) FROM vc_organizations WHERE id=? AND authority_revision=?',
-        )
-        .bind(`${input.key}:authority`, input.organization, input.authorityRevision),
-      db
-        .prepare('DELETE FROM vc_write_guards WHERE operation_key=?')
-        .bind(`${input.key}:authority`),
-      ...(input.dependent || []),
-      db
-        .prepare(
-          'INSERT INTO vc_platform_audit(id,organization_id,site_id,actor_id,action,record_type,record_id,before_value,after_value,reason,operation_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-        )
-        .bind(
-          crypto.randomUUID(),
-          input.organization,
-          input.site,
-          input.actor,
-          input.action,
-          input.type,
-          input.id,
-          input.before == null ? null : JSON.stringify(input.before),
-          JSON.stringify(input.after),
-          input.reason || null,
-          input.key,
-          new Date().toISOString(),
-        ),
-    ],
+    afterWrite: afterWrite(input),
     result: input.result,
   })
+}
+
+/** For a durable handler only: the caller must execute these inside its fenced job checkpoint.
+ * No domain write or audit is committed by preparation; every CAS/epoch guard remains atomic.
+ */
+export async function prepareCRMCheckpoint(input: CRMCommit): Promise<D1PreparedStatement[]> {
+  if (
+    !/^[a-zA-Z0-9_-]{16,128}$/.test(input.key) ||
+    !Number.isSafeInteger(input.actor) ||
+    input.actor <= 0
+  )
+    throw new Error('Invalid mutation operation identity.')
+  const { db } = input
+  return [
+    input.write,
+    db
+      .prepare('INSERT INTO vc_write_guards(operation_key,affected) VALUES(?,changes())')
+      .bind(input.key),
+    ...afterWrite(input),
+    db
+      .prepare(
+        'INSERT INTO vc_platform_operations(operation_key,actor_id,fingerprint,result,created_at) VALUES(?,?,?,?,?)',
+      )
+      .bind(
+        input.key,
+        input.actor,
+        await hashIntent(input),
+        JSON.stringify(input.result),
+        new Date().toISOString(),
+      ),
+    db.prepare('DELETE FROM vc_write_guards WHERE operation_key=?').bind(input.key),
+  ]
 }

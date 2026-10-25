@@ -4,6 +4,7 @@ import { CorrespondenceTemplates } from './CorrespondenceTemplates'
 import { CorrespondenceCompose } from './CorrespondenceCompose'
 import { CorrespondenceHistory } from './CorrespondenceHistory'
 import { EmailSettings } from './EmailSettings'
+import { CorrespondenceBatchWorkspace } from './CorrespondenceBatchWorkspace'
 type Props = {
   api: string
   site: string
@@ -15,7 +16,9 @@ export function CorrespondenceWorkspace(props: Props) {
   return <Workspace key={`${props.api}:${props.site}:${props.contact || ''}`} {...props} />
 }
 function Workspace({ api, site, contact, onDirty, onSaving }: Props) {
-  const [view, setView] = useState<'templates' | 'prepare' | 'history' | 'email'>('history'),
+  const [view, setView] = useState<'templates' | 'prepare' | 'history' | 'email' | 'batches'>(
+      'history',
+    ),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [refresh, setRefresh] = useState(0),
@@ -42,7 +45,15 @@ function Workspace({ api, site, contact, onDirty, onSaving }: Props) {
     <section className="vc-crm-domain" aria-label="Receipts and correspondence">
       <h2>Receipts and correspondence</h2>
       <nav className="vc-crm-toolbar" aria-label="Correspondence sections">
-        {(['history', 'prepare', 'templates', 'email'] as const).map((section) => (
+        {(
+          [
+            'history',
+            'prepare',
+            'templates',
+            'email',
+            ...(!contact ? ['batches' as const] : []),
+          ] as const
+        ).map((section) => (
           <button
             key={section}
             type="button"
@@ -56,11 +67,26 @@ function Workspace({ api, site, contact, onDirty, onSaving }: Props) {
                 ? 'Prepare document'
                 : section === 'email'
                   ? 'Email configuration'
-                  : 'Manage templates'}
+                  : section === 'batches'
+                    ? 'Bulk correspondence'
+                    : 'Manage templates'}
           </button>
         ))}
       </nav>
-      {view === 'email' ? (
+      {view === 'batches' ? (
+        <CorrespondenceBatchWorkspace
+          api={api}
+          site={site}
+          onDirty={setDirty}
+          onSaving={setBusy}
+          onHistory={() => {
+            setView('history')
+            setDirty(false)
+            setBusy(false)
+            setCorrection(null)
+          }}
+        />
+      ) : view === 'email' ? (
         <EmailSettings api={api} site={site} onDirty={setDirty} onSaving={setBusy} />
       ) : view === 'templates' ? (
         <CorrespondenceTemplates api={api} site={site} onDirty={setDirty} onSaving={setBusy} />

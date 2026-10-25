@@ -17,6 +17,7 @@ import { emailSettingsEndpoints } from './email-endpoints'
 import { emailDeliveryEndpoints } from './email-delivery-endpoints'
 import { attachmentEndpoints } from './attachment-endpoints'
 import { timelineEndpoints } from './timeline-endpoints'
+import { correspondenceBatchEndpoints } from './correspondence-batch-endpoints'
 import type { EmailRuntime } from './email-provider'
 
 export interface CRMPlatform {
@@ -210,6 +211,7 @@ export const crmModule =
         ...emailDeliveryEndpoints(platform.db, errorResponse, platform.email),
         ...attachmentEndpoints(platform.db, platform.storage, errorResponse),
         ...timelineEndpoints(platform.db, errorResponse),
+        ...correspondenceBatchEndpoints(platform.db, errorResponse, platform.storage),
       ],
       admin: {
         ...config.admin,

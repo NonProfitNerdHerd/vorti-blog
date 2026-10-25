@@ -27,6 +27,7 @@ export async function contactDocumentSnapshot(
 ) {
   const authority = new OrganizationRepository(db, actor)
   const site = await authority.require(input.site, 'communications', 'edit')
+  await authority.require(input.site, 'communications', 'read')
   const contact = await new ContactRepository(db, actor).get(input.site, input.contact)
   const issuedOn = calendarDate(input.issuedOn)
   if (

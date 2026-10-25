@@ -1,3 +1,4 @@
+import * as migration_20261025_030000_crm_correspondence_batches from './20261025_030000_crm_correspondence_batches';
 import * as migration_20261024_140000_crm_households from './20261024_140000_crm_households';
 import * as migration_20261024_150000_crm_fundraising from './20261024_150000_crm_fundraising';
 import * as migration_20261024_160000_crm_activities from './20261024_160000_crm_activities';
@@ -228,4 +229,5 @@ export const migrations = [
   { up: migration_20261024_230000_crm_email.up, down: migration_20261024_230000_crm_email.down, name: '20261024_230000_crm_email' },
   { up: migration_20261025_010000_crm_attachments.up, down: migration_20261025_010000_crm_attachments.down, name: '20261025_010000_crm_attachments' },
   { up: migration_20261025_020000_crm_timeline_indexes.up, down: migration_20261025_020000_crm_timeline_indexes.down, name: '20261025_020000_crm_timeline_indexes' },
+  { up: migration_20261025_030000_crm_correspondence_batches.up, down: migration_20261025_030000_crm_correspondence_batches.down, name: '20261025_030000_crm_correspondence_batches' },
 ];

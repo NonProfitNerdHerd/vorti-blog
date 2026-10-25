@@ -39,11 +39,13 @@ export interface CRMJobHandler {
 }
 /** Only fixed, non-private domain explanations may be exposed as permanent failures. */
 export class CRMJobPermanentError extends Error {
-  constructor(reason: 'unsupported-document-text' | 'invalid-request') {
+  constructor(reason: 'unsupported-document-text' | 'invalid-request' | 'stale-review') {
     super(
       reason === 'unsupported-document-text'
         ? 'PDF text requires a supported font. Printable HTML remains available.'
-        : 'The job request is invalid. Review it before retrying.',
+        : reason === 'stale-review'
+          ? 'Batch records or permissions changed. Refresh pending reviews before approving again.'
+          : 'The job request is invalid. Review it before retrying.',
     )
   }
 }
@@ -161,6 +163,7 @@ export class CRMJobs {
     id: string,
     expectedFence: number,
     operationKey: string,
+    resetReview = false,
   ) {
     const job = await this.db
       .prepare('SELECT * FROM vc_crm_jobs WHERE id=? AND site_id=? AND actor_id=?')
@@ -173,7 +176,7 @@ export class CRMJobs {
       permission.category,
       permission.operation,
     )
-    const intent = { id, expectedFence }
+    const intent = { id, expectedFence, ...(resetReview ? { resetReview: true } : {}) }
     const replay = await replayCRM(this.db, actor, operationKey, {
       site: siteID,
       action: 'job.retried',
@@ -204,13 +207,13 @@ export class CRMJobs {
       intent,
       write: this.db
         .prepare(
-          "UPDATE vc_crm_jobs SET status='pending',fence=fence+1,attempts=0,error=NULL,result=NULL,lease_until=NULL,next_attempt_at=?,updated_at=? WHERE id=? AND actor_id=? AND fence=? AND status IN('failed','cancelled')",
+          "UPDATE vc_crm_jobs SET status='pending',fence=fence+1,attempts=0,error=NULL,result=NULL,lease_until=NULL,cursor=CASE WHEN ?=1 THEN '' ELSE cursor END,progress=CASE WHEN ?=1 THEN 0 ELSE progress END,next_attempt_at=?,updated_at=? WHERE id=? AND actor_id=? AND fence=? AND status IN('failed','cancelled')",
         )
-        .bind(now, now, id, actor, expectedFence),
+        .bind(resetReview ? 1 : 0, resetReview ? 1 : 0, now, now, id, actor, expectedFence),
       result: { id },
     })
   }
-  async tick(handlers: Partial<Record<CRMJobKind, CRMJobHandler>>): Promise<boolean> {
+  async tick(handlers: Partial<Record<CRMJobKind, CRMJobHandler>>, onlyID = ''): Promise<boolean> {
     // Never claim an unsupported kind: another runner may own it.
     const kinds = Object.keys(handlers).map(kindOf)
     if (!kinds.length) return false
@@ -218,10 +221,10 @@ export class CRMJobs {
       lease = new Date(this.now() + 120000).toISOString()
     const candidate = await this.db
       .prepare(
-        `SELECT id,fence FROM vc_crm_jobs WHERE kind IN(${kinds.map(() => '?').join(',')})
+        `SELECT id,fence FROM vc_crm_jobs WHERE kind IN(${kinds.map(() => '?').join(',')}) ${onlyID ? 'AND id=?' : ''}
       AND next_attempt_at<=? AND (status='pending' OR (status='running' AND lease_until<=?)) ORDER BY next_attempt_at,id LIMIT 1`,
       )
-      .bind(...kinds, now, now)
+      .bind(...kinds, ...(onlyID ? [onlyID] : []), now, now)
       .first<{ id: string; fence: number }>()
     if (!candidate) return false
     const claimed = await this.db
