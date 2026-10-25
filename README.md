@@ -13,23 +13,25 @@ VortiCause brings publishing and the work behind it into one platform. Authors g
 - Private/team-wide collaboration, inherited project permissions, private-board exceptions, protected attachments, time tracking, and audited time corrections.
 - Event content with timezone-aware schedules, recurrence, and calendar/listing presentations. Events remain part of the existing content-type system.
 - Forms, submissions, embedding, and workflow/automation foundations.
+- Staff donor CRM: constituents and relationships, households, gifts and split allocations, campaigns/funds/appeals, pledges and recurring reconciliation, memberships, opportunities, volunteers, receipts/correspondence, reviewed imports, and linked follow-up Tasks.
+- Chapter-aware organization administration and SubSites, with scoped access and public site routing.
 - A personalized Dashboard with publishing summaries, personal tasks, accessible projects, and recent/favorite boards.
 
 Capabilities depend on configuration and permissions. See the application and tests for the behavior supported by each module.
 
 ## Where we are going
 
-VortiCause is growing into an integrated platform for public websites and organizational work. Planned areas include donor CRM and fundraising workflows inspired by tools such as CiviCRM and Kindful, broader automation packages, and intranet/extranet experiences. These are roadmap goals, not claims that complete CRM or portal products ship today.
+VortiCause is growing into an integrated platform for public websites and organizational work. The staff CRM is available, but controlled constituent merges remain disabled. Saved reports with complete exports and opportunity Boards integration remain unfinished. Broader automation and intranet/extranet experiences are roadmap goals. Recurring giving reconciles recorded payments; it does not charge donors. Live correspondence remains disabled until provider and sender configuration is validated. Preview, print and PDF workflows do not require email configuration.
 
 Open source and easy hosting are central goals. The current deployment targets Cloudflare; simpler installation, clearer operational tooling, and more hosting options are ongoing work.
 
 ## Development setup
 
-Clone [this repository](https://github.com/NonProfitNerdHerd/vorti-blog), install a supported Node.js version from `package.json` (Node 22 is used for release verification), and enable Corepack:
+Clone [this repository](https://github.com/NonProfitNerdHerd/vorti-blog), use the verified release toolchain: Node 22.23.2, pnpm 10.28.2, and the lockfile-pinned Wrangler 4.152.0, and enable Corepack:
 
 ```sh
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 Copy `.env.example` to a local `.env` and configure a strong `PAYLOAD_SECRET`. Keep secrets out of source control. Set `NEXT_PUBLIC_SITE_URL` to your site's public origin. Set `CONTENT_WORKSPACE_ENABLED=true` to enable the visual post/page editor.
@@ -49,7 +51,7 @@ pnpm test:editor
 
 The workspace browser suite seeds its own local database. The editor suite uses `wrangler.test.jsonc`. Set `PLAYWRIGHT_CHANNEL=msedge` if you use Edge instead of Chrome. To run development against a prepared isolated database, set `DESIGN_CORE_TEST_PERSIST_PATH` to that database's persistence directory before `pnpm dev`; this disables automatic schema pushing for that prepared database.
 
-New installations should create their initial administrator, apply the tracked migrations with that account identified by `DESIGN_ADMIN_EMAIL`, and configure their own identity in Admin → Settings. The guarded content-framework setup script can initialize the default content types; demonstration content is optional. See `scripts/setup-content-framework.ts` for its required configuration.
+New installations must execute the complete registered migration chain against an empty isolated database; never substitute a populated database or manually mark migrations applied. Seed required platform defaults and establish the initial installation operator and site administrator through the supported setup services. Production migration commands require `DESIGN_ADMIN_EMAIL`. Configure installation identity in Admin → Settings. The guarded content-framework setup script can initialize the default content types; demonstration content is optional. See `scripts/setup-content-framework.ts` for its required configuration.
 
 ## Architecture and licensing
 
@@ -70,6 +72,14 @@ pnpm test:editor
 pnpm build
 ```
 
+The integration command runs separate Node, DOM and native Payload/D1 Vitest projects, including native Task authorization and the CRM Task bridge. Native suites execute the full migration chain into a clean baseline and receive separate disposable databases. The checkpoint release browser configuration runs 25 scenarios: 16 CRM workflows and nine CMS/Forms/Tasks/SubSites regressions.
+
+```sh
+# Requires the final local Worker URL and isolated tenant/Forms fixtures.
+# CRM_WORKER_BASE_URL, TENANT_HTTP_FIXTURE, FORM_TEST_ADMIN_FILE
+pnpm exec playwright test --config playwright.checkpoint.config.ts
+```
+
 Database integration suites need isolated persistence. Use a separate local database per schema-pushing process. Generate types and component imports after changing schemas or registered admin components:
 
 ```sh
@@ -79,21 +89,21 @@ pnpm generate:importmap
 
 ## Cloudflare hosting and releases
 
-The supported production target uses a Paid Workers plan for the current bundle, D1 for data, and two R2 buckets: `R2` for public media and `WORKSPACE_FILES` for protected workspace uploads. Private workspace files must remain outside public bucket routes. Check [Cloudflare's current limits](https://developers.cloudflare.com/workers/platform/limits/) when choosing a plan.
+The supported production target uses a Paid Workers plan for the current bundle, D1 for data, a configured CRM Queue (`CRM_JOB_QUEUE`, with producer and consumer), and two R2 buckets: `R2` for public media and `WORKSPACE_FILES` for protected workspace uploads. Private workspace files must remain outside public bucket routes. Check [Cloudflare's current limits](https://developers.cloudflare.com/workers/platform/limits/) when choosing a plan.
 
 Configure bindings and resource identifiers for your own deployment; do not deploy a clone against this repository's production IDs. Configure `PAYLOAD_SECRET` as a Worker secret, preserve the `forms-worker.ts` entry point, and retain the scheduled trigger required by Forms processing. The OpenNext build supplies `.open-next/assets`.
 
 For a production release:
 
-1. Run appropriate tests, lint, typechecks, affected package builds, and the production build/dry-run. Commit and push the reviewed source.
+1. Start from a clean checkout on `main`. Run TypeScript, lint with zero errors, and all integration projects. Commit and push the reviewed source. Build the optimized Worker from that immutable commit, record input/artifact checksums, and pass the deployment dry-run. Run the complete release browser suite against that exact artifact.
 2. Record the active Worker version and a [D1 Time Travel recovery bookmark](https://developers.cloudflare.com/d1/reference/time-travel/).
 3. Review and apply pending tracked migrations. Production migration commands require `DESIGN_PRODUCTION_MIGRATE=YES` and `DESIGN_ADMIN_EMAIL`; releases without schema changes do not need a migration.
-4. Deploy with `DESIGN_PRODUCTION_DEPLOY=YES pnpm deploy:app`. To deploy an already tested OpenNext artifact, use `DESIGN_PRODUCTION_DEPLOY=YES pnpm exec opennextjs-cloudflare deploy` after the repository's deployment-intent check.
-5. Verify the live build ID, public/admin routes, asset delivery, and role-specific behavior. Remove temporary verification records and confirm historical data is intact.
+4. Run `DESIGN_PRODUCTION_DEPLOY=YES node scripts/require-production-intent.mjs deployment`, then deploy the retained artifact with `pnpm exec wrangler deploy --config /absolute/path/to/production-config.json`. That reviewed configuration must reference the frozen Worker/assets with `no_bundle: true`, retain the production bindings and preserve existing secrets. The convenience `pnpm deploy:app` command builds again, so do not use it to publish an artifact already accepted by browser tests.
+5. Deploy the tested artifact without rebuilding. Verify public/admin routes, assets, anonymous denials and authenticated CRM/CMS/Forms/Tasks access using read-only production checks. Monitor requests and exceptions for ten minutes. Recovery restores the previous Worker and its matching bindings together. Keep production donor data and live correspondence out of test fixtures.
 
 Cloudflare resource names and deployed URLs can differ from the VortiCause product name. Renaming the product does not rename existing Workers, databases, buckets, or authentication cookies.
 
-`ORGANIZATION_ADMIN_ENABLED=true` registers the authenticated Sites administration screen at `/admin/sites` and its services. Keep it false for installations that have not completed the organization/CRM migrations and access checks. This setting does not grant account permissions. Non-default sites have private identity settings (name, tagline, timezone); existing public URLs and full public Site Settings continue to belong to the compatibility site. Public subsite routing remains unfinished.
+`ORGANIZATION_ADMIN_ENABLED=true` registers the authenticated Sites administration screen at `/admin/sites` and its services. Keep it false for installations that have not completed the organization/CRM migrations and access checks. This setting does not grant account permissions. Site identity, public routing, content and administration are scoped to the selected site. Public SubSites routing and isolation are supported; verify site-specific behavior when changing routing or publication.
 
 Production logging uses the application's JSON console logger. `PAYLOAD_LOG_LEVEL` controls verbosity. Worker observability and any mail/analytics provider connections require their own configuration.
 
