@@ -262,7 +262,9 @@ export type MappedImportCell = { value: string; clear: boolean; referenceMode: '
 export function mapImportRow(row: ImportTableRow, mapping: ImportMapping) {
   const values: Record<string, MappedImportCell> = Object.create(null)
   const used = new Set(mapping.columns.flatMap((c) => (c.column === undefined ? [] : [c.column])))
-  const issues = row.issues.filter((issue) => used.has(issue.column)).map((issue) => ({ ...issue }))
+  const issues = row.issues
+    .filter((issue) => issue.column < 0 || used.has(issue.column))
+    .map((issue) => ({ ...issue }))
   for (const column of mapping.columns) {
     const raw = column.column === undefined ? column.value : row.values[column.column]
     // A missing ragged CSV column is not an explicit blank cell and cannot clear data.

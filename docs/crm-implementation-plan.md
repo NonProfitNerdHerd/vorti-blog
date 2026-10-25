@@ -1,5 +1,41 @@
 # VortiCause nonprofit CRM and organization/site foundation
 
+## October 25 product refocus — active, local work
+
+The active objective is a complete nonprofit staff CRM, guided by the checked-out NonProfitCRM and the intended Kindful/Bloomerang replacement. Broader CMS editing and public website work are excluded. Donors and volunteers share constituent identities. Staff must be able to record a call/note and assign another person an existing Tasks follow-up. External marketing/accounting connectors are deferred. The original domain, import, merge, reporting and Tasks scope remains open until verified through usable staff workflows.
+
+### Visible parity checklist
+
+| Staff workflow | Reference and current position | Remaining acceptance |
+|---|---|---|
+| Dashboard and navigation | Reference has a persistent staff sidebar and dashboard. Chapter-pinned overview/sidebar, complete exact currency totals, follow-up counts and reloadable sections are now verified locally. | Production release and completion of the remaining linked Tasks/import/report workflows. |
+| Constituent records | Staff contacts, chapter roles/tags, related tabs, notes, files and timeline are implemented. Direct record links, shared donor/volunteer roles and a scoped at-a-glance summary are verified locally. | Existing-Tasks follow-ups and direct selected-record navigation for the other CRM record types. |
+| Donations and fundraising | Chapter-wide Donations with explicit donor selection, gift entry, donor links, adjustments and reload persistence is verified locally alongside existing classification editors. | Complete remaining operational filters/report integration and production release. |
+| Households and relationships | Staff editors and history implemented. | Reverify discovery, editing, chapter visibility, giving and constituent navigation in the cohesive workspace. |
+| Pledges, recurring and memberships | Recorded schedules/terms, reconciliations, renewals and history implemented. | Reverify follow-up selection, explicit gift application and dashboard-to-record navigation. |
+| Opportunities and volunteers | Domain screens and shared constituent links implemented. | Reverify everyday pipeline, outreach, hours and shared donor/volunteer workflows; connect existing Tasks. |
+| Receipts and correspondence | Private issued documents/PDFs, templates and reviewed bulk issuance deployed. | Reverify entry from constituent/gift journeys and clear configuration states. No live email without configuration. |
+| Imports | Parsing, mapping contract, atomic application backend committed; upload/staging/review/approval services local. | Connected upload/mapping/match/review/approval/results screens, saved mappings, private errors, reliable large-job dispatch and release verification. |
+| Controlled merges | Not delivered. | Explicit survivor/field review, affected-record preview, restart-safe lineage and retained financial/history references. |
+| Reports/exports | Not delivered. Reference has a field/filter/saved-report UI but capped/mismatched exports. | Saved typed queries, matching previews and complete safe private exports across all approved domains. |
+| CRM Tasks/Boards | Existing Tasks app available; typed CRM integration not delivered. | Call/note to assigned follow-up, linked tasks/history, opportunity board integration and intersected privacy. |
+
+Current local work adds a default CRM overview and chapter-pinned URL navigation using the existing design tokens, without public website or CMS changes. The overview queries complete datasets, sums received money exactly by currency/precision, excludes in-kind/void/expected revenue, and omits unauthorized categories. This is not yet a production milestone. Import work is retained while visible staff workflows take priority. Commit/merge/migrate/deploy remain required after the connected milestone passes release checks; unrelated organization/system-management changes remain excluded.
+
+The local Donations section now reuses the existing gift editor across the chapter, with explicit donor selection, original/net amounts, refunds/corrections and direct constituent links. Named donation listings require both current identity and finance access and omit revoked chapter affiliations. Constituent links retain the selected record across reload; closing or saving clears the selection. Section links retain chapter context and reload directly. Existing browser scenarios were updated for link navigation, and a new authenticated journey covers overview → gift entry → persisted donation → donor record → reload → mobile overview; its optimized-Worker run is still pending.
+
+Local verification passed the real rendered donation-form/endpoint/SQLite save-and-remount workflow, rendered overview refresh/revocation, all nine upload/staging/review/approval cases, TypeScript and focused lint. Exact overview validation traversed 1,003 monetary gifts plus an in-kind gift, thirty-one-digit amounts, separate currencies and a refund; named listings and totals hide revoked affiliations. The broader CRM/organization regression run is currently in progress, including native D1 workflows. No import migration or new production deployment has occurred. The next visible work is the consolidated constituent summary and existing-Tasks follow-up journey, followed by the remaining verified domain gaps and import/merge/report sections.
+
+### Verified local staff-workspace milestone
+
+The constituent editor now includes an at-a-glance summary of that constituent's own chapter giving and membership/opportunity follow-ups, shared donor/volunteer roles, and shortcuts to call notes, correspondence and history. Scoped summary checks distinguish another donor's gifts/renewals and the same shared constituent's separate chapter roles and giving. Current-affiliation revocation denies and clears the summary. This remains the existing staff application; no public website or CMS editing work was added.
+
+All twelve authenticated optimized-Worker browser journeys passed, including the new overview → chapter donation entry → reload → direct donor link → constituent reload → mobile overview journey and all existing household, fundraising, pledge/recurring, membership, opportunity, volunteer, private-file, timeline and correspondence workflows. The broader CRM/organization run passed 240 tests with two failures confined to an outdated Next navigation mock; correcting that mock passed both affected tests together with the new overview/donation checks. Additional scoped-summary, role/chapter isolation, rendered-summary actions and cached-import access tests pass. TypeScript, focused lint, full frozen-source lint (zero errors; 1,078 existing warnings), optimized Worker build and Linux deployment dry-run pass.
+
+Native workerd/D1/R2 verification passed fixed-length private upload, a lost R2 acknowledgement followed by recovery, cancellation after 25 staged CSV rows, exact range resumption through all 57 rows, original private downloads and zero domain writes before approval. It also verified the exact received summary `180143985094819862` minor units. Frozen Worker SHA-256: `d26e0c07b72c8dd1717d906ad74acea077753835322a27a8e4969887a80fe900`; 1,052 runtime inputs and 128 assets were checked. The pinned spreadsheet archive was transferred into the isolated builder after its DNS lookup failed and verified against the unchanged lockfile SHA-512; no dependency version, manifest or TLS policy changed. Ignored receipts/logs remain under `.wrangler/crm-refocus-*` and `.wrangler/crm-import-source-qa/`.
+
+This is a local milestone, not a completed CRM or production rollout. No import migration is registered/applied, and production remains on the bulk-correspondence milestone. Task assignment and its intersected privacy are still unfinished; call/note shortcuts currently open the existing communications editor. Imports still need connected APIs/screens, reusable mapping management, match/conflict review, result/error downloads and reliable immediate large-job dispatch. Controlled merges, saved reports/complete exports and existing Tasks/Boards integration remain required.
+
 ## October 24 implementation continuation — in progress
 
 ### Reviewed import application backend — local work in progress

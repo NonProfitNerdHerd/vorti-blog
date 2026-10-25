@@ -3,14 +3,22 @@ import { SiteConflictError } from '../organizations/atomic'
 import type { InformationCategory } from '../organizations/policy'
 import { importDomains, type ImportDomain, type ImportField } from './import-model'
 
-type Reference = NonNullable<ImportField['reference']>
+export type ImportReference = NonNullable<ImportField['reference']>
+type Reference = ImportReference
+export type ImportVisibility = {
+  references: Array<{ kind: ImportReference; id: string }>
+  contacts: string[]
+}
 type RecordRow = Record<string, unknown> & {
   id: string
   label: string
   revision: number
   affiliation_revision?: number
 }
-const references: Record<Reference, { category: InformationCategory; sql: string }> = {
+export const importReferenceRules: Record<
+  Reference,
+  { category: InformationCategory; sql: string }
+> = {
   contacts: {
     category: 'identity',
     sql: `SELECT c.id,c.label,c.revision,c.kind,a.revision AS affiliation_revision FROM vc_crm_constituents c JOIN vc_crm_affiliations a ON a.constituent_id=c.id AND a.organization_id=c.organization_id WHERE a.site_id=? AND c.id=? AND a.archived=0 AND c.archived=0`,
@@ -71,6 +79,7 @@ export class ImportContext {
   private checked = new Set<string>()
   private checks: ReadCheck[] = []
   private referenceRows = new Map<string, RecordRow>()
+  private coveredContacts = new Set<string>()
   private constructor(
     readonly db: D1Database,
     readonly actor: number,
@@ -137,7 +146,7 @@ export class ImportContext {
     mode: 'record' | 'source' = 'record',
     allowArchived = false,
   ): Promise<RecordRow> {
-    const rule = references[kind]
+    const rule = importReferenceRules[kind]
     await this.require(rule.category, 'read')
     let id = value.trim()
     if (mode === 'source') {
@@ -184,6 +193,30 @@ export class ImportContext {
       values: check.values,
       state: Object.fromEntries(check.same.map((name) => [name, check.snapshot[name] ?? null])),
     }))
+  }
+  async coverContacts(ids: string[]) {
+    const unique = [...new Set(ids)].sort(),
+      json = JSON.stringify(unique)
+    const sql = `SELECT count(DISTINCT c.id) AS n FROM vc_crm_constituents c JOIN vc_crm_affiliations a ON a.constituent_id=c.id AND a.organization_id=c.organization_id WHERE a.site_id=? AND a.archived=0 AND c.archived=0 AND c.id IN(SELECT value FROM json_each(?))`
+    const snapshot = (await this.db.prepare(sql).bind(this.siteID, json).first<{ n: number }>())!
+    if (snapshot.n !== unique.length) throw new SiteAccessError()
+    this.remember(sql, [this.siteID, json], snapshot, ['n'])
+    for (const id of unique) this.coveredContacts.add(id)
+  }
+  visibility(): ImportVisibility {
+    const records = [...this.referenceRows.keys()].map((key) => {
+      const split = key.indexOf(':')
+      return { kind: key.slice(0, split) as ImportReference, id: key.slice(split + 1) }
+    })
+    return {
+      references: records,
+      contacts: [
+        ...new Set([
+          ...this.coveredContacts,
+          ...records.filter((record) => record.kind === 'contacts').map((record) => record.id),
+        ]),
+      ].sort(),
+    }
   }
   async finish() {
     if (

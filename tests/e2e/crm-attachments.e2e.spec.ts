@@ -24,7 +24,7 @@ test('private contact attachments upload, resume, persist, download and archive 
   })
   expect(created.ok()).toBe(true)
   const contact = (await created.json()).doc.id
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page.getByRole('searchbox').fill(name)
   await page.getByRole('button', { name, exact: true }).click()
   const dialog = page.getByRole('dialog')

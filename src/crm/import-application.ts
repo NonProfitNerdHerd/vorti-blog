@@ -31,6 +31,7 @@ export async function reviewedImportPlan(
     throw new CRMJobPermanentError('invalid-request')
   }
   if (
+    review.version !== 1 ||
     review.site !== run.site_id ||
     review.domain !== run.domain ||
     review.actor !== actor ||

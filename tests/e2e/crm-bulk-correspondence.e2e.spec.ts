@@ -18,10 +18,10 @@ async function post(page: Page, area: string, values: Record<string, unknown>) {
   return (await response.json()).doc as { id: string; revision: number }
 }
 async function openBulk(page: Page) {
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Receipts and correspondence', exact: true })
+    .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page
     .getByRole('navigation', { name: 'Correspondence sections' })
@@ -108,7 +108,7 @@ test('bulk correspondence reviews persist, issue once, and produce private print
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Receipts and correspondence', exact: true })
+    .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page
     .getByRole('navigation', { name: 'Correspondence sections' })

@@ -21,6 +21,7 @@ export async function readImportTarget(
   if (domain === 'households') {
     const { doc } = await new HouseholdRepository(db, actor).get(site, id)
     await ctx.reference('households', id, 'record', true)
+    if (doc.primary_contact) await ctx.reference('contacts', doc.primary_contact)
     const raw = await db
       .prepare('SELECT primary_contact FROM vc_crm_households WHERE site_id=? AND id=?')
       .bind(site, id)
@@ -52,6 +53,7 @@ export async function readImportTarget(
     if (!raw) throw new Error('Choose a membership available in this chapter.')
     const { doc, covered } = await new MembershipRepository(db, actor).get(site, id, raw.starts_on)
     const { status: _status, ...term } = doc
+    await ctx.coverContacts(covered.map((contact) => contact.id))
     if (BigInt(doc.dues_minor) > 0n) await ctx.require('finances', 'read')
     await ctx.reference('contacts', doc.billing_contact_id)
     const query = `SELECT json_group_array(json_object('id',id,'label',label)) AS coverage FROM (

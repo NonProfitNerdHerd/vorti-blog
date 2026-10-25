@@ -43,10 +43,10 @@ test('staff issue and correct retained receipts with private PDF generation and 
       notes: '',
     })
   ).id
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Receipts and correspondence', exact: true })
+    .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   const nav = page.getByRole('navigation', { name: 'Correspondence sections' })
   await nav.getByRole('button', { name: 'Manage templates', exact: true }).click()
@@ -146,7 +146,7 @@ test('staff issue and correct retained receipts with private PDF generation and 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Receipts and correspondence', exact: true })
+    .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page.getByRole('button', { name: `Open document ${corrected}`, exact: true }).click()
   await expect(page.getByRole('region', { name: 'Issued document', exact: true })).toContainText(

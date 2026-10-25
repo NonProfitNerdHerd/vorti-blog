@@ -2,6 +2,32 @@
   padding-top: 24px;
   padding-bottom: 32px;
 }
+.vc-crm-shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-width: 0; }
+.vc-crm-sidebar { padding: 24px 16px; border-right: 1px solid var(--theme-elevation-150); }
+.vc-crm-sidebar > p { color: var(--theme-elevation-600); margin-bottom: 24px; }
+.vc-crm-sidebar nav { display: grid; gap: 4px; }
+.vc-crm-sidebar a { display: block; padding: 10px 12px; border-radius: 6px; text-decoration: none; }
+.vc-crm-sidebar a[aria-current="page"] { background: var(--theme-elevation-150); font-weight: 600; }
+.vc-crm-sidebar a:hover { background: var(--theme-elevation-100); }
+.vc-crm-main { min-width: 0; }
+.vc-crm-constituent-summary { padding: 16px; margin-bottom: 20px; border: 1px solid var(--theme-elevation-200); border-radius: 8px; background: var(--theme-elevation-50); }
+.vc-crm-constituent-summary h3 { font-size: 15px; margin-top: 0; }
+.vc-crm-overview-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.vc-crm-overview-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.vc-crm-overview-card { display: grid; align-content: start; gap: 8px; padding: 20px; border: 1px solid var(--theme-elevation-200); border-radius: 8px; text-decoration: none; }
+.vc-crm-overview-card strong { font-size: 32px; }
+.vc-crm-overview-card h3, .vc-crm-overview-card p { margin: 0; }
+.vc-crm-overview-card small { color: var(--theme-elevation-600); }
+.vc-crm-overview-card dl > div { display: flex; justify-content: space-between; gap: 16px; }
+@media (max-width: 900px) {
+  .vc-crm-shell { grid-template-columns: minmax(0,1fr); }
+  .vc-crm-sidebar { border-right: 0; border-bottom: 1px solid var(--theme-elevation-150); }
+  .vc-crm-sidebar nav { display: flex; overflow-x: auto; }
+  .vc-crm-sidebar a { flex: 0 0 auto; }
+}
+@media (max-width: 600px) {
+  .vc-crm-overview-cards, .vc-crm-overview-columns { grid-template-columns: minmax(0,1fr); }
+}
 .vc-crm-modules,
 .vc-crm-domain .vc-crm-toolbar { flex-wrap: wrap; }
 .vc-crm-domain { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }

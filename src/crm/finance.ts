@@ -5,6 +5,7 @@ import { commitCRM, replayCRM } from './mutations'
 export type GiftKind = 'cash' | 'check' | 'external-online' | 'in-kind'
 export interface GiftSummary {
   id: string
+  donorLabel?: string
   constituent: string
   currency: string
   exponent: number
@@ -21,6 +22,7 @@ export interface GiftSummary {
 }
 interface GiftRow {
   id: string
+  donor_label?: string
   constituent_id: string
   currency: string
   exponent: number
@@ -37,6 +39,7 @@ interface GiftRow {
 }
 const giftDTO = (row: GiftRow): GiftSummary => ({
   id: row.id,
+  ...(row.donor_label !== undefined ? { donorLabel: row.donor_label } : {}),
   constituent: row.constituent_id,
   currency: row.currency,
   exponent: row.exponent,
@@ -277,6 +280,7 @@ export class FinanceRepository {
     constituent?: string
     page?: number
     limit?: number
+    withDonors?: boolean
   }): Promise<{
     docs: GiftSummary[]
     total: number
@@ -286,6 +290,12 @@ export class FinanceRepository {
     canConfigure: boolean
   }> {
     const site = await this.authority.require(input.site, 'finances', 'read')
+    if (
+      input.withDonors &&
+      (await this.authority.require(input.site, 'identity', 'read')).authorityRevision !==
+        site.authorityRevision
+    )
+      throw new SiteAccessError()
     const page = input.page ?? 1,
       limit = input.limit ?? 50
     if (
@@ -297,15 +307,16 @@ export class FinanceRepository {
       limit > 100
     )
       throw new Error('Choose a valid page and row limit.')
-    const where = `site_id=?${input.constituent ? ' AND constituent_id=?' : ''}`
+    const where = `g.site_id=?${input.constituent ? ' AND g.constituent_id=?' : ''}${input.withDonors ? ' AND c.archived=0 AND a.archived=0' : ''}`
+    const from = `vc_crm_gifts g${input.withDonors ? ' JOIN vc_crm_constituents c ON c.id=g.constituent_id JOIN vc_crm_affiliations a ON a.constituent_id=c.id AND a.organization_id=c.organization_id AND a.site_id=g.site_id' : ''}`
     const parameters = [site.id, ...(input.constituent ? [text(input.constituent, 80, true)] : [])]
     const total = await this.db
-      .prepare(`SELECT count(*) AS total FROM vc_crm_gifts WHERE ${where}`)
+      .prepare(`SELECT count(*) AS total FROM ${from} WHERE ${where}`)
       .bind(...parameters)
       .first<{ total: number }>()
     const rows = await this.db
       .prepare(
-        `SELECT * FROM vc_crm_gifts WHERE ${where} ORDER BY received_on DESC,id DESC LIMIT ? OFFSET ?`,
+        `SELECT g.*${input.withDonors ? ',c.label AS donor_label' : ''} FROM ${from} WHERE ${where} ORDER BY g.received_on DESC,g.id DESC LIMIT ? OFFSET ?`,
       )
       .bind(...parameters, limit, (page - 1) * limit)
       .all<GiftRow>()

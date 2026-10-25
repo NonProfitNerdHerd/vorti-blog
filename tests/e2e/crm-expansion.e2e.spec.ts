@@ -32,10 +32,10 @@ test('household, relationship, communication and fundraising editors persist in 
     },
   })
   expect(target.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Households', exact: true })
+    .getByRole('link', { name: 'Households', exact: true })
     .click()
   await page.getByRole('button', { name: 'Create household', exact: true }).click()
   const household = page.getByRole('region', { name: 'Household editor' })
@@ -69,7 +69,7 @@ test('household, relationship, communication and fundraising editors persist in 
   await page.reload()
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Households', exact: true })
+    .getByRole('link', { name: 'Households', exact: true })
     .click()
   await page.getByRole('button', { name: `Household ${token}`, exact: true }).click()
   await expect(household.getByLabel('Mailing address')).toHaveValue('123 Fictional Lane')
@@ -80,7 +80,7 @@ test('household, relationship, communication and fundraising editors persist in 
   await household.getByRole('button', { name: 'Close household' }).click()
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Contacts', exact: true })
+    .getByRole('link', { name: 'Constituents', exact: true })
     .click()
   await page.getByRole('button', { name: contactName, exact: true }).click()
   const dialog = page.getByRole('dialog')
@@ -112,7 +112,7 @@ test('household, relationship, communication and fundraising editors persist in 
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Fundraising', exact: true })
+    .getByRole('link', { name: 'Campaigns, funds and appeals', exact: true })
     .click()
   await page.getByRole('button', { name: 'Create campaign', exact: true }).click()
   const fundraising = page.getByRole('region', { name: 'Fundraising editor' })
@@ -181,9 +181,9 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
     },
   })
   expect(gift.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   const modules = page.getByRole('navigation', { name: 'CRM sections' })
-  await modules.getByRole('button', { name: 'Pledges and recurring' }).click()
+  await modules.getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: 'Create pledge', exact: true }).click()
   await page.getByLabel('Name', { exact: true }).fill(`Pledge ${token}`)
   await page.getByRole('searchbox', { name: 'Search donor', exact: true }).fill(name)
@@ -220,10 +220,10 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await detail.getByRole('button', { name: 'Apply recorded payment' }).click()
   await expect(value('Outstanding')).toHaveText('USD 5.00')
   await page.reload()
-  await modules.getByRole('button', { name: 'Pledges and recurring' }).click()
+  await modules.getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: `Pledge ${token}`, exact: true }).click()
   await expect(value('Recorded payment credit')).toHaveText('USD 5.00')
-  await modules.getByRole('button', { name: 'Memberships', exact: true }).click()
+  await modules.getByRole('link', { name: 'Memberships', exact: true }).click()
   await page.getByText('Membership types', { exact: true }).click()
   await page.getByRole('button', { name: 'Create membership type' }).click()
   await page.getByLabel('Type name').fill(`Annual ${token}`)
@@ -283,10 +283,10 @@ test('recurring expectations pause and resume without recording revenue', async 
   })
   expect(response.ok()).toBe(true)
   const contact = (await response.json()).doc.id
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Pledges and recurring' })
+    .getByRole('link', { name: 'Pledges and recurring' })
     .click()
   await page.getByRole('button', { name: 'Recurring schedules', exact: true }).click()
   await page.getByRole('button', { name: 'Create recurring schedule', exact: true }).click()

@@ -6,6 +6,9 @@ import { parseMoney } from './money'
 import type { GiftKind, GiftSummary } from './finance'
 import { ClassificationPicker } from './ClassificationPicker'
 import { GiftAttribution } from './GiftAttribution'
+import { ContactPicker } from './HouseholdWorkspace'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 type Page = { docs: GiftSummary[]; total: number; canEdit: boolean; canConfigure: boolean }
 type Detail = GiftSummary & {
@@ -40,6 +43,8 @@ export function ContactGifts({
   onDirty: (value: boolean) => void
   onSaving: (value: boolean) => void
 }) {
+  const pathname = usePathname()
+  const [donor, setDonor] = useState(contact)
   const [page, setPage] = useState(1),
     [result, setResult] = useState<Page | null>(null),
     [refresh, setRefresh] = useState(0)
@@ -55,9 +60,13 @@ export function ContactGifts({
     [currency, setCurrency] = useState('USD'),
     [exponent, setExponent] = useState(2),
     [kind, setKind] = useState<GiftKind>('cash')
-  const [campaign, setCampaign] = useState(''), [appeal, setAppeal] = useState('')
+  const [campaign, setCampaign] = useState(''),
+    [appeal, setAppeal] = useState('')
   const [attributionDirty, setAttributionDirty] = useState(false)
-  const [primaryAllocation, setPrimaryAllocation] = useState(''), [splitAllocations, setSplitAllocations] = useState<Array<{ id: string; fund: string; amount: string }>>([])
+  const [primaryAllocation, setPrimaryAllocation] = useState(''),
+    [splitAllocations, setSplitAllocations] = useState<
+      Array<{ id: string; fund: string; amount: string }>
+    >([])
   const [receivedOn, setReceivedOn] = useState(''),
     [fund, setFund] = useState(''),
     [reference, setReference] = useState(''),
@@ -116,7 +125,7 @@ export function ContactGifts({
     setLoading(true)
     setError('')
     void request<Page>(
-      `${api}/crm/finance?${new URLSearchParams({ site, constituent: contact, page: String(page) })}`,
+      `${api}/crm/finance?${new URLSearchParams({ site, constituent: contact, page: String(page), ...(!contact ? { view: 'donations' } : {}) })}`,
     )
       .then(
         (data) => {
@@ -216,17 +225,22 @@ export function ContactGifts({
       if (
         await mutate({
           action: 'create-gift',
-          constituent: contact,
+          constituent: donor,
           amount: money,
           exponent,
           kind,
           receivedOn,
           reference,
           notes,
-          allocations: splitAllocations.length ? [
-            { ...parseMoney(primaryAllocation, { code: currency, exponent }), fund },
-            ...splitAllocations.map(row => ({ ...parseMoney(row.amount, { code: currency, exponent }), fund: row.fund })),
-          ] : [{ ...money, fund }],
+          allocations: splitAllocations.length
+            ? [
+                { ...parseMoney(primaryAllocation, { code: currency, exponent }), fund },
+                ...splitAllocations.map((row) => ({
+                  ...parseMoney(row.amount, { code: currency, exponent }),
+                  fund: row.fund,
+                })),
+              ]
+            : [{ ...money, fund }],
           campaign,
           appeal,
         })
@@ -304,8 +318,38 @@ export function ContactGifts({
       {creating && (
         <fieldset disabled={saving} className="vc-crm-fields">
           <legend>Record a gift</legend>
-          <ClassificationPicker api={api} site={site} kind="campaigns" value={campaign} onChange={value => { setCampaign(value); changed() }} />
-          <ClassificationPicker api={api} site={site} kind="appeals" value={appeal} onChange={value => { setAppeal(value); changed() }} />
+          {!contact && (
+            <ContactPicker
+              api={api}
+              site={site}
+              value={donor}
+              label="Donor"
+              onChange={(value) => {
+                setDonor(value)
+                changed()
+              }}
+            />
+          )}
+          <ClassificationPicker
+            api={api}
+            site={site}
+            kind="campaigns"
+            value={campaign}
+            onChange={(value) => {
+              setCampaign(value)
+              changed()
+            }}
+          />
+          <ClassificationPicker
+            api={api}
+            site={site}
+            kind="appeals"
+            value={appeal}
+            onChange={(value) => {
+              setAppeal(value)
+              changed()
+            }}
+          />
           <label>
             Amount
             <input
@@ -388,14 +432,83 @@ export function ContactGifts({
               ))}
             </select>
           </label>
-          {splitAllocations.length > 0 && <label>First fund allocation amount<input inputMode="decimal" value={primaryAllocation} onChange={event => { setPrimaryAllocation(event.target.value); changed() }} /></label>}
-          {splitAllocations.map((row, index) => <fieldset key={row.id}><legend>Additional allocation {index + 1}</legend>
-            <label>Allocation fund<select value={row.fund} onChange={event => { setSplitAllocations(rows => rows.map(r => r.id === row.id ? { ...r, fund: event.target.value } : r)); changed() }}><option value="">Choose fund…</option>{funds.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
-            <label>Allocation amount<input inputMode="decimal" value={row.amount} onChange={event => { setSplitAllocations(rows => rows.map(r => r.id === row.id ? { ...r, amount: event.target.value } : r)); changed() }} /></label>
-            <button type="button" onClick={() => { setSplitAllocations(rows => rows.filter(r => r.id !== row.id)); changed() }}>Remove allocation</button>
-          </fieldset>)}
-          <button type="button" disabled={splitAllocations.length >= 19} onClick={() => { setSplitAllocations(rows => [...rows, { id: crypto.randomUUID(), fund: '', amount: '' }]); changed() }}>Split across another fund</button>
-          {splitAllocations.length > 0 && <p>All allocation amounts must add up to the full gift amount. Each fund can appear once.</p>}
+          {splitAllocations.length > 0 && (
+            <label>
+              First fund allocation amount
+              <input
+                inputMode="decimal"
+                value={primaryAllocation}
+                onChange={(event) => {
+                  setPrimaryAllocation(event.target.value)
+                  changed()
+                }}
+              />
+            </label>
+          )}
+          {splitAllocations.map((row, index) => (
+            <fieldset key={row.id}>
+              <legend>Additional allocation {index + 1}</legend>
+              <label>
+                Allocation fund
+                <select
+                  value={row.fund}
+                  onChange={(event) => {
+                    setSplitAllocations((rows) =>
+                      rows.map((r) => (r.id === row.id ? { ...r, fund: event.target.value } : r)),
+                    )
+                    changed()
+                  }}
+                >
+                  <option value="">Choose fund…</option>
+                  {funds.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Allocation amount
+                <input
+                  inputMode="decimal"
+                  value={row.amount}
+                  onChange={(event) => {
+                    setSplitAllocations((rows) =>
+                      rows.map((r) => (r.id === row.id ? { ...r, amount: event.target.value } : r)),
+                    )
+                    changed()
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setSplitAllocations((rows) => rows.filter((r) => r.id !== row.id))
+                  changed()
+                }}
+              >
+                Remove allocation
+              </button>
+            </fieldset>
+          ))}
+          <button
+            type="button"
+            disabled={splitAllocations.length >= 19}
+            onClick={() => {
+              setSplitAllocations((rows) => [
+                ...rows,
+                { id: crypto.randomUUID(), fund: '', amount: '' },
+              ])
+              changed()
+            }}
+          >
+            Split across another fund
+          </button>
+          {splitAllocations.length > 0 && (
+            <p>
+              All allocation amounts must add up to the full gift amount. Each fund can appear once.
+            </p>
+          )}
           {fundNext && (
             <button
               type="button"
@@ -484,6 +597,7 @@ export function ContactGifts({
         <table>
           <thead>
             <tr>
+              {!contact && <th>Donor</th>}
               <th>Received</th>
               <th>Amount</th>
               <th>Net amount</th>
@@ -494,6 +608,15 @@ export function ContactGifts({
           <tbody>
             {result?.docs.map((gift) => (
               <tr key={gift.id}>
+                {!contact && (
+                  <td>
+                    <Link
+                      href={`${pathname}?${new URLSearchParams({ site, view: 'contacts', contact: gift.constituent })}`}
+                    >
+                      {gift.donorLabel || 'Constituent'}
+                    </Link>
+                  </td>
+                )}
                 <td>
                   <button
                     className="vc-crm-title"
@@ -516,7 +639,9 @@ export function ContactGifts({
             ))}
             {!result?.docs.length && (
               <tr>
-                <td colSpan={5}>{loading ? 'Loading gifts…' : 'No gifts recorded.'}</td>
+                <td colSpan={contact ? 5 : 6}>
+                  {loading ? 'Loading gifts…' : 'No gifts recorded.'}
+                </td>
               </tr>
             )}
           </tbody>
@@ -543,7 +668,20 @@ export function ContactGifts({
       </div>
       {detail && (
         <section aria-label="Gift details">
-          <GiftAttribution key={detail.id} api={api} site={site} gift={detail.id} onDirty={value => { setAttributionDirty(value); onDirty(value || !!reason || !!delta) }} onSaving={value => { setSaving(value); onSaving(value) }} />
+          <GiftAttribution
+            key={detail.id}
+            api={api}
+            site={site}
+            gift={detail.id}
+            onDirty={(value) => {
+              setAttributionDirty(value)
+              onDirty(value || !!reason || !!delta)
+            }}
+            onSaving={(value) => {
+              setSaving(value)
+              onSaving(value)
+            }}
+          />
           <div className="vc-crm-toolbar">
             <h3>Gift on {detail.receivedOn}</h3>
             <RecordAttachmentLink site={site} link={{ type: 'gift', id: detail.id }} />
@@ -551,7 +689,10 @@ export function ContactGifts({
               type="button"
               disabled={saving}
               onClick={() => {
-                if ((!reason && !delta && !attributionDirty) || window.confirm('Discard unsaved gift changes?')) {
+                if (
+                  (!reason && !delta && !attributionDirty) ||
+                  window.confirm('Discard unsaved gift changes?')
+                ) {
                   setDetail(null)
                   setReason('')
                   setDelta('')

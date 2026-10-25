@@ -34,6 +34,7 @@ export type ImportPlanInput = {
   operationKey: string
 }
 export type ImportReview = {
+  version: 1
   site: string
   domain: ImportDomain
   sourceSystem: string
@@ -47,6 +48,7 @@ export type ImportReview = {
   after: unknown
   source: ImportSourceIdentifier | null
   checks: ReturnType<ImportContext['snapshots']>
+  visibility: ReturnType<ImportContext['visibility']>
   issues: Array<{ field?: string; column?: number; message: string }>
 }
 export type ImportDomainPlan = {
@@ -315,6 +317,7 @@ export async function prepareImportDomain(
   if (input.decision === 'skip') {
     await ctx.finish()
     const review: ImportReview = {
+      version: 1,
       site: input.site,
       domain,
       sourceSystem,
@@ -328,6 +331,7 @@ export async function prepareImportDomain(
       after: null,
       source: null,
       checks: [],
+      visibility: ctx.visibility(),
       issues: [],
     }
     return {
@@ -620,6 +624,7 @@ export async function prepareImportDomain(
         }
         recordID = String((await repo.enroll({ site, values: desired, operationKey: key })).id)
         const enrollment = prepared.descriptions().at(-1)!.after as Record<string, unknown>
+        await ctx.coverContacts(enrollment.covered as string[])
         after = {
           ...desired,
           duesMinor: type.dues_minor,
@@ -824,6 +829,7 @@ export async function prepareImportDomain(
   const targetID =
     input.decision === 'create' ? (domain === 'volunteer-profiles' ? recordID : null) : target
   const review: ImportReview = {
+    version: 1,
     site,
     domain,
     sourceSystem,
@@ -837,6 +843,7 @@ export async function prepareImportDomain(
     after,
     source,
     checks: ctx.snapshots(),
+    visibility: ctx.visibility(),
     issues: [],
   }
   return {

@@ -39,7 +39,7 @@ test('contact history paginates, filters, opens related areas and persists on mo
     })
     expect(response.ok(), await response.text()).toBe(true)
   }
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page.getByRole('searchbox').fill(name)
   await page.getByRole('button', { name, exact: true }).click()
   const dialog = page.getByRole('dialog')

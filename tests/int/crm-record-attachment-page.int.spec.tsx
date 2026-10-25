@@ -17,7 +17,7 @@ vi.mock('@payloadcms/ui', () => ({
   Gutter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useConfig: () => ({ config: { routes: { api: '/api', admin: '/staff' } } }),
 }))
-vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(query) }))
+vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(query), usePathname:()=>'/admin/crm' }))
 vi.mock('../../src/organizations/AdminSiteProvider', () => ({
   useAdminSite: () => ({ binding: { site: { id: selectedSite } } }),
 }))

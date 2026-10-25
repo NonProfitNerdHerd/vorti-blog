@@ -14,7 +14,9 @@ import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { AttachmentWorkspace } from './AttachmentWorkspace'
 import { ContactTimeline } from './ContactTimeline'
+import { ConstituentSummary } from './ConstituentSummary'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import './workspace.css'
 
@@ -42,6 +44,8 @@ const empty = (): ContactProfile => ({
   },
 })
 export function ContactWorkspace() {
+  const requestedContact = useSearchParams().get('contact')
+  const openedLocation = useRef('')
   const {
     config: {
       routes: { api, admin },
@@ -89,7 +93,21 @@ export function ContactWorkspace() {
     operation.current = null
     setError('Your CRM access changed. Reload the workspace to check your current permissions.')
   }, [])
-  const [tab, setTab] = useState<'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships' | 'opportunities' | 'volunteers' | 'correspondence' | 'attachments' | 'timeline'>('profile'),
+  const [tab, setTab] = useState<
+      | 'profile'
+      | 'chapter'
+      | 'corrections'
+      | 'gifts'
+      | 'relationships'
+      | 'communications'
+      | 'giving'
+      | 'memberships'
+      | 'opportunities'
+      | 'volunteers'
+      | 'correspondence'
+      | 'attachments'
+      | 'timeline'
+    >('profile'),
     [tagInput, setTagInput] = useState('')
   const read = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...init, cache: 'no-store' }),
@@ -106,7 +124,9 @@ export function ContactWorkspace() {
     setError('')
     try {
       const selected = pinnedSite.current || new URL(window.location.href).searchParams.get('site')
-      const context = await read<Context>(api + '/crm/context' + (selected ? '?site=' + encodeURIComponent(selected) : ''))
+      const context = await read<Context>(
+        api + '/crm/context' + (selected ? '?site=' + encodeURIComponent(selected) : ''),
+      )
       if (sequence !== requestSequence.current) return
       pinnedSite.current = context.site.id
       const query = new URLSearchParams({ site: context.site.id, search, role, limit: '50' })
@@ -170,6 +190,7 @@ export function ContactWorkspace() {
   }, [dirty])
   useEffect(() => {
     const navigate = (event: MouseEvent): void => {
+      if (event.target instanceof Element && event.target.closest('[data-vc-crm-navigation]')) return
       if (!dirty || !(event.target instanceof Element) || !event.target.closest('a[href]')) return
       if (!window.confirm('Discard the unsaved contact changes?')) {
         event.preventDefault()
@@ -190,48 +211,82 @@ export function ContactWorkspace() {
     setEditor(null)
     setDirty(false)
     operation.current = null
+    const location = new URL(window.location.href)
+    location.searchParams.delete('contact')
+    window.history.replaceState(null, '', location)
+    openedLocation.current = ''
   }
-  const open = async (id?: string) => {
-    if (!site) return
-    setSaveError('')
-    setTab('profile')
-    setTagInput('')
-    setConfirmed(false)
-    setCorrection('')
-    setDirty(false)
-    operation.current = null
-    if (!id) {
-      setProfile(empty())
-      setRoles(['contact'])
-      setEditor('new')
-      return
-    }
-    try {
-      const generation = accessGeneration.current
-      const data = await read<{ doc: Detail }>(
-        api + '/crm/contacts?' + new URLSearchParams({ site: site.id, id }),
-      )
-      if (generation !== accessGeneration.current) return
-      setProfile(data.doc.profile)
-      setRoles(data.doc.roles)
-      setTagInput(data.doc.tags.join(', '))
-      setEditor(data.doc)
-    } catch (cause) {
-      if (
-        cause &&
-        typeof cause === 'object' &&
-        'status' in cause &&
-        [401, 403].includes(Number(cause.status))
-      ) {
-        loseAccess()
+  const open = useCallback(
+    async (id?: string) => {
+      if (!site) return
+      setSaveError('')
+      setTab('profile')
+      setTagInput('')
+      setConfirmed(false)
+      setCorrection('')
+      setDirty(false)
+      operation.current = null
+      if (!id) {
+        setProfile(empty())
+        setRoles(['contact'])
+        setEditor('new')
         return
       }
-      setError(cause instanceof Error ? cause.message : 'Unable to open contact.')
-    }
-  }
+      try {
+        const generation = accessGeneration.current
+        const data = await read<{ doc: Detail }>(
+          api + '/crm/contacts?' + new URLSearchParams({ site: site.id, id }),
+        )
+        if (generation !== accessGeneration.current) return
+        setProfile(data.doc.profile)
+        setRoles(data.doc.roles)
+        setTagInput(data.doc.tags.join(', '))
+        setEditor(data.doc)
+        openedLocation.current = `${site.id}:${id}`
+        const location = new URL(window.location.href)
+        location.searchParams.set('view', 'contacts')
+        location.searchParams.set('site', site.id)
+        location.searchParams.set('contact', id)
+        window.history.replaceState(null, '', location)
+      } catch (cause) {
+        if (
+          cause &&
+          typeof cause === 'object' &&
+          'status' in cause &&
+          [401, 403].includes(Number(cause.status))
+        ) {
+          loseAccess()
+          return
+        }
+        setError(cause instanceof Error ? cause.message : 'Unable to open contact.')
+      }
+    },
+    [site, api, read, loseAccess],
+  )
+  useEffect(() => {
+    if (!site || !requestedContact || openedLocation.current === `${site.id}:${requestedContact}`)
+      return
+    openedLocation.current = `${site.id}:${requestedContact}`
+    void open(requestedContact)
+  }, [site, requestedContact, open])
   const editable =
     editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
-  const switchTab = (nextTab: 'profile' | 'chapter' | 'corrections' | 'gifts' | 'relationships' | 'communications' | 'giving' | 'memberships' | 'opportunities' | 'volunteers' | 'correspondence' | 'attachments' | 'timeline') => {
+  const switchTab = (
+    nextTab:
+      | 'profile'
+      | 'chapter'
+      | 'corrections'
+      | 'gifts'
+      | 'relationships'
+      | 'communications'
+      | 'giving'
+      | 'memberships'
+      | 'opportunities'
+      | 'volunteers'
+      | 'correspondence'
+      | 'attachments'
+      | 'timeline',
+  ) => {
     if (
       saving ||
       !editor ||
@@ -249,7 +304,23 @@ export function ContactWorkspace() {
     operation.current = null
   }
   const save = async () => {
-    if (!site || !editor || saving || tab === 'corrections' || tab === 'gifts' || tab === 'relationships' || tab === 'communications' || tab === 'giving' || tab === 'memberships' || tab === 'opportunities' || tab === 'volunteers' || tab === 'correspondence' || tab === 'attachments' || tab === 'timeline') return
+    if (
+      !site ||
+      !editor ||
+      saving ||
+      tab === 'corrections' ||
+      tab === 'gifts' ||
+      tab === 'relationships' ||
+      tab === 'communications' ||
+      tab === 'giving' ||
+      tab === 'memberships' ||
+      tab === 'opportunities' ||
+      tab === 'volunteers' ||
+      tab === 'correspondence' ||
+      tab === 'attachments' ||
+      tab === 'timeline'
+    )
+      return
     setSaving(true)
     setSaveError('')
     operation.current ||= crypto.randomUUID()
@@ -288,6 +359,10 @@ export function ContactWorkspace() {
       dialog.current?.close()
       setEditor(null)
       operation.current = null
+      openedLocation.current = ''
+      const location = new URL(window.location.href)
+      location.searchParams.delete('contact')
+      window.history.replaceState(null, '', location)
       setNotice(
         editable
           ? creating
@@ -321,14 +396,25 @@ export function ContactWorkspace() {
         <div>
           <h1>CRM</h1>
           <p>{site?.name || 'Constituent workspace'}</p>
-          {binding && <Link href={`${admin}/globals/site-settings?tab=SubSites&site=${encodeURIComponent(binding.site.id)}`}>Sites and permissions</Link>}
+          {binding && (
+            <Link
+              href={`${admin}/globals/site-settings?tab=SubSites&site=${encodeURIComponent(binding.site.id)}`}
+            >
+              Sites and permissions
+            </Link>
+          )}
         </div>
         <div>
           <button type="button" disabled={loading} onClick={() => void refresh()}>
             Refresh
           </button>
           {canCreate && (
-            <button className="vc-crm-primary" type="button" disabled={saving} onClick={() => void open()}>
+            <button
+              className="vc-crm-primary"
+              type="button"
+              disabled={saving}
+              onClick={() => void open()}
+            >
               New contact
             </button>
           )}
@@ -420,7 +506,12 @@ export function ContactWorkspace() {
             {docs.map((doc) => (
               <tr key={doc.id}>
                 <td>
-                  <button className="vc-crm-title" type="button" disabled={saving} onClick={() => void open(doc.id)}>
+                  <button
+                    className="vc-crm-title"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void open(doc.id)}
+                  >
                     {doc.label}
                   </button>
                 </td>
@@ -461,6 +552,9 @@ export function ContactWorkspace() {
             </button>
           </header>
           {editor && editor !== 'new' && (
+            <ConstituentSummary api={api} site={site?.id || ''} contact={editor.id} roles={editor.roles} onOpen={switchTab} onUnavailable={loseAccess}/>
+          )}
+          {editor && editor !== 'new' && (
             <div className="vc-crm-toolbar" role="tablist" aria-label="Contact details">
               <button
                 type="button"
@@ -487,29 +581,188 @@ export function ContactWorkspace() {
               >
                 Corrections
               </button>
-              <button type="button" role="tab" aria-selected={tab === 'gifts'} onClick={() => switchTab('gifts')}>Gifts</button>
-              <button type="button" role="tab" aria-selected={tab === 'relationships'} onClick={() => switchTab('relationships')}>Relationships</button>
-              <button type="button" role="tab" aria-selected={tab === 'communications'} onClick={() => switchTab('communications')}>Communications</button>
-              <button type="button" role="tab" aria-selected={tab === 'giving'} onClick={() => switchTab('giving')}>Pledges and recurring</button>
-              <button type="button" role="tab" aria-selected={tab === 'memberships'} onClick={() => switchTab('memberships')}>Memberships</button>
-              <button type="button" role="tab" aria-selected={tab === 'opportunities'} onClick={() => switchTab('opportunities')}>Opportunities</button>
-              <button type="button" role="tab" aria-selected={tab === 'volunteers'} onClick={() => switchTab('volunteers')}>Volunteers</button>
-              <button type="button" role="tab" aria-selected={tab === 'correspondence'} onClick={() => switchTab('correspondence')}>Receipts and correspondence</button>
-              <button type="button" role="tab" aria-selected={tab === 'attachments'} onClick={() => switchTab('attachments')}>Private attachments</button>
-              <button type="button" role="tab" aria-selected={tab === 'timeline'} onClick={() => switchTab('timeline')}>Timeline</button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'gifts'}
+                onClick={() => switchTab('gifts')}
+              >
+                Gifts
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'relationships'}
+                onClick={() => switchTab('relationships')}
+              >
+                Relationships
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'communications'}
+                onClick={() => switchTab('communications')}
+              >
+                Communications
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'giving'}
+                onClick={() => switchTab('giving')}
+              >
+                Pledges and recurring
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'memberships'}
+                onClick={() => switchTab('memberships')}
+              >
+                Memberships
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'opportunities'}
+                onClick={() => switchTab('opportunities')}
+              >
+                Opportunities
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'volunteers'}
+                onClick={() => switchTab('volunteers')}
+              >
+                Volunteers
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'correspondence'}
+                onClick={() => switchTab('correspondence')}
+              >
+                Receipts and correspondence
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'attachments'}
+                onClick={() => switchTab('attachments')}
+              >
+                Private attachments
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'timeline'}
+                onClick={() => switchTab('timeline')}
+              >
+                Timeline
+              </button>
             </div>
           )}
           <div className="vc-crm-dialog-body">
-            {tab === 'gifts' && editor && editor !== 'new' && site && <ContactGifts api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'relationships' && editor && editor !== 'new' && site && <ContactRelationships key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'communications' && editor && editor !== 'new' && site && <ContactActivities key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'giving' && editor && editor !== 'new' && site && <CommitmentWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'memberships' && editor && editor !== 'new' && site && <MembershipWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'opportunities' && editor && editor !== 'new' && site && <OpportunityWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'volunteers' && editor && editor !== 'new' && site && <VolunteerWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'correspondence' && editor && editor !== 'new' && site && <CorrespondenceWorkspace key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} />}
-            {tab === 'attachments' && editor && editor !== 'new' && site && <AttachmentWorkspace api={api} site={site.id} link={{type:'contact',id:editor.id}} onDirty={setDirty} onSaving={setSaving} onDenied={loseAccess} />}
-            {tab === 'timeline' && editor && editor !== 'new' && site && <ContactTimeline api={api} site={site.id} contact={editor.id} onOpen={switchTab} onSaving={setSaving} onDenied={loseAccess} />}
+            {tab === 'gifts' && editor && editor !== 'new' && site && (
+              <ContactGifts
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'relationships' && editor && editor !== 'new' && site && (
+              <ContactRelationships
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'communications' && editor && editor !== 'new' && site && (
+              <ContactActivities
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'giving' && editor && editor !== 'new' && site && (
+              <CommitmentWorkspace
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'memberships' && editor && editor !== 'new' && site && (
+              <MembershipWorkspace
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'opportunities' && editor && editor !== 'new' && site && (
+              <OpportunityWorkspace
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'volunteers' && editor && editor !== 'new' && site && (
+              <VolunteerWorkspace
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'correspondence' && editor && editor !== 'new' && site && (
+              <CorrespondenceWorkspace
+                key={`${site.id}:${editor.id}`}
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onDirty={setDirty}
+                onSaving={setSaving}
+              />
+            )}
+            {tab === 'attachments' && editor && editor !== 'new' && site && (
+              <AttachmentWorkspace
+                api={api}
+                site={site.id}
+                link={{ type: 'contact', id: editor.id }}
+                onDirty={setDirty}
+                onSaving={setSaving}
+                onDenied={loseAccess}
+              />
+            )}
+            {tab === 'timeline' && editor && editor !== 'new' && site && (
+              <ContactTimeline
+                api={api}
+                site={site.id}
+                contact={editor.id}
+                onOpen={switchTab}
+                onSaving={setSaving}
+                onDenied={loseAccess}
+              />
+            )}
             {tab === 'corrections' && editor && editor !== 'new' && site && (
               <ContactCorrections
                 api={api}
@@ -818,25 +1071,35 @@ export function ContactWorkspace() {
             <button type="button" disabled={saving} onClick={close}>
               Cancel
             </button>
-            {tab !== 'corrections' && tab !== 'gifts' && tab !== 'relationships' && tab !== 'communications' && tab !== 'giving' && tab !== 'memberships' && tab !== 'opportunities' && tab !== 'volunteers' && tab !== 'correspondence' && tab !== 'attachments' && tab !== 'timeline' && (
-              <button
-                className="vc-crm-primary"
-                type="submit"
-                disabled={
-                  saving ||
-                  (tab === 'chapter' && !editable) ||
-                  (tab === 'profile' && editor !== 'new' && editable && !confirmed)
-                }
-              >
-                {saving
-                  ? 'Saving…'
-                  : tab === 'chapter'
-                    ? 'Save chapter details'
-                    : editable
-                      ? 'Save contact'
-                      : 'Request correction'}
-              </button>
-            )}
+            {tab !== 'corrections' &&
+              tab !== 'gifts' &&
+              tab !== 'relationships' &&
+              tab !== 'communications' &&
+              tab !== 'giving' &&
+              tab !== 'memberships' &&
+              tab !== 'opportunities' &&
+              tab !== 'volunteers' &&
+              tab !== 'correspondence' &&
+              tab !== 'attachments' &&
+              tab !== 'timeline' && (
+                <button
+                  className="vc-crm-primary"
+                  type="submit"
+                  disabled={
+                    saving ||
+                    (tab === 'chapter' && !editable) ||
+                    (tab === 'profile' && editor !== 'new' && editable && !confirmed)
+                  }
+                >
+                  {saving
+                    ? 'Saving…'
+                    : tab === 'chapter'
+                      ? 'Save chapter details'
+                      : editable
+                        ? 'Save contact'
+                        : 'Request correction'}
+                </button>
+              )}
           </footer>
         </form>
       </dialog>

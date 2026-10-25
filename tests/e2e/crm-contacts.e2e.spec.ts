@@ -11,7 +11,7 @@ test('CRM contact creation, validation and persisted shared-profile editing', as
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default')
+  await page.goto('/admin/crm?view=contacts&site=default')
   await expect(page.getByRole('heading', { name: 'CRM', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'New contact' }).click()
   const dialog = page.getByRole('dialog')
@@ -49,7 +49,7 @@ test('a reader requests a correction without editing shared identity', async ({ 
     data: { email: 'crm-reader@example.invalid', password: 'crm-local-review-only' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default')
+  await page.goto('/admin/crm?view=contacts&site=default')
   await expect(page.getByRole('button', { name: 'New contact' })).toHaveCount(0)
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
@@ -74,7 +74,7 @@ test('an authorized reviewer resolves a correction without rewriting the profile
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default')
+  await page.goto('/admin/crm?view=contacts&site=default')
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('tab', { name: 'Corrections', exact: true }).click()
@@ -108,7 +108,7 @@ test('staff record a gift, audit a refund and preserve the original amount after
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   expect(login.ok()).toBe(true)
-  await page.goto('/admin/crm?site=default')
+  await page.goto('/admin/crm?view=contacts&site=default')
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('tab', { name: 'Gifts', exact: true }).click()

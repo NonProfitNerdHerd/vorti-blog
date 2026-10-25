@@ -19,6 +19,7 @@ import { attachmentEndpoints } from './attachment-endpoints'
 import { timelineEndpoints } from './timeline-endpoints'
 import { correspondenceBatchEndpoints } from './correspondence-batch-endpoints'
 import type { EmailRuntime } from './email-provider'
+import { overviewEndpoints } from './overview-endpoints'
 
 export interface CRMPlatform {
   db: D1Database
@@ -198,6 +199,7 @@ export const crmModule =
         mutations,
         context,
         ...financeEndpoints(platform.db, errorResponse),
+        ...overviewEndpoints(platform.db, errorResponse),
         ...householdEndpoints(platform.db, errorResponse),
         ...fundraisingEndpoints(platform.db, errorResponse),
         ...activityEndpoints(platform.db, errorResponse),

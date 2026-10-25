@@ -34,6 +34,7 @@ export function financeEndpoints(
                 ? { doc: await repository.get(site, id, Number(url.searchParams.get('page') || 1)) }
                 : await repository.list({
                     site,
+                    withDonors: url.searchParams.get('view') === 'donations',
                     constituent: url.searchParams.get('constituent') || undefined,
                     page: Number(url.searchParams.get('page') || 1),
                     limit: Number(url.searchParams.get('limit') || 50),

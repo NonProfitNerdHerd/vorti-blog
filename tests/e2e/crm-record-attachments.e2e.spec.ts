@@ -154,10 +154,10 @@ test('typed record files persist in their pinned tab while the original househol
     },
   })
 
-  await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
+  await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Households', exact: true })
+    .getByRole('link', { name: 'Households', exact: true })
     .click()
   await page.getByRole('searchbox', { name: 'Search households' }).fill(houseName)
   await page.getByRole('button', { name: houseName, exact: true }).click()
@@ -205,7 +205,7 @@ test('typed record files persist in their pinned tab while the original househol
   await expect(household).toHaveCount(0)
   await page
     .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('button', { name: 'Contacts', exact: true })
+    .getByRole('link', { name: 'Constituents', exact: true })
     .click()
   await page.getByRole('searchbox').fill(`Fictional file donor ${token}`)
   await page.getByRole('button', { name: `Fictional file donor ${token}`, exact: true }).click()
