@@ -299,8 +299,9 @@ export function WorkspaceProjects({
                 value={filter}
                 onChange={(event) => {
                   const next = new URLSearchParams(params.toString())
-                  if (event.target.value === 'all') next.delete('boardFilter')
-                  else next.set('boardFilter', event.target.value)
+                  // Payload merges omitted list-query keys with prior state.
+                  // An explicit default prevents restoring the previous filter.
+                  next.set('boardFilter', event.target.value)
                   router.push(`${base(admin)}?${next}`, { scroll: false })
                 }}
               >

@@ -27,16 +27,22 @@ test('open existing and new projects, create a board and task, and retain projec
   await expect(tree.getByRole('button', { name: /Create project beside/ })).toHaveCount(0)
   await expect(tree.getByRole('button', { name: 'Add project', exact: true })).toHaveCount(0)
   const header = page.getByRole('navigation', { name: 'Tasks workspace', exact: true })
+  const action = header.getByRole('button', { name: 'Add project', exact: true })
+  await expect(action).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await expect(action).toHaveCSS('border-top-width', '0px')
+  const headerBox = await header.boundingBox()
+  const actionBox = await action.boundingBox()
+  expect(actionBox!.x).toBeGreaterThan(headerBox!.x + headerBox!.width * 0.7)
   await header.getByRole('button', { name: 'Add project', exact: true }).click()
   const dialog = page.locator('.editor-dialog-layer')
-  const projectName = `Newsletter ${suffix}`
+  const projectName = `Newsletter planning and communications ${suffix}`
   await dialog.getByLabel('Name', { exact: true }).fill(projectName)
   await dialog.getByRole('button', { name: 'Save project', exact: true }).click()
   await expect(page.getByRole('heading', { name: projectName, exact: true })).toBeVisible()
   await expect(page.locator('.workspace-projects').getByRole('alert')).toHaveCount(0)
   const projectURL = page.url()
   await tree.getByRole('button', { name: `Add board to ${projectName}`, exact: true }).click()
-  const boardName = `Newsletter board ${suffix}`
+  const boardName = `October newsletter editorial calendar ${suffix}`
   await dialog.getByLabel('Board name', { exact: true }).fill(boardName)
   await dialog.getByRole('button', { name: 'Create board', exact: true }).click()
   await expect(dialog).toHaveCount(0)
@@ -61,6 +67,7 @@ test('open existing and new projects, create a board and task, and retain projec
   await page.reload()
   await expect(page.getByLabel('Show boards', { exact: true })).toHaveValue('overdue')
   await page.getByLabel('Show boards', { exact: true }).selectOption('all')
+  await expect(page.getByLabel('Show boards', { exact: true })).toHaveValue('all')
   const href = await tile.getAttribute('href')
   const boardID = new URL(href!, 'http://localhost').searchParams.get('board')
   for (const [title, status, dueDate] of [
@@ -113,6 +120,25 @@ test('open existing and new projects, create a board and task, and retain projec
   await expect(tab).toHaveCSS('border-top-width', '0px')
   await expect(tab).toHaveCSS('border-bottom-left-radius', '8px')
   await expect(tab).toHaveCSS('border-bottom-width', '1px')
+  const summaryRoute = '**/api/task-workspace/projects/*/boards*'
+  await page.route(summaryRoute, (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ errors: [{ message: 'Summary temporarily unavailable' }] }),
+    }),
+  )
+  await page.reload()
+  await expect(page.locator('.workspace-projects').getByRole('alert')).toContainText(
+    'Summary temporarily unavailable',
+  )
+  await expect(page.locator('.project-board-tile')).toHaveCount(0)
+  await page.unroute(summaryRoute)
+  await page
+    .locator('.workspace-projects')
+    .getByRole('button', { name: 'Retry', exact: true })
+    .click()
+  await expect(tile).toBeVisible()
 })
 
 test('create a board and shared task, organize views, schedule, and edit subtasks', async ({
