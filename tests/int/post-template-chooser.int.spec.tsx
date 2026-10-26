@@ -33,6 +33,18 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 describe('Post creation tiles', () => {
+  it('retires the legacy seed by slug while keeping Blank, Events and custom templates selectable', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ totalDocs: 0 }) })))
+    render(<PostTemplateChooser {...props()} templates={[
+      { id: 1, slug: 'standard-article', name: 'Legacy seed' },
+      { id: 2, slug: 'events', name: 'Events' },
+      { id: 3, slug: 'custom-article', name: 'Standard Article' },
+    ] as Template[]} />)
+    expect(screen.queryByRole('button', { name: /Legacy seed/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /Blank/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Events/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Standard Article/ })).toBeTruthy()
+  })
   it('requires an explicit selection and never writes a Post on cancellation', () => {
     const options = props()
     render(<PostTemplateChooser {...options} />)

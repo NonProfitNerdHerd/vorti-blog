@@ -2,35 +2,40 @@
 import './inspector-tabs.css'
 import { Maximize2 } from 'lucide-react'
 
+export type InspectorTab = 'block' | 'document' | 'seo'
+
 export function InspectorTabs({
   value,
   onChange,
   documentLabel,
   onExpand,
+  seo = false,
 }: {
-  value: 'block' | 'document'
-  onChange: (value: 'block' | 'document') => void
+  value: InspectorTab
+  onChange: (value: InspectorTab) => void
   documentLabel: string
   onExpand?: () => void
+  seo?: boolean
 }) {
+  const tabs: InspectorTab[] = seo ? ['block', 'document', 'seo'] : ['block', 'document']
   return (
     <div className="editor-inspector-heading">
       <div className="editor-inspector-tabs" role="tablist" aria-label="Inspector tabs">
-        {(['block', 'document'] as const).map((tab, index) => (
+        {tabs.map((tab, index) => (
           <button
             key={tab}
             type="button"
             role="tab"
             aria-selected={value === tab}
             tabIndex={value === tab ? 0 : -1}
-            aria-label={tab === 'document' ? 'Document settings' : undefined}
-            title={tab === 'document' ? 'Document settings' : undefined}
+            aria-label={tab === 'document' ? 'Document settings' : tab === 'seo' ? 'SEO' : undefined}
+            title={tab === 'document' ? 'Document settings' : tab === 'seo' ? 'SEO settings' : undefined}
             onClick={() => onChange(tab)}
             onKeyDown={(event) => {
               if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
               event.preventDefault()
-              const next = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - index
-              onChange(next === 0 ? 'block' : 'document')
+              const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
+              onChange(tabs[next])
               ;(
                 event.currentTarget.parentElement?.querySelectorAll('button')[
                   next
@@ -38,7 +43,7 @@ export function InspectorTabs({
               )?.focus()
             }}
           >
-            {tab === 'block' ? 'Block' : documentLabel}
+            {tab === 'block' ? 'Block' : tab === 'seo' ? 'SEO' : documentLabel}
           </button>
         ))}
       </div>

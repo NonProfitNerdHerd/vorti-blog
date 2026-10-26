@@ -87,7 +87,7 @@ export function BuilderWorkspace({
 }) {
   const [inspectorOpen, setInspectorOpen] = useState(true)
   const [inspectorExpanded, setInspectorExpanded] = useState(false)
-  const [tab, setTab] = useState<'block' | 'document'>('block')
+  const [tab, setTab] = useState<'block' | 'document' | 'seo'>('block')
   useEffect(() => {
     if (selectionKey) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the adapter-owned selection.

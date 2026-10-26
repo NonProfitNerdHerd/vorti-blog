@@ -1,5 +1,5 @@
 'use client'
-import { InspectorTabs } from '../builder/InspectorTabs'
+import { InspectorTabs, type InspectorTab } from '../builder/InspectorTabs'
 import { useCategoriesEnabled } from '../categories'
 import { EditorDialog } from '../builder/EditorDialog'
 import { InlineText } from '../builder/InlineText'
@@ -53,6 +53,7 @@ import {
   type ContentKind,
   type Viewport,
 } from '../content/model'
+import { isSelectableArticleTemplate } from '../content/template-selection'
 import { PostTemplateChooser } from './PostTemplateChooser'
 import { useRouter } from 'next/navigation'
 import { readPath, templateContentNodes } from '../content/template-adapter'
@@ -135,7 +136,7 @@ export const ContentWorkspace = (
   const [error, setError] = useState('')
   const [selected, setSelected] = useState('')
   const [variationChooser, setVariationChooser] = useState('')
-  const [panel, setPanel] = useState<'block' | 'document'>('document')
+  const [panel, setPanel] = useState<InspectorTab>('document')
   const sidebar = useBuilderSidebar(`${collectionSlug}:${documentID ?? 'new'}`)
   const { open: left, setOpen: setLeft, setMode: setLibraryMode } = sidebar
   const [right, setRight] = useState(true)
@@ -438,20 +439,20 @@ export const ContentWorkspace = (
             onChange={(event) => changeTemplate(event.target.value)}
           >
             <option value="">Blank — freeform blocks</option>
-            {templates.map((template) => (
+            {templates.filter(isSelectableArticleTemplate).map((template) => (
               <option key={template.id} value={template.id}>
                 {template.name}
               </option>
             ))}
-            {templateID && !templates.some((template) => String(template.id) === templateID) && (
-              <option value={templateID}>{snapshotField.value?.template.name ?? 'Current template (unavailable)'}</option>
+            {templateID && !templates.some((template) => isSelectableArticleTemplate(template) && String(template.id) === templateID) && (
+              <option value={templateID}>{template?.name ?? 'Current template (unavailable)'}</option>
             )}
           </select>
         </label>
         {renderFields((groups.Template ?? []).filter((name) => !internal.has(name)))}
       </details>
       {Object.entries(groups)
-        .filter(([name]) => name !== 'Template' && name !== 'Content')
+        .filter(([name]) => name !== 'Template' && name !== 'Content' && name !== 'SEO')
         .map(([name, names]) => {
           const visible = names.filter((name) => !internal.has(name))
           return visible.length ? (
@@ -796,10 +797,12 @@ export const ContentWorkspace = (
           </div>
           {right && (
             <aside className="content-workspace__right" aria-label="Inspector" data-inspector-expanded={inspectorExpanded}>
-              <EditorDialog inline open={inspectorExpanded} title={panel === 'document' ? `${documentLabel} settings` : 'Block settings'} onClose={() => { setInspectorExpanded(false); setRight(true) }}>
-              <InspectorTabs value={panel} onChange={setPanel} documentLabel={documentLabel} onExpand={() => setInspectorExpanded(true)} />
+              <EditorDialog inline open={inspectorExpanded} title={panel === 'seo' ? 'SEO settings' : panel === 'document' ? `${documentLabel} settings` : 'Block settings'} onClose={() => { setInspectorExpanded(false); setRight(true) }}>
+              <InspectorTabs seo value={panel} onChange={setPanel} documentLabel={documentLabel} onExpand={() => setInspectorExpanded(true)} />
               {panel === 'document' ? (
                 <div className="builder-document-settings">{gear}</div>
+              ) : panel === 'seo' ? (
+                <div className="builder-document-settings">{renderFields(groups.SEO ?? [])}</div>
               ) : !active ? (
                 <p>Select a block on the canvas or in List view.</p>
               ) : (
