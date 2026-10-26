@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth, useConfig, useDocumentDrawer } from '@payloadcms/ui';
 import { EditorDialog } from '../builder/EditorDialog.js';
+import { isSelectableArticleTemplate } from '../content/template-selection.js';
 /** A schematic preview of the template layout, with no public-content requests. */
 function TemplateThumbnail({ template }) {
     const rows = Math.min(4, Math.max(1, template?.layout?.length || template?.sections?.length || 1));
@@ -38,7 +39,7 @@ export function PostTemplateChooser({ templates, onChoose, onCancel, onCreated, 
     }, [pendingOpen, templateID, openDrawer]);
     useEffect(() => {
         const controller = new AbortController();
-        const pending = [...templates];
+        const pending = templates.filter(isSelectableArticleTemplate);
         async function worker() {
             while (pending.length && !controller.signal.aborted) {
                 const template = pending.shift();
@@ -103,7 +104,7 @@ export function PostTemplateChooser({ templates, onChoose, onCancel, onCreated, 
     }
     if (!mounted)
         return null;
-    const ranked = [...templates].sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name));
+    const ranked = templates.filter(isSelectableArticleTemplate).sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name));
     return createPortal(_jsxs(_Fragment, { children: [_jsx(EditorDialog, { open: !isDrawerOpen && !pendingOpen && !naming, title: "Create a Post \u00B7 Choose a template", onClose: onCancel, children: _jsxs("div", { className: "post-template-chooser", children: [_jsx("p", { children: "Choose a starting point for your Post. Your changes will belong to this Post." }), loading && _jsx("p", { role: "status", children: "Loading templates\u2026" }), error && (_jsxs("p", { role: "alert", children: [error, ' ', _jsx("button", { type: "button", onClick: onRetry, children: "Retry" })] })), templates.length > 6 && (_jsxs("label", { children: ["Search templates", _jsx("input", { type: "search", value: search, onChange: (event) => setSearch(event.target.value) })] })), _jsxs("div", { className: "post-template-chooser__tiles", role: "group", "aria-label": "Post templates", children: [ranked
                                     .filter((template) => template.name.toLowerCase().includes(search.toLowerCase()))
                                     .map((template) => (_jsxs("button", { type: "button", className: "post-template-tile", "aria-pressed": selection === String(template.id), onClick: () => setSelection(String(template.id)), children: [_jsx(TemplateThumbnail, { template: template }), _jsx("strong", { children: template.name }), _jsx("span", { children: template.description || 'Start with this template’s layout and fields.' }), _jsx("small", { children: counts[template.id] ? `${counts[template.id]} posts` : 'Reusable template' })] }, template.id))), !search && (_jsxs("button", { type: "button", className: "post-template-tile", "aria-pressed": selection === 'blank', onClick: () => setSelection('blank'), children: [_jsx(TemplateThumbnail, {}), _jsx("strong", { children: "Blank" }), _jsx("span", { children: "Start with an empty block-based editor. Add and arrange your own blocks." })] })), search &&
