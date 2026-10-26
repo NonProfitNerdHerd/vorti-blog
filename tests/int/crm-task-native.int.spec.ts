@@ -10,6 +10,7 @@ import { cmsSiteContext } from '@/organizations/cms-scope'
 import { ContactTimeline } from '@/crm/timeline'
 import { workspaceEndpoint } from '@/review/workspace-service'
 import { boardActivity } from '@/review/board-overview-service'
+import { projectBoardSummaries } from '@/review/project-board-service'
 
 let payload: Payload, db: D1Database, actor: number, assignee: number, contact: string
 describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-bridge-'))(
@@ -122,11 +123,23 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
         { user: { ...user, collection: 'users' }, context: cmsSiteContext('default') },
         payload,
       )
+      const project = await payload.create({
+        collection: 'task-projects',
+        req: boardReq,
+        overrideAccess: false,
+        data: { name: 'Fictional summary project', visibility: 'private' },
+      })
       const board = await payload.create({
         collection: 'task-boards',
         req: boardReq,
         overrideAccess: false,
-        data: { name: 'Fictional CRM follow-ups', visibility: 'private', owner: actor },
+        data: {
+          name: 'Fictional CRM follow-ups',
+          visibility: 'private',
+          owner: actor,
+          project: project.id,
+          inheritProject: true,
+        },
       })
       const sharing = await createLocalReq(
         { user: { ...user, collection: 'users' }, context: cmsSiteContext('default') },
@@ -141,6 +154,11 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
         new URLSearchParams({ limit: '100' }),
       )
       expect(activity.docs.some((row) => row.task === created.id)).toBe(true)
+      expect(
+        (await projectBoardSummaries(boardReq, project.id)).docs.find(
+          (item) => item.id === board.id,
+        )?.counts.all,
+      ).toBe(1)
       await db
         .prepare(
           'UPDATE vc_crm_affiliations SET archived=1,revision=revision+1 WHERE constituent_id=?',
@@ -162,6 +180,11 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
       )
       expect(revokedActivity.docs.every((row) => row.task !== created.id)).toBe(true)
       expect(JSON.stringify(revokedActivity)).not.toContain(intent.title)
+      expect(
+        (await projectBoardSummaries(boardReq, project.id)).docs.find(
+          (item) => item.id === board.id,
+        )?.counts.all,
+      ).toBe(0)
     }, 180000)
   },
 )

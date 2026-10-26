@@ -11,6 +11,7 @@ import { workspaceFormula, workspaceReferences } from '@/review/workspace-formul
 import { workspaceFileEndpoints } from '@/review/workspace-files'
 import { workspaceEndpoint } from '@/review/workspace-service'
 import { crmTaskInternalReadAllowed } from '@/crm/task-where'
+import { projectBoardSummaries } from '@/review/project-board-service'
 
 describe('Projects workspace: inherited access, fields, scheduling, and time', () => {
   let payload: Payload, project: number, board: number, privateBoard: number, task: number
@@ -145,6 +146,33 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
     })
     expect(await boardRole(await req(1), board)).toBe('editor')
     expect(await canTask(await req(1), task, 'edit')).toBe(true)
+  })
+  it('summarizes project boards without exposing private exceptions or caller query authority', async () => {
+    const privateException = await payload.create({
+      collection: 'task-boards',
+      req: await req(1),
+      overrideAccess: false,
+      data: {
+        name: 'Hidden summary exception',
+        owner: users[1].id,
+        project,
+        inheritProject: false,
+        visibility: 'private',
+      },
+    })
+    const request = await req(0)
+    const result = await projectBoardSummaries(request, project)
+    expect(result.docs.map((item) => item.id)).toContain(board)
+    expect(result.docs.map((item) => item.id)).not.toContain(privateException.id)
+    expect(result.docs.find((item) => item.id === board)?.counts).toEqual({
+      all: 1,
+      overdue: 0,
+      upcoming: 0,
+      completed: 0,
+    })
+    expect(crmTaskInternalReadAllowed(request)).toBe(false)
+    expect(internalWorkspace(request)).toBe(false)
+    await expect(projectBoardSummaries(await req(2), project)).rejects.toThrow(/unavailable/)
   })
   it('keeps nested server-write authority off the caller request', async () => {
     const request = await req(0)

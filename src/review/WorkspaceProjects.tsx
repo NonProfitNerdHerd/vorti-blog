@@ -2,13 +2,14 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote project navigation, settings, and paginated directories. */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Home, Inbox, CheckSquare, ChevronRight, ChevronDown } from './WorkspaceIcon'
+import { Home, Inbox, CheckSquare, ChevronRight, ChevronDown, Plus } from './WorkspaceIcon'
 import { BoardIcon } from './BoardIcon'
 import { InboxBadge } from './WorkspaceInbox'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { query, reviewAll, reviewAPI } from './client'
 import { BoardSettings } from './WorkspaceBoards'
+import { boardFilter, type ProjectBoardSummary } from './project-board-model'
 import { ReferencePicker } from './WorkspaceTaskDetails'
 
 export type Project = {
@@ -24,9 +25,8 @@ export type Project = {
 }
 const base = (admin: string) => `${admin}/collections/review-tasks`
 export function ProjectNavigator({ api, admin }: { api: string; admin: string }) {
-  const router = useRouter(),
-    params = useSearchParams()
-  const [creating, setCreating] = useState(false)
+  const params = useSearchParams()
+  const [addingBoard, setAddingBoard] = useState<Project | null>(null)
   const [savingPreference, setSavingPreference] = useState<number | null>(null)
   const [projects, setProjects] = useState<Project[]>([]),
     [boards, setBoards] = useState<any[]>([]),
@@ -89,9 +89,6 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
             My Tasks
           </Link>
         </nav>
-        <button type="button" className="task-primary" onClick={() => setCreating(true)}>
-          Add project
-        </button>
         {error && (
           <button type="button" onClick={() => void load()}>
             Reload projects
@@ -143,6 +140,18 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
                   >
                     {project.name}
                   </Link>
+                  {['owner', 'editor'].includes(project.workspaceRole || '') &&
+                    !project.archived && (
+                      <button
+                        type="button"
+                        className="workspace-project-add"
+                        aria-label={`Add board to ${project.name}`}
+                        title={`Add board to ${project.name}`}
+                        onClick={() => setAddingBoard(project)}
+                      >
+                        <Plus size={16} aria-hidden="true" />
+                      </button>
+                    )}
                 </div>
                 <div
                   id={`workspace-project-${project.id}`}
@@ -170,15 +179,26 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
           })}
         {error && <p role="alert">{error}</p>}
       </aside>
-      {creating && (
-        <ProjectSettings
+      {addingBoard && (
+        <BoardSettings
           api={api}
-          onClose={() => setCreating(false)}
-          onSaved={(project) => {
-            setCreating(false)
-            void load()
-            window.dispatchEvent(new Event('vorti-tasks-changed'))
-            router.push(`${base(admin)}?workspace=projects&project=${project.id}`)
+          initialProject={addingBoard.id}
+          onClose={() => setAddingBoard(null)}
+          onSaved={() => {
+            const target = addingBoard
+            setAddingBoard(null)
+            const pref = prefs.find((item) => item.project === target.id)
+            void reviewAPI(
+              api,
+              `task-project-preferences${pref ? `/${pref.id}` : ''}`,
+              pref ? 'PATCH' : 'POST',
+              { project: target.id, expanded: true },
+            )
+              .catch((e) => setError(e.message))
+              .finally(() => {
+                void load()
+                window.dispatchEvent(new Event('vorti-tasks-changed'))
+              })
           }}
         />
       )}
@@ -194,15 +214,17 @@ export function WorkspaceProjects({
   admin: string
   projectID?: string
 }) {
+  const params = useSearchParams()
+  const router = useRouter()
+  const filter = boardFilter(params.get('boardFilter'))
   const [projects, setProjects] = useState<Project[]>([]),
-    [boards, setBoards] = useState<any[]>([]),
+    [boards, setBoards] = useState<ProjectBoardSummary[]>([]),
     [counts, setCounts] = useState<Record<string, { boards: number; tasks: number }>>({}),
     [prefs, setPrefs] = useState<any[]>([]),
     [search, setSearch] = useState(''),
     [archived, setArchived] = useState(false),
     [favorites, setFavorites] = useState(false),
     [settings, setSettings] = useState<Project | null | false>(false),
-    [createBoard, setCreateBoard] = useState(false),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true),
     [page, setPage] = useState(1),
@@ -222,13 +244,20 @@ export function WorkspaceProjects({
       const preferences = await reviewAll<any>(api, 'task-project-preferences', {})
       setPrefs(preferences)
       const totals: Record<string, { boards: number; tasks: number }> = {}
-      for (const project of result.docs) {
+      for (const project of projectID ? [] : result.docs) {
         const count = await reviewAPI<any>(api, `task-workspace/projects/${project.id}/counts`)
         totals[project.id] = count
       }
       setCounts(totals)
       if (projectID)
-        setBoards(await reviewAll(api, 'task-boards', { project: { equals: projectID } }, 'name'))
+        setBoards(
+          (
+            await reviewAPI<{ docs: ProjectBoardSummary[] }>(
+              api,
+              `task-workspace/projects/${projectID}/boards`,
+            )
+          ).docs,
+        )
       setRequests(await reviewAll(api, 'task-project-changes', { state: { equals: 'pending' } }))
       setError('')
     } catch (e) {
@@ -246,7 +275,11 @@ export function WorkspaceProjects({
   useEffect(() => {
     void load()
     window.addEventListener('focus', load)
-    return () => window.removeEventListener('focus', load)
+    window.addEventListener('vorti-tasks-changed', load)
+    return () => {
+      window.removeEventListener('focus', load)
+      window.removeEventListener('vorti-tasks-changed', load)
+    }
   }, [load])
   const project = projectID ? projects[0] : undefined
   return (
@@ -258,19 +291,29 @@ export function WorkspaceProjects({
           <p>{project?.description ?? 'Keep boards together, with room for private work.'}</p>
         </div>
         <div>
-          {project && ['owner', 'editor'].includes(project.workspaceRole ?? '') && (
-            <button type="button" className="task-primary" onClick={() => setCreateBoard(true)}>
-              Create board
-            </button>
+          {project && (
+            <label className="project-board-filter">
+              Show boards
+              <select
+                aria-label="Show boards"
+                value={filter}
+                onChange={(event) => {
+                  const next = new URLSearchParams(params.toString())
+                  if (event.target.value === 'all') next.delete('boardFilter')
+                  else next.set('boardFilter', event.target.value)
+                  router.push(`${base(admin)}?${next}`, { scroll: false })
+                }}
+              >
+                <option value="all">All boards</option>
+                <option value="overdue">Has overdue tasks</option>
+                <option value="upcoming">Has upcoming tasks</option>
+                <option value="completed">Has completed tasks</option>
+              </select>
+            </label>
           )}
           {project?.workspaceRole === 'owner' && (
             <button type="button" onClick={() => setSettings(project)}>
               Project settings
-            </button>
-          )}
-          {!projectID && (
-            <button type="button" className="task-primary" onClick={() => setSettings(null)}>
-              Create project
             </button>
           )}
         </div>
@@ -319,20 +362,37 @@ export function WorkspaceProjects({
       )}
       <div className="task-board-directory">
         {projectID
-          ? boards.map((board) => (
-              <article key={board.id}>
-                <small>
-                  {board.inheritProject ? 'Project access' : 'Private board'}
-                  {board.archived ? ' · Archived' : ''}
-                </small>
-                <h3>
-                  <Link href={`${base(admin)}?workspace=boards&board=${board.id}`}>
-                    {board.name}
-                  </Link>
-                </h3>
-                <p>{board.description}</p>
-              </article>
-            ))
+          ? !loading &&
+            !error &&
+            boards
+              .filter((board) => filter === 'all' || board.counts[filter] > 0)
+              .map((board) => (
+                <Link
+                  className="project-board-tile"
+                  key={board.id}
+                  href={`${base(admin)}?workspace=boards&board=${board.id}${params.get('site') ? `&site=${encodeURIComponent(params.get('site')!)}` : ''}`}
+                >
+                  <small>{board.inheritProject ? 'Project access' : 'Private board'}</small>
+                  <h3>{board.name}</h3>
+                  {board.description && <p>{board.description}</p>}
+                  <dl className="project-board-stats">
+                    {(
+                      [
+                        ['overdue', 'Tasks Overdue'],
+                        ['upcoming', 'Tasks Upcoming'],
+                        ['completed', 'Tasks Completed'],
+                        ['all', 'All Tasks'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{label}</dt>
+                        <dd>{board.counts[key]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <span className="project-board-open">Open board →</span>
+                </Link>
+              ))
           : projects
               .filter(
                 (project) =>
@@ -382,6 +442,12 @@ export function WorkspaceProjects({
       {!loading && !error && !(projectID ? boards : projects).length && (
         <p>No {projectID ? 'boards' : 'projects'} yet.</p>
       )}
+      {projectID &&
+        !loading &&
+        !error &&
+        boards.length > 0 &&
+        filter !== 'all' &&
+        !boards.some((board) => board.counts[filter] > 0) && <p>No boards match this filter.</p>}
       {!projectID && pages > 1 && (
         <nav aria-label="Project pages">
           <button type="button" disabled={page === 1} onClick={() => setPage((v) => v - 1)}>
@@ -446,22 +512,10 @@ export function WorkspaceProjects({
           }}
         />
       )}
-      {createBoard && project && (
-        <BoardSettings
-          api={api}
-          initialProject={project.id}
-          onClose={() => setCreateBoard(false)}
-          onSaved={() => {
-            setCreateBoard(false)
-            void load()
-            window.dispatchEvent(new Event('vorti-tasks-changed'))
-          }}
-        />
-      )}
     </section>
   )
 }
-function ProjectSettings({
+export function ProjectSettings({
   api,
   project,
   onClose,

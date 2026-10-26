@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { projectBoardSummaries } from './project-board-service'
 import { crmTaskInternalRead } from '../crm/task-where'
 import { workspaceMutationFence } from './workspace-commit'
 import { initializeStarterWorkspace } from './workspace-starter'
@@ -283,6 +284,11 @@ export const workspaceEndpoints: Endpoint[] = [
       })
       return Response.json(result)
     },
+  },
+  {
+    path: '/task-workspace/projects/:id/boards',
+    method: 'get',
+    handler: async (req) => Response.json(await projectBoardSummaries(req, Number(req.routeParams?.id))),
   },
   {
     path: '/task-workspace/projects/:id/counts',

@@ -21,23 +21,74 @@ test('open existing and new projects, create a board and task, and retain projec
     `/admin/collections/review-tasks?workspace=projects&project=${existing.id}&site=default`,
   )
   await expect(page.getByRole('heading', { name: existingName, exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Create board', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Show boards', { exact: true })).toBeVisible()
   await expect(page.locator('.workspace-projects').getByRole('alert')).toHaveCount(0)
   const tree = page.getByRole('complementary', { name: 'Projects and boards' })
   await expect(tree.getByRole('button', { name: /Create project beside/ })).toHaveCount(0)
-  await tree.getByRole('button', { name: 'Add project', exact: true }).click()
+  await expect(tree.getByRole('button', { name: 'Add project', exact: true })).toHaveCount(0)
+  const header = page.getByRole('navigation', { name: 'Tasks workspace', exact: true })
+  await header.getByRole('button', { name: 'Add project', exact: true }).click()
   const dialog = page.locator('.editor-dialog-layer')
   const projectName = `Newsletter ${suffix}`
   await dialog.getByLabel('Name', { exact: true }).fill(projectName)
   await dialog.getByRole('button', { name: 'Save project', exact: true }).click()
   await expect(page.getByRole('heading', { name: projectName, exact: true })).toBeVisible()
   await expect(page.locator('.workspace-projects').getByRole('alert')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Create board', exact: true }).click()
+  const projectURL = page.url()
+  await tree.getByRole('button', { name: `Add board to ${projectName}`, exact: true }).click()
   const boardName = `Newsletter board ${suffix}`
   await dialog.getByLabel('Board name', { exact: true }).fill(boardName)
   await dialog.getByRole('button', { name: 'Create board', exact: true }).click()
   await expect(dialog).toHaveCount(0)
-  await tree.getByRole('link', { name: boardName, exact: true }).click()
+  await expect(page).toHaveURL(projectURL)
+  await expect(tree.getByRole('link', { name: boardName, exact: true })).toBeVisible()
+  const tile = page
+    .locator('.project-board-tile')
+    .filter({ has: page.getByRole('heading', { name: boardName, exact: true }) })
+  await expect(tile).toBeVisible()
+  await expect(tile.locator('dd')).toHaveText(['0', '0', '0', '0'])
+  // The project plus targets that project even while a different project is selected.
+  await tree.getByRole('button', { name: `Add board to ${existingName}`, exact: true }).click()
+  const otherBoard = `Other board ${suffix}`
+  await dialog.getByLabel('Board name', { exact: true }).fill(otherBoard)
+  await dialog.getByRole('button', { name: 'Create board', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(page).toHaveURL(projectURL)
+  await expect(tree.getByRole('link', { name: otherBoard, exact: true })).toBeVisible()
+  await expect(page.locator('.project-board-tile').filter({ hasText: otherBoard })).toHaveCount(0)
+  await page.getByLabel('Show boards', { exact: true }).selectOption('overdue')
+  await expect(page.getByText('No boards match this filter.', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel('Show boards', { exact: true })).toHaveValue('overdue')
+  await page.getByLabel('Show boards', { exact: true }).selectOption('all')
+  const href = await tile.getAttribute('href')
+  const boardID = new URL(href!, 'http://localhost').searchParams.get('board')
+  for (const [title, status, dueDate] of [
+    ['Overdue example', 'open', '2020-01-01'],
+    ['Completed example', 'done', null],
+  ]) {
+    const response = await page.request.post('/api/review-tasks?site=default', {
+      data: {
+        title: `${title} ${suffix}`,
+        initialBoard: Number(boardID),
+        status,
+        priority: 'normal',
+        ...(dueDate ? { dueDate: `${dueDate}T00:00:00Z` } : {}),
+      },
+    })
+    expect(response.ok()).toBe(true)
+  }
+  await page.reload()
+  await expect(tile.locator('dd')).toHaveText(['1', '0', '1', '2'])
+  await page.getByLabel('Show boards', { exact: true }).selectOption('upcoming')
+  await expect(page.getByText('No boards match this filter.', { exact: true })).toBeVisible()
+  await page.getByLabel('Show boards', { exact: true }).selectOption('completed')
+  await expect(tile).toBeVisible()
+  await page.goBack()
+  await expect(page.getByLabel('Show boards', { exact: true })).toHaveValue('upcoming')
+  await page.goForward()
+  await expect(page.getByLabel('Show boards', { exact: true })).toHaveValue('completed')
+  await tile.click()
   await expect(page.getByRole('heading', { name: boardName, exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'List', exact: true }).click()
   await page.getByLabel('Add task in Open', { exact: true }).fill(`Prepare newsletter ${suffix}`)
@@ -50,10 +101,13 @@ test('open existing and new projects, create a board and task, and retain projec
     page.getByRole('button', { name: `Prepare newsletter ${suffix}`, exact: true }),
   ).toBeVisible()
   await tree.getByRole('link', { name: projectName, exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Create board', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Show boards', { exact: true })).toBeVisible()
   await expect(page.locator('.workspace-projects').getByRole('alert')).toHaveCount(0)
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(tree.getByRole('button', { name: 'Add project', exact: true })).toBeVisible()
+  await expect(header.getByRole('button', { name: 'Add project', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+    true,
+  )
   await expect(tree.getByRole('link', { name: projectName, exact: true })).toBeVisible()
   const tab = page.locator('.vc-site-tab')
   await expect(tab).toHaveCSS('border-top-width', '0px')

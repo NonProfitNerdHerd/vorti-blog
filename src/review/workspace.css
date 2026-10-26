@@ -1594,3 +1594,57 @@
     min-width: 36px;
   }
 }
+/* Project navigation and summaries stay inside the Tasks workspace. */
+.review-global.review-workspace .task-workspace-tabs > button.workspace-add-project {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--theme-text);
+  font: inherit;
+  cursor: pointer;
+}
+.review-global.review-workspace .task-workspace-tabs > button.workspace-add-project:hover {
+  text-decoration: underline;
+}
+.workspace-add-project:focus-visible,
+.project-board-tile:focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: 2px;
+}
+.review-global.review-workspace .workspace-project-tree .workspace-project-row > button.workspace-project-caret {
+  flex: 0 0 22px;
+  width: 22px;
+  min-width: 22px;
+}
+.review-global.review-workspace .workspace-project-tree .workspace-project-row > button.workspace-project-add {
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+  margin-left: auto;
+}
+.review-global.review-workspace .workspace-project-tree .workspace-board-nav-row {
+  margin-left: 12px;
+  padding-inline: 3px;
+  gap: 5px;
+}
+.project-board-filter { display: inline-flex; flex-direction: column; gap: 4px; }
+.project-board-tile {
+  display: block;
+  color: var(--theme-text);
+  text-decoration: none;
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--theme-elevation-0);
+  overflow-wrap: anywhere;
+}
+.project-board-tile:hover { background: var(--theme-elevation-50); }
+.project-board-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.project-board-stats dt { font-size: 12px; color: var(--theme-elevation-650); }
+.project-board-stats dd { font-size: 22px; font-weight: 650; margin: 4px 0 0; }
+.project-board-open { display: inline-block; margin-top: 8px; font-weight: 600; text-decoration: underline; }

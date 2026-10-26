@@ -3,9 +3,10 @@ import { Tasks } from './Tasks'
 import './tasks.css'
 import Link from 'next/link'
 import { useAuth, useConfig, useStepNav } from '@payloadcms/ui'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { InboxBadge } from './WorkspaceInbox'
-import { ProjectNavigator } from './WorkspaceProjects'
+import { ProjectNavigator, ProjectSettings } from './WorkspaceProjects'
+import { Plus } from './WorkspaceIcon'
 import { useEffect, useState } from 'react'
 import { reviewAPI } from './client'
 
@@ -56,6 +57,8 @@ function StarterWorkspace({ api, admin, active }: { api: string; admin: string; 
   )
 }
 export function TaskList() {
+  const [creatingProject, setCreatingProject] = useState(false)
+  const router = useRouter()
   const { setStepNav } = useStepNav()
   useEffect(() => {
     setStepNav([
@@ -99,6 +102,15 @@ export function TaskList() {
             {tab.key === 'inbox' && <InboxBadge api={api} />}
           </Link>
         ))}
+        {user && (
+          <button
+            type="button"
+            className="workspace-add-project"
+            onClick={() => setCreatingProject(true)}
+          >
+            <Plus size={16} aria-hidden="true" /> Add project
+          </button>
+        )}
       </nav>
       {user && !user.username && (
         <p className="task-workspace-account-hint">
@@ -107,6 +119,22 @@ export function TaskList() {
         </p>
       )}
       {user && <StarterWorkspace key={user.id} api={api} admin={admin} active={active} />}
+      {creatingProject && (
+        <ProjectSettings
+          api={api}
+          onClose={() => setCreatingProject(false)}
+          onSaved={(project) => {
+            setCreatingProject(false)
+            window.dispatchEvent(new Event('vorti-tasks-changed'))
+            const next = new URLSearchParams(params.toString())
+            next.set('workspace', 'projects')
+            next.set('project', String(project.id))
+            next.delete('board')
+            next.delete('boardFilter')
+            router.push(`${base}?${next}`)
+          }}
+        />
+      )}
     </main>
   )
 }
