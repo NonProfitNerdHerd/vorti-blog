@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 test('opportunity pipeline, explicit financial links and stage history persist in the chapter', async ({
   page,
@@ -25,8 +26,11 @@ test('opportunity pipeline, explicit financial links and stage history persist i
   expect(contactResponse.ok()).toBe(true)
   const contact = (await contactResponse.json()).doc.id
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  const modules = page.getByRole('navigation', { name: 'CRM sections' })
-  await modules.getByRole('link', { name: 'Opportunities', exact: true }).click()
+  await (
+    await crmNavigation(page)
+  )
+    .getByRole('link', { name: 'Opportunities', exact: true })
+    .click()
   await page.getByRole('button', { name: 'Create pipeline', exact: true }).click()
   await page.getByLabel('Pipeline name', { exact: true }).fill(`Major gifts ${token}`)
   await page.getByRole('button', { name: 'Save configuration', exact: true }).click()
@@ -114,7 +118,11 @@ test('opportunity pipeline, explicit financial links and stage history persist i
   await editor.getByRole('button', { name: 'Link recorded record', exact: true }).click()
   await expect(editor.getByText(/Explicitly link recorded gift/)).toBeVisible()
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await modules.getByRole('link', { name: 'Opportunities', exact: true }).click()
+  await (
+    await crmNavigation(page)
+  )
+    .getByRole('link', { name: 'Opportunities', exact: true })
+    .click()
   await page
     .getByRole('combobox', { name: 'Pipeline', exact: true })
     .selectOption({ label: `Major gifts ${token}` })

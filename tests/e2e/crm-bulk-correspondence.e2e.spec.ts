@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 async function login(page: Page) {
@@ -19,8 +20,9 @@ async function post(page: Page, area: string, values: Record<string, unknown>) {
 }
 async function openBulk(page: Page) {
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
+  await (
+    await crmNavigation(page)
+  )
     .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page
@@ -106,8 +108,9 @@ test('bulk correspondence reviews persist, issue once, and produce private print
     details.getByRole('button', { name: 'Approve batch and issue documents', exact: true }),
   ).toBeEnabled()
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
+  await (
+    await crmNavigation(page)
+  )
     .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page

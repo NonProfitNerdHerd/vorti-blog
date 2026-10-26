@@ -90,27 +90,26 @@ test('Posts and Pages publication views and native bulk icons', async ({ page })
   }
 })
 
-test('Tasks menu persistence, design order and mobile content views', async ({ page }) => {
-  await page.request.post('/api/users/login', { data: { email: 'dev@payloadcms.com', password: 'test' } })
+test('page-local Tasks menu, design order and mobile content views', async ({ page }) => {
+  await page.request.post('/api/users/login', {
+    data: { email: 'dev@payloadcms.com', password: 'test' },
+  })
   await page.goto('/admin')
   const nav = page.locator('.nav__wrap'),
     toggle = nav.getByRole('button', { name: 'Toggle Tasks navigation' })
-  try { await expect(toggle).toBeVisible({ timeout: 3000 }) }
-  catch { await page.getByRole('button', { name: 'Open Menu', exact: true }).click() }
+  try {
+    await expect(toggle).toBeVisible({ timeout: 3000 })
+  } catch {
+    await page.getByRole('button', { name: 'Open Menu', exact: true }).click()
+  }
   if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click()
   await expect(nav.getByRole('link', { name: 'My tasks', exact: true })).not.toBeVisible()
-  await expect
-    .poll(
-      async () =>
-        (await (await page.request.get('/api/payload-preferences/nav')).json()).value?.groups?.Tasks
-          ?.open,
-    )
-    .toBe(false)
   await page.reload()
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await toggle.click()
   await expect(nav.getByRole('link', { name: 'My tasks', exact: true })).toBeVisible()
-  await expect.poll(async () => (await (await page.request.get('/api/payload-preferences/nav')).json()).value?.groups?.Tasks?.open).toBe(true)
+  await page.reload()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   const design = nav.getByRole('button', { name: 'Site Design', exact: true })
   if (!(await nav.getByRole('link', { name: 'Page/Post Templates', exact: true }).isVisible()))
     await design.click()

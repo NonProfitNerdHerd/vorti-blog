@@ -89,3 +89,19 @@
 .nav .task-nav-children[hidden] {
   display: none;
 }
+.nav .vorti-group-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.nav .vorti-group-toggle:focus-visible {
+  outline: 2px solid var(--theme-text);
+  outline-offset: 2px;
+}
+.nav .nav__link[aria-current='page'] {
+  font-weight: 600;
+}

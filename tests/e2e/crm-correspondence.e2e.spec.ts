@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 
 test('staff issue and correct retained receipts with private PDF generation and disabled email', async ({
@@ -44,8 +45,9 @@ test('staff issue and correct retained receipts with private PDF generation and 
     })
   ).id
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
+  await (
+    await crmNavigation(page)
+  )
     .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   const nav = page.getByRole('navigation', { name: 'Correspondence sections' })
@@ -63,10 +65,7 @@ test('staff issue and correct retained receipts with private PDF generation and 
   await expect(
     page.getByRole('button', { name: `Open Receipt ${token}`, exact: true }),
   ).toBeVisible()
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Donations', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Donations', exact: true }).click()
   await page
     .getByRole('row')
     .filter({ has: page.getByRole('link', { name, exact: true }) })
@@ -155,8 +154,9 @@ test('staff issue and correct retained receipts with private PDF generation and 
     page.getByRole('button', { name: 'Prepare another document', exact: true }),
   ).toBeVisible()
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
+  await (
+    await crmNavigation(page)
+  )
     .getByRole('link', { name: 'Receipts and correspondence', exact: true })
     .click()
   await page.getByRole('button', { name: `Open document ${corrected}`, exact: true }).click()

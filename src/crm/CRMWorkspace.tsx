@@ -1,9 +1,8 @@
 'use client'
-import Link from 'next/link'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { ContactWorkspace } from './ContactWorkspace'
 import { HouseholdWorkspace } from './HouseholdWorkspace'
-import { hasUnsavedSiteChanges } from '../organizations/admin-site'
+import { crmURL, crmView } from './navigation'
 import { FundraisingWorkspace } from './FundraisingWorkspace'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
@@ -11,7 +10,7 @@ import { OpportunityWorkspace } from './OpportunityWorkspace'
 import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { Gutter, useConfig } from '@payloadcms/ui'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { OverviewWorkspace } from './OverviewWorkspace'
 import { DonationWorkspace } from './DonationWorkspace'
 import { ImportWorkspace } from './ImportWorkspace'
@@ -22,23 +21,8 @@ export function CRMWorkspace() {
   const { config } = useConfig()
   const { binding } = useAdminSite()
   const params = useSearchParams()
-  const pathname = usePathname()
-  const sections = [
-    ['overview', 'Overview'],
-    ['contacts', 'Constituents'],
-    ['donations', 'Donations'],
-    ['households', 'Households'],
-    ['fundraising', 'Campaigns, funds and appeals'],
-    ['giving', 'Pledges and recurring'],
-    ['memberships', 'Memberships'],
-    ['opportunities', 'Opportunities'],
-    ['volunteers', 'Volunteers'],
-    ['correspondence', 'Receipts and correspondence'],
-    ['imports', 'Imports'],
-  ] as const
-  const view = sections.some(([id]) => id === params.get('view')) ? params.get('view')! : 'overview'
-  const href = (next: string) =>
-    `${pathname}?${new URLSearchParams({ view: next, ...(binding?.site.id ? { site: binding.site.id } : {}) })}`
+  const view = crmView(params.get('view'))
+  const href = (next: string) => crmURL(config.routes.admin, next, binding?.site.id)
   if (params.get('view') === 'attachments' || params.get('view') === 'record-tasks') {
     const requested = params.get('site')
     if (!requested || requested !== binding?.site.id)
@@ -69,29 +53,13 @@ export function CRMWorkspace() {
     )
   return (
     <div className="vc-crm-shell">
-      <aside className="vc-crm-sidebar">
-        <strong>Donor CRM</strong>
-        <p>{binding?.site.name || 'Chapter workspace'}</p>
-        <nav aria-label="CRM sections" className="vc-crm-modules">
-          {sections.map(([id, label]) => (
-            <Link
-              key={id}
-              href={href(id)}
-              data-vc-crm-navigation="true"
-              aria-current={view === id ? 'page' : undefined}
-              onClick={(event) => {
-                if (
-                  hasUnsavedSiteChanges() &&
-                  !window.confirm('Discard unsaved changes before changing CRM sections?')
-                )
-                  event.preventDefault()
-              }}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
+      <Gutter className="vc-crm-heading">
+        <header aria-label="Donor CRM">
+          <strong>Donor CRM</strong>
+          <p>{binding?.site.name || 'Chapter workspace'}</p>
+        </header>
+      </Gutter>
+
       <div className="vc-crm-main" key={`${binding?.site.id}:${view}`}>
         {view === 'overview' ? (
           <Gutter className="vc-crm">

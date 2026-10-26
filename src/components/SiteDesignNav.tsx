@@ -2,19 +2,12 @@ import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
 import { PolicyNav } from './DashboardNavLink'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
-import type { NavPreferences, ServerProps } from 'payload'
-import { PREFERENCE_KEYS } from 'payload/shared'
+import type { ServerProps } from 'payload'
 
 const order = ['design-templates', 'site-templates', 'navigation', 'design-block-types']
 
-/** Keep Payload's permission filtering, links, mobile toggle and persisted groups. */
-export async function SiteDesignNav({
-  payload,
-  permissions,
-  i18n,
-  visibleEntities,
-  user,
-}: ServerProps) {
+/** Keep Payload's permission filtering and mobile shell; groups are page-local. */
+export async function SiteDesignNav({ payload, permissions, i18n, visibleEntities }: ServerProps) {
   const groups = groupNavItems(
     [
       ...payload.config.collections
@@ -41,39 +34,10 @@ export async function SiteDesignNav({
           (groupOrder.indexOf(b.slug) < 0 ? groupOrder.length : groupOrder.indexOf(b.slug)),
       )
   }
-  const stored = user
-    ? await payload.find({
-        collection: 'payload-preferences',
-        user,
-        overrideAccess: false,
-        depth: 0,
-        limit: 1,
-        pagination: false,
-        where: {
-          and: [
-            { key: { equals: PREFERENCE_KEYS.NAV } },
-            { 'user.relationTo': { equals: user.collection || payload.config.admin.user } },
-            { 'user.value': { equals: user.id } },
-          ],
-        },
-      })
-    : null
-  const saved = stored?.docs[0]?.value as NavPreferences | undefined
-  const navPreferences: NavPreferences = {
-    ...saved,
-    groups: {
-      ...Object.fromEntries(groups.map((group) => [group.label, { open: group.label === 'Content' }])),
-      ...saved?.groups,
-    },
-  }
   return (
     <NavWrapper baseClass="nav">
       <nav className="nav__wrap">
-        <PolicyNav
-          admin={payload.config.routes.admin}
-          groups={groups}
-          navPreferences={navPreferences}
-        />
+        <PolicyNav admin={payload.config.routes.admin} groups={groups} />
         <div className="nav__controls">
           <Logout />
         </div>

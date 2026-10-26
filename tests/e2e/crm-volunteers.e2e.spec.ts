@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 test('volunteer skills, outreach preferences, attendance and approved hours persist independently', async ({
   page,
@@ -25,8 +26,7 @@ test('volunteer skills, outreach preferences, attendance and approved hours pers
   expect(created.ok()).toBe(true)
   const contact = (await created.json()).doc.id
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  const modules = page.getByRole('navigation', { name: 'CRM sections' })
-  await modules.getByRole('link', { name: 'Volunteers', exact: true }).click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Volunteers', exact: true }).click()
   const navigation = page.getByRole('navigation', { name: 'Volunteer sections' })
   await page.getByRole('button', { name: 'Create volunteer profile', exact: true }).click()
   const profile = page.getByRole('region', { name: 'Volunteer profile editor' })
@@ -113,7 +113,7 @@ test('volunteer skills, outreach preferences, attendance and approved hours pers
     activity.getByText('approved: 1 h 30 min (1 records)', { exact: true }),
   ).toBeVisible()
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await modules.getByRole('link', { name: 'Volunteers', exact: true }).click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Volunteers', exact: true }).click()
   await navigation.getByRole('button', { name: 'Hours and approvals', exact: true }).click()
   await expect(page.getByRole('row').filter({ hasText: name })).toContainText('1 h 30 min')
   await navigation.getByRole('button', { name: 'Skills and discovery', exact: true }).click()

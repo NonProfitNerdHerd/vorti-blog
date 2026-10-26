@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 test('household, relationship, communication and fundraising editors persist in the selected chapter', async ({
   page,
@@ -33,10 +34,7 @@ test('household, relationship, communication and fundraising editors persist in 
   })
   expect(target.ok()).toBe(true)
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Households', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Households', exact: true }).click()
   await page.getByRole('button', { name: 'Create household', exact: true }).click()
   const household = page.getByRole('region', { name: 'Household editor' })
   await household.getByLabel('Name', { exact: true }).fill(`Household ${token}`)
@@ -67,10 +65,7 @@ test('household, relationship, communication and fundraising editors persist in 
   expect(savedPrimary.ok()).toBe(true)
   await expect(household.getByRole('button', { name: 'Save household', exact: true })).toBeEnabled()
   await page.reload()
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Households', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Households', exact: true }).click()
   await page.getByRole('button', { name: `Household ${token}`, exact: true }).click()
   await expect(household.getByLabel('Mailing address')).toHaveValue('123 Fictional Lane')
   await expect(household.getByLabel('Primary contact').locator('option:checked')).toHaveText(
@@ -78,10 +73,7 @@ test('household, relationship, communication and fundraising editors persist in 
   )
   await expect(household.getByRole('cell', { name: contactName, exact: true })).toBeVisible()
   await household.getByRole('button', { name: 'Close household' }).click()
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Constituents', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Constituents', exact: true }).click()
   await page.getByRole('button', { name: contactName, exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('tab', { name: 'Relationships', exact: true }).click()
@@ -110,8 +102,9 @@ test('household, relationship, communication and fundraising editors persist in 
     dialog.getByRole('button', { name: 'Fictional follow-up', exact: true }),
   ).toBeVisible()
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
+  await (
+    await crmNavigation(page)
+  )
     .getByRole('link', { name: 'Campaigns, funds and appeals', exact: true })
     .click()
   await page.getByRole('button', { name: 'Create campaign', exact: true }).click()
@@ -182,8 +175,7 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   })
   expect(gift.ok()).toBe(true)
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  const modules = page.getByRole('navigation', { name: 'CRM sections' })
-  await modules.getByRole('link', { name: 'Pledges and recurring' }).click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: 'Create pledge', exact: true }).click()
   await page.getByLabel('Name', { exact: true }).fill(`Pledge ${token}`)
   await page.getByRole('searchbox', { name: 'Search donor', exact: true }).fill(name)
@@ -220,7 +212,7 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
   await detail.getByRole('button', { name: 'Apply recorded payment' }).click()
   await expect(value('Outstanding')).toHaveText('USD 5.00')
   await page.reload()
-  await modules.getByRole('link', { name: 'Pledges and recurring' }).click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: `Pledge ${token}`, exact: true }).click()
   await expect(value('Recorded payment credit')).toHaveText('USD 5.00')
   await detail.getByRole('button', { name: 'Load source gift', exact: true }).click()
@@ -238,7 +230,7 @@ test('pledge payments and membership terms persist in the Worker', async ({ page
       .getByRole('region', { name: 'Giving change history' })
       .getByText('Fictional application correction', { exact: true }),
   ).toBeVisible()
-  await modules.getByRole('link', { name: 'Memberships', exact: true }).click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Memberships', exact: true }).click()
   await page.getByText('Membership types', { exact: true }).click()
   await page.getByRole('button', { name: 'Create membership type' }).click()
   await page.getByLabel('Type name').fill(`Annual ${token}`)
@@ -327,10 +319,7 @@ test('recurring expectations pause and resume without recording revenue', async 
   expect(response.ok()).toBe(true)
   const contact = (await response.json()).doc.id
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Pledges and recurring' })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Pledges and recurring' }).click()
   await page.getByRole('button', { name: 'Recurring schedules', exact: true }).click()
   await page.getByRole('button', { name: 'Create recurring schedule', exact: true }).click()
   await page.getByLabel('Name', { exact: true }).fill(`Monthly ${token}`)

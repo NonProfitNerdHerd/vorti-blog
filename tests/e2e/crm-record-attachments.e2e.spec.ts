@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 import type { CRMRecordType } from '../../src/crm/record-model'
 
@@ -155,10 +156,7 @@ test('typed record files persist in their pinned tab while the original househol
   })
 
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Households', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Households', exact: true }).click()
   await page.getByRole('searchbox', { name: 'Search households' }).fill(houseName)
   await page.getByRole('button', { name: houseName, exact: true }).click()
   const household = page.getByRole('region', { name: 'Household editor' })
@@ -203,10 +201,7 @@ test('typed record files persist in their pinned tab while the original househol
   page.once('dialog', (dialog) => dialog.accept())
   await household.getByRole('button', { name: 'Close household', exact: true }).click()
   await expect(household).toHaveCount(0)
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Constituents', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Constituents', exact: true }).click()
   await page.getByRole('searchbox').fill(`Fictional file donor ${token}`)
   await page.getByRole('button', { name: `Fictional file donor ${token}`, exact: true }).click()
   const dialog = page.getByRole('dialog')

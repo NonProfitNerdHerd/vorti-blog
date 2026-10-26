@@ -1,3 +1,4 @@
+import { crmNavigation } from '../helpers/crm-navigation'
 import { expect, test } from '@playwright/test'
 test('staff overview, chapter donations and direct constituent links persist across reload and mobile', async ({
   page,
@@ -29,10 +30,7 @@ test('staff overview, chapter donations and direct constituent links persist acr
   })
   await page.goto('/admin/crm?site=default', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('region', { name: 'CRM overview' })).toBeVisible()
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Donations', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Donations', exact: true }).click()
   await expect(page).toHaveURL(/view=donations/)
   await page.getByRole('button', { name: 'Record gift', exact: true }).click()
   await page.getByRole('searchbox', { name: 'Search donor' }).fill(name)
@@ -66,10 +64,7 @@ test('staff overview, chapter donations and direct constituent links persist acr
   await expect(page).not.toHaveURL(/contact=/)
   await expect(page).not.toHaveURL(/contactTab=/)
   await page.setViewportSize({ width: 390, height: 844 })
-  await page
-    .getByRole('navigation', { name: 'CRM sections' })
-    .getByRole('link', { name: 'Overview', exact: true })
-    .click()
+  await (await crmNavigation(page)).getByRole('link', { name: 'Overview', exact: true }).click()
   await expect(page.getByRole('region', { name: 'CRM overview' })).toBeVisible()
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
