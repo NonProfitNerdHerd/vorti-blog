@@ -5,6 +5,7 @@
 }
 .automation-workspace header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -51,6 +52,8 @@
   cursor: default;
 }
 .automation-workspace table {
+  display: block;
+  overflow-x: auto;
   width: 100%;
   text-align: left;
   border-collapse: collapse;
