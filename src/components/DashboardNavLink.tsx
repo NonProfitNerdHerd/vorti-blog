@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useCategoriesEnabled } from '@design-system/payload-design-core/admin'
-import { useState, type ComponentProps, type MouseEvent, type ReactNode } from 'react'
+import { type ComponentProps, type MouseEvent, type ReactNode } from 'react'
 import type { DefaultNavClient } from '@payloadcms/next/client'
 import {
   useAuth,
@@ -18,7 +18,8 @@ import { InboxBadge } from '../review/WorkspaceInbox'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { hasUnsavedSiteChanges } from '../organizations/admin-site'
 import { crmSections, crmURL, crmView } from '../crm/navigation'
-import { enterNavigation, matchesAdminPath, type ExpansionState } from './navigation-state'
+import { matchesAdminPath } from './navigation-state'
+import { useNavigationExpansion } from './NavigationExpansionProvider'
 import './dashboard-nav.css'
 
 export function DashboardNavLink({ admin }: { admin: string }) {
@@ -144,16 +145,7 @@ export function PolicyNav({
           : undefined)
   const identity = user ? `${user.collection}:${user.id}` : 'anonymous'
   const route = `${pathname}?${params.toString()}|${active || ''}`
-  const [stored, setStored] = useState<ExpansionState>(() =>
-    enterNavigation(undefined, identity, route, active),
-  )
-  const expansion = enterNavigation(stored, identity, route, active)
-  if (expansion !== stored) setStored(expansion)
-  const toggle = (label: string) =>
-    setStored((current) => ({
-      ...current,
-      open: { ...current.open, [label]: !current.open[label] },
-    }))
+  const { open, toggle } = useNavigationExpansion(identity, route, active)
   const site = params.get('site') || binding?.site.id
   const onNavigate = (event: MouseEvent<HTMLAnchorElement>, crm = false) => {
     if (
@@ -181,7 +173,7 @@ export function PolicyNav({
     <NavigationGroup
       key={group.label}
       label={group.label}
-      open={Boolean(expansion.open[group.label])}
+      open={Boolean(open[group.label])}
       toggle={() => toggle(group.label)}
       navOpen={navOpen}
       onNavigate={onNavigate}
@@ -225,7 +217,7 @@ export function PolicyNav({
         <NavigationGroup
           label="Tasks"
           href={taskURL}
-          open={Boolean(expansion.open.Tasks)}
+          open={Boolean(open.Tasks)}
           toggle={() => toggle('Tasks')}
           navOpen={navOpen}
           onNavigate={onNavigate}
@@ -259,7 +251,7 @@ export function PolicyNav({
       <NavigationGroup
         label="CRM"
         href={crmURL(admin, 'overview', site)}
-        open={Boolean(expansion.open.CRM)}
+        open={Boolean(open.CRM)}
         toggle={() => toggle('CRM')}
         navOpen={navOpen}
         onNavigate={(event) => onNavigate(event, true)}

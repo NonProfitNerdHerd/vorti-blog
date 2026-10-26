@@ -62,6 +62,7 @@ vi.mock('../../src/organizations/AdminSiteProvider', () => ({
 }))
 vi.mock('../../src/review/WorkspaceInbox', () => ({ InboxBadge: (): null => null }))
 import { PolicyNav } from '../../src/components/DashboardNavLink'
+import { NavigationExpansionProvider } from '../../src/components/NavigationExpansionProvider'
 const groups = [
   { label: 'Content', entities: [{ slug: 'posts', type: 'collections', label: 'Posts' }] },
   {
@@ -75,13 +76,20 @@ const groups = [
     entities: [{ slug: 'site-settings', type: 'globals', label: 'Site Settings' }],
   },
 ]
-function Menu() {
+function Menu({ show = true }: { show?: boolean } = {}) {
   return (
-    <PolicyNav
-      admin="/admin"
-      groups={groups as never}
-      navPreferences={{ open: true, groups: { Content: { open: true }, Tasks: { open: true } } }}
-    />
+    <NavigationExpansionProvider>
+      {show && (
+        <PolicyNav
+          admin="/admin"
+          groups={groups as never}
+          navPreferences={{
+            open: true,
+            groups: { Content: { open: true }, Tasks: { open: true } },
+          }}
+        />
+      )}
+    </NavigationExpansionProvider>
   )
 }
 const button = (label: string) => screen.getByRole('button', { name: label })
@@ -112,6 +120,7 @@ describe('shared admin sidebar groups', () => {
     expect(button('Content').getAttribute('aria-expanded')).toBe('false')
     expect(button('Toggle Tasks navigation').getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(button('Forms'))
+    view.rerender(<Menu show={false} />) // Payload remounts page navigation between views.
     state.path = '/admin/collections/posts/create'
     view.rerender(<Menu />)
     expect(button('Content').getAttribute('aria-expanded')).toBe('true')

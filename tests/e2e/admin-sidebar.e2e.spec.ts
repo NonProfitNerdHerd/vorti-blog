@@ -5,9 +5,10 @@ async function showMenu(page: Page) {
     .locator('#nav-group-Content')
     .getByRole('button', { name: 'Content', includeHidden: true })
   await expect(content).toBeAttached()
-  if (!(await content.isVisible()))
+  if ((await content.getAttribute('tabindex')) === '-1' || !(await content.isVisible()))
     await page.getByRole('button', { name: 'Open Menu', exact: true }).first().click()
   await expect(content).toBeVisible()
+  await expect(content).toHaveAttribute('tabindex', '0')
 }
 test('admin sidebar starts collapsed, follows routes, resets on reload, and hosts CRM on desktop and mobile', async ({
   page,
@@ -97,7 +98,8 @@ test('admin sidebar starts collapsed, follows routes, resets on reload, and host
     page
       .locator('.nav__wrap')
       .getByRole('button', { name: 'Toggle CRM navigation', includeHidden: true }),
-  ).not.toBeVisible()
+  ).toHaveAttribute('tabindex', '-1')
+  await expect(page.locator('aside.nav')).not.toHaveClass(/nav--nav-open/)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   )

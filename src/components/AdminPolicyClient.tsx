@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { NavContext, useNav, useConfig, toast, useWindowInfo, useAuth } from '@payloadcms/ui'
 import { CategoriesEnabledProvider } from '@design-system/payload-design-core/admin'
 import { saveDashboardSidebar } from './sidebar-preferences'
+import { NavigationExpansionProvider } from './NavigationExpansionProvider'
 
 export function AdminPolicyClient({
   children,
@@ -85,17 +86,23 @@ export function AdminPolicyClient({
   }, [config.routes.api, router, refreshPermissions])
   return (
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
-      <CategoriesEnabledProvider value={categoriesEnabled}>
-        <WorkspaceFeedback />
-        {!categoriesEnabled && <style>{'.collections__card-list > li:has(> #card-categories) { display: none; }'}</style>}
-        {denied ? (
-          <main>
-            <p>This screen is unavailable.</p>
-          </main>
-        ) : (
-          children
-        )}
-      </CategoriesEnabledProvider>
+      <NavigationExpansionProvider key={user ? `${user.collection}:${user.id}` : 'anonymous'}>
+        <CategoriesEnabledProvider value={categoriesEnabled}>
+          <WorkspaceFeedback />
+          {!categoriesEnabled && (
+            <style>
+              {'.collections__card-list > li:has(> #card-categories) { display: none; }'}
+            </style>
+          )}
+          {denied ? (
+            <main>
+              <p>This screen is unavailable.</p>
+            </main>
+          ) : (
+            children
+          )}
+        </CategoriesEnabledProvider>
+      </NavigationExpansionProvider>
     </NavContext.Provider>
   )
 }
