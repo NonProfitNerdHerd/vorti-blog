@@ -807,6 +807,7 @@ function BoardDependencyPicker({
       <label>
         Predecessor
         <select
+          aria-label="Predecessor"
           value={value[0]?.id ?? ''}
           onChange={(event) =>
             onChange(

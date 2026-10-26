@@ -620,6 +620,17 @@ export function Tasks({
                       }}
                     />
                   )}
+                  {selected.parent && (
+                    <>
+                      <p>Subtasks are managed on the parent task.</p>
+                      <button
+                        type="button"
+                        onClick={() => selectTask({ id: Number(selected.parent) }, 'default')}
+                      >
+                        Open parent task
+                      </button>
+                    </>
+                  )}
                 </div>
                 <div
                   role="tabpanel"
@@ -637,6 +648,7 @@ export function Tasks({
                     }}
                     section="dependencies"
                     onChange={() => {
+                      setDashboardVersion((value) => value + 1)
                       void reviewAPI<Task>(api, `review-tasks/${selected.id}?depth=0`).then(
                         setSelected,
                       )

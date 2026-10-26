@@ -166,6 +166,11 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await dialog.getByRole('tab', { name: 'Subtasks', exact: true }).click()
   await expect(dialog.getByRole('status')).toHaveText('Saved')
   await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveCSS(
+    'border-bottom-left-radius',
+    '0px',
+  )
+  await expect(dialog.getByLabel('Description', { exact: true })).toHaveAttribute('rows', '2')
   await expect(dialog.getByRole('tab', { name: 'Subtasks', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -405,6 +410,10 @@ test('rapid entry stays responsive and task drafts autosave across anchored tabs
     'aria-selected',
     'true',
   )
+  await dialog.getByRole('tab', { name: 'Subtasks', exact: true }).click()
+  await expect(
+    dialog.getByText('Subtasks are managed on the parent task.', { exact: true }),
+  ).toBeVisible()
   await dialog.getByRole('button', { name: 'Open parent task', exact: true }).click()
   await expect(dialog.getByLabel('Task title', { exact: true })).toHaveValue(parent)
   await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute(
@@ -615,8 +624,6 @@ test('timeline dates, board dependencies, combined time tracking and calendar di
   await dialog.getByRole('button', { name: 'Change history', exact: true }).click()
   await expect(dialog.locator('.workspace-time-dialog table')).toBeVisible()
   await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click()
-  await page.reload()
-  await page.getByLabel('Range start', { exact: true }).fill('2026-10-19')
   await expect(page.locator('.workspace-dependency-lines path')).toHaveCount(2)
   await page.getByRole('button', { name: 'Calendar', exact: true }).click()
   await page.getByLabel('Calendar date', { exact: true }).fill('2026-10-21')

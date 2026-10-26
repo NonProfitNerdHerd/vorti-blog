@@ -250,6 +250,7 @@ export function BoardCalendar({
         <label>
           Show tasks by
           <select
+            aria-label="Show tasks by"
             value={display}
             onChange={(event) => onDisplay?.(event.target.value as CalendarDisplay)}
           >
