@@ -1,4 +1,5 @@
 'use client'
+import { reconcileTaskSnapshot } from './task-board-state'
 import { TaskTimeline } from './TaskTimeline'
 /* eslint-disable react-hooks/set-state-in-effect -- Board URL state and authorized remote records are synchronized here. */
 import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react'
@@ -137,6 +138,7 @@ export function ExpandedBoard({
   const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([])
   const [taskKeys, setTaskKeys] = useState<Record<number, string>>({})
   const createdIDs = useRef(new Set<number>())
+  const pendingWrites = useRef(new Set<number>())
   const creation = useRef<TaskCreationQueue | null>(null)
   useLayoutEffect(() => {
     if (creation.current === null)
@@ -244,15 +246,10 @@ export function ExpandedBoard({
       ])
       if (sequence !== loadSequence.current) return
       setBoard(record)
-      setTasks((current) => [
-        ...report.tasks,
-        ...current.filter(
-          (task) =>
-            task.id < 0 ||
-            (createdIDs.current.has(task.id) &&
-              !report.tasks.some((item: Task) => item.id === task.id)),
-        ),
-      ])
+      setTasks((current) =>
+        reconcileTaskSnapshot(current, report.tasks, pendingWrites.current, createdIDs.current),
+      )
+      for (const task of report.tasks) createdIDs.current.delete(task.id)
       setSummary({ ...report, complete: report.totalPages <= 1 })
       setSections(s)
       setViews(v)
@@ -344,14 +341,10 @@ export function ExpandedBoard({
         finalSeconds += task.time.seconds
         if (task.status !== 'done' && task.dueDate && day(task.dueDate) < today()) finalOverdue++
       }
-      setTasks((current) => [
-        ...unique,
-        ...current.filter(
-          (task) =>
-            task.id < 0 ||
-            (createdIDs.current.has(task.id) && !unique.some((item) => item.id === task.id)),
-        ),
-      ])
+      setTasks((current) =>
+        reconcileTaskSnapshot(current, unique, pendingWrites.current, createdIDs.current),
+      )
+      for (const task of unique) createdIDs.current.delete(task.id)
       setSummary({
         ...report,
         counts: finalCounts,
@@ -550,6 +543,7 @@ export function ExpandedBoard({
     }
   }
   const writeTask = async (task: Task, data: object) => {
+    pendingWrites.current.add(task.id)
     setBusy(true)
     setTasks((current) =>
       current.map((item) => (item.id === task.id ? { ...item, ...data } : item)),
@@ -570,6 +564,7 @@ export function ExpandedBoard({
       setError((error as Error).message)
       throw error
     } finally {
+      pendingWrites.current.delete(task.id)
       setBusy(false)
     }
   }

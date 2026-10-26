@@ -3,6 +3,7 @@ import { TaskSaveQueue } from '../../src/review/task-save-queue'
 import { TaskCreationQueue } from '../../src/review/task-creation-queue'
 import { calendarTaskSpan, moveTaskDates, timelineRanges } from '../../src/review/task-schedule'
 import type { Task } from '../../src/review/client'
+import { reconcileTaskSnapshot } from '../../src/review/task-board-state'
 const task = (data: Partial<Task> = {}): Task => ({
   id: 1,
   title: 'Task',
@@ -133,5 +134,36 @@ describe('schedule dates', () => {
     expect(
       calendarTaskSpan(task({ createdAt: '2026-10-26T01:00:00Z' }), 'created', 'America/Chicago'),
     ).toEqual({ start: '2026-10-25', end: '2026-10-25' })
+  })
+})
+
+describe('board report reconciliation', () => {
+  it('does not replace a completed save with a report started before that save', () => {
+    const current = task({
+      updatedAt: '2026-10-26T22:13:14.090Z',
+      startDate: '2026-10-21',
+      dueDate: '2026-10-25',
+    })
+    const older = task({
+      updatedAt: '2026-10-26T22:13:01.448Z',
+      startDate: '2026-10-20',
+      dueDate: '2026-10-23',
+    })
+    expect(reconcileTaskSnapshot([current], [older], new Set(), new Set())).toEqual([current])
+  })
+  it('keeps pending optimistic dates and accepts a later authoritative revision', () => {
+    const current = task({ updatedAt: 'r1', dueDate: '2026-10-25' }),
+      incoming = task({ updatedAt: 'r1', dueDate: '2026-10-23' })
+    expect(reconcileTaskSnapshot([current], [incoming], new Set([1]), new Set())).toEqual([current])
+    const latest = task({ updatedAt: 'r2', dueDate: '2026-10-26' })
+    expect(reconcileTaskSnapshot([current], [latest], new Set(), new Set())).toEqual([latest])
+  })
+  it('retains unconfirmed creations while removing records absent from an authoritative report', () => {
+    const pending = task({ id: -1 }),
+      created = task({ id: 2 }),
+      removed = task({ id: 3 })
+    expect(reconcileTaskSnapshot([pending, created, removed], [], new Set(), new Set([2]))).toEqual(
+      [pending, created],
+    )
   })
 })

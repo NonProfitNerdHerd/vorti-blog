@@ -32,13 +32,13 @@ export function TaskTimeline({
   groupLabel: (task: ScheduledTask) => string
 }) {
   const [start, setStart] = useState(localTaskDay()),
-    [length, setLength] = useState(28),
-    [error, setError] = useState('')
+    [length, setLength] = useState(28)
   const [drag, setDrag] = useState<{
     id: number
     edge: 'move' | 'start' | 'end'
     x: number
     days: number
+    task: ScheduledTask
   }>()
   const gesture = useRef<typeof drag>(undefined),
     suppressClick = useRef(false),
@@ -49,11 +49,10 @@ export function TaskTimeline({
     const value = moveTaskDates(task, days, edge)
     if (!value || !days) return
     setSaving(task.id)
-    setError('')
     try {
       await patch(task, value)
-    } catch (error) {
-      setError((error as Error).message)
+    } catch {
+      // The board retains the task and presents the actionable reload error.
     } finally {
       setSaving(undefined)
     }
@@ -63,7 +62,7 @@ export function TaskTimeline({
       if (!canEdit || !task.canEdit || task.id < 0 || saving || event.button !== 0) return
       event.stopPropagation()
       event.currentTarget.setPointerCapture(event.pointerId)
-      gesture.current = { id: task.id, edge, x: event.clientX, days: 0 }
+      gesture.current = { id: task.id, edge, x: event.clientX, days: 0, task }
       setDrag(gesture.current)
     },
     onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
@@ -80,7 +79,7 @@ export function TaskTimeline({
       gesture.current = undefined
       setDrag(undefined)
       suppressClick.current = current.edge === 'move' && !!current.days
-      if (current.days) void update(task, current.days, edge)
+      if (current.days) void update(current.task, current.days, edge)
     },
     onPointerCancel: () => {
       gesture.current = undefined
@@ -106,7 +105,7 @@ export function TaskTimeline({
     },
   })
   const visibleBar = (task: ScheduledTask) => {
-    const dates = drag?.id === task.id ? moveTaskDates(task, drag.days, drag.edge) : null
+    const dates = drag?.id === task.id ? moveTaskDates(drag.task, drag.days, drag.edge) : null
     const from = (dates?.startDate || task.startDate || task.dueDate)?.slice(0, 10),
       to = (dates?.dueDate || task.dueDate || task.startDate)?.slice(0, 10)
     return from && to && from <= end && to >= start
@@ -136,7 +135,6 @@ export function TaskTimeline({
           </select>
         </label>
       </div>
-      {error && <p role="alert">{error}</p>}
       <p className="workspace-schedule-help">
         Drag a bar to move it; drag its ends to resize. Focus a bar or end and use arrow keys to
         adjust by one day. Dependent tasks keep their dates.
@@ -201,16 +199,19 @@ export function TaskTimeline({
                       {task.parent ? '↳ ' : ''}
                       {task.title}
                     </button>
-                    <small>
+                    <small
+                      title={
+                        before
+                          ? `Baseline: ${before.startDate?.slice(0, 10) || '—'} — ${before.dueDate?.slice(0, 10) || '—'}`
+                          : undefined
+                      }
+                    >
                       {groupLabel(task)}
                       {conflict ? ' · Dependency date conflict' : ''}
+                      {before
+                        ? ` · Baseline: ${before.startDate?.slice(0, 10) || '—'} — ${before.dueDate?.slice(0, 10) || '—'}`
+                        : ''}
                     </small>
-                    {before && (
-                      <small>
-                        Baseline: {before.startDate?.slice(0, 10) || '—'} —{' '}
-                        {before.dueDate?.slice(0, 10) || '—'}
-                      </small>
-                    )}
                   </div>
                   <div className="workspace-schedule-track">
                     {bar ? (

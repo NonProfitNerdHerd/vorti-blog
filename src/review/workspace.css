@@ -1674,6 +1674,7 @@
 .workspace-calendar-bubble { background:var(--theme-success-100,#e7f2ef); border-left:3px solid var(--theme-success-500,#387c66); border-radius:6px; margin:4px 0; padding:4px 6px; }
 .workspace-calendar-bubble button { color:var(--theme-text); background:transparent!important; border:0!important; text-align:left; width:100%; font-weight:500; }
 .workspace-schedule-help { font-size:12px; color:var(--theme-elevation-650); }
+.review-global.review-workspace .workspace-schedule .task-workspace-toolbar > select { width:auto; min-width:190px; max-width:240px; flex:0 1 240px; }
 .workspace-schedule-grid { position:relative; }
 .workspace-schedule-scale,.workspace-schedule-row { display:grid; grid-template-columns:280px 1fr; }
 .workspace-schedule-scale { height:36px; align-items:center; border-bottom:1px solid var(--theme-elevation-200); }
@@ -1683,12 +1684,16 @@
 .workspace-schedule-name { position:sticky; left:0; z-index:3; background:var(--theme-bg); padding:8px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
 .workspace-schedule-name button { padding:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
 .workspace-schedule-name small { font-size:10px; color:var(--theme-elevation-650); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.review-global.review-workspace .workspace-schedule-name button.workspace-timeline-title { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:calc(100% - 24px); height:28px; min-height:0; padding:0; font-size:14px; line-height:28px; }
+.workspace-schedule-name > small { position:absolute; left:12px; right:12px; bottom:2px; line-height:12px; }
 .workspace-schedule-track { position:relative; display:flex; align-items:center; background:repeating-linear-gradient(to right,transparent 0,transparent 23px,var(--theme-elevation-100) 23px,var(--theme-elevation-100) 24px); }
 .workspace-schedule-bar { position:absolute; height:28px; display:flex; border-radius:6px; background:var(--theme-success-500,#327962); box-shadow:0 1px 3px #0002; z-index:2; min-width:24px; }
 .workspace-schedule-bar.has-conflict { background:#ad5b21; }
 .workspace-schedule-bar button { color:#fff!important; background:transparent!important; border:0!important; margin:0; padding:0; border-radius:4px; touch-action:none; }
 .workspace-schedule-bar .workspace-bar-main { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; cursor:grab; }
 .workspace-schedule-bar .workspace-bar-edge { width:7px; flex-shrink:0; cursor:ew-resize; background:rgb(255 255 255 / 25%)!important; }
+.review-global.review-workspace .workspace-schedule-bar button.workspace-bar-edge { min-width:7px; min-height:0; height:100%; }
+.review-global.review-workspace .workspace-schedule-bar button.workspace-bar-main { min-width:0; min-height:0; height:100%; line-height:28px; }
 .workspace-dependency-lines { position:absolute; left:280px; top:0; z-index:1; pointer-events:none; overflow:visible; }
 .workspace-dependency-lines path { stroke:var(--theme-elevation-600,#6b7280); stroke-width:1.5; fill:none; }
 @media(max-width:760px) { .workspace-calendar-controls { grid-template-columns:1fr!important; } .workspace-calendar-controls > [role=group] { justify-self:start; } }

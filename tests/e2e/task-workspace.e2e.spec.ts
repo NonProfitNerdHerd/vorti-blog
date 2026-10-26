@@ -533,6 +533,20 @@ test('timeline dates, board dependencies, combined time tracking and calendar di
     '365',
   ])
   const bar = page.getByRole('button', { name: 'Open or move ' + title, exact: true })
+  const labelBounds = (await page.getByRole('button', { name: title, exact: true }).boundingBox())!
+  const initialBarBounds = (await bar.boundingBox())!
+  expect(
+    Math.abs(
+      labelBounds.y + labelBounds.height / 2 - initialBarBounds.y - initialBarBounds.height / 2,
+    ),
+  ).toBeLessThan(2)
+  const addBounds = (await page
+    .getByRole('button', { name: '＋ Add task', exact: true })
+    .boundingBox())!
+  const baselineBounds = (await page.getByLabel('Compare baseline', { exact: true }).boundingBox())!
+  expect(
+    Math.abs(addBounds.y + addBounds.height / 2 - baselineBounds.y - baselineBounds.height / 2),
+  ).toBeLessThan(10)
   await bar.focus()
   await bar.press('ArrowRight')
   await expect
