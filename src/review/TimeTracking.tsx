@@ -149,7 +149,15 @@ function useClock() {
   }, [])
   return clock
 }
-export function TimeTrackingCell({ task, fallback = 0 }: { task: Task; fallback?: number }) {
+export function TimeTrackingCell({
+  task,
+  fallback = 0,
+  hideLog = false,
+}: {
+  task: Task
+  fallback?: number
+  hideLog?: boolean
+}) {
   const controller = useContext(TimeContext),
     [open, setOpen] = useState(false),
     clock = useClock()
@@ -201,24 +209,26 @@ export function TimeTrackingCell({ task, fallback = 0 }: { task: Task; fallback?
       >
         {duration(seconds)}
       </output>
-      <button
-        type="button"
-        className="workspace-bare-control"
-        aria-label={`Time log for ${task.title}`}
-        onClick={() => setOpen(true)}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="16"
-          height="16"
-          aria-hidden="true"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
+      {!hideLog && (
+        <button
+          type="button"
+          className="workspace-bare-control"
+          aria-label={`Time log for ${task.title}`}
+          onClick={() => setOpen(true)}
         >
-          <path d="m4 16 12-12 4 4L8 20H4Z M14 6l4 4" />
-        </svg>
-      </button>
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          >
+            <path d="m4 16 12-12 4 4L8 20H4Z M14 6l4 4" />
+          </svg>
+        </button>
+      )}
       {controller.error && (
         <span role="alert" className="workspace-time-error">
           {controller.error}
@@ -251,7 +261,9 @@ export function TaskTimeLog({
   task,
   onChanged,
   onClose,
+  inline = false,
 }: {
+  inline?: boolean
   api: string
   task: Task
   onChanged: () => Promise<void> | void
@@ -259,20 +271,38 @@ export function TaskTimeLog({
 }) {
   return (
     <WorkTimeProvider api={api} tasks={[task]} onChanged={onChanged}>
-      <StandaloneLog task={task} onClose={onClose} />
+      {inline && <TimeTrackingCell task={task} hideLog />}
+      <StandaloneLog task={task} onClose={onClose} inline={inline} />
     </WorkTimeProvider>
   )
 }
-function StandaloneLog({ task, onClose }: { task: Task; onClose: () => void }) {
-  return <TimeLogDialog task={task} controller={useContext(TimeContext)!} onClose={onClose} />
+function StandaloneLog({
+  task,
+  onClose,
+  inline = false,
+}: {
+  task: Task
+  onClose: () => void
+  inline?: boolean
+}) {
+  return (
+    <TimeLogDialog
+      task={task}
+      controller={useContext(TimeContext)!}
+      onClose={onClose}
+      inline={inline}
+    />
+  )
 }
 function TimeLogDialog({
   task,
   controller,
   onClose,
+  inline = false,
 }: {
   task: Task
   controller: Control
+  inline?: boolean
   onClose: () => void
 }) {
   const { user } = useAuth(),
@@ -350,7 +380,12 @@ function TimeLogDialog({
     })
   const pages = Math.max(1, data?.totalPages ?? 1, data?.legacy?.totalPages ?? 1)
   return (
-    <EditorDialog open title={`Time tracking — ${task.title}`} onClose={onClose}>
+    <EditorDialog
+      open={!inline}
+      inline={inline}
+      title={`Time tracking — ${task.title}`}
+      onClose={onClose}
+    >
       <div className="workspace-time-dialog">
         <nav aria-label="Time tracking tabs">
           <button

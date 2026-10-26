@@ -50,7 +50,6 @@ export function InlineTaskEntry({
         placeholder={subtask ? '＋ Add subtask' : '＋ Add task'}
         maxLength={240}
         value={title}
-        disabled={busy}
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={async (event) => {
           if (event.nativeEvent.isComposing) return
@@ -60,15 +59,17 @@ export function InlineTaskEntry({
             setError('')
             return
           }
-          if (event.key !== 'Enter' || busy || !title.trim()) return
+          if (event.key !== 'Enter' || !title.trim()) return
           event.preventDefault()
+          const submitted = title.trim()
+          setTitle('')
           setBusy(true)
           setError('')
           try {
-            await create(title.trim())
-            setTitle('')
+            await create(submitted)
           } catch (error) {
             setError((error as Error).message)
+            setTitle(current => current || submitted)
           } finally {
             setBusy(false)
             requestAnimationFrame(() => input.current?.focus())

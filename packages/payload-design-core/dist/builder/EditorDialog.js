@@ -4,7 +4,7 @@ import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import './editor-dialog.css';
 /** Keeps inline controls mounted while expanding them into a centered editor. */
-export function EditorDialog({ open, inline = false, title, onClose, children, }) {
+export function EditorDialog({ open, inline = false, title, onClose, children, heading, topAligned = false, }) {
     const ref = useRef(null);
     const id = useId();
     useEffect(() => {
@@ -48,7 +48,9 @@ export function EditorDialog({ open, inline = false, title, onClose, children, }
     }, [open]);
     if (!open && !inline)
         return null;
-    return (_jsx("div", { ref: ref, className: open ? 'editor-dialog-layer' : 'editor-dialog-inline', role: open ? 'dialog' : undefined, "aria-modal": open ? true : undefined, "aria-labelledby": open ? id : undefined, onMouseDown: (event) => {
+    return (_jsx("div", { ref: ref, className: open
+            ? `editor-dialog-layer${topAligned ? ' editor-dialog-top' : ''}`
+            : 'editor-dialog-inline', role: open ? 'dialog' : undefined, "aria-modal": open ? true : undefined, "aria-labelledby": open && !heading ? id : undefined, "aria-label": open && heading ? title : undefined, onMouseDown: (event) => {
             if (open && event.target === event.currentTarget)
                 onClose();
         }, onKeyDown: (event) => {
@@ -73,5 +75,5 @@ export function EditorDialog({ open, inline = false, title, onClose, children, }
                     first?.focus();
                 }
             }
-        }, children: _jsxs("div", { className: open ? 'editor-dialog-card' : undefined, children: [_jsxs("header", { className: "editor-dialog-heading", hidden: !open, children: [_jsx("h2", { id: id, children: title }), _jsx("button", { "data-dialog-close": true, type: "button", "aria-label": "Close dialog", onClick: onClose, children: _jsx(X, { size: 20 }) })] }), _jsx("div", { className: open ? 'editor-dialog-content' : undefined, children: children })] }) }));
+        }, children: _jsxs("div", { className: open ? 'editor-dialog-card' : undefined, children: [_jsxs("header", { className: "editor-dialog-heading", hidden: !open, children: [_jsx("div", { id: id, className: "editor-dialog-title", children: heading ?? _jsx("h2", { children: title }) }), _jsx("button", { "data-dialog-close": true, type: "button", "aria-label": "Close dialog", onClick: onClose, children: _jsx(X, { size: 20 }) })] }), _jsx("div", { className: open ? 'editor-dialog-content' : undefined, children: children })] }) }));
 }

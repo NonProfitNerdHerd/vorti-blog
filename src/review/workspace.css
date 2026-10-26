@@ -1635,3 +1635,64 @@
 .project-board-stats dt { font-size: 12px; color: var(--theme-elevation-650); }
 .project-board-stats dd { font-size: 22px; font-weight: 650; margin: 4px 0 0; }
 .project-board-open { display: inline-block; margin-top: 8px; font-weight: 600; text-decoration: underline; }
+
+/* Task detail workspace */
+.editor-dialog-top:has(.review-task-dialog) > .editor-dialog-card > .editor-dialog-heading { border: 0; padding: 20px 24px 0; align-items:flex-start; }
+.task-edit-heading { position:relative; font-size:14px; font-weight:400; }
+.task-edit-heading label { display:flex; flex-direction:column; gap:6px; margin:8px 0; }
+.task-edit-heading input.task-inline-title { font-size:24px; font-weight:650; line-height:1.35; border:1px solid transparent; background:transparent; color:var(--theme-text); padding:4px 0; width:calc(100% - 44px); box-shadow:none; }
+.task-edit-heading input.task-inline-title:hover,.task-edit-heading input.task-inline-title:focus { border-color:var(--theme-elevation-250); }
+.task-edit-heading textarea { width:100%; min-height:64px; max-height:35dvh; resize:vertical; border:1px solid var(--theme-elevation-150); background:var(--theme-input-bg,var(--theme-bg)); color:var(--theme-text); border-radius:8px; padding:10px 12px; }
+.task-edit-heading .task-collaboration-trigger { position:absolute; top:8px; right:0; }
+.task-edit-heading .task-save-state { margin:4px 0 10px; }
+.task-dialog-accessible-title { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.review-task-dialog fieldset.task-inline-editor { position:relative; display:block; border:0; padding:0; margin:0; min-width:0; }
+.review-task-dialog input.task-inline-title { font-size:24px; font-weight:650; line-height:1.35; border:1px solid transparent; background:transparent; padding:8px 0; width:calc(100% - 48px); box-shadow:none; }
+.review-task-dialog input.task-inline-title:hover,.review-task-dialog input.task-inline-title:focus { border-color:var(--theme-elevation-200); }
+.review-task-dialog textarea { min-height:64px; resize:vertical; }
+.task-save-state { display:block; font-size:12px; color:var(--theme-elevation-650); margin-bottom:8px; }
+.review-task-dialog .task-collaboration-trigger { position:absolute; right:0; top:28px; background:transparent; border:1px solid var(--theme-elevation-150); border-radius:8px; padding:8px; }
+.review-task-dialog .task-workspace-tabs { display:flex; flex-wrap:wrap; gap:3px; border-bottom:1px solid var(--theme-elevation-250); margin:24px 0 20px; padding:0; }
+.review-task-dialog nav.task-workspace-tabs button[role=tab] { border:1px solid transparent; border-bottom:0; border-radius:9px 9px 0 0; margin:0 0 -1px; padding:11px 12px; background:transparent; color:var(--theme-elevation-650); }
+.review-task-dialog nav.task-workspace-tabs button[role=tab][aria-selected=true] { border-color:var(--theme-elevation-250); border-bottom:1px solid var(--theme-bg); background:var(--theme-bg); color:var(--theme-text); font-weight:600; }
+.task-detail-fields:not([hidden]) { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.task-detail-fields > label:nth-of-type(5),.task-detail-fields > .workspace-collaborator-picker { grid-column:1/-1; }
+.task-detail-fields label { display:flex; flex-direction:column; gap:7px; }
+.task-detail-fields label:has(input[type=checkbox]) { flex-direction:row; align-items:center; }
+.task-detail-fields .workspace-collaborator-picker { border:1px solid var(--theme-elevation-150); border-radius:10px; padding:16px; }
+.task-detail-fields .workspace-collaborator-picker h3 { margin:0; font-size:14px; }
+.workspace-task-name > button,.workspace-kanban article > button,.workspace-timeline-title { background:transparent!important; border:0!important; box-shadow:none!important; text-align:left; color:inherit; cursor:pointer; }
+.workspace-task-name > button:hover,.workspace-timeline-title:hover { text-decoration:underline; }
+.workspace-pending-task { opacity:.7; }
+.workspace-creation-errors { border:1px solid var(--theme-error-500); border-radius:8px; padding:12px; }
+@media(max-width:600px) { .task-detail-fields:not([hidden]) { grid-template-columns:1fr; } .review-task-dialog .task-workspace-tabs [role=tab] { padding:10px 8px; font-size:12px; } }
+
+.workspace-calendar-controls { display:grid!important; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; }
+.workspace-calendar-controls > [role=group] { justify-self:end; }
+.workspace-calendar-options { display:flex; gap:20px; align-items:center; flex-wrap:wrap; margin:16px 0; }
+.workspace-calendar-options label { display:flex; align-items:center; gap:8px; }
+.workspace-calendar-bubble { background:var(--theme-success-100,#e7f2ef); border-left:3px solid var(--theme-success-500,#387c66); border-radius:6px; margin:4px 0; padding:4px 6px; }
+.workspace-calendar-bubble button { color:var(--theme-text); background:transparent!important; border:0!important; text-align:left; width:100%; font-weight:500; }
+.workspace-schedule-help { font-size:12px; color:var(--theme-elevation-650); }
+.workspace-schedule-grid { position:relative; }
+.workspace-schedule-scale,.workspace-schedule-row { display:grid; grid-template-columns:280px 1fr; }
+.workspace-schedule-scale { height:36px; align-items:center; border-bottom:1px solid var(--theme-elevation-200); }
+.workspace-schedule-scale small { font-size:9px; writing-mode:vertical-rl; height:32px; }
+.workspace-schedule-rows { position:relative; }
+.workspace-schedule-row { height:64px; border-bottom:1px solid var(--theme-elevation-150); }
+.workspace-schedule-name { position:sticky; left:0; z-index:3; background:var(--theme-bg); padding:8px 12px; display:flex; flex-direction:column; justify-content:center; min-width:0; }
+.workspace-schedule-name button { padding:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+.workspace-schedule-name small { font-size:10px; color:var(--theme-elevation-650); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.workspace-schedule-track { position:relative; display:flex; align-items:center; background:repeating-linear-gradient(to right,transparent 0,transparent 23px,var(--theme-elevation-100) 23px,var(--theme-elevation-100) 24px); }
+.workspace-schedule-bar { position:absolute; height:28px; display:flex; border-radius:6px; background:var(--theme-success-500,#327962); box-shadow:0 1px 3px #0002; z-index:2; min-width:24px; }
+.workspace-schedule-bar.has-conflict { background:#ad5b21; }
+.workspace-schedule-bar button { color:#fff!important; background:transparent!important; border:0!important; margin:0; padding:0; border-radius:4px; touch-action:none; }
+.workspace-schedule-bar .workspace-bar-main { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; cursor:grab; }
+.workspace-schedule-bar .workspace-bar-edge { width:7px; flex-shrink:0; cursor:ew-resize; background:rgb(255 255 255 / 25%)!important; }
+.workspace-dependency-lines { position:absolute; left:280px; top:0; z-index:1; pointer-events:none; overflow:visible; }
+.workspace-dependency-lines path { stroke:var(--theme-elevation-600,#6b7280); stroke-width:1.5; fill:none; }
+@media(max-width:760px) { .workspace-calendar-controls { grid-template-columns:1fr!important; } .workspace-calendar-controls > [role=group] { justify-self:start; } }
+
+.task-detail-fields { border:0; padding:0; margin:0; min-width:0; }
+.workspace-task-title { background:transparent!important; border:0!important; box-shadow:none!important; text-align:left; color:inherit; padding:0; cursor:pointer; }
+.workspace-task-title:hover { text-decoration:underline; }

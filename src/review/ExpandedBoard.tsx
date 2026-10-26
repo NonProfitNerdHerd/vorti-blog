@@ -1,6 +1,7 @@
 'use client'
+import { TaskTimeline } from './TaskTimeline'
 /* eslint-disable react-hooks/set-state-in-effect -- Board URL state and authorized remote records are synchronized here. */
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2, Settings2, RefreshCw, SlidersHorizontal, Lock } from './WorkspaceIcon'
 import { nativeGroups, groupValues, editableGroup, groupFieldValue } from './board-grouping'
@@ -18,6 +19,7 @@ import {
 import { ColumnFilterDialog } from './ColumnFilterDialog'
 import { WorkTimeProvider, TimeTrackingCell, TaskTimeLog } from './TimeTracking'
 import { BoardAbout, BoardActivity } from './BoardOverview'
+import { TaskCreationQueue, type PendingTask } from './task-creation-queue'
 import { InlineTaskEntry } from './InlineTaskEntry'
 import { WorkspaceFilterPanel } from './WorkspaceFilterPanel'
 import { useAuth } from '@payloadcms/ui'
@@ -107,6 +109,7 @@ export function ExpandedBoard({
     [showChildren, setShowChildren] = useState(true),
     [anchor, setAnchor] = useState(today()),
     [calendarMode, setCalendarMode] = useState('month'),
+    [calendarDisplay, setCalendarDisplay] = useState<'due' | 'open' | 'created'>('due'),
     [baseline, setBaseline] = useState<any>(),
     [baselines, setBaselines] = useState<any[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -131,6 +134,89 @@ export function ExpandedBoard({
     [sectionName, setSectionName] = useState(''),
     [columnSettings, setColumnSettings] = useState<Record<string, any>>({}),
     [showColumns, setShowColumns] = useState(false)
+  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([])
+  const [taskKeys, setTaskKeys] = useState<Record<number, string>>({})
+  const createdIDs = useRef(new Set<number>())
+  const creation = useRef<TaskCreationQueue | null>(null)
+  useLayoutEffect(() => {
+    if (creation.current === null)
+      creation.current = new TaskCreationQueue(
+        async (data) =>
+          (await reviewAPI<{ doc: Task }>(api, 'task-workspace/create', 'POST', data)).doc,
+        setPendingTasks,
+        (item, saved) => {
+          createdIDs.current.add(saved.id)
+          setTaskKeys((current) => ({ ...current, [saved.id]: item.key }))
+          setTasks((current) =>
+            current.map((task) =>
+              task.id === item.temporaryID
+                ? { ...task, ...saved }
+                : task.parent === item.temporaryID
+                  ? { ...task, parent: saved.id }
+                  : task,
+            ),
+          )
+          setPlacements((current) =>
+            current.map((placement) =>
+              placement.task === item.temporaryID ? { ...placement, task: saved.id } : placement,
+            ),
+          )
+          setExpanded((current) => current.map((id) => (id === item.temporaryID ? saved.id : id)))
+          window.dispatchEvent(new CustomEvent('vorti-task-created', { detail: saved }))
+        },
+      )
+  }, [api])
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (creation.current?.items.length) event.preventDefault()
+    }
+    const leave = (event: MouseEvent) => {
+      const link = (event.target as Element)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (
+        !creation.current?.items.length ||
+        !link ||
+        link.target === '_blank' ||
+        event.ctrlKey ||
+        event.metaKey ||
+        link.href === location.href
+      )
+        return
+      if (
+        !confirm(
+          'Some tasks are still pending or need a retry. Leave this board before they finish?',
+        )
+      ) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }
+    }
+    const saved = (event: Event) => {
+      const doc = (event as CustomEvent<Task>).detail
+      setTasks((current) =>
+        current.some((task) => task.id === doc.id)
+          ? current.map((task) => (task.id === doc.id ? { ...task, ...doc } : task))
+          : doc.boards?.some((board) => Number(board) === Number(id))
+            ? [
+                ...current,
+                {
+                  ...doc,
+                  fields: [],
+                  dependencies: [],
+                  time: { seconds: 0, entries: [], manager: false },
+                } as WorkTask,
+              ]
+            : current,
+      )
+    }
+    window.addEventListener('beforeunload', warn)
+    document.addEventListener('click', leave, true)
+    window.addEventListener('vorti-task-saved', saved)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      document.removeEventListener('click', leave, true)
+      window.removeEventListener('vorti-task-saved', saved)
+    }
+  }, [])
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current
     setLoading(true)
@@ -158,7 +244,15 @@ export function ExpandedBoard({
       ])
       if (sequence !== loadSequence.current) return
       setBoard(record)
-      setTasks(report.tasks)
+      setTasks((current) => [
+        ...report.tasks,
+        ...current.filter(
+          (task) =>
+            task.id < 0 ||
+            (createdIDs.current.has(task.id) &&
+              !report.tasks.some((item: Task) => item.id === task.id)),
+        ),
+      ])
       setSummary({ ...report, complete: report.totalPages <= 1 })
       setSections(s)
       setViews(v)
@@ -250,7 +344,14 @@ export function ExpandedBoard({
         finalSeconds += task.time.seconds
         if (task.status !== 'done' && task.dueDate && day(task.dueDate) < today()) finalOverdue++
       }
-      setTasks(unique)
+      setTasks((current) => [
+        ...unique,
+        ...current.filter(
+          (task) =>
+            task.id < 0 ||
+            (createdIDs.current.has(task.id) && !unique.some((item) => item.id === task.id)),
+        ),
+      ])
       setSummary({
         ...report,
         counts: finalCounts,
@@ -304,6 +405,11 @@ export function ExpandedBoard({
     setShowChildren(params.get('subtasks') !== 'false')
     setAnchor(calendarAnchor(params.get('calendarDate')))
     setCalendarMode(calendarModeValue(params.get('calendarRange')))
+    setCalendarDisplay(
+      ['open', 'created'].includes(params.get('calendarDisplay') ?? '')
+        ? (params.get('calendarDisplay') as 'open' | 'created')
+        : 'due',
+    )
     void load()
   }, [load, refreshKey])
   useEffect(() => {
@@ -330,6 +436,8 @@ export function ExpandedBoard({
     setGroup(params.get('group') ?? saved.group ?? 'status')
     setSort(params.get('boardSort') ?? saved.boardSort ?? 'position')
     setColumnFilters(parseColumnFilters(params.get('columnFilters') ?? saved.columnFilters))
+    const display = params.get('calendarDisplay') ?? saved.calendarDisplay
+    setCalendarDisplay(display === 'open' || display === 'created' ? display : 'due')
     setAnchor(calendarAnchor(params.get('calendarDate')))
     setCalendarMode(calendarModeValue(params.get('calendarRange')))
     setShowChildren((params.get('subtasks') ?? saved.subtasks) !== 'false')
@@ -370,6 +478,7 @@ export function ExpandedBoard({
         boardSort: sort,
         calendarDate: anchor,
         calendarRange: calendarMode,
+        calendarDisplay,
         subtasks: String(showChildren),
         columns: columnSettings,
         columnFilters: JSON.stringify(columnFilters),
@@ -440,14 +549,31 @@ export function ExpandedBoard({
       setBusy(false)
     }
   }
-  const patch = (task: Task, data: object) =>
-    run(async () => {
+  const writeTask = async (task: Task, data: object) => {
+    setBusy(true)
+    setTasks((current) =>
+      current.map((item) => (item.id === task.id ? { ...item, ...data } : item)),
+    )
+    try {
       const saved = await reviewAPI<{ doc: Task }>(api, `review-tasks/${task.id}`, 'PATCH', {
         ...data,
         expectedUpdatedAt: task.updatedAt,
       })
-      taskFeedback(saved.doc, 'updated')
-    })
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? { ...item, ...saved.doc } : item)),
+      )
+      window.dispatchEvent(new CustomEvent('vorti-task-saved', { detail: saved.doc }))
+    } catch (error) {
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? (task as WorkTask) : item)),
+      )
+      setError((error as Error).message)
+      throw error
+    } finally {
+      setBusy(false)
+    }
+  }
+  const patch = (task: Task, data: object) => writeTask(task, data).catch(() => {})
   const filtered = useMemo(
     () =>
       tasks.filter(
@@ -812,7 +938,7 @@ export function ExpandedBoard({
                 }
               : undefined
           }
-          disabled={!canEdit || !task.canEdit || busy}
+          disabled={!canEdit || !task.canEdit || busy || task.id < 0}
           value={task.status}
           onChange={(e) => void patch(task, { status: e.target.value })}
         >
@@ -831,7 +957,7 @@ export function ExpandedBoard({
             borderLeft: `4px solid ${board?.presentation?.priorityColors?.[task.priority] ?? ({ low: '#15803d', normal: '#2563eb', high: '#c2410c', urgent: '#dc2626' } as Record<string, string>)[task.priority]}`,
           }}
           aria-label={`Priority for ${task.title}`}
-          disabled={!canEdit || !task.canEdit || busy}
+          disabled={!canEdit || !task.canEdit || busy || task.id < 0}
           value={task.priority}
           onChange={(e) => void patch(task, { priority: e.target.value })}
         >
@@ -845,7 +971,7 @@ export function ExpandedBoard({
         <TaskAssignees
           task={task}
           people={people}
-          disabled={!canEdit || !task.canEdit || busy}
+          disabled={!canEdit || !task.canEdit || busy || task.id < 0}
           onSave={async (data) => {
             await reviewAPI(api, `review-tasks/${task.id}`, 'PATCH', {
               ...data,
@@ -861,7 +987,7 @@ export function ExpandedBoard({
         <input
           aria-label={`Due date for ${task.title}`}
           type="date"
-          disabled={!canEdit || !task.canEdit || busy}
+          disabled={!canEdit || !task.canEdit || busy || task.id < 0}
           value={day(task.dueDate)}
           onChange={(e) =>
             void patch(task, { dueDate: e.target.value ? `${e.target.value}T12:00:00.000Z` : null })
@@ -875,7 +1001,7 @@ export function ExpandedBoard({
       <WorkspaceFieldValue
         api={api}
         result={result}
-        disabled={!canEdit || !task.canEdit || busy}
+        disabled={!canEdit || !task.canEdit || busy || task.id < 0}
         onSave={async (value) => {
           await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
             action: 'field',
@@ -1030,20 +1156,37 @@ export function ExpandedBoard({
               }
             : {}),
         }
-    const result = await reviewAPI<{ doc: Task }>(api, 'review-tasks', 'POST', data)
-    const hidden =
-      (!!search && !result.doc.title.toLowerCase().includes(search.toLowerCase())) ||
-      (!!status && result.doc.status !== status) ||
-      (!!assignee &&
-        (assignee === 'unassigned'
-          ? !!result.doc.assignee
-          : String(result.doc.assignee) !== assignee))
-    taskFeedback(result.doc, 'created', hidden ? () => onSelect(result.doc) : undefined)
-    await load()
-    window.dispatchEvent(new Event('vorti-tasks-changed'))
+    const item = creation.current!.enqueue(data)
+    setTaskKeys((current) => ({ ...current, [item.temporaryID]: item.key }))
+    const optimistic = {
+      ...data,
+      id: item.temporaryID,
+      title,
+      canEdit: true,
+      canComment: true,
+      boards: [Number(id)],
+      fields:
+        data.initialSelect && fieldGroup
+          ? [{ definition: fieldGroup, value: (data.initialSelect as { value: unknown }).value }]
+          : [],
+      dependencies: [],
+      time: { seconds: 0, entries: [], manager: false },
+    } as WorkTask
+    setTasks((current) => [...current, optimistic])
+    if (parent)
+      setExpanded((current) => (current.includes(parent.id) ? current : [...current, parent.id]))
+    if (data.initialSection)
+      setPlacements((current) => [
+        ...current,
+        { task: item.temporaryID, section: data.initialSection },
+      ])
   }
+
   const row = (task: WorkTask, child = false) => (
-    <tr key={task.id} className={child ? 'workspace-subtask-row' : ''}>
+    <tr
+      key={taskKeys[task.id] ?? task.id}
+      className={`${child ? 'workspace-subtask-row' : ''}${task.id < 0 ? ' workspace-pending-task' : ''}`}
+    >
       <td>
         <div className="workspace-task-name">
           {!child && (
@@ -1065,10 +1208,15 @@ export function ExpandedBoard({
             type="checkbox"
             aria-label={`Complete ${task.title}`}
             checked={task.status === 'done'}
-            disabled={!canEdit || !task.canEdit || busy}
+            disabled={!canEdit || !task.canEdit || busy || task.id < 0}
             onChange={(e) => void patch(task, { status: e.target.checked ? 'done' : 'open' })}
           />
-          <button className="workspace-task-title" type="button" onClick={() => onSelect(task)}>
+          <button
+            className="workspace-task-title"
+            disabled={task.id < 0}
+            type="button"
+            onClick={() => onSelect(task)}
+          >
             {task.title}
           </button>
           {!child && tasks.some((item) => item.parent === task.id) && (
@@ -1268,6 +1416,21 @@ export function ExpandedBoard({
             </button>
           )}
         </nav>
+        {pendingTasks.length > 0 && (
+          <div role="status" className="workspace-creation-status">
+            {pendingTasks.filter((item) => item.state === 'saving').length} task(s) pending
+            {pendingTasks
+              .filter((item) => item.state === 'failed')
+              .map((item) => (
+                <p key={item.key} className="workspace-creation-errors">
+                  {item.data.title}: {item.error}{' '}
+                  <button type="button" onClick={() => creation.current?.retry(item.temporaryID)}>
+                    Retry creation
+                  </button>
+                </p>
+              ))}
+          </div>
+        )}
         {error && (
           <p role="alert">
             {error}{' '}
@@ -1284,18 +1447,16 @@ export function ExpandedBoard({
         {(board?.archived || project?.archived) && (
           <p role="status">This board is read-only while it or its project is archived.</p>
         )}
-        {kind !== 'list' &&
-          ['board', 'calendar', 'timeline', 'gantt'].includes(kind) &&
-          canEdit && (
-            <button
-              className="task-primary"
-              type="button"
-              aria-label="Add task"
-              onClick={() => onCreate()}
-            >
-              ＋ Add task
-            </button>
-          )}
+        {kind !== 'list' && ['board'].includes(kind) && canEdit && (
+          <button
+            className="task-primary"
+            type="button"
+            aria-label="Add task"
+            onClick={() => onCreate()}
+          >
+            ＋ Add task
+          </button>
+        )}
         {filtersOpen && (
           <WorkspaceFilterPanel close={() => setFiltersOpen(false)}>
             <div className="workspace-board-toolbar">
@@ -1627,7 +1788,7 @@ export function ExpandedBoard({
                   >
                     {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
                       <TaskRows
-                        key={task.id}
+                        key={taskKeys[task.id] ?? task.id}
                         parent={row(task)}
                         childrenRows={
                           showChildren && expanded.includes(task.id)
@@ -1637,7 +1798,7 @@ export function ExpandedBoard({
                                 .concat(
                                   canEdit && task.canEdit
                                     ? [
-                                        <tr key={`create-child-${task.id}`}>
+                                        <tr key={`create-child-${taskKeys[task.id] ?? task.id}`}>
                                           <td colSpan={columns.length + 2}>
                                             <InlineTaskEntry
                                               subtask
@@ -1692,8 +1853,8 @@ export function ExpandedBoard({
                 </h3>
                 {sorted(roots.filter((task) => inGroup(task, grouping.key))).map((task) => (
                   <article
-                    key={task.id}
-                    draggable={canEdit && task.canEdit && movable}
+                    key={taskKeys[task.id] ?? task.id}
+                    draggable={canEdit && task.canEdit && movable && task.id > 0}
                     onDragStart={(event) => {
                       event.dataTransfer.setData('text/plain', String(task.id))
                       event.dataTransfer.setData('group', grouping.key)
@@ -1725,7 +1886,7 @@ export function ExpandedBoard({
                       <select
                         aria-label={`Move ${task.title} to`}
                         value={grouping.key}
-                        disabled={!movable || busy}
+                        disabled={!movable || busy || task.id < 0}
                         onChange={(event) => void move(task, event.target.value, grouping.key)}
                       >
                         {groups.map((group) => (
@@ -1743,6 +1904,19 @@ export function ExpandedBoard({
         )}
         {kind === 'calendar' && (
           <BoardCalendar
+            toolbar={
+              canEdit ? (
+                <button type="button" className="task-primary" onClick={() => onCreate()}>
+                  ＋ Add task
+                </button>
+              ) : null
+            }
+            timezone={summary?.timezone ?? 'UTC'}
+            display={calendarDisplay}
+            onDisplay={(value) => {
+              setCalendarDisplay(value)
+              url('calendarDisplay', value)
+            }}
             priorityColors={board?.presentation?.priorityColors}
             tasks={filtered.filter((task) => showChildren || !task.parent)}
             anchor={anchor}
@@ -1756,25 +1930,29 @@ export function ExpandedBoard({
               url('calendarRange', value)
             }}
             onSelect={onSelect}
-            patch={patch}
+            patch={writeTask}
             canEdit={canEdit}
           />
         )}
         {['timeline', 'gantt'].includes(kind) && (
-          <TimelineView
+          <TaskTimeline
             tasks={sorted(filtered.filter((task) => showChildren || !task.parent)).sort((a, b) =>
               groupFor(a).localeCompare(groupFor(b)),
             )}
             groupLabel={(task) =>
-              groups.find((item) => item.key === groupFor(task))?.name ?? 'Unsectioned'
+              groups.find((item) => item.key === groupFor(task as WorkTask))?.name ?? 'Unsectioned'
             }
-            gantt={true}
             onSelect={onSelect}
-            patch={patch}
+            patch={writeTask}
             canEdit={canEdit}
             baseline={baseline}
             toolbar={
               <>
+                {canEdit && (
+                  <button type="button" className="task-primary" onClick={() => onCreate()}>
+                    ＋ Add task
+                  </button>
+                )}
                 {isOwner && (
                   <button
                     type="button"
@@ -2161,157 +2339,7 @@ function BoardMetrics({ summary }: { summary: any }) {
     </div>
   )
 }
-function TimelineView({
-  tasks,
-  gantt,
-  onSelect,
-  patch,
-  canEdit,
-  baseline,
-  toolbar,
-  groupLabel,
-}: {
-  tasks: WorkTask[]
-  gantt: boolean
-  onSelect: (task: Task) => void
-  patch: (task: Task, data: object) => Promise<void>
-  canEdit: boolean
-  baseline: any
-  toolbar: React.ReactNode
-  groupLabel: (task: WorkTask) => string
-}) {
-  const [start, setStart] = useState(today()),
-    [length, setLength] = useState(30)
-  const end = nextTaskDay(start, length - 1),
-    offset = (date: string) =>
-      Math.max(
-        0,
-        Math.min(length - 1, Math.round((Date.parse(date) - Date.parse(start)) / 86400000)),
-      )
-  return (
-    <section>
-      <div className="task-workspace-toolbar">
-        {gantt ? toolbar : null}
-        <label>
-          Range start{' '}
-          <input
-            type="date"
-            value={start}
-            onChange={(event) => setStart(event.target.value || today())}
-          />
-        </label>
-        <label>
-          Visible days{' '}
-          <select value={length} onChange={(event) => setLength(Number(event.target.value))}>
-            <option value={30}>30</option>
-            <option value={90}>90</option>
-            <option value={365}>365</option>
-          </select>
-        </label>
-        <p>
-          {start} — {nextTaskDay(start, length - 1)} · Calendar dates · explicit rescheduling
-        </p>
-      </div>
-      <div className="workspace-timeline-scroll">
-        <div className="workspace-timeline" style={{ minWidth: Math.max(850, length * 24) }}>
-          <div className="workspace-timeline-scale">
-            <span>Task / dates</span>
-            {Array.from({ length: length }, (_, index) => (
-              <small key={index}>{nextTaskDay(start, index).slice(5)}</small>
-            ))}
-          </div>
-          {tasks.map((task, index) => {
-            const from = day(task.startDate) || day(task.dueDate),
-              to = day(task.dueDate) || from,
-              before = baseline?.snapshot?.find((item: any) => item.id === task.id),
-              conflict =
-                gantt &&
-                task.dependencies.some(
-                  (dependency) =>
-                    dependency.dueDate &&
-                    from &&
-                    day(dependency.dueDate) >= from &&
-                    dependency.status !== 'done',
-                )
-            return (
-              <div
-                key={task.id}
-                className="workspace-timeline-row"
-                style={{ gridTemplateColumns: `280px repeat(${length},24px)` }}
-              >
-                <div>
-                  {(index === 0 || groupLabel(tasks[index - 1]) !== groupLabel(task)) && (
-                    <strong className="workspace-timeline-group">{groupLabel(task)}</strong>
-                  )}
-                  <button type="button" onClick={() => onSelect(task)}>
-                    {task.parent ? '↳ ' : ''}
-                    {task.title}
-                  </button>
-                  {task.parent && (
-                    <small>
-                      Subtask of{' '}
-                      {tasks.find((parent) => parent.id === task.parent)?.title ??
-                        `Task #${task.parent}`}
-                    </small>
-                  )}
-                  {canEdit && task.canEdit && (
-                    <div>
-                      <input
-                        aria-label={`Start date for ${task.title}`}
-                        type="date"
-                        value={day(task.startDate)}
-                        onChange={(e) =>
-                          void patch(task, {
-                            startDate: e.target.value ? `${e.target.value}T12:00:00.000Z` : null,
-                          })
-                        }
-                      />
-                      <input
-                        aria-label={`End date for ${task.title}`}
-                        type="date"
-                        value={day(task.dueDate)}
-                        onChange={(e) =>
-                          void patch(task, {
-                            dueDate: e.target.value ? `${e.target.value}T12:00:00.000Z` : null,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  {gantt &&
-                    task.dependencies.map((dependency) => (
-                      <small key={dependency.id}>
-                        ← {dependency.unavailable ? 'Restricted dependency' : dependency.title}
-                      </small>
-                    ))}
-                  {conflict && <strong role="status">Dependency date conflict</strong>}
-                  {before && (
-                    <small>
-                      Baseline: {day(before.startDate) || '—'} — {day(before.dueDate) || '—'}
-                    </small>
-                  )}
-                </div>
-                {from && from <= end && to >= start ? (
-                  <div
-                    className={`workspace-date-bar ${task.milestone ? 'milestone' : ''}`}
-                    title={`${task.title}: ${from} — ${to}`}
-                    style={{
-                      gridColumn: `${offset(from) + 2} / span ${Math.max(1, offset(to) - offset(from) + 1)}`,
-                    }}
-                  >
-                    {task.milestone ? '◆' : task.title}
-                  </div>
-                ) : (
-                  <small>{from ? 'Outside selected range' : 'Undated'}</small>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </section>
-  )
-}
+
 function WorkloadView({
   api,
   tasks,

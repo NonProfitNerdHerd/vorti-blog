@@ -10,12 +10,16 @@ export function EditorDialog({
   title,
   onClose,
   children,
+  heading,
+  topAligned = false,
 }: {
   open: boolean
   inline?: boolean
   title: string
   onClose: () => void
   children: ReactNode
+  heading?: ReactNode
+  topAligned?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -62,10 +66,15 @@ export function EditorDialog({
   return (
     <div
       ref={ref}
-      className={open ? 'editor-dialog-layer' : 'editor-dialog-inline'}
+      className={
+        open
+          ? `editor-dialog-layer${topAligned ? ' editor-dialog-top' : ''}`
+          : 'editor-dialog-inline'
+      }
       role={open ? 'dialog' : undefined}
       aria-modal={open ? true : undefined}
-      aria-labelledby={open ? id : undefined}
+      aria-labelledby={open && !heading ? id : undefined}
+      aria-label={open && heading ? title : undefined}
       onMouseDown={(event) => {
         if (open && event.target === event.currentTarget) onClose()
       }}
@@ -97,7 +106,9 @@ export function EditorDialog({
     >
       <div className={open ? 'editor-dialog-card' : undefined}>
         <header className="editor-dialog-heading" hidden={!open}>
-          <h2 id={id}>{title}</h2>
+          <div id={id} className="editor-dialog-title">
+            {heading ?? <h2>{title}</h2>}
+          </div>
           <button data-dialog-close type="button" aria-label="Close dialog" onClick={onClose}>
             <X size={20} />
           </button>

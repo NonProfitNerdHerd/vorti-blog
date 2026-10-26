@@ -1,3 +1,5 @@
+import { addBoardDependency, removeBoardDependency } from './board-dependencies'
+import { createTaskOnce } from './task-creation'
 import { workspaceReq } from './workspace-access'
 import { projectBoardSummaries } from './project-board-service'
 import { crmTaskInternalRead } from '../crm/task-where'
@@ -54,19 +56,30 @@ export async function boardTasks(req: PayloadRequest, board: number) {
   } while (page <= totalPages)
   return docs
 }
-async function dependencies(req: PayloadRequest, taskID: number) {
+async function dependencies(req: PayloadRequest, taskID: number, successors = false) {
   const result = await req.payload.find({
     collection: 'task-dependencies',
     req,
     overrideAccess: true,
     depth: 0,
     limit: 100,
-    where: { task: { equals: taskID } },
+    where: { [successors ? 'predecessor' : 'task']: { equals: taskID } },
   })
+  const rows = await workspaceDB(req)
+    .prepare(
+      `SELECT id,task_id,predecessor_id FROM task_board_dependencies WHERE ${successors ? 'predecessor_id' : 'task_id'}=?`,
+    )
+    .bind(taskID)
+    .all<{ id: number; task_id: number; predecessor_id: number }>()
+  const boardLinks = rows.results.map((row) => ({
+    id: -row.id,
+    task: row.task_id,
+    predecessor: row.predecessor_id,
+  }))
   const docs = []
-  for (const dependency of result.docs) {
+  for (const dependency of [...result.docs, ...boardLinks]) {
     try {
-      const target = await requireTask(req, dependency.predecessor)
+      const target = await requireTask(req, successors ? dependency.task : dependency.predecessor)
       docs.push({
         id: dependency.id,
         task: target.id,
@@ -81,6 +94,11 @@ async function dependencies(req: PayloadRequest, taskID: number) {
   return docs
 }
 export const workspaceEndpoints: Endpoint[] = [
+  {
+    path: '/task-workspace/create',
+    method: 'post',
+    handler: async (req) => Response.json({ doc: await createTaskOnce(req, await req.json!()) }),
+  },
   {
     path: '/task-workspace/boards/:id/time',
     method: 'get',
@@ -103,7 +121,7 @@ export const workspaceEndpoints: Endpoint[] = [
             select: { title: true },
             where: { and: [{ id: { in: ids } }, { boards: { equals: board } }] },
           })
-        : { docs: [] as {id:number}[] }
+        : { docs: [] as { id: number }[] }
       const totals: Record<string, number> = {}
       for (const task of tasks.docs) totals[task.id] = 0
       if (tasks.docs.length) {
@@ -243,9 +261,13 @@ export const workspaceEndpoints: Endpoint[] = [
         )
       statements.push(db.prepare('DELETE FROM task_workspace_guards WHERE id=?').bind(guard))
       try {
-        await db.batch([...(await workspaceMutationFence(req, { board: view.board }, async () => {
-          await requireBoard(req, view.board, 'owner'); await requireBoard(req, view.board, 'edit')
-        })), ...statements])
+        await db.batch([
+          ...(await workspaceMutationFence(req, { board: view.board }, async () => {
+            await requireBoard(req, view.board, 'owner')
+            await requireBoard(req, view.board, 'edit')
+          })),
+          ...statements,
+        ])
       } catch {
         reject('This view changed. Reload before saving.', 409)
       }
@@ -288,7 +310,8 @@ export const workspaceEndpoints: Endpoint[] = [
   {
     path: '/task-workspace/projects/:id/boards',
     method: 'get',
-    handler: async (req) => Response.json(await projectBoardSummaries(req, Number(req.routeParams?.id))),
+    handler: async (req) =>
+      Response.json(await projectBoardSummaries(req, Number(req.routeParams?.id))),
   },
   {
     path: '/task-workspace/projects/:id/counts',
@@ -374,10 +397,12 @@ export const workspaceEndpoints: Endpoint[] = [
           where: { and: [{ task: { equals: id } }, { user: { equals: req.user!.id } }] },
         }),
       ])
+      const successors = await dependencies(req, id, true)
       return Response.json({
         fields,
         time,
         dependencies: links,
+        successors,
         files,
         countdowns: countdowns.docs,
       })
@@ -445,7 +470,9 @@ export const workspaceEndpoints: Endpoint[] = [
         await ensureWorkspaceGuards(req)
         try {
           await db.batch([
-            ...(await workspaceMutationFence(req, { task: id }, () => requireTask(req, id, 'edit'))),
+            ...(await workspaceMutationFence(req, { task: id }, () =>
+              requireTask(req, id, 'edit'),
+            )),
             db
               .prepare(
                 'INSERT INTO task_workspace_guards(id,valid) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM review_tasks WHERE id=? AND updated_at=?) THEN 1 ELSE 0 END)',
@@ -492,19 +519,27 @@ export const workspaceEndpoints: Endpoint[] = [
           } catch {}
         }
         const project = [...sourceProjects].find((value) => targetProjects.has(value))
-        if (!project) reject('Dependencies require accessible tasks in the same project.', 400)
+        if (!project)
+          return Response.json(
+            await addBoardDependency(req, task, predecessor, body.expectedUpdatedAt),
+          )
         const db = workspaceDB(req),
           guard = crypto.randomUUID(),
           now = new Date(Math.max(Date.now(), Date.parse(task.updatedAt) + 1)).toISOString()
         await ensureWorkspaceGuards(req)
         try {
           await db.batch([
-            ...(await workspaceMutationFence(req, { task: id, predecessor: predecessor.id }, async () => {
-              await requireTask(req, id, 'edit'); await requireTask(req, predecessor.id)
-            })),
+            ...(await workspaceMutationFence(
+              req,
+              { task: id, predecessor: predecessor.id },
+              async () => {
+                await requireTask(req, id, 'edit')
+                await requireTask(req, predecessor.id)
+              },
+            )),
             db
               .prepare(
-                'INSERT INTO task_workspace_guards(id,valid) SELECT ?,CASE WHEN NOT EXISTS(WITH RECURSIVE chain(id) AS (SELECT predecessor_id FROM task_dependencies WHERE task_id=? UNION SELECT d.predecessor_id FROM task_dependencies d JOIN chain c ON d.task_id=c.id) SELECT 1 FROM chain WHERE id=?) AND EXISTS(SELECT 1 FROM review_tasks WHERE id=? AND updated_at=?) THEN 1 ELSE 0 END',
+                'INSERT INTO task_workspace_guards(id,valid) SELECT ?,CASE WHEN NOT EXISTS(WITH RECURSIVE links(task_id,predecessor_id) AS (SELECT task_id,predecessor_id FROM task_dependencies UNION SELECT task_id,predecessor_id FROM task_board_dependencies), chain(id) AS (SELECT predecessor_id FROM links WHERE task_id=? UNION SELECT d.predecessor_id FROM links d JOIN chain c ON d.task_id=c.id) SELECT 1 FROM chain WHERE id=?) AND EXISTS(SELECT 1 FROM review_tasks WHERE id=? AND updated_at=?) THEN 1 ELSE 0 END',
               )
               .bind(guard, predecessor.id, id, id, body.expectedUpdatedAt),
             db
@@ -524,6 +559,15 @@ export const workspaceEndpoints: Endpoint[] = [
         return Response.json({ created: true, updatedAt: now })
       }
       if (body.action === 'remove-dependency') {
+        if (Number(body.dependency) < 0)
+          return Response.json(
+            await removeBoardDependency(
+              req,
+              task,
+              -Number(body.dependency),
+              body.expectedUpdatedAt,
+            ),
+          )
         const doc = await req.payload.findByID({
           collection: 'task-dependencies',
           id: body.dependency,

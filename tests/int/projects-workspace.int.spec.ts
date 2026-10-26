@@ -502,6 +502,88 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
       }),
     ).rejects.toThrow()
   })
+  it('creates tasks idempotently and rejects reuse for different input', async () => {
+    const body = {
+      title: 'Safe retry task',
+      initialBoard: board,
+      clientRequestKey: crypto.randomUUID(),
+    }
+    const first = (await (await endpoint(0, '/task-workspace/create', 'post', body)).json()) as any
+    const retry = (await (await endpoint(0, '/task-workspace/create', 'post', body)).json()) as any
+    expect(retry.doc.id).toBe(first.doc.id)
+    await expect(
+      endpoint(0, '/task-workspace/create', 'post', { ...body, title: 'Different task' }),
+    ).rejects.toThrow('different task')
+    const concurrent = { ...body, title: 'Concurrent retry', clientRequestKey: crypto.randomUUID() }
+    const results = await Promise.all([
+      endpoint(0, '/task-workspace/create', 'post', concurrent),
+      endpoint(0, '/task-workspace/create', 'post', concurrent),
+    ])
+    const docs = (await Promise.all(results.map((response) => response.json()))) as any[]
+    expect(docs[0].doc.id).toBe(docs[1].doc.id)
+  })
+  it('supports standalone-board dependencies and rejects their cycles', async () => {
+    const standalone = await payload.create({
+      collection: 'task-boards',
+      req: await req(0),
+      overrideAccess: false,
+      data: { name: 'Standalone dependency board', owner: users[0].id, visibility: 'private' },
+    })
+    const a = await payload.create({
+      collection: 'review-tasks',
+      req: await req(0),
+      overrideAccess: false,
+      data: {
+        title: 'First standalone',
+        initialBoard: standalone.id,
+        status: 'open',
+        priority: 'normal',
+      },
+    })
+    const b = await payload.create({
+      collection: 'review-tasks',
+      req: await req(0),
+      overrideAccess: false,
+      data: {
+        title: 'Second standalone',
+        initialBoard: standalone.id,
+        status: 'open',
+        priority: 'normal',
+      },
+    })
+    await endpoint(
+      0,
+      '/task-workspace/tasks/:id',
+      'post',
+      { action: 'dependency', predecessor: a.id, expectedUpdatedAt: b.updatedAt },
+      { id: String(b.id) },
+    )
+    const detail = (await (
+      await endpoint(0, '/task-workspace/tasks/:id', 'get', undefined, { id: String(b.id) })
+    ).json()) as any
+    expect(detail.dependencies.some((item: any) => item.task === a.id)).toBe(true)
+    await expect(
+      endpoint(
+        0,
+        '/task-workspace/tasks/:id',
+        'post',
+        { action: 'dependency', predecessor: b.id, expectedUpdatedAt: a.updatedAt },
+        { id: String(a.id) },
+      ),
+    ).rejects.toThrow()
+    const current = await payload.findByID({ collection: 'review-tasks', id: b.id })
+    await endpoint(
+      0,
+      '/task-workspace/tasks/:id',
+      'post',
+      {
+        action: 'remove-dependency',
+        dependency: detail.dependencies[0].id,
+        expectedUpdatedAt: current.updatedAt,
+      },
+      { id: String(b.id) },
+    )
+  })
   it('rejects dependency cycles without automatic rescheduling', async () => {
     const current = await payload.findByID({ collection: 'review-tasks', id: task, depth: 0 })
     const second = await payload.create({

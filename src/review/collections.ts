@@ -1,3 +1,4 @@
+import { creationIdentity } from './task-creation'
 import { workspaceReq } from './workspace-access'
 import { validateFieldValue } from './workspace-fields'
 import { userIdentity } from '@design-system/payload-design-core'
@@ -155,6 +156,9 @@ export const ReviewTasks: CollectionConfig = {
       defaultValue: 'document',
       options: ['document', 'header', 'footer'],
     },
+    { name: 'creationKey', type: 'text', unique: true, admin: { hidden: true }, access: { read: () => false } },
+    { name: 'creationSignature', type: 'text', admin: { hidden: true }, access: { read: () => false } },
+    { name: 'clientRequestKey', type: 'text', virtual: true, admin: { hidden: true } },
     { name: 'parent', type: 'relationship', relationTo: 'review-tasks', index: true },
     {
       name: 'status',
@@ -209,6 +213,13 @@ export const ReviewTasks: CollectionConfig = {
     beforeValidate: [
       async ({ data, originalDoc, req, operation }) => {
         if (!data || !req.user) fail('Sign in to manage tasks.')
+        if (operation === 'create') {
+          data.creationKey = data.clientRequestKey ? await creationIdentity(req, data.clientRequestKey) : null
+          if (!data.clientRequestKey) data.creationSignature = null
+        } else {
+          delete data.creationKey
+          delete data.creationSignature
+        }
         data.documentDeleted = originalDoc?.documentDeleted ?? false
         if (typeof data.title === 'string') data.title = data.title.trim()
         const next = { ...originalDoc, ...data }

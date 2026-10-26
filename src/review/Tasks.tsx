@@ -1,10 +1,14 @@
 'use client'
+import { createPortal } from 'react-dom'
+import { TaskSaveQueue } from './task-save-queue'
+import { TaskTimeLog } from './TimeTracking'
+import { Share2 } from './WorkspaceIcon'
 import { CollaboratorPicker } from './TaskPeople'
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote review records and reset pagination when filters change. */
 import { useAuth, useConfig } from '@payloadcms/ui'
 import { EditorDialog } from '@design-system/payload-design-core/admin'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState, useId } from 'react'
+import { useCallback, useEffect, useRef, useState, useId, useLayoutEffect } from 'react'
 import type { ReactNode } from 'react'
 import { query, reviewAPI, reviewAll, statuses, taskSearchTerms, type Task } from './client'
 import { TaskDashboard } from './TaskDashboard'
@@ -77,6 +81,7 @@ export function Tasks({
   renderList?: (props: { onSelect: (task: Task) => void; refreshKey: number }) => ReactNode
 }) {
   const taskTabsID = useId()
+  const [headingTarget, setHeadingTarget] = useState<HTMLDivElement | null>(null)
   const {
     config: {
       routes: { api, admin },
@@ -100,6 +105,38 @@ export function Tasks({
   const [createSection, setCreateSection] = useState<number>()
   const [taskTab, setTaskTab] = useState('default')
   const taskDirty = useRef(false)
+  const flushTask = useRef<() => Promise<void>>(async () => {})
+  const readTaskRevision = useRef<() => string | undefined>(() => undefined)
+  const [collaborationOpen, setCollaborationOpen] = useState(false)
+  const [hasTime, setHasTime] = useState(false)
+  useEffect(() => {
+    setHasTime(false)
+    if (!selected) return
+    let active = true
+    void Promise.all([
+      reviewAPI<any>(api, `task-workspace/tasks/${selected.id}`),
+      boardID
+        ? reviewAll<any>(api, 'task-board-fields', { board: { equals: boardID } })
+        : Promise.resolve(null),
+    ])
+      .then(([data, attached]) => {
+        if (active)
+          setHasTime(
+            data.fields?.some(
+              (field: any) =>
+                field.definition.kind === 'time-tracking' &&
+                (!attached ||
+                  attached.some(
+                    (item: any) => Number(item.field?.id ?? item.field) === field.definition.id,
+                  )),
+            ),
+          )
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [api, selected?.id, boardID])
   const commentDirty = useRef(false),
     fileBusy = useRef(false)
   useEffect(() => {
@@ -128,27 +165,36 @@ export function Tasks({
     document.addEventListener('click', navigate, true)
     return () => document.removeEventListener('click', navigate, true)
   }, [])
-  const selectTask = (task: Task) => {
-    if (
-      (taskDirty.current || commentDirty.current) &&
-      selected?.id !== task.id &&
-      !confirm('Discard unsaved task changes?')
-    )
-      return
-    void reviewAPI<Task>(api, `review-tasks/${task.id}?depth=0`)
-      .then((task) => {
-        taskDirty.current = false
-        const url = new URL(location.href)
-        url.searchParams.set('task', String(task.id))
-        history.replaceState(null, '', url)
-        setTaskTab(
-          new URLSearchParams(location.search).has('comment')
-            ? 'comments'
-            : (new URLSearchParams(location.search).get('taskTab') ?? 'default'),
-        )
-        setSelected(task)
-      })
-      .catch((e) => setError(e.message))
+  const selectTask = (task: Pick<Task, 'id'>) => {
+    if (task.id < 0) return
+    void (async () => {
+      try {
+        await flushTask.current()
+      } catch (error) {
+        setError((error as Error).message)
+        return
+      }
+      if (
+        (taskDirty.current || commentDirty.current) &&
+        selected?.id !== task.id &&
+        !confirm('Discard unsaved task changes?')
+      )
+        return
+      void reviewAPI<Task>(api, `review-tasks/${task.id}?depth=0`)
+        .then((task) => {
+          taskDirty.current = false
+          const url = new URL(location.href)
+          url.searchParams.set('task', String(task.id))
+          history.replaceState(null, '', url)
+          setTaskTab(
+            new URLSearchParams(location.search).has('comment')
+              ? 'comments'
+              : (new URLSearchParams(location.search).get('taskTab') ?? 'default'),
+          )
+          setSelected(task)
+        })
+        .catch((e) => setError(e.message))
+    })()
   }
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
@@ -274,6 +320,7 @@ export function Tasks({
   const person = (id?: number) =>
     people.find((p) => p.id === id)?.label || (id ? `User ${id}` : 'Unassigned')
   const openDocument = async (task: Task) => {
+    await flushTask.current()
     const result = await reviewAPI<{ available: boolean }>(api, `review-tasks/${task.id}/document`)
     if (!result.available)
       throw new Error('Document unavailable. Its review history is retained here.')
@@ -292,119 +339,169 @@ export function Tasks({
       {selected || creating ? (
         <EditorDialog
           open
-          title={selected ? 'Task details' : parent ? `Subtask of ${parent.title}` : 'New task'}
+          title={selected?.title ?? 'New task'}
+          heading={
+            <>
+              <span className="task-dialog-accessible-title">{selected?.title ?? 'New task'}</span>
+              <div ref={setHeadingTarget} />
+            </>
+          }
+          topAligned
           onClose={() => {
-            if (busy) return
-            if (fileBusy.current) {
-              setError('Wait for the file upload to finish before closing.')
-              return
-            }
-            if (
-              (taskDirty.current || commentDirty.current) &&
-              !confirm('Discard unsaved task changes?')
-            )
-              return
-            taskDirty.current = false
-            commentDirty.current = false
-            const url = new URL(location.href)
-            url.searchParams.delete('task')
-            url.searchParams.delete('comment')
-            url.searchParams.delete('taskTab')
-            url.searchParams.delete('attachment')
-            history.replaceState(null, '', url)
-            setSelected(null)
-            setCreating(false)
-            setParent(null)
-            setError('')
+            void (async () => {
+              try {
+                await flushTask.current()
+              } catch (error) {
+                setError((error as Error).message)
+                return
+              }
+              if (busy) return
+              if (fileBusy.current) {
+                setError('Wait for the file upload to finish before closing.')
+                return
+              }
+              if (
+                (taskDirty.current || commentDirty.current) &&
+                !confirm('Discard unsaved task changes?')
+              )
+                return
+              taskDirty.current = false
+              commentDirty.current = false
+              const url = new URL(location.href)
+              url.searchParams.delete('task')
+              url.searchParams.delete('comment')
+              url.searchParams.delete('taskTab')
+              url.searchParams.delete('attachment')
+              history.replaceState(null, '', url)
+              setSelected(null)
+              setCreating(false)
+              setParent(null)
+              setError('')
+            })()
           }}
         >
           <div className="review-tasks review-task-dialog">
-            <nav
-              className="task-workspace-tabs"
-              role="tablist"
-              aria-label="Task details tabs"
-              onKeyDown={(event) => {
-                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-                const buttons = Array.from(
-                    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=tab]'),
-                  ),
-                  index = buttons.indexOf(event.target as HTMLButtonElement)
-                if (index < 0) return
-                const next =
-                  event.key === 'Home'
-                    ? 0
-                    : event.key === 'End'
-                      ? buttons.length - 1
-                      : (index + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) %
-                        buttons.length
-                event.preventDefault()
-                buttons[next].focus()
-                buttons[next].click()
-              }}
-            >
-              {[
-                ['default', 'Default'],
-                ['comments', 'Comment Log'],
-                ['attachments', 'Attachments'],
-              ].map(([key, label]) => (
-                <button
-                  type="button"
-                  key={key}
-                  role="tab"
-                  id={`${taskTabsID}-${key}`}
-                  aria-controls={`${taskTabsID}-${key}-panel`}
-                  aria-selected={taskTab === key}
-                  onClick={() => {
-                    setTaskTab(key)
-                    const url = new URL(location.href)
-                    url.searchParams.set('taskTab', key)
-                    history.replaceState(null, '', url)
+            {error && <p role="alert">{error}</p>}
+            <TaskEditor
+              key={selected?.id ?? `new-${parent?.id ?? ''}`}
+              task={selected}
+              headingTarget={headingTarget}
+              tab={taskTab}
+              panelID={`${taskTabsID}-default-panel`}
+              labelledBy={`${taskTabsID}-default`}
+              tabs={
+                <nav
+                  className="task-workspace-tabs"
+                  role="tablist"
+                  aria-label="Task details tabs"
+                  onKeyDown={(event) => {
+                    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                    const buttons = Array.from(
+                        event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=tab]'),
+                      ),
+                      index = buttons.indexOf(event.target as HTMLButtonElement)
+                    if (index < 0) return
+                    const next =
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? buttons.length - 1
+                          : (index + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) %
+                            buttons.length
+                    event.preventDefault()
+                    buttons[next].focus()
+                    buttons[next].click()
                   }}
                 >
-                  {label}
-                </button>
-              ))}
-            </nav>
-            {error && <p role="alert">{error}</p>}
-            <div
-              role="tabpanel"
-              id={`${taskTabsID}-default-panel`}
-              aria-labelledby={`${taskTabsID}-default`}
-              hidden={taskTab !== 'default'}
-            >
-              <TaskEditor
-                key={selected?.id ?? `new-${parent?.id ?? ''}`}
-                task={selected}
-                parent={parent}
-                owner={owner}
-                people={people}
-                busy={busy}
-                api={api}
-                boardID={boardID}
-                initialSection={createSection}
-                onDirty={(value) => {
-                  taskDirty.current = value
-                }}
-                save={(data) =>
-                  run(async () => {
-                    const result = await reviewAPI<{ doc: Task }>(
-                      api,
-                      `review-tasks${selected ? `/${selected.id}` : ''}`,
-                      selected ? 'PATCH' : 'POST',
-                      data,
-                    )
-                    taskFeedback(result.doc, selected ? 'updated' : 'created')
-                    setSelected(result.doc)
-                    const url = new URL(location.href)
-                    url.searchParams.set('task', String(result.doc.id))
-                    history.replaceState(null, '', url)
-                    setCreating(false)
-                    setParent(null)
-                    taskDirty.current = false
-                  })
-                }
-              />
-            </div>
+                  {[
+                    ['default', 'Details'],
+                    ['subtasks', 'Subtasks'],
+                    ['comments', 'Comments'],
+                    ['attachments', 'Attachments'],
+                    ['dependencies', 'Dependencies'],
+                    ...(hasTime ? [['time', 'Tracked Time']] : []),
+                  ].map(([key, label]) => (
+                    <button
+                      type="button"
+                      key={key}
+                      role="tab"
+                      id={`${taskTabsID}-${key}`}
+                      aria-controls={`${taskTabsID}-${key}-panel`}
+                      tabIndex={taskTab === key ? 0 : -1}
+                      aria-selected={taskTab === key}
+                      onClick={() => {
+                        setTaskTab(key)
+                        const url = new URL(location.href)
+                        url.searchParams.set('taskTab', key)
+                        history.replaceState(null, '', url)
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+              }
+              registerFlush={(flush, revision) => {
+                flushTask.current = flush
+                readTaskRevision.current = revision
+              }}
+              collaboration={
+                selected ? (
+                  <button
+                    className="task-collaboration-trigger"
+                    type="button"
+                    aria-label="Task collaboration"
+                    title="Collaboration"
+                    onClick={() => {
+                      void flushTask
+                        .current()
+                        .then(() => setCollaborationOpen(true))
+                        .catch((error) => setError(error.message))
+                    }}
+                  >
+                    <Share2 size={20} />
+                  </button>
+                ) : null
+              }
+              parent={parent}
+              owner={owner}
+              people={people}
+              busy={busy}
+              api={api}
+              boardID={boardID}
+              initialSection={createSection}
+              onDirty={(value) => {
+                taskDirty.current = value
+              }}
+              save={async (data) => {
+                const result = await reviewAPI<{ doc: Task }>(
+                  api,
+                  selected ? `review-tasks/${selected.id}` : 'task-workspace/create',
+                  selected ? 'PATCH' : 'POST',
+                  data,
+                )
+                setSelected(result.doc)
+                const url = new URL(location.href)
+                url.searchParams.set('task', String(result.doc.id))
+                history.replaceState(null, '', url)
+                setCreating(false)
+                setParent(null)
+                taskDirty.current = false
+                setTasks((current) =>
+                  current.map((task) => (task.id === result.doc.id ? result.doc : task)),
+                )
+                window.dispatchEvent(new CustomEvent('vorti-task-saved', { detail: result.doc }))
+                if (!selected)
+                  window.dispatchEvent(
+                    new CustomEvent('vorti-task-created', { detail: result.doc }),
+                  )
+                window.dispatchEvent(new Event('vorti-tasks-changed'))
+                if (workspace !== 'boards') setDashboardVersion((value) => value + 1)
+                void refresh().catch((error) => setError(error.message))
+                void onChange?.().catch((error) => setError(error.message))
+                return result.doc
+              }}
+            />
             {selected && (
               <>
                 <div hidden={taskTab !== 'default'}>
@@ -438,37 +535,10 @@ export function Tasks({
                   {selected.parent && (
                     <button
                       type="button"
-                      onClick={() =>
-                        void run(async () =>
-                          setSelected(
-                            await reviewAPI<Task>(api, `review-tasks/${selected.parent}?depth=0`),
-                          ),
-                        )
-                      }
+                      onClick={() => selectTask({ id: Number(selected.parent) })}
                     >
                       Open parent task
                     </button>
-                  )}
-                  {!selected.parent && (
-                    <Subtasks
-                      api={api}
-                      task={selected}
-                      select={selectTask}
-                      add={() => {
-                        if (busy) return
-                        if (
-                          (taskDirty.current || commentDirty.current) &&
-                          !confirm('Discard unsaved changes before adding a subtask?')
-                        )
-                          return
-                        taskDirty.current = false
-                        commentDirty.current = false
-                        setTaskTab('default')
-                        setParent(selected)
-                        setSelected(null)
-                        setCreating(true)
-                      }}
-                    />
                   )}
                   {(user?.role === 'administrator' ||
                     (selected.canEdit && (!!selected.boards?.length || selected.personal))) && (
@@ -477,6 +547,7 @@ export function Tasks({
                       disabled={busy}
                       onClick={() =>
                         void run(async () => {
+                          await flushTask.current()
                           const result = await reviewAPI<{ doc: Task }>(
                             api,
                             `review-tasks/${selected.id}`,
@@ -490,16 +561,13 @@ export function Tasks({
                       {selected.archived ? 'Restore task' : 'Archive task'}
                     </button>
                   )}
-                  <TaskCollaboration
-                    api={api}
-                    task={selected}
-                    onChange={async () => {
-                      setSelected(await reviewAPI<Task>(api, `review-tasks/${selected.id}?depth=0`))
-                      setDashboardVersion((value) => value + 1)
-                      await onChange?.()
-                    }}
-                  />
                   <WorkspaceTaskDetails
+                    beforeWrite={async () => {
+                      await flushTask.current()
+                      return readTaskRevision.current()
+                    }}
+                    section="details"
+                    boardID={boardID}
                     api={api}
                     task={selected}
                     onChange={() => {
@@ -510,6 +578,101 @@ export function Tasks({
                     }}
                   />
                 </div>
+                <div
+                  role="tabpanel"
+                  id={`${taskTabsID}-subtasks-panel`}
+                  aria-labelledby={`${taskTabsID}-subtasks`}
+                  hidden={taskTab !== 'subtasks'}
+                >
+                  {' '}
+                  {!selected.parent && (
+                    <Subtasks
+                      api={api}
+                      task={selected}
+                      select={selectTask}
+                      add={() => {
+                        void (async () => {
+                          try {
+                            await flushTask.current()
+                          } catch (error) {
+                            setError((error as Error).message)
+                            return
+                          }
+                          if (busy) return
+                          if (
+                            (taskDirty.current || commentDirty.current) &&
+                            !confirm('Discard unsaved changes before adding a subtask?')
+                          )
+                            return
+                          taskDirty.current = false
+                          commentDirty.current = false
+                          setTaskTab('default')
+                          setParent(selected)
+                          setSelected(null)
+                          setCreating(true)
+                        })()
+                      }}
+                    />
+                  )}
+                </div>
+                <div
+                  role="tabpanel"
+                  id={`${taskTabsID}-dependencies-panel`}
+                  aria-labelledby={`${taskTabsID}-dependencies`}
+                  hidden={taskTab !== 'dependencies'}
+                >
+                  <WorkspaceTaskDetails
+                    api={api}
+                    task={selected}
+                    boardID={boardID}
+                    beforeWrite={async () => {
+                      await flushTask.current()
+                      return readTaskRevision.current()
+                    }}
+                    section="dependencies"
+                    onChange={() => {
+                      void reviewAPI<Task>(api, `review-tasks/${selected.id}?depth=0`).then(
+                        setSelected,
+                      )
+                    }}
+                  />
+                </div>
+                {hasTime && (
+                  <div
+                    role="tabpanel"
+                    id={`${taskTabsID}-time-panel`}
+                    aria-labelledby={`${taskTabsID}-time`}
+                    hidden={taskTab !== 'time'}
+                  >
+                    <TaskTimeLog
+                      inline
+                      api={api}
+                      task={selected}
+                      onChanged={() => {}}
+                      onClose={() => setTaskTab('default')}
+                    />
+                  </div>
+                )}
+                {collaborationOpen && (
+                  <EditorDialog
+                    open
+                    title="Task collaboration"
+                    onClose={() => setCollaborationOpen(false)}
+                  >
+                    {' '}
+                    <TaskCollaboration
+                      api={api}
+                      task={selected}
+                      onChange={async () => {
+                        setSelected(
+                          await reviewAPI<Task>(api, `review-tasks/${selected.id}?depth=0`),
+                        )
+                        setDashboardVersion((value) => value + 1)
+                        await onChange?.()
+                      }}
+                    />
+                  </EditorDialog>
+                )}
                 <div
                   role="tabpanel"
                   id={`${taskTabsID}-comments-panel`}
@@ -548,7 +711,7 @@ export function Tasks({
               </>
             )}
             {!selected && taskTab !== 'default' && (
-              <p>Save the task first to add comments and attachments.</p>
+              <p>Create the task first to add subtasks, comments and attachments.</p>
             )}
           </div>
         </EditorDialog>
@@ -803,17 +966,31 @@ function TaskEditor({
   boardID,
   onDirty,
   initialSection,
+  tab,
+  tabs,
+  registerFlush,
+  collaboration,
+  headingTarget,
+  panelID,
+  labelledBy,
 }: {
   task: Task | null
   parent: Task | null
   owner?: Context
   people: Person[]
   busy: boolean
-  save: (data: object) => Promise<void>
+  save: (data: object) => Promise<Task>
   api: string
   boardID?: string
   onDirty: (dirty: boolean) => void
   initialSection?: number
+  tab: string
+  tabs: ReactNode
+  collaboration: ReactNode
+  headingTarget: HTMLElement | null
+  panelID: string
+  labelledBy: string
+  registerFlush: (flush: () => Promise<void>, revision: () => string | undefined) => void
 }) {
   const [title, setTitle] = useState(task?.title ?? ''),
     [description, setDescription] = useState(task?.description ?? '')
@@ -828,6 +1005,7 @@ function TaskEditor({
   const dirty =
     title.trim() !== (task?.title ?? '') ||
     description !== (task?.description ?? '') ||
+    JSON.stringify(mentions) !== JSON.stringify(task?.mentions ?? []) ||
     status !== (task?.status ?? 'open') ||
     priority !== (task?.priority ?? 'normal') ||
     assignee !== String(task?.assignee ?? '') ||
@@ -850,6 +1028,9 @@ function TaskEditor({
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
+  const creationKey = useRef(crypto.randomUUID())
+  const creationPromise = useRef<Promise<Task> | null>(null)
+  const [creatingTask, setCreatingTask] = useState(false)
   const [region, setRegion] = useState(
     task?.region ??
       (typeof location !== 'undefined'
@@ -857,153 +1038,277 @@ function TaskEditor({
         : null) ??
       'document',
   )
+  const payload = {
+    title: title.trim(),
+    description,
+    mentions,
+    ...(editingRevision ? { expectedUpdatedAt: editingRevision } : {}),
+    status,
+    priority,
+    collaborators: collaborators.filter((id) => String(id) !== assignee),
+    assignee: assignee ? Number(assignee) : null,
+    dueDate: date ? `${date}T12:00:00.000Z` : null,
+    startDate: startDate ? `${startDate}T12:00:00.000Z` : null,
+    milestone,
+    ...(!task
+      ? {
+          initialBoard: !parent && boardID ? Number(boardID) : undefined,
+          initialSection: !parent ? initialSection : undefined,
+          documentType: owner?.type ?? parent?.documentType,
+          documentID: owner?.id ?? parent?.documentID,
+          region: parent?.region ?? region,
+          parent: parent?.id ?? null,
+        }
+      : {}),
+  }
+  const saveRef = useRef(save)
+  const queue = useRef<TaskSaveQueue<Record<string, unknown>> | null>(null)
+  const [saveState, setSaveState] = useState('Saved'),
+    [saveError, setSaveError] = useState('')
+  const { expectedUpdatedAt: _revision, ...fields } = payload
+  const flush = async () => {
+    if (!task) {
+      await creationPromise.current
+      return
+    }
+    if (task.canEdit === false || !queue.current?.dirty) return
+    if (!title.trim()) throw new Error('Enter a task title before saving.')
+    if (saveError) throw new Error(saveError)
+    setSaveState('Saving…')
+    try {
+      await queue.current.flush()
+      setSaveState('Saved')
+      onDirty(false)
+    } catch (error) {
+      setSaveError((error as Error).message)
+      setSaveState('Not saved')
+      throw error
+    }
+  }
+  useLayoutEffect(() => {
+    saveRef.current = save
+    if (queue.current === null)
+      queue.current = new TaskSaveQueue<Record<string, unknown>>(
+        fields,
+        task?.updatedAt,
+        async (value, revision) => {
+          const result = await saveRef.current({ ...value, expectedUpdatedAt: revision })
+          return result.updatedAt
+        },
+      )
+    queue.current.update(fields)
+    registerFlush(flush, () => queue.current?.revision)
+  })
+  useEffect(() => {
+    if (
+      !task ||
+      queue.current?.dirty ||
+      (queue.current?.revision && task.updatedAt && queue.current.revision >= task.updatedAt)
+    )
+      return
+    setTitle(task.title)
+    setDescription(task.description ?? '')
+    setMentions(task.mentions ?? [])
+    setStatus(task.status)
+    setPriority(task.priority)
+    setAssignee(String(task.assignee ?? ''))
+    setCollaborators(task.collaborators ?? [])
+    setDate(task.dueDate?.slice(0, 10) ?? '')
+    setStartDate(task.startDate?.slice(0, 10) ?? '')
+    setMilestone(!!task.milestone)
+    setEditingRevision(task.updatedAt)
+    queue.current = null
+  }, [task?.updatedAt])
+  const signature = JSON.stringify(fields)
+  const discrete = JSON.stringify([
+    status,
+    priority,
+    assignee,
+    date,
+    startDate,
+    milestone,
+    collaborators,
+  ])
+  const previousDiscrete = useRef(discrete)
+  useEffect(() => {
+    if (!task || !queue.current?.dirty || saveError) return
+    onDirty(true)
+    const delay = previousDiscrete.current === discrete ? 600 : 0
+    previousDiscrete.current = discrete
+    const timer = setTimeout(() => {
+      void flush().catch(() => {})
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [signature, saveError])
   return (
-    <fieldset className="review-edit" disabled={busy || task?.canEdit === false}>
-      {task && dirty && editingRevision !== task.updatedAt && (
-        <p role="alert">
-          This task changed while you were editing. Your input is preserved.{' '}
-          <button
-            type="button"
-            onClick={() => {
-              if (!confirm('Reload the latest task and discard these unsaved changes?')) return
-              setTitle(task.title)
-              setDescription(task.description ?? '')
-              setMentions(task.mentions ?? [])
-              setStatus(task.status)
-              setPriority(task.priority)
-              setAssignee(String(task.assignee ?? ''))
-              setCollaborators(task.collaborators ?? [])
-              setDate(task.dueDate?.slice(0, 10) ?? '')
-              setStartDate(task.startDate?.slice(0, 10) ?? '')
-              setMilestone(!!task.milestone)
-              setEditingRevision(task.updatedAt)
-            }}
-          >
-            Reload latest task
-          </button>
-        </p>
-      )}
-      <label>
-        Task title
-        <input required maxLength={240} value={title} onChange={(e) => setTitle(e.target.value)} />
-      </label>
-      <MentionInput
-        api={api}
-        taskID={task?.id}
-        scope={{
-          board: boardID ? Number(boardID) : undefined,
-          parent: parent?.id,
-          documentType: owner?.type,
-          documentID: owner?.id,
-          assignee: assignee ? Number(assignee) : undefined,
-        }}
-        label="Description"
-        value={description}
-        onChange={setDescription}
-        mentions={mentions}
-        onMentions={setMentions}
-      />
-      <label>
-        Status
-        <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-          {Object.entries(statuses).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Assignee
-        <select
-          aria-label="Assignee"
-          value={assignee}
-          onChange={(e) => setAssignee(e.target.value)}
-        >
-          <option value="">Unassigned</option>
-          {people.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <CollaboratorPicker
-        people={people}
-        value={collaborators}
-        primary={assignee ? Number(assignee) : undefined}
-        onChange={setCollaborators}
-        disabled={busy}
-      />
-      <label>
-        Priority
-        <select
-          aria-label="Priority"
-          value={priority}
-          onChange={(e) => setPriority(e.target.value)}
-        >
-          {['low', 'normal', 'high', 'urgent'].map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Due date
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </label>
-      <label>
-        Start date
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={milestone}
-          onChange={(e) => setMilestone(e.target.checked)}
-        />{' '}
-        Milestone
-      </label>
-      {!task && !parent && owner?.type === 'site-templates' && (
+    <fieldset
+      className="review-edit task-inline-editor"
+      disabled={busy || creatingTask}
+      onBlur={() => {
+        void flush().catch(() => {})
+      }}
+    >
+      {(() => {
+        const heading = (
+          <div className="task-edit-heading">
+            {' '}
+            {collaboration}
+            {saveError && (
+              <p role="alert">
+                {saveError}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (queue.current?.error && (queue.current.error as any).status === 409) {
+                      if (confirm('Reload the latest task and discard your unsaved edits?'))
+                        location.reload()
+                      return
+                    }
+                    setSaveError('')
+                  }}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
+            <label>
+              <span className="task-dialog-accessible-title">Task title</span>
+              <input
+                disabled={busy || creatingTask || task?.canEdit === false}
+                className="task-inline-title"
+                aria-label="Task title"
+                required
+                maxLength={240}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </label>
+            {task && (
+              <span className="task-save-state" role="status">
+                {saveState}
+              </span>
+            )}
+            <MentionInput
+              api={api}
+              taskID={task?.id}
+              scope={{
+                board: boardID ? Number(boardID) : undefined,
+                parent: parent?.id,
+                documentType: owner?.type,
+                documentID: owner?.id,
+                assignee: assignee ? Number(assignee) : undefined,
+              }}
+              disabled={busy || creatingTask || task?.canEdit === false}
+              label="Description"
+              value={description}
+              onChange={setDescription}
+              mentions={mentions}
+              onMentions={setMentions}
+            />
+          </div>
+        )
+        return headingTarget ? createPortal(heading, headingTarget) : heading
+      })()}
+      {tabs}
+      <fieldset
+        disabled={task?.canEdit === false}
+        role="tabpanel"
+        hidden={tab !== 'default'}
+        className="task-detail-fields"
+      >
         <label>
-          Region
-          <select aria-label="Region" value={region} onChange={(e) => setRegion(e.target.value)}>
-            {['document', 'header', 'footer'].map((r) => (
-              <option key={r}>{r}</option>
+          Status
+          <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            {Object.entries(statuses).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
             ))}
           </select>
         </label>
+        <label>
+          Priority
+          <select
+            aria-label="Priority"
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+          >
+            {['low', 'normal', 'high', 'urgent'].map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Start date
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </label>
+        <label>
+          Due date
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <label>
+          Assignee
+          <select
+            aria-label="Assignee"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <CollaboratorPicker
+          expanded
+          people={people}
+          value={collaborators}
+          primary={assignee ? Number(assignee) : undefined}
+          onChange={setCollaborators}
+          disabled={busy}
+        />
+        <label>
+          <input
+            type="checkbox"
+            checked={milestone}
+            onChange={(e) => setMilestone(e.target.checked)}
+          />{' '}
+          Milestone
+        </label>
+        {!task && !parent && owner?.type === 'site-templates' && (
+          <label>
+            Region
+            <select aria-label="Region" value={region} onChange={(e) => setRegion(e.target.value)}>
+              {['document', 'header', 'footer'].map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </fieldset>
+      {!task && (
+        <button
+          type="button"
+          className="task-primary"
+          disabled={busy || creatingTask || !title.trim()}
+          onClick={() => {
+            if (creationPromise.current) return
+            setCreatingTask(true)
+            const pending = save({ ...payload, clientRequestKey: creationKey.current })
+            creationPromise.current = pending
+            void pending
+              .catch((error) => setSaveError(error.message))
+              .finally(() => {
+                creationPromise.current = null
+                setCreatingTask(false)
+              })
+          }}
+        >
+          Create task
+        </button>
       )}
-      <button
-        type="button"
-        disabled={busy || !title.trim()}
-        onClick={() =>
-          void save({
-            title: title.trim(),
-            description,
-            mentions,
-            ...(editingRevision ? { expectedUpdatedAt: editingRevision } : {}),
-            status,
-            priority,
-            collaborators: collaborators.filter((id) => String(id) !== assignee),
-            assignee: assignee ? Number(assignee) : null,
-            dueDate: date ? `${date}T12:00:00.000Z` : null,
-            startDate: startDate ? `${startDate}T12:00:00.000Z` : null,
-            milestone,
-            ...(!task
-              ? {
-                  initialBoard: !parent && boardID ? Number(boardID) : undefined,
-                  initialSection: !parent ? initialSection : undefined,
-                  documentType: owner?.type ?? parent?.documentType,
-                  documentID: owner?.id ?? parent?.documentID,
-                  region: parent?.region ?? region,
-                  parent: parent?.id ?? null,
-                }
-              : {}),
-          })
-        }
-      >
-        {busy ? 'Saving…' : 'Save task'}
-      </button>
     </fieldset>
   )
 }
@@ -1022,9 +1327,13 @@ function Subtasks({
   const [children, setChildren] = useState<Task[]>([]),
     [error, setError] = useState('')
   useEffect(() => {
-    void reviewAll<Task>(api, 'review-tasks', { parent: { equals: task.id } })
-      .then(setChildren)
-      .catch((e) => setError(e.message))
+    const load = (): void =>
+      void reviewAll<Task>(api, 'review-tasks', { parent: { equals: task.id } })
+        .then(setChildren)
+        .catch((e) => setError(e.message))
+    load()
+    window.addEventListener('vorti-task-created', load)
+    return () => window.removeEventListener('vorti-task-created', load)
   }, [api, task])
   return (
     <section>

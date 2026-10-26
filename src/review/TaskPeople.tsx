@@ -9,17 +9,24 @@ export function CollaboratorPicker({
   primary,
   onChange,
   disabled = false,
+  expanded = false,
 }: {
   people: AccessPerson[]
   value: number[]
   primary?: number
   onChange: (ids: number[]) => void
   disabled?: boolean
+  expanded?: boolean
 }) {
+  const Container = expanded ? 'section' : 'details'
   const [search, setSearch] = useState('')
   return (
-    <details className="workspace-collaborator-picker">
-      <summary>Collaborators ({value.filter((id) => id !== primary).length})</summary>
+    <Container className="workspace-collaborator-picker">
+      {expanded ? (
+        <h3>Collaborators ({value.filter((id) => id !== primary).length})</h3>
+      ) : (
+        <summary>Collaborators ({value.filter((id) => id !== primary).length})</summary>
+      )}
       <p>
         Collaborators must already have access. The primary assignee remains responsible for the
         task.
@@ -55,7 +62,7 @@ export function CollaboratorPicker({
             </label>
           ))}
       </div>
-    </details>
+    </Container>
   )
 }
 export function TaskAssignees({

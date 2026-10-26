@@ -74,7 +74,7 @@ pnpm test:editor
 pnpm build
 ```
 
-The integration command runs separate Node, DOM and native Payload/D1 Vitest projects, including native Task authorization and the CRM Task bridge. Native suites execute the full migration chain into a clean baseline and receive separate disposable databases. The checkpoint release browser configuration runs 31 scenarios: 16 CRM workflows and fifteen CMS/Forms/Tasks/SubSites/Workflows/SEO regressions.
+The integration command runs separate Node, DOM and native Payload/D1 Vitest projects, including native Task authorization and the CRM Task bridge. Native suites execute the full migration chain into a clean baseline and receive separate disposable databases. The checkpoint release browser configuration runs 33 scenarios: 16 CRM workflows and seventeen CMS/Forms/Tasks/SubSites/Workflows/SEO regressions.
 
 ```sh
 # Requires the final local Worker URL and isolated tenant/Forms fixtures.

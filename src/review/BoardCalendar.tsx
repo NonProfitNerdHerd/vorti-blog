@@ -1,4 +1,7 @@
 'use client'
+import type { ReactNode } from 'react'
+import { calendarTaskSpan, type CalendarDisplay } from './task-schedule'
+import { siteCalendarDay } from './workspace-dates'
 import { localTaskDay, nextTaskDay } from './dashboard-model'
 import { statuses, type Task } from './client'
 import { List } from './WorkspaceIcon'
@@ -46,7 +49,15 @@ export function BoardCalendar({
   patch,
   canEdit,
   priorityColors,
+  display = 'due',
+  onDisplay,
+  toolbar,
+  timezone = 'UTC',
 }: {
+  display?: CalendarDisplay
+  onDisplay?: (value: CalendarDisplay) => void
+  toolbar?: ReactNode
+  timezone?: string
   tasks: Task[]
   anchor: string
   mode: string
@@ -66,15 +77,25 @@ export function BoardCalendar({
             new Date(chosen.getFullYear(), chosen.getMonth(), 1 - ((chosen.getDay() + 6) % 7)),
           ),
     days = Array.from({ length: period.days }, (_, i) => nextTaskDay(gridStart, i)),
-    dated = tasks
+    spans = tasks
+      .map((task) => ({ task, span: calendarTaskSpan(task, display, timezone) }))
+      .filter((item) => item.span !== null),
+    dated = spans
       .filter(
-        (task) =>
-          task.dueDate &&
-          task.dueDate.slice(0, 10) >= period.start &&
-          task.dueDate.slice(0, 10) < period.end,
+        (item) =>
+          item.span?.start &&
+          item.span?.end &&
+          item.span.start < period.end &&
+          item.span.end >= period.start,
       )
-      .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!) || a.title.localeCompare(b.title)),
-    undated = tasks.filter((task) => !task.dueDate)
+      .map((item) => item.task)
+      .sort(
+        (a, b) =>
+          (calendarTaskSpan(a, display, timezone)?.start ?? '').localeCompare(
+            calendarTaskSpan(b, display, timezone)?.start ?? '',
+          ) || a.title.localeCompare(b.title),
+      ),
+    undated = spans.filter((item) => !item.span?.start).map((item) => item.task)
   const taskButton = (task: Task) => (
     <button className="workspace-calendar-task" type="button" onClick={() => onSelect(task)}>
       {task.parent ? '↳ ' : ''}
@@ -89,7 +110,13 @@ export function BoardCalendar({
             <th>Task</th>
             <th>Status</th>
             <th>Assignee</th>
-            <th>Due date</th>
+            <th>
+              {display === 'created'
+                ? 'Created date'
+                : display === 'open'
+                  ? 'Scheduled dates'
+                  : 'Due date'}
+            </th>
             <th>Priority</th>
           </tr>
         </thead>
@@ -113,7 +140,7 @@ export function BoardCalendar({
               </td>
               <td>{task.assigneeLabel || 'Unassigned'}</td>
               <td>
-                {canEdit && task.canEdit ? (
+                {display === 'due' && canEdit && task.canEdit ? (
                   <input
                     type="date"
                     aria-label={`Schedule ${task.title}`}
@@ -131,7 +158,11 @@ export function BoardCalendar({
                     }}
                   />
                 ) : dates ? (
-                  task.dueDate?.slice(0, 10)
+                  display === 'open' ? (
+                    `${calendarTaskSpan(task, display, timezone)?.start ?? '—'} — ${calendarTaskSpan(task, display, timezone)?.end ?? '—'}`
+                  ) : (
+                    calendarTaskSpan(task, display, timezone)?.start
+                  )
                 ) : (
                   'No date'
                 )}
@@ -155,6 +186,7 @@ export function BoardCalendar({
   return (
     <section className="workspace-calendar-view">
       <header className="workspace-calendar-controls">
+        <div className="workspace-calendar-add">{toolbar}</div>
         <div>
           <button
             type="button"
@@ -163,7 +195,7 @@ export function BoardCalendar({
           >
             ‹
           </button>
-          <button type="button" onClick={() => onAnchor(localTaskDay())}>
+          <button type="button" onClick={() => onAnchor(siteCalendarDay(new Date(), timezone))}>
             Today
           </button>
           <button
@@ -214,27 +246,32 @@ export function BoardCalendar({
           ))}
         </div>
       </header>
-      <label className="workspace-calendar-jump">
-        Go to date{' '}
-        <input
-          type="date"
-          aria-label="Calendar date"
-          value={anchor}
-          onChange={(event) => onAnchor(event.target.value || localTaskDay())}
-        />
-      </label>
+      <div className="workspace-calendar-options">
+        <label>
+          Show tasks by
+          <select
+            value={display}
+            onChange={(event) => onDisplay?.(event.target.value as CalendarDisplay)}
+          >
+            <option value="due">Due date</option>
+            <option value="open">All Open Tasks</option>
+            <option value="created">Created date</option>
+          </select>
+        </label>
+        <label className="workspace-calendar-jump">
+          Go to date{' '}
+          <input
+            type="date"
+            aria-label="Calendar date"
+            value={anchor}
+            onChange={(event) => onAnchor(event.target.value || localTaskDay())}
+          />
+        </label>
+      </div>
       {mode === 'agenda' ? (
         <>
           {!dated.length && <p>No dated tasks in this month.</p>}
-          {[...new Set(dated.map((task) => task.dueDate!.slice(0, 10)))].map((date) => (
-            <section key={date}>
-              <h4>{date}</h4>
-              {table(
-                dated.filter((task) => task.dueDate!.startsWith(date)),
-                true,
-              )}
-            </section>
-          ))}
+          {table(dated, true)}
         </>
       ) : (
         <div className="workspace-calendar-scroll">
@@ -252,9 +289,18 @@ export function BoardCalendar({
                   })}
                 </h4>
                 {tasks
-                  .filter((task) => task.dueDate?.slice(0, 10) === date)
+                  .filter((task) => {
+                    const span = calendarTaskSpan(task, display, timezone)
+                    return span?.start && span.end && span.start <= date && span.end >= date
+                  })
                   .map((task) => (
-                    <div key={task.id}>{taskButton(task)}</div>
+                    <div
+                      key={task.id}
+                      className="workspace-calendar-bubble"
+                      title={`${task.title}: ${calendarTaskSpan(task, display, timezone)?.start} — ${calendarTaskSpan(task, display, timezone)?.end}`}
+                    >
+                      {taskButton(task)}
+                    </div>
                   ))}
               </section>
             ))}

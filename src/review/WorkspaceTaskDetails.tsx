@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote attachments, typed inputs, and task details. */
 import { useCallback, useEffect, useState } from 'react'
 import { useConfig } from '@payloadcms/ui'
-import { reviewAPI, type Task } from './client'
+import { reviewAPI, taskSearchTerms, type Task } from './client'
 import { taskDocumentLink } from './links'
 import { WorkTimeProvider, TimeTrackingCell } from './TimeTracking'
 import { workspaceDialog } from './WorkspaceDialogs'
@@ -550,7 +550,13 @@ export function WorkspaceTaskDetails({
   api,
   task,
   onChange,
+  section = 'all',
+  boardID,
+  beforeWrite,
 }: {
+  beforeWrite?: () => Promise<string | undefined>
+  section?: 'all' | 'details' | 'dependencies'
+  boardID?: string
   api: string
   task: Task
   onChange: () => void
@@ -577,8 +583,9 @@ export function WorkspaceTaskDetails({
     setBusy(true)
     setError('')
     try {
+      const revision = await beforeWrite?.()
       await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
-        expectedUpdatedAt: task.updatedAt,
+        expectedUpdatedAt: revision ?? task.updatedAt,
         ...body,
       })
       await load()
@@ -606,111 +613,217 @@ export function WorkspaceTaskDetails({
             {error} <button onClick={() => void load()}>Reload</button>
           </p>
         )}
-        {data?.fields?.length > 0 && (
+        {section !== 'dependencies' && data?.fields?.length > 0 && (
           <>
             <h3>Custom fields</h3>
             <div className="workspace-field-grid">
-              {data.fields.map((field: FieldResult) => (
-                <div className="workspace-property" key={field.definition.id}>
-                  <span>{field.definition.name}</span>
-                  {field.definition.kind === `time-tracking` ? (
-                    <TimeTrackingCell task={task} fallback={Number(field.value ?? 0)} />
-                  ) : (
-                    <WorkspaceFieldValue
-                      api={api}
-                      result={field}
-                      disabled={task.canEdit === false || busy}
-                      onSave={async (value) => {
-                        await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
-                          action: 'field',
-                          field: field.definition.id,
-                          value,
-                          expectedUpdatedAt: task.updatedAt,
-                        })
-                        taskFeedback(task, 'updated')
-                        await load()
-                        onChange()
-                      }}
-                    />
-                  )}
-                  {field.definition.kind === 'timer' &&
-                    (() => {
-                      const timer = data.countdowns.find(
-                          (item: any) => item.field === field.definition.id,
-                        ),
-                        remaining = timer?.endsAt
-                          ? Math.max(0, Math.ceil((Date.parse(timer.endsAt) - clock) / 1000))
-                          : (timer?.remainingSeconds ?? seconds)
-                      return (
-                        <div>
-                          <output>
-                            {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
-                          </output>
-                          <input
-                            aria-label="Countdown minutes"
-                            type="number"
-                            min="0"
-                            max="10080"
-                            value={seconds / 60}
-                            onChange={(e) => setSeconds(Number(e.target.value) * 60)}
-                          />
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() =>
-                              void run({
-                                action: 'countdown',
-                                field: field.definition.id,
-                                seconds: timer?.endsAt ? remaining : seconds,
-                                running: !timer?.endsAt,
-                              })
-                            }
-                          >
-                            {timer?.endsAt ? 'Pause' : 'Start countdown'}
-                          </button>
-                        </div>
-                      )
-                    })()}
-                </div>
-              ))}
+              {data.fields
+                .filter(
+                  (field: FieldResult) =>
+                    section === 'all' || field.definition.kind !== 'time-tracking',
+                )
+                .map((field: FieldResult) => (
+                  <div className="workspace-property" key={field.definition.id}>
+                    <span>{field.definition.name}</span>
+                    {field.definition.kind === `time-tracking` ? (
+                      <TimeTrackingCell task={task} fallback={Number(field.value ?? 0)} />
+                    ) : (
+                      <WorkspaceFieldValue
+                        api={api}
+                        result={field}
+                        disabled={task.canEdit === false || busy}
+                        onSave={async (value) => {
+                          const revision = await beforeWrite?.()
+                          await reviewAPI(api, `task-workspace/tasks/${task.id}`, 'POST', {
+                            action: 'field',
+                            field: field.definition.id,
+                            value,
+                            expectedUpdatedAt: revision ?? task.updatedAt,
+                          })
+                          taskFeedback(task, 'updated')
+                          await load()
+                          onChange()
+                        }}
+                      />
+                    )}
+                    {field.definition.kind === 'timer' &&
+                      (() => {
+                        const timer = data.countdowns.find(
+                            (item: any) => item.field === field.definition.id,
+                          ),
+                          remaining = timer?.endsAt
+                            ? Math.max(0, Math.ceil((Date.parse(timer.endsAt) - clock) / 1000))
+                            : (timer?.remainingSeconds ?? seconds)
+                        return (
+                          <div>
+                            <output>
+                              {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+                            </output>
+                            <input
+                              aria-label="Countdown minutes"
+                              type="number"
+                              min="0"
+                              max="10080"
+                              value={seconds / 60}
+                              onChange={(e) => setSeconds(Number(e.target.value) * 60)}
+                            />
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() =>
+                                void run({
+                                  action: 'countdown',
+                                  field: field.definition.id,
+                                  seconds: timer?.endsAt ? remaining : seconds,
+                                  running: !timer?.endsAt,
+                                })
+                              }
+                            >
+                              {timer?.endsAt ? 'Pause' : 'Start countdown'}
+                            </button>
+                          </div>
+                        )
+                      })()}
+                  </div>
+                ))}
             </div>
           </>
         )}
-        <h3>Dependencies</h3>
-        <ul>
-          {data?.dependencies?.map((item: any) => (
-            <li key={item.id}>
-              {item.unavailable ? 'Restricted task' : item.title}
-              {item.status === 'done' ? ' · Complete' : ''}
-              {task.canEdit && (
+        {section !== 'details' && (
+          <>
+            <h3>Predecessors</h3>
+            <ul>
+              {data?.dependencies?.map((item: any) => (
+                <li key={item.id}>
+                  {item.unavailable ? 'Restricted task' : item.title}
+                  {item.status === 'done' ? ' · Complete' : ''}
+                  {task.canEdit && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void run({ action: 'remove-dependency', dependency: item.id })}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {task.canEdit && (
+              <>
+                <BoardDependencyPicker
+                  api={api}
+                  task={task}
+                  boardID={boardID}
+                  value={dependency}
+                  onChange={setDependency}
+                />
                 <button
                   type="button"
-                  disabled={busy}
-                  onClick={() => void run({ action: 'remove-dependency', dependency: item.id })}
+                  disabled={
+                    busy || dependency.length !== 1 || dependency[0]?.collection !== 'review-tasks'
+                  }
+                  onClick={() => void run({ action: 'dependency', predecessor: dependency[0].id })}
                 >
-                  Remove
+                  Add finish-to-start dependency
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
-        {task.canEdit && (
-          <>
-            <ReferencePicker api={api} value={dependency} onChange={setDependency} />
-            <button
-              type="button"
-              disabled={
-                busy || dependency.length !== 1 || dependency[0]?.collection !== 'review-tasks'
-              }
-              onClick={() => void run({ action: 'dependency', predecessor: dependency[0].id })}
-            >
-              Add finish-to-start dependency
-            </button>
+              </>
+            )}
+            <h3>Successors</h3>
+            <ul>
+              {data?.successors?.map((item: any) => (
+                <li key={item.id}>{item.unavailable ? 'Restricted task' : item.title}</li>
+              ))}
+            </ul>
           </>
         )}
-        <h3>Tracked time</h3>
-        <TimeTrackingCell task={task} fallback={data?.time?.seconds ?? 0} />
+        {section === 'all' && (
+          <>
+            <h3>Tracked time</h3>
+            <TimeTrackingCell task={task} fallback={data?.time?.seconds ?? 0} />
+          </>
+        )}
       </section>
     </WorkTimeProvider>
+  )
+}
+
+function BoardDependencyPicker({
+  api,
+  task,
+  boardID,
+  value,
+  onChange,
+}: {
+  api: string
+  task: Task
+  boardID?: string
+  value: any[]
+  onChange: (items: any[]) => void
+}) {
+  const [search, setSearch] = useState(''),
+    [tasks, setTasks] = useState<Task[]>([]),
+    [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    const boards = boardID ? [Number(boardID)] : (task.boards ?? [])
+    if (!boards.length) return
+    const params = new URLSearchParams({
+      depth: '0',
+      limit: '50',
+      where: JSON.stringify({
+        and: [
+          { boards: { in: boards } },
+          { id: { not_equals: task.id } },
+          { archived: { not_equals: true } },
+          ...taskSearchTerms(search).map((term) => ({ title: { contains: term } })),
+        ],
+      }),
+    })
+    const timer = setTimeout(() => {
+      void reviewAPI<{ docs: Task[] }>(api, `review-tasks?${params}`)
+        .then((data) => {
+          if (active) {
+            setTasks(data.docs)
+            setError('')
+          }
+        })
+        .catch((error) => {
+          if (active) setError(error.message)
+        })
+    }, 200)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [api, boardID, task.id, search])
+  return (
+    <div className="workspace-dependency-picker">
+      <label>
+        Find a task on this board
+        <input value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
+      {error && <p role="alert">{error}</p>}
+      <label>
+        Predecessor
+        <select
+          value={value[0]?.id ?? ''}
+          onChange={(event) =>
+            onChange(
+              event.target.value
+                ? [{ collection: 'review-tasks', id: Number(event.target.value) }]
+                : [],
+            )
+          }
+        >
+          <option value="">Choose a task</option>
+          {tasks.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   )
 }

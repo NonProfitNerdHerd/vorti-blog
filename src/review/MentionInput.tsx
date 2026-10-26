@@ -93,6 +93,7 @@ export function MentionInput({
       <label>
         {label}
         <textarea
+          rows={2}
           ref={input}
           aria-label={label}
           value={value}

@@ -1003,6 +1003,9 @@ export interface ReviewTask {
   documentDeleted?: boolean | null;
   documentTitle?: string | null;
   region?: ('document' | 'header' | 'footer') | null;
+  creationKey?: string | null;
+  creationSignature?: string | null;
+  clientRequestKey?: string | null;
   parent?: (number | null) | ReviewTask;
   status: 'open' | 'in-progress' | 'ready-for-review' | 'done';
   priority: 'low' | 'normal' | 'high' | 'urgent';
@@ -3642,6 +3645,9 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   documentDeleted?: T;
   documentTitle?: T;
   region?: T;
+  creationKey?: T;
+  creationSignature?: T;
+  clientRequestKey?: T;
   parent?: T;
   status?: T;
   priority?: T;

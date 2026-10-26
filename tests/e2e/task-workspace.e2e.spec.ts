@@ -101,7 +101,7 @@ test('open existing and new projects, create a board and task, and retain projec
   await page.getByLabel('Add task in Open', { exact: true }).fill(`Prepare newsletter ${suffix}`)
   await page.getByLabel('Add task in Open', { exact: true }).press('Enter')
   await page.getByRole('button', { name: `Prepare newsletter ${suffix}`, exact: true }).click()
-  await expect(dialog.getByRole('heading', { name: 'Task details', exact: true })).toBeVisible()
+  await expect(dialog.getByLabel('Task title', { exact: true })).toBeVisible()
   await dialog.getByRole('button', { name: 'Close dialog' }).click()
   await page.reload()
   await expect(
@@ -163,16 +163,17 @@ test('create a board and shared task, organize views, schedule, and edit subtask
   await dialog.getByLabel('Description', { exact: true }).fill('Coordinate @dev')
   await expect(dialog.getByRole('option', { name: /@dev/ })).toBeVisible()
   await dialog.getByLabel('Description', { exact: true }).press('Enter')
-  await dialog.getByRole('button', { name: 'Save task', exact: true }).click()
-  await expect(dialog.getByRole('heading', { name: 'Task details', exact: true })).toBeVisible()
-  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toBeEnabled()
-  await expect(
-    dialog.getByText('Task details, comments, and subtasks are shared', { exact: false }),
-  ).toBeVisible()
+  await dialog.getByRole('tab', { name: 'Subtasks', exact: true }).click()
+  await expect(dialog.getByRole('status')).toHaveText('Saved')
+  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('tab', { name: 'Subtasks', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   await dialog.getByRole('button', { name: 'Add subtask', exact: true }).click()
   await dialog.getByLabel('Task title', { exact: true }).fill('Check accessibility')
-  await dialog.getByRole('button', { name: 'Save task', exact: true }).click()
-  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toBeEnabled()
+  await dialog.getByRole('button', { name: 'Create task', exact: true }).click()
+  await expect(dialog.getByRole('status')).toHaveText('Saved')
   await dialog.getByRole('button', { name: 'Close dialog' }).click()
   await expect(dialog).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Prepare launch', exact: true })).toBeVisible()
@@ -269,7 +270,7 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   expect(share.ok(), await share.text()).toBe(true)
   await page.goto(`/admin/collections/review-tasks?task=${task.id}`)
   const dialog = page.locator('.editor-dialog-layer')
-  await dialog.getByRole('tab', { name: 'Comment Log', exact: true }).click()
+  await dialog.getByRole('tab', { name: 'Comments', exact: true }).click()
   await dialog.getByLabel('Add comment', { exact: true }).fill(`Please review @mention-${suffix}`)
   await expect(dialog.getByRole('option', { name: new RegExp(`@mention-${suffix}`) })).toBeVisible()
   await dialog.getByLabel('Add comment', { exact: true }).press('Enter')
@@ -300,4 +301,302 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
     page.locator('.editor-dialog-layer').getByLabel('Task title', { exact: true }),
   ).toHaveValue(task.title)
   await expect(page).toHaveURL(/comment=/)
+})
+
+test('rapid entry stays responsive and task drafts autosave across anchored tabs', async ({
+  page,
+}) => {
+  const suffix = Date.now()
+  const boardResponse = await page.request.post('/api/task-boards', {
+    data: { name: 'Task UX ' + suffix },
+  })
+  expect(boardResponse.ok()).toBe(true)
+  const board = (await boardResponse.json()).doc
+  await page.goto(
+    '/admin/collections/review-tasks?workspace=boards&board=' + board.id + '&site=default',
+  )
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  await page.route('**/api/task-workspace/create*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    await route.continue()
+  })
+  await page.evaluate(() => {
+    const state = window as unknown as {
+      taskEntryFeedback: { elapsed: number; cleared: boolean }[]
+    }
+    state.taskEntryFeedback = []
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if (
+          event.key !== 'Enter' ||
+          !(event.target instanceof HTMLInputElement) ||
+          !event.target.getAttribute('aria-label')?.startsWith('Add ')
+        )
+          return
+        const input = event.target,
+          started = performance.now()
+        requestAnimationFrame(() =>
+          state.taskEntryFeedback.push({
+            elapsed: performance.now() - started,
+            cleared: input.value === '',
+          }),
+        )
+      },
+      true,
+    )
+  })
+  const entry = page.getByLabel('Add task in Open', { exact: true })
+  for (let index = 1; index <= 5; index++) {
+    await entry.fill('Rapid ' + index + ' ' + suffix)
+    await entry.press('Enter')
+    await expect(entry).toHaveValue('')
+  }
+  const parent = 'Rapid 5 ' + suffix
+  await expect(page.getByRole('button', { name: parent, exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Expand subtasks for ' + parent, exact: true }).click()
+  const childEntry = page.getByLabel('Add subtask to ' + parent, { exact: true })
+  for (let index = 1; index <= 3; index++) {
+    await childEntry.fill('Rapid child ' + index + ' ' + suffix)
+    await childEntry.press('Enter')
+    await expect(childEntry).toHaveValue('')
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { taskEntryFeedback: unknown[] }).taskEntryFeedback.length,
+      ),
+    )
+    .toBe(8)
+  const feedback = await page.evaluate(
+    () =>
+      (window as unknown as { taskEntryFeedback: { elapsed: number; cleared: boolean }[] })
+        .taskEntryFeedback,
+  )
+  expect(feedback).toHaveLength(8)
+  expect(feedback.every((item) => item.cleared && item.elapsed < 250)).toBe(true)
+  console.log(
+    JSON.stringify({
+      taskEntryFeedbackMaxMs: Math.max(...feedback.map((item) => item.elapsed)),
+      delayedCreationMs: 700,
+    }),
+  )
+  await childEntry.fill('Preserve this unfinished child title')
+  await expect(page.getByRole('button', { name: parent, exact: true })).toBeEnabled()
+  await expect(childEntry).toHaveValue('Preserve this unfinished child title')
+  await childEntry.fill('')
+  await page.getByRole('button', { name: parent, exact: true }).click()
+  const dialog = page.locator('.editor-dialog-layer').first()
+  await expect(dialog.getByLabel('Task title', { exact: true })).toHaveValue(parent)
+  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toHaveCount(0)
+  const top = (await dialog.locator('.editor-dialog-card').boundingBox())!.y
+  await dialog.getByLabel('Description', { exact: true }).fill('Saved across tabs ' + suffix)
+  await dialog.getByRole('tab', { name: 'Subtasks', exact: true }).click()
+  await expect(dialog.getByRole('status')).toHaveText('Saved')
+  await expect(
+    dialog.getByRole('button', { name: 'Rapid child 3 ' + suffix, exact: true }),
+  ).toBeVisible()
+  expect((await dialog.locator('.editor-dialog-card').boundingBox())!.y).toBe(top)
+  await dialog.getByRole('tab', { name: 'Details', exact: true }).focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(dialog.getByRole('tab', { name: 'Subtasks', exact: true })).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(dialog.getByRole('tab', { name: 'Dependencies', exact: true })).toBeFocused()
+  await page.keyboard.press('Home')
+  await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toBeFocused()
+  await dialog.getByRole('button', { name: 'Task collaboration', exact: true }).click()
+  const collaboration = page.locator('.editor-dialog-layer').last()
+  await expect(collaboration).toContainText('Task details, comments, and subtasks are shared')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('.editor-dialog-layer')).toHaveCount(1)
+  await expect(
+    dialog.getByRole('button', { name: 'Task collaboration', exact: true }),
+  ).toBeFocused()
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await page.reload()
+  await page.getByRole('button', { name: parent, exact: true }).click()
+  await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue(
+    'Saved across tabs ' + suffix,
+  )
+  await page.route('**/api/review-tasks/*', async (route) => {
+    if (route.request().method() === 'PATCH')
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Temporary save failure' }),
+      })
+    else await route.continue()
+  })
+  await dialog.getByLabel('Description', { exact: true }).fill('Preserved failed draft')
+  await expect(dialog.getByRole('alert')).toContainText('Temporary save failure')
+  await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue(
+    'Preserved failed draft',
+  )
+  await page.unroute('**/api/review-tasks/*')
+  await dialog.getByRole('button', { name: 'Retry', exact: true }).click()
+  await expect(dialog.getByRole('status')).toHaveText('Saved')
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await page.getByRole('button', { name: parent, exact: true }).click()
+  await dialog.getByLabel('Description', { exact: true }).fill('Flush before closing ' + suffix)
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await page.reload()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: parent, exact: true }).click()
+  await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue(
+    'Flush before closing ' + suffix,
+  )
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+    true,
+  )
+})
+
+test('timeline dates, board dependencies, combined time tracking and calendar display modes', async ({
+  page,
+}) => {
+  const suffix = Date.now(),
+    title = 'Scheduled task ' + suffix
+  const board = (
+    await (
+      await page.request.post('/api/task-boards', { data: { name: 'Scheduling UX ' + suffix } })
+    ).json()
+  ).doc
+  const task = (
+    await (
+      await page.request.post('/api/review-tasks', {
+        data: {
+          title,
+          initialBoard: board.id,
+          status: 'open',
+          priority: 'normal',
+          startDate: '2026-10-20T12:00:00Z',
+          dueDate: '2026-10-23T12:00:00Z',
+        },
+      })
+    ).json()
+  ).doc
+  const predecessor = (
+    await (
+      await page.request.post('/api/review-tasks', {
+        data: {
+          title: 'Predecessor ' + suffix,
+          initialBoard: board.id,
+          status: 'open',
+          priority: 'normal',
+          dueDate: '2026-10-19T12:00:00Z',
+        },
+      })
+    ).json()
+  ).doc
+  for (const name of ['Tracked time A', 'Tracked time B']) {
+    const fieldResponse = await page.request.post('/api/task-field-definitions', {
+      data: { name, kind: 'time-tracking' },
+    })
+    expect(fieldResponse.ok()).toBe(true)
+    const field = (await fieldResponse.json()).doc
+    expect(
+      (
+        await page.request.post('/api/task-board-fields', {
+          data: { board: board.id, field: field.id },
+        })
+      ).ok(),
+    ).toBe(true)
+  }
+  await page.goto(
+    '/admin/collections/review-tasks?workspace=boards&board=' + board.id + '&site=default',
+  )
+  await page.getByRole('button', { name: 'Timeline', exact: true }).click()
+  await page.getByLabel('Range start', { exact: true }).fill('2026-10-19')
+  await expect(page.getByLabel('Visible days').locator('option')).toHaveText([
+    '7',
+    '14',
+    '28',
+    '60',
+    '90',
+    '120',
+    '180',
+    '240',
+    '365',
+  ])
+  const bar = page.getByRole('button', { name: 'Open or move ' + title, exact: true })
+  await bar.focus()
+  await bar.press('ArrowRight')
+  await expect
+    .poll(async () =>
+      (
+        await (await page.request.get('/api/review-tasks/' + task.id + '?depth=0')).json()
+      ).startDate.slice(0, 10),
+    )
+    .toBe('2026-10-21')
+  await expect(
+    page.getByRole('button', { name: 'Resize end of ' + title, exact: true }),
+  ).toBeEnabled()
+  await page
+    .getByRole('button', { name: 'Resize end of ' + title, exact: true })
+    .press('ArrowRight')
+  await expect
+    .poll(async () =>
+      (
+        await (await page.request.get('/api/review-tasks/' + task.id + '?depth=0')).json()
+      ).dueDate.slice(0, 10),
+    )
+    .toBe('2026-10-25')
+  await expect(
+    page.getByRole('button', { name: 'Resize end of ' + title, exact: true }),
+  ).toBeEnabled()
+  const barBounds = (await bar.boundingBox())!
+  await page.mouse.move(barBounds.x + barBounds.width / 2, barBounds.y + barBounds.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(
+    barBounds.x + barBounds.width / 2 + 24,
+    barBounds.y + barBounds.height / 2,
+    { steps: 4 },
+  )
+  await page.mouse.up()
+  await expect(page.locator('.editor-dialog-layer')).toHaveCount(0)
+  await expect
+    .poll(async () =>
+      (
+        await (await page.request.get('/api/review-tasks/' + task.id + '?depth=0')).json()
+      ).startDate.slice(0, 10),
+    )
+    .toBe('2026-10-22')
+  const initialWrites: string[] = []
+  page.on('request', (request) => {
+    if (request.method() === 'PATCH' && request.url().includes('/api/review-tasks/'))
+      initialWrites.push(request.url())
+  })
+  await bar.click()
+  const dialog = page.locator('.editor-dialog-layer').first()
+  await page.waitForTimeout(750) // Opening a task must remain read-only beyond the debounce interval.
+  expect(initialWrites).toHaveLength(0)
+  await expect(dialog.getByRole('tab', { name: 'Tracked Time', exact: true })).toHaveCount(1)
+  await dialog.getByRole('tab', { name: 'Dependencies', exact: true }).click()
+  await dialog
+    .getByLabel('Find a task on this board', { exact: true })
+    .fill('Predecessor ' + suffix)
+  await dialog.getByLabel('Predecessor', { exact: true }).selectOption(String(predecessor.id))
+  await dialog.getByRole('button', { name: 'Add finish-to-start dependency', exact: true }).click()
+  await expect(
+    dialog.getByRole('listitem').filter({ hasText: 'Predecessor ' + suffix }),
+  ).toBeVisible()
+  await dialog.getByRole('tab', { name: 'Tracked Time', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Start time for ' + title, exact: true }).click()
+  await dialog.getByRole('button', { name: 'Pause time for ' + title, exact: true }).click()
+  await expect(dialog.locator('.workspace-time-dialog tbody tr')).toHaveCount(1)
+  await dialog.getByRole('button', { name: 'Change history', exact: true }).click()
+  await expect(dialog.locator('.workspace-time-dialog table')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click()
+  await page.reload()
+  await page.getByLabel('Range start', { exact: true }).fill('2026-10-19')
+  await expect(page.locator('.workspace-dependency-lines path')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Calendar', exact: true }).click()
+  await page.getByLabel('Calendar date', { exact: true }).fill('2026-10-21')
+  await page.getByLabel('Show tasks by', { exact: true }).selectOption('open')
+  await expect(page.locator('.workspace-calendar-bubble').filter({ hasText: title })).toHaveCount(5)
+  await page.getByLabel('Show tasks by', { exact: true }).selectOption('due')
+  await expect(page.locator('.workspace-calendar-bubble').filter({ hasText: title })).toHaveCount(1)
+  await page.getByLabel('Show tasks by', { exact: true }).selectOption('created')
+  await page.reload()
+  await expect(page.getByLabel('Show tasks by', { exact: true })).toHaveValue('created')
 })

@@ -91,3 +91,7 @@ body:has(.editor-dialog-layer) .block-actions__toolbar {
     padding: 16px;
   }
 }
+
+.editor-dialog-title { min-width: 0; flex: 1; }
+.editor-dialog-top { align-items: start; padding-top: clamp(16px, 5vh, 56px); }
+.editor-dialog-top > .editor-dialog-card { width: min(820px, calc(100vw - 48px)); max-height: calc(95dvh - 24px); }

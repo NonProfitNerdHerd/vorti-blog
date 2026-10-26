@@ -1,3 +1,4 @@
+import * as migration_20261026_220000_task_creation_keys from './20261026_220000_task_creation_keys'
 import * as migration_20261026_130000_automations from './20261026_130000_automations';
 import * as migration_20261025_040000_crm_tasks from './20261025_040000_crm_tasks';
 import * as migration_20261025_050000_crm_imports from './20261025_050000_crm_imports';
@@ -238,4 +239,5 @@ export const migrations = [
   { up: migration_20261025_050000_crm_imports.up, down: migration_20261025_050000_crm_imports.down, name: '20261025_050000_crm_imports' },
   { up: migration_20261025_060000_crm_import_results.up, down: migration_20261025_060000_crm_import_results.down, name: '20261025_060000_crm_import_results' },
   { up: migration_20261026_130000_automations.up, down: migration_20261026_130000_automations.down, name: '20261026_130000_automations' },
+  { up: migration_20261026_220000_task_creation_keys.up, down: migration_20261026_220000_task_creation_keys.down, name: '20261026_220000_task_creation_keys' },
 ];
