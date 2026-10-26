@@ -165,7 +165,7 @@ export function Tasks({
     document.addEventListener('click', navigate, true)
     return () => document.removeEventListener('click', navigate, true)
   }, [])
-  const selectTask = (task: Pick<Task, 'id'>) => {
+  const selectTask = (task: Pick<Task, 'id'>, preferredTab?: 'default') => {
     if (task.id < 0) return
     void (async () => {
       try {
@@ -185,11 +185,17 @@ export function Tasks({
           taskDirty.current = false
           const url = new URL(location.href)
           url.searchParams.set('task', String(task.id))
+          if (preferredTab) {
+            url.searchParams.set('taskTab', preferredTab)
+            url.searchParams.delete('comment')
+            url.searchParams.delete('attachment')
+          }
           history.replaceState(null, '', url)
           setTaskTab(
-            new URLSearchParams(location.search).has('comment')
-              ? 'comments'
-              : (new URLSearchParams(location.search).get('taskTab') ?? 'default'),
+            preferredTab ??
+              (new URLSearchParams(location.search).has('comment')
+                ? 'comments'
+                : (new URLSearchParams(location.search).get('taskTab') ?? 'default')),
           )
           setSelected(task)
         })
@@ -535,7 +541,7 @@ export function Tasks({
                   {selected.parent && (
                     <button
                       type="button"
-                      onClick={() => selectTask({ id: Number(selected.parent) })}
+                      onClick={() => selectTask({ id: Number(selected.parent) }, 'default')}
                     >
                       Open parent task
                     </button>
@@ -589,7 +595,7 @@ export function Tasks({
                     <Subtasks
                       api={api}
                       task={selected}
-                      select={selectTask}
+                      select={(task) => selectTask(task, 'default')}
                       add={() => {
                         void (async () => {
                           try {

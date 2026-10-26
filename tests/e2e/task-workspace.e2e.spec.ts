@@ -397,6 +397,20 @@ test('rapid entry stays responsive and task drafts autosave across anchored tabs
     dialog.getByRole('button', { name: 'Rapid child 3 ' + suffix, exact: true }),
   ).toBeVisible()
   expect((await dialog.locator('.editor-dialog-card').boundingBox())!.y).toBe(top)
+  await dialog.getByRole('button', { name: 'Rapid child 3 ' + suffix, exact: true }).click()
+  await expect(dialog.getByLabel('Task title', { exact: true })).toHaveValue(
+    'Rapid child 3 ' + suffix,
+  )
+  await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await dialog.getByRole('button', { name: 'Open parent task', exact: true }).click()
+  await expect(dialog.getByLabel('Task title', { exact: true })).toHaveValue(parent)
+  await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   await dialog.getByRole('tab', { name: 'Details', exact: true }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(dialog.getByRole('tab', { name: 'Subtasks', exact: true })).toBeFocused()
