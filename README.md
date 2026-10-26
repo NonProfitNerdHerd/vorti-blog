@@ -13,7 +13,7 @@ VortiCause brings publishing and the work behind it into one platform. Authors g
 - Private/team-wide collaboration, inherited project permissions, private-board exceptions, protected attachments, time tracking, and audited time corrections.
 - Event content with timezone-aware schedules, recurrence, and calendar/listing presentations. Events remain part of the existing content-type system.
 - Forms, submissions, embedding, and workflow/automation foundations.
-- Standalone [Automations](docs/automations.md): trigger-first workflows across Forms, CRM contacts, board items, pages, and posts, with self-publishing, real-write tests, permission checks, and versioned run history.
+- Standalone [Workflows](docs/automations.md): starter templates and trigger-first workflows across Forms, CRM contacts, board items, pages, and posts, with self-publishing, shared templates, real-write tests, permission checks, and versioned run history.
 - Staff donor CRM: constituents and relationships, households, gifts and split allocations, campaigns/funds/appeals, pledges and recurring reconciliation, memberships, opportunities, volunteers, receipts/correspondence, reviewed imports, and linked follow-up Tasks.
 - Chapter-aware organization administration and SubSites, with scoped access and public site routing.
 - A personalized Dashboard with publishing summaries, personal tasks, accessible projects, and recent/favorite boards.

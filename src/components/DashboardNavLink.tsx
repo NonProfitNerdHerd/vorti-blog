@@ -238,6 +238,7 @@ export function PolicyNav({
             href={`${admin}/workflows?workflowView=${view}${site ? `&site=${encodeURIComponent(site)}` : ''}`}
             prefetch={false}
             className="nav__link"
+            tabIndex={navOpen ? undefined : -1}
             onClick={onNavigate}
             aria-current={
               inWorkflows && (params.get('workflowView') || 'my') === view ? 'page' : undefined

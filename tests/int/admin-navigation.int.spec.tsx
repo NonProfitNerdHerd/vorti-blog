@@ -103,6 +103,22 @@ afterEach(() => {
   state.close.mockClear()
 })
 describe('shared admin sidebar groups', () => {
+  it('opens Workflows and selects the requested workflow view with site context', () => {
+    state.path = '/admin/workflows'
+    state.query = 'workflowView=shared&site=chapter-a'
+    render(<Menu />)
+    expect(button('Toggle Workflows navigation').getAttribute('aria-expanded')).toBe('true')
+    const navigation = screen.getByRole('navigation', { name: 'Workflows navigation' })
+    expect(within(navigation).getAllByRole('link')).toHaveLength(3)
+    expect(
+      within(navigation)
+        .getByRole('link', { name: 'Shared Workflows' })
+        .getAttribute('aria-current'),
+    ).toBe('page')
+    expect(
+      within(navigation).getByRole('link', { name: 'Create Workflows' }).getAttribute('href'),
+    ).toContain('site=chapter-a')
+  })
   it('ignores saved expansion, opens routes, preserves manual groups and resets on reload/user changes', () => {
     const fetch = vi.spyOn(globalThis, 'fetch')
     const view = render(<Menu />)

@@ -1,4 +1,19 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+async function workflowNavigation(page: Page) {
+  const toggle = page.getByRole('button', {
+    name: 'Toggle Workflows navigation',
+    includeHidden: true,
+  })
+  if ((await toggle.getAttribute('tabindex')) === '-1' || !(await toggle.isVisible()))
+    await page
+      .getByRole('button', { name: 'Open Menu', exact: true })
+      .filter({ visible: true })
+      .first()
+      .click()
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
+  return page.getByRole('navigation', { name: 'Workflows navigation' })
+}
 
 test('Workflows sidebar, template catalogue, saved workflow and private shared copies', async ({
   page,
@@ -10,7 +25,7 @@ test('Workflows sidebar, template catalogue, saved workflow and private shared c
   expect(login.ok()).toBe(true)
   await page.goto('/admin/workflows?workflowView=create&site=default')
   await expect(page.getByRole('heading', { name: 'Create Workflows', exact: true })).toBeVisible()
-  const nav = page.getByRole('navigation', { name: 'Workflows navigation' })
+  const nav = await workflowNavigation(page)
   await expect(nav.getByRole('link', { name: 'Create Workflows', exact: true })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'My Workflows', exact: true })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Shared Workflows', exact: true })).toBeVisible()
@@ -26,10 +41,18 @@ test('Workflows sidebar, template catalogue, saved workflow and private shared c
   await expect(page.getByText(/Published version 1/)).toBeVisible()
   await page.getByRole('button', { name: 'Share published template', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Stop sharing template' })).toBeVisible()
-  await nav.getByRole('link', { name: 'My Workflows', exact: true }).click()
+  await (
+    await workflowNavigation(page)
+  )
+    .getByRole('link', { name: 'My Workflows', exact: true })
+    .click()
   await page.getByRole('button', { name, exact: true }).click()
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
-  await nav.getByRole('link', { name: 'Shared Workflows', exact: true }).click()
+  await (
+    await workflowNavigation(page)
+  )
+    .getByRole('link', { name: 'Shared Workflows', exact: true })
+    .click()
   const row = page.getByRole('row').filter({ hasText: name })
   await expect(row).toBeVisible()
   await row.getByRole('button', { name: 'Copy to My Workflows', exact: true }).click()
