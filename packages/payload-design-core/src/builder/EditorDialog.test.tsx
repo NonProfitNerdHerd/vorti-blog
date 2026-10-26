@@ -44,12 +44,13 @@ it('lets the dialog handle Escape without closing the inspector sidebar', () => 
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
-function Harness() {
+function Harness({ seo = false }: { seo?: boolean } = {}) {
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState<'block' | 'document'>('block')
+  const [tab, setTab] = useState<'block' | 'document' | 'seo'>('block')
   return (
-    <EditorDialog inline open={open} title="Block settings" onClose={() => setOpen(false)}>
+    <EditorDialog inline open={open} title={seo && tab === 'seo' ? 'SEO settings' : 'Block settings'} onClose={() => setOpen(false)}>
       <InspectorTabs
+        seo={seo}
         value={tab}
         onChange={setTab}
         documentLabel="Post"
@@ -96,4 +97,27 @@ it('keeps color popovers inside the expanded inspector and dismisses only the po
   expect(screen.getByRole('dialog', { name: 'Block settings' })).toBe(dialog)
   fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }))
   expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+it('supports three SEO tabs, keyboard wrapping and the expanded SEO dialog without losing draft state', async () => {
+  render(<Harness seo />)
+  expect(screen.getAllByRole('tab')).toHaveLength(3)
+  const input = screen.getByLabelText('Draft setting')
+  fireEvent.change(input, { target: { value: 'Unsaved SEO title' } })
+  fireEvent.click(screen.getByRole('tab', { name: 'SEO' }))
+  screen.getByRole('button', { name: 'Expand inspector' }).focus()
+  fireEvent.click(screen.getByRole('button', { name: 'Expand inspector' }))
+  const dialog = screen.getByRole('dialog', { name: 'SEO settings' })
+  expect(within(dialog).getByLabelText('Draft setting')).toBe(input)
+  fireEvent.keyDown(within(dialog).getByRole('tab', { name: 'SEO' }), { key: 'ArrowRight' })
+  expect(screen.getByRole('tab', { name: 'Block' }).getAttribute('aria-selected')).toBe('true')
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'Block' }), { key: 'ArrowLeft' })
+  expect(screen.getByRole('tab', { name: 'SEO' }).getAttribute('aria-selected')).toBe('true')
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'SEO' }), { key: 'Home' })
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'Block' }), { key: 'End' })
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Close dialog' }), { key: 'Escape' })
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect((screen.getByLabelText('Draft setting') as HTMLInputElement).value).toBe('Unsaved SEO title')
+  expect(screen.getByRole('tab', { name: 'SEO' }).getAttribute('aria-selected')).toBe('true')
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Expand inspector' })))
 })

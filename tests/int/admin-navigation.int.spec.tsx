@@ -125,11 +125,11 @@ describe('shared admin sidebar groups', () => {
     expect(
       Array.from(view.container.querySelectorAll('.nav-group')).map((group) => group.id),
     ).toEqual([
-      'nav-group-Workflows',
       'nav-group-Tasks',
       'nav-group-Content',
       'nav-group-CRM',
       'nav-group-Forms',
+      'nav-group-Workflows',
       'nav-group-Site Design',
       'nav-group-Admin',
     ])
@@ -185,6 +185,8 @@ describe('shared admin sidebar groups', () => {
     state.query = 'workspace=boards'
     view.rerender(<Menu />)
     expect(button('Toggle Tasks navigation').getAttribute('aria-expanded')).toBe('true')
+    const tasks = screen.getByRole('navigation', { name: 'Tasks navigation' })
+    expect(within(tasks).getAllByRole('link')[0].textContent?.trim()).toBe('Inbox')
     expect(screen.getByRole('link', { name: 'Boards' }).getAttribute('aria-current')).toBe('page')
   })
   it('retains dirty editors on canceled navigation and leaves modified clicks independent', () => {

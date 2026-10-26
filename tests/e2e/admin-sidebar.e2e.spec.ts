@@ -32,16 +32,21 @@ test('admin sidebar starts collapsed, follows routes, resets on reload, and host
       )
   expect(await parentNames()).toEqual([
     'Dashboard',
-    'Workflows',
     'Tasks',
     'Content',
     'CRM',
     'Forms',
+    'Workflows',
     'Site Design',
     'Admin',
   ])
   for (const toggle of await nav.locator('button[aria-expanded]').all())
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await nav.getByRole('button', { name: 'Toggle Tasks navigation', exact: true }).click()
+  const tasks = nav.getByRole('navigation', { name: 'Tasks navigation' })
+  await expect(tasks.getByRole('link').first()).toContainText('Inbox')
+  await expect(tasks.getByRole('link').first().locator('.task-inbox-badge')).toHaveText(/^(\d+|99\+)$/)
+  await nav.getByRole('button', { name: 'Toggle Tasks navigation', exact: true }).click()
   await nav.getByRole('button', { name: 'Forms', exact: true }).click()
   await nav.getByRole('button', { name: 'Content', exact: true }).click()
   await nav.getByRole('link', { name: 'Posts', exact: true }).click()
@@ -92,6 +97,10 @@ test('admin sidebar starts collapsed, follows routes, resets on reload, and host
   )
   await page.setViewportSize({ width: 390, height: 844 })
   crm = await crmNavigation(page)
+  expect(await parentNames()).toEqual(['Dashboard', 'Tasks', 'Content', 'CRM', 'Forms', 'Workflows', 'Site Design', 'Admin'])
+  await nav.getByRole('button', { name: 'Toggle Tasks navigation', exact: true }).click()
+  await expect(tasks.getByRole('link').first()).toContainText('Inbox')
+  await expect(tasks.getByRole('link').first().locator('.task-inbox-badge')).toBeVisible()
   await crm.getByRole('link', { name: 'Donations', exact: true }).click()
   await expect(page).toHaveURL(/view=donations.*site=default/)
   await expect(page.getByRole('heading', { name: 'Donations', exact: true })).toBeVisible()

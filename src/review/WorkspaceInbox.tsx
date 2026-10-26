@@ -2,10 +2,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Refresh the remote inbox when filters change. */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import './inbox-badge.css'
 import { query, reviewAPI, type Task } from './client'
 
-export function InboxBadge({ api }: { api: string }) {
-  const [count, setCount] = useState(0)
+export function InboxBadge({ api, showZero = false }: { api: string; showZero?: boolean }) {
+  const [count, setCount] = useState<number | null>(null)
   useEffect(() => {
     let current = true
     const load = async () => {
@@ -30,7 +31,7 @@ export function InboxBadge({ api }: { api: string }) {
       window.removeEventListener('vorti-tasks-changed', refresh)
     }
   }, [api])
-  return count ? (
+  return count !== null && (count > 0 || showZero) ? (
     <span className="task-inbox-badge" aria-label={`${count} unread notifications`}>
       {count > 99 ? '99+' : count}
     </span>

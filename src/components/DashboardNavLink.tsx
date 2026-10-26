@@ -209,45 +209,15 @@ export function PolicyNav({
     ? params.get('workspace') || (params.get('taskView') === 'assigned' ? 'assigned' : 'all')
     : undefined
   const taskLinks = [
+    ['inbox', 'Inbox', '?workspace=inbox'],
     ['assigned', 'My tasks', '?taskView=assigned'],
     ['all', 'All tasks', ''],
     ['projects', 'Projects', '?workspace=projects'],
     ['boards', 'Boards', '?workspace=boards'],
-    ['inbox', 'Inbox', '?workspace=inbox'],
   ] as const
   return (
     <>
       <DashboardNavLink admin={admin} />
-      <NavigationGroup
-        label="Workflows"
-        href={`${admin}/workflows${site ? `?site=${encodeURIComponent(site)}` : ''}`}
-        open={Boolean(open.Workflows)}
-        toggle={() => toggle('Workflows')}
-        navOpen={navOpen}
-        onNavigate={onNavigate}
-      >
-        {(
-          [
-            ['create', 'Create Workflows'],
-            ['my', 'My Workflows'],
-            ['shared', 'Shared Workflows'],
-          ] as const
-        ).map(([view, label]) => (
-          <Link
-            key={view}
-            href={`${admin}/workflows?workflowView=${view}${site ? `&site=${encodeURIComponent(site)}` : ''}`}
-            prefetch={false}
-            className="nav__link"
-            tabIndex={navOpen ? undefined : -1}
-            onClick={onNavigate}
-            aria-current={
-              inWorkflows && (params.get('workflowView') || 'my') === view ? 'page' : undefined
-            }
-          >
-            {label}
-          </Link>
-        ))}
-      </NavigationGroup>
       {tasks && (
         <NavigationGroup
           label="Tasks"
@@ -270,7 +240,7 @@ export function PolicyNav({
               {id === 'inbox' && (
                 <>
                   {' '}
-                  <InboxBadge api={config.routes.api} />
+                  <InboxBadge api={config.routes.api} showZero />
                 </>
               )}
             </Link>
@@ -308,7 +278,38 @@ export function PolicyNav({
           </Link>
         ))}
       </NavigationGroup>
-      {primary.filter((group) => group.label !== 'Content').map(renderNativeGroup)}
+      {primary.filter((group) => group.label !== 'Content' && group.label !== 'Site Design').map(renderNativeGroup)}
+      <NavigationGroup
+        label="Workflows"
+        href={`${admin}/workflows${site ? `?site=${encodeURIComponent(site)}` : ''}`}
+        open={Boolean(open.Workflows)}
+        toggle={() => toggle('Workflows')}
+        navOpen={navOpen}
+        onNavigate={onNavigate}
+      >
+        {(
+          [
+            ['create', 'Create Workflows'],
+            ['my', 'My Workflows'],
+            ['shared', 'Shared Workflows'],
+          ] as const
+        ).map(([view, label]) => (
+          <Link
+            key={view}
+            href={`${admin}/workflows?workflowView=${view}${site ? `&site=${encodeURIComponent(site)}` : ''}`}
+            prefetch={false}
+            className="nav__link"
+            tabIndex={navOpen ? undefined : -1}
+            onClick={onNavigate}
+            aria-current={
+              inWorkflows && (params.get('workflowView') || 'my') === view ? 'page' : undefined
+            }
+          >
+            {label}
+          </Link>
+        ))}
+      </NavigationGroup>
+      {primary.filter((group) => group.label === 'Site Design').map(renderNativeGroup)}
       {visible.filter((group) => group.label === 'Admin').map(renderNativeGroup)}
     </>
   )

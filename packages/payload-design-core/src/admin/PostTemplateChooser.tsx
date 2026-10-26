@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth, useConfig, useDocumentDrawer } from '@payloadcms/ui'
 import { EditorDialog } from '../builder/EditorDialog'
+import { isSelectableArticleTemplate } from '../content/template-selection'
 import type { Template } from '../types'
 
 /** A schematic preview of the template layout, with no public-content requests. */
@@ -86,7 +87,7 @@ export function PostTemplateChooser({
   }, [pendingOpen, templateID, openDrawer])
   useEffect(() => {
     const controller = new AbortController()
-    const pending = [...templates]
+    const pending = templates.filter(isSelectableArticleTemplate)
     async function worker() {
       while (pending.length && !controller.signal.aborted) {
         const template = pending.shift()!
@@ -155,7 +156,7 @@ export function PostTemplateChooser({
     }
   }
   if (!mounted) return null
-  const ranked = [...templates].sort(
+  const ranked = templates.filter(isSelectableArticleTemplate).sort(
     (a, b) => (counts[b.id] || 0) - (counts[a.id] || 0) || a.name.localeCompare(b.name),
   )
   return createPortal(
