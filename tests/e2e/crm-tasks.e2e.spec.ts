@@ -138,8 +138,16 @@ test('save a donor call, assign another staff member and complete the follow-up 
   const dialog = taskPage.locator('.editor-dialog-layer')
   await expect(dialog.getByLabel('Task title', { exact: true })).toHaveValue(`Renewal call ${name}`)
   await dialog.getByLabel('Status', { exact: true }).selectOption('done')
-  await dialog.getByRole('button', { name: 'Save task', exact: true }).click()
-  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toBeEnabled()
+  await expect(dialog.getByRole('button', { name: 'Save task', exact: true })).toHaveCount(0)
+  await expect(dialog.getByRole('status')).toHaveText('Saved')
+  const taskID = new URL(taskPage.url()).searchParams.get('task')
+  await expect
+    .poll(
+      async () =>
+        (await (await staffContext.request.get('/api/review-tasks/' + taskID + '?depth=0')).json())
+          .status,
+    )
+    .toBe('done')
   await page.bringToFront()
   await page.getByRole('button', { name: 'Refresh tasks', exact: true }).click()
   await page.getByRole('combobox', { name: 'Task status', exact: true }).selectOption('completed')
