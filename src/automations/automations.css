@@ -1,0 +1,88 @@
+.automation-workspace {
+  max-width: 1120px;
+  margin: 32px auto;
+  padding: 0 28px 64px;
+}
+.automation-workspace header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.automation-workspace section,
+.automation-workspace article {
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 10px;
+  padding: 22px;
+  margin: 20px 0;
+}
+.automation-workspace article {
+  background: var(--theme-elevation-50);
+}
+.automation-workspace label {
+  display: block;
+  margin: 12px 0;
+  font-weight: 500;
+}
+.automation-workspace input:not([type='checkbox']),
+.automation-workspace select,
+.automation-workspace textarea {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  padding: 10px;
+  margin: 6px 0;
+  background: var(--theme-input-bg);
+  color: var(--theme-text);
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 5px;
+}
+.automation-workspace button {
+  padding: 9px 14px;
+  margin: 5px 8px 5px 0;
+  border: 1px solid var(--theme-elevation-200);
+  border-radius: 5px;
+  cursor: pointer;
+  background: var(--theme-elevation-100);
+  color: var(--theme-text);
+}
+.automation-workspace button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.automation-workspace table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+.automation-workspace td,
+.automation-workspace th {
+  padding: 12px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+}
+.automation-workspace pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.automation-workspace details {
+  padding: 12px;
+  border-bottom: 1px solid var(--theme-elevation-150);
+}
+.automation-workspace [role='status']:not(:empty) {
+  padding: 14px;
+  background: var(--theme-elevation-100);
+}
+.workflow-template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 18px;
+}
+.workflow-template-grid article {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.workflow-template-grid article p {
+  flex: 1;
+}

@@ -78,6 +78,7 @@ export default {
     const failures: string[] = []
     for (const path of [
       '/api/forms-actions/tick',
+      '/api/automations/tick',
       '/api/review-tasks/notifications/tick',
       '/api/task-workspace/maintenance',
       '/api/crm/jobs/tick',

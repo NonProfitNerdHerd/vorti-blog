@@ -404,6 +404,7 @@ export interface Post {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  automationOrigin?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -796,6 +797,7 @@ export interface Page {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   editorSite?: string | null;
+  automationOrigin?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -1041,6 +1043,8 @@ export interface ReviewTask {
     | boolean
     | null;
   editorSite?: string | null;
+  automationOrigin?: string | null;
+  automationSite?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3419,6 +3423,7 @@ export interface PostsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  automationOrigin?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3457,6 +3462,7 @@ export interface PagesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   editorSite?: T;
+  automationOrigin?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -3660,6 +3666,8 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   documentSite?: T;
   platformMutationProof?: T;
   editorSite?: T;
+  automationOrigin?: T;
+  automationSite?: T;
   updatedAt?: T;
   createdAt?: T;
 }

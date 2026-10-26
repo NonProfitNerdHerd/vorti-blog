@@ -16,6 +16,7 @@ import { searchPlugin } from '@payloadcms/plugin-search'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { formsModule } from './forms/plugin'
 import { crmModule } from './crm/plugin'
+import { automationsModule } from './automations/plugin'
 import { emailRuntimeFromBindings } from './crm/email-provider'
 import { accountStatusGuards } from './organizations/account-guards'
 import { tenantCMS } from './organizations/cms-plugin'
@@ -297,6 +298,7 @@ export default buildConfig({
     }),
     tenantAuthority,
     websiteCopyRecords,
+    automationsModule(cloudflare.env.D1),
     accountStatusGuards(cloudflare.env.D1),
   ],
 })

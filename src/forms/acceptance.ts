@@ -64,5 +64,7 @@ export async function acceptSubmission(db: D1Database, input: Acceptance, now = 
   const saved = await db.prepare('SELECT id, answers FROM form_submissions WHERE idempotency_key=? AND site=?').bind(key, site).first<{ id: number; answers: string }>()
   if (!saved) throw new FormHTTPError('An attachment or reservation expired, belongs to another session, or was already submitted. Upload the file or reserve an available time again.', 409)
   if (canonicalJSON(JSON.parse(saved.answers)) !== answers) throw new FormHTTPError('This retry key belongs to different answers.', 409)
-  return { created: result[0].meta.changes === 1, id: String(saved.id) }
+  // D1 includes rows written by transactional automation triggers in meta.changes.
+  // An ignored acceptance fires no AFTER INSERT triggers and still reports zero.
+  return { created: result[0].meta.changes > 0, id: String(saved.id) }
 }
