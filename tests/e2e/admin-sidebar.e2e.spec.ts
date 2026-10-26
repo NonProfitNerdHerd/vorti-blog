@@ -32,6 +32,7 @@ test('admin sidebar starts collapsed, follows routes, resets on reload, and host
       )
   expect(await parentNames()).toEqual([
     'Dashboard',
+    'Workflows',
     'Tasks',
     'Content',
     'CRM',

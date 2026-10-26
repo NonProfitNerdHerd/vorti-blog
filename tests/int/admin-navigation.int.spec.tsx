@@ -109,6 +109,7 @@ describe('shared admin sidebar groups', () => {
     expect(
       Array.from(view.container.querySelectorAll('.nav-group')).map((group) => group.id),
     ).toEqual([
+      'nav-group-Workflows',
       'nav-group-Tasks',
       'nav-group-Content',
       'nav-group-CRM',

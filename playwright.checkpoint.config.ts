@@ -19,6 +19,7 @@ export default defineConfig({
       name: 'core-regressions',
       testMatch: [
         'admin-sidebar.e2e.spec.ts',
+        'workflows.e2e.spec.ts',
         'post-templates.e2e.spec.ts',
         'menus.e2e.spec.ts',
         'task-workspace.e2e.spec.ts',

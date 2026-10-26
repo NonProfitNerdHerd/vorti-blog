@@ -87,6 +87,7 @@ import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff3
 import { Dashboard as Dashboard_0e35033058204011832f5374d42fa864 } from '../../../dashboard/Dashboard'
 import { CRMAdminView as CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
 import { SitesCompatibilityView as SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
+import { AutomationsAdminView as AutomationsAdminView_176d36e84f7f33d2f404d50e1d20a737 } from '../../../automations/AdminView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -180,5 +181,6 @@ export const importMap = {
   "./dashboard/Dashboard#Dashboard": Dashboard_0e35033058204011832f5374d42fa864,
   "./organizations/AdminWorkspaces#CRMAdminView": CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4,
   "./organizations/AdminWorkspaces#SitesCompatibilityView": SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4,
+  "./automations/AdminView#AutomationsAdminView": AutomationsAdminView_176d36e84f7f33d2f404d50e1d20a737,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

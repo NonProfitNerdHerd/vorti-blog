@@ -132,17 +132,22 @@ export function PolicyNav({
     `${admin}/${entity.type === 'globals' ? 'globals' : 'collections'}/${entity.slug}`
   const inCRM = matchesAdminPath(pathname, `${admin}/crm`)
   const inTasks = tasks && matchesAdminPath(pathname, taskURL)
-  const active = inCRM
-    ? 'CRM'
-    : inTasks
-      ? 'Tasks'
-      : visible.find((group) =>
-          group.entities.some((entity) => matchesAdminPath(pathname, entityURL(entity))),
-        )?.label ||
-        (matchesAdminPath(pathname, `${admin}/sites`) &&
-        visible.some((group) => group.label === 'Admin')
-          ? 'Admin'
-          : undefined)
+  const inWorkflows =
+    matchesAdminPath(pathname, `${admin}/workflows`) ||
+    matchesAdminPath(pathname, `${admin}/automations`)
+  const active = inWorkflows
+    ? 'Workflows'
+    : inCRM
+      ? 'CRM'
+      : inTasks
+        ? 'Tasks'
+        : visible.find((group) =>
+            group.entities.some((entity) => matchesAdminPath(pathname, entityURL(entity))),
+          )?.label ||
+          (matchesAdminPath(pathname, `${admin}/sites`) &&
+          visible.some((group) => group.label === 'Admin')
+            ? 'Admin'
+            : undefined)
   const identity = user ? `${user.collection}:${user.id}` : 'anonymous'
   const route = `${pathname}?${params.toString()}|${active || ''}`
   const { open, toggle } = useNavigationExpansion(identity, route, active)
@@ -213,6 +218,35 @@ export function PolicyNav({
   return (
     <>
       <DashboardNavLink admin={admin} />
+      <NavigationGroup
+        label="Workflows"
+        href={`${admin}/workflows${site ? `?site=${encodeURIComponent(site)}` : ''}`}
+        open={Boolean(open.Workflows)}
+        toggle={() => toggle('Workflows')}
+        navOpen={navOpen}
+        onNavigate={onNavigate}
+      >
+        {(
+          [
+            ['create', 'Create Workflows'],
+            ['my', 'My Workflows'],
+            ['shared', 'Shared Workflows'],
+          ] as const
+        ).map(([view, label]) => (
+          <Link
+            key={view}
+            href={`${admin}/workflows?workflowView=${view}${site ? `&site=${encodeURIComponent(site)}` : ''}`}
+            prefetch={false}
+            className="nav__link"
+            onClick={onNavigate}
+            aria-current={
+              inWorkflows && (params.get('workflowView') || 'my') === view ? 'page' : undefined
+            }
+          >
+            {label}
+          </Link>
+        ))}
+      </NavigationGroup>
       {tasks && (
         <NavigationGroup
           label="Tasks"
