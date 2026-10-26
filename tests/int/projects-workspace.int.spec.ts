@@ -10,6 +10,7 @@ import { taskFields } from '@/review/workspace-fields'
 import { workspaceFormula, workspaceReferences } from '@/review/workspace-formula'
 import { workspaceFileEndpoints } from '@/review/workspace-files'
 import { workspaceEndpoint } from '@/review/workspace-service'
+import { crmTaskInternalReadAllowed } from '@/crm/task-where'
 
 describe('Projects workspace: inherited access, fields, scheduling, and time', () => {
   let payload: Payload, project: number, board: number, privateBoard: number, task: number
@@ -90,6 +91,29 @@ describe('Projects workspace: inherited access, fields, scheduling, and time', (
         data: { title: 'Project task', initialBoard: board, status: 'open', priority: 'normal' },
       })
     ).id
+  })
+  it('counts project tasks through the private CRM bridge without exposing its query scope', async () => {
+    const request = await req(0)
+    request.routeParams = { id: String(project) }
+    const handler = workspaceEndpoints.find(
+      (item) => item.path === '/task-workspace/projects/:id/counts',
+    )!.handler
+    const response = await handler(request)
+    expect(await response.json()).toEqual({ boards: 1, tasks: 1 })
+    expect(crmTaskInternalReadAllowed(request)).toBe(false)
+    await expect(
+      payload.count({
+        collection: 'review-tasks',
+        req: request,
+        overrideAccess: false,
+        where: { 'crmContext.site': { equals: 'default' } },
+      }),
+    ).rejects.toThrow(/cannot be queried/)
+    await expect(
+      endpoint(1, '/task-workspace/projects/:id/counts', 'get', undefined, {
+        id: String(project),
+      }),
+    ).rejects.toThrow(/unavailable/)
   })
   it('inherits viewer/editor roles in SQL reads and native counts', async () => {
     expect(await canTask(await req(1), task)).toBe(false)

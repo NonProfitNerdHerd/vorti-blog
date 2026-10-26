@@ -7,6 +7,60 @@ test.beforeEach(async ({ page }) => {
   expect(response.ok()).toBe(true)
 })
 
+test('open existing and new projects, create a board and task, and retain project navigation', async ({
+  page,
+}) => {
+  const suffix = Date.now()
+  const existingName = `Existing project ${suffix}`
+  const created = await page.request.post('/api/task-projects?site=default', {
+    data: { name: existingName, visibility: 'private' },
+  })
+  expect(created.ok()).toBe(true)
+  const existing = (await created.json()).doc
+  await page.goto(
+    `/admin/collections/review-tasks?workspace=projects&project=${existing.id}&site=default`,
+  )
+  await expect(page.getByRole('heading', { name: existingName, exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Create board', exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  const tree = page.getByRole('complementary', { name: 'Projects and boards' })
+  await expect(tree.getByRole('button', { name: /Create project beside/ })).toHaveCount(0)
+  await tree.getByRole('button', { name: 'Add project', exact: true }).click()
+  const dialog = page.locator('.editor-dialog-layer')
+  const projectName = `Newsletter ${suffix}`
+  await dialog.getByLabel('Name', { exact: true }).fill(projectName)
+  await dialog.getByRole('button', { name: 'Save project', exact: true }).click()
+  await expect(page.getByRole('heading', { name: projectName, exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Create board', exact: true }).click()
+  const boardName = `Newsletter board ${suffix}`
+  await dialog.getByLabel('Board name', { exact: true }).fill(boardName)
+  await dialog.getByRole('button', { name: 'Create board', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+  await tree.getByRole('link', { name: boardName, exact: true }).click()
+  await expect(page.getByRole('heading', { name: boardName, exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  await page.getByLabel('Add task in Open', { exact: true }).fill(`Prepare newsletter ${suffix}`)
+  await page.getByLabel('Add task in Open', { exact: true }).press('Enter')
+  await page.getByRole('button', { name: `Prepare newsletter ${suffix}`, exact: true }).click()
+  await expect(dialog.getByRole('heading', { name: 'Task details', exact: true })).toBeVisible()
+  await dialog.getByRole('button', { name: 'Close dialog' }).click()
+  await page.reload()
+  await expect(
+    page.getByRole('button', { name: `Prepare newsletter ${suffix}`, exact: true }),
+  ).toBeVisible()
+  await tree.getByRole('link', { name: projectName, exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Create board', exact: true })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(tree.getByRole('button', { name: 'Add project', exact: true })).toBeVisible()
+  await expect(tree.getByRole('link', { name: projectName, exact: true })).toBeVisible()
+  const tab = page.locator('.vc-site-tab')
+  await expect(tab).toHaveCSS('border-top-width', '0px')
+  await expect(tab).toHaveCSS('border-bottom-left-radius', '8px')
+  await expect(tab).toHaveCSS('border-bottom-width', '1px')
+})
+
 test('create a board and shared task, organize views, schedule, and edit subtasks', async ({
   page,
 }) => {
@@ -104,8 +158,15 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   const chapter = authority.site
   const chapterMembership = await page.request.post('/api/organization-admin', {
     headers: { Origin: new URL(baseURL!).origin },
-    data: { action: 'membership', site: 'default', user: user.id, role: 'editor', active: true,
-      expectedRevision: chapter.revision, operationKey: crypto.randomUUID() },
+    data: {
+      action: 'membership',
+      site: 'default',
+      user: user.id,
+      role: 'editor',
+      active: true,
+      expectedRevision: chapter.revision,
+      operationKey: crypto.randomUUID(),
+    },
   })
   expect(chapterMembership.ok(), await chapterMembership.text()).toBe(true)
   const board = (

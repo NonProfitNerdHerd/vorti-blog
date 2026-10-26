@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Synchronize remote project navigation, settings, and paginated directories. */
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Home, Inbox, CheckSquare, ChevronRight, ChevronDown, Plus } from './WorkspaceIcon'
+import { Home, Inbox, CheckSquare, ChevronRight, ChevronDown } from './WorkspaceIcon'
 import { BoardIcon } from './BoardIcon'
 import { InboxBadge } from './WorkspaceInbox'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -89,6 +89,9 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
             My Tasks
           </Link>
         </nav>
+        <button type="button" className="task-primary" onClick={() => setCreating(true)}>
+          Add project
+        </button>
         {error && (
           <button type="button" onClick={() => void load()}>
             Reload projects
@@ -140,15 +143,6 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
                   >
                     {project.name}
                   </Link>
-                  <button
-                    type="button"
-                    className="workspace-project-add"
-                    aria-label={`Create project beside ${project.name}`}
-                    title="Create project"
-                    onClick={() => setCreating(true)}
-                  >
-                    <Plus size={16} aria-hidden="true" />
-                  </button>
                 </div>
                 <div
                   id={`workspace-project-${project.id}`}
@@ -174,11 +168,6 @@ export function ProjectNavigator({ api, admin }: { api: string; admin: string })
               </div>
             )
           })}
-        {!projects.length && (
-          <button type="button" className="task-primary" onClick={() => setCreating(true)}>
-            Add project
-          </button>
-        )}
         {error && <p role="alert">{error}</p>}
       </aside>
       {creating && (

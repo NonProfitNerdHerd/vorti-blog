@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { crmTaskInternalRead } from '../crm/task-where'
 import { workspaceMutationFence } from './workspace-commit'
 import { initializeStarterWorkspace } from './workspace-starter'
 import type { Endpoint, PayloadRequest } from 'payload'
@@ -289,6 +290,13 @@ export const workspaceEndpoints: Endpoint[] = [
     handler: async (req) => {
       const id = Number(req.routeParams?.id)
       await requireProject(req, id)
+      // Only this server-owned count predicate traverses the private CRM join.
+      // The caller retains all workspace/domain filters and receives counts only.
+      const countReq = workspaceReq({
+        ...req,
+        query: { ...req.query },
+        context: { ...req.context, crmQueryScope: 'project-counts', [crmTaskInternalRead]: true },
+      } as PayloadRequest)
       const access = taskWhere(req),
         boards = await req.payload.count({
           collection: 'task-boards',
@@ -298,7 +306,7 @@ export const workspaceEndpoints: Endpoint[] = [
         }),
         tasks = await req.payload.count({
           collection: 'review-tasks',
-          req,
+          req: countReq,
           overrideAccess: true,
           where: {
             and: [

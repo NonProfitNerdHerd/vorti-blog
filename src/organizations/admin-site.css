@@ -5,7 +5,7 @@
 }
 .app-header__actions-wrapper:has(.vc-site-tab) {
   align-self: stretch;
-  margin-block-start: 8px;
+  margin-block-start: 0;
 }
 .app-header__actions:has(.vc-site-tab),
 .app-header__actions > div:has(.vc-site-tab) {
@@ -22,8 +22,8 @@
   min-width: 0;
   margin-inline-end: 0;
   border: 1px solid var(--theme-elevation-150);
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
   background: var(--theme-elevation-50);
   color: var(--theme-text);
   font-size: 12px;
