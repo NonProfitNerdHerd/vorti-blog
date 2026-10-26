@@ -29,7 +29,7 @@ for (const collection of ['posts', 'pages'] as const) {
     const seoTitle = page.locator('input[name="meta.title"]'), description = page.locator('textarea[name="meta.description"]')
     await expect(seoTitle).toHaveValue('Original SEO title')
     await expect(description).toHaveValue('Original SEO description')
-    const generateTitle = page.locator('.plugin-seo__field').filter({ hasText: 'Meta Title' }).getByRole('button')
+    const generateTitle = inspector.getByRole('button', { name: 'Auto-generate', exact: true }).first()
     await generateTitle.click()
     await expect(seoTitle).toHaveValue(`${title} | Vorti`)
     await seoTitle.fill(`Custom SEO ${stamp}`)
