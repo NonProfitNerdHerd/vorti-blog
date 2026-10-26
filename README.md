@@ -7,6 +7,7 @@ VortiCause brings publishing and the work behind it into one platform. Authors g
 ## Available today
 
 - Posts, pages, reusable content types, visual block editing, templates, responsive design, drafts, previews, and publishing controls.
+- Dedicated Post/Page SEO inspector tabs with generation controls, image selection, search previews, and expanded editing.
 - Site identity, reading, privacy, typography, categories, and role-based tag settings.
 - Reusable named menus with a visual hierarchy editor and independently styled Menu blocks across visual builders.
 - Projects and boards with List, Kanban, Calendar, Timeline, and additional workspace views; shared tasks, subtasks, comments, mentions, and an in-app Inbox.
@@ -73,7 +74,7 @@ pnpm test:editor
 pnpm build
 ```
 
-The integration command runs separate Node, DOM and native Payload/D1 Vitest projects, including native Task authorization and the CRM Task bridge. Native suites execute the full migration chain into a clean baseline and receive separate disposable databases. The checkpoint release browser configuration runs 28 scenarios: 16 CRM workflows and twelve CMS/Forms/Tasks/SubSites/Workflows regressions.
+The integration command runs separate Node, DOM and native Payload/D1 Vitest projects, including native Task authorization and the CRM Task bridge. Native suites execute the full migration chain into a clean baseline and receive separate disposable databases. The checkpoint release browser configuration runs 31 scenarios: 16 CRM workflows and fifteen CMS/Forms/Tasks/SubSites/Workflows/SEO regressions.
 
 ```sh
 # Requires the final local Worker URL and isolated tenant/Forms fixtures.
