@@ -5,13 +5,14 @@ test.beforeEach(async({page})=>{
 })
 
 test('scoped Settings saves, exposes tenant controls, and keeps built-in permissions read-only',async({page})=>{
+  const siteName = `Tenant acceptance ${Date.now()}`
   await page.goto('/admin/globals/system-settings?site=default&section=general')
   await expect(page.getByRole('navigation',{name:'Settings sections'})).toBeVisible()
-  await page.getByLabel('Site name',{exact:true}).fill('Tenant acceptance')
+  await page.getByLabel('Site name',{exact:true}).fill(siteName)
   await page.getByRole('button',{name:'Save changes',exact:true}).click()
   await expect(page.getByText('Settings saved.',{exact:true})).toBeVisible()
   await page.reload()
-  await expect(page.getByLabel('Site name',{exact:true})).toHaveValue('Tenant acceptance')
+  await expect(page.getByLabel('Site name',{exact:true})).toHaveValue(siteName)
   await expect(page.getByLabel('Workspace embed origins (one HTTPS origin per line)')).toBeVisible()
   await page.getByRole('link',{name:'Roles',exact:true}).click()
   await page.getByRole('button',{name:'Tenant Administrator',exact:true}).click()
