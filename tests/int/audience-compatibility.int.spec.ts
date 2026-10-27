@@ -1,9 +1,14 @@
 import { DatabaseSync } from 'node:sqlite'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AccessResult, CollectionConfig, Config, Field } from 'payload'
 import { audienceCollections, audienceCompatibility } from '@/publishing/audience-compatibility'
 import { cmsCollections } from '@/organizations/cms-collections'
 import { up, down } from '@/migrations/20261027_230000_publishing_audience_compatibility'
+
+vi.mock('@/organizations/cms-scope', () => ({
+  cmsScope: async () => ({ site: 'chapter' }),
+  cmsDatabase: () => ({ prepare: () => ({ bind: () => ({ all: async () => ({ results: [{ id: 7 }] }) }) }) }),
+}))
 
 const config = (read: AccessResult = true) => audienceCompatibility({ collections: [{
   slug: 'posts', fields: [], versions: { drafts: true },
@@ -17,7 +22,7 @@ describe('audience-compatible recovery build', () => {
     expect(await collection.access!.read!(args)).toEqual({ and: [
       { platformSite: { equals: 'chapter' } }, { audience: { equals: 'public' } },
     ] })
-    expect(await collection.access!.readVersions!(args)).toEqual({ 'version.audience': { equals: 'public' } })
+    expect(await collection.access!.readVersions!(args)).toEqual({ and: [{ 'version.audience': { equals: 'public' } }, { parent: { in: [7] } }] })
     for (const action of ['update', 'delete'] as const)
       expect(await collection.access![action]!(args)).toEqual({ audience: { equals: 'public' } })
     expect(await config(false).access!.read!(args)).toBe(false)
