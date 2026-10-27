@@ -59,6 +59,9 @@ export default defineConfig({
           extends: true as const,
           test: {
             name: `native:${file.replace('.int.spec.ts', '')}`,
+            // Native cases perform many real Worker/D1 round trips. Allow their
+            // integration work to finish without changing assertion deadlines.
+            testTimeout: 60000,
             include: [`tests/int/${file}`],
             globalSetup: ['./tests/helpers/native-global-setup.ts'],
             setupFiles: ['./tests/helpers/native-setup.ts'],
