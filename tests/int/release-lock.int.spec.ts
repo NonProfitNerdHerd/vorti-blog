@@ -75,10 +75,30 @@ describe('durable release coordination', () => {
       queuesPurged: true,
     })
     lease = await advanceRelease(db, lease, 'verifying', {})
-    await expect(advanceRelease(db, lease, 'observing', { livePassed: true })).rejects.toThrow('administrator login')
+    await expect(advanceRelease(db, lease, 'observing', { livePassed: true })).rejects.toThrow(
+      'administrator login',
+    )
     expect(await releaseMaintenanceRequired(db, lease.target)).toBe(true)
     lease = await advanceRelease(db, lease, 'observing', { livePassed: true, loginVerified: true })
     expect(await releaseMaintenanceRequired(db, lease.target)).toBe(false)
+    await expect(advanceRelease(db, lease, 'frozen', {})).rejects.toThrow('corrective cutover')
+    lease = await advanceRelease(db, lease, 'frozen', {
+      validationPassed: true,
+      artifactOnlyCorrection: true,
+      resourcesUnchanged: true,
+      migrationsUnchanged: true,
+      recoveryVerified: true,
+    })
+    expect(await releaseMaintenanceRequired(db, lease.target)).toBe(true)
+    await expect(advanceRelease(db, lease, 'cutover', {})).rejects.toThrow('Cutover requires')
+    lease = await advanceRelease(db, lease, 'cutover', {
+      writesStopped: true,
+      queuesStopped: true,
+      queuesPurged: true,
+      recoveryVerified: true,
+    })
+    lease = await advanceRelease(db, lease, 'verifying', {})
+    lease = await advanceRelease(db, lease, 'observing', { livePassed: true, loginVerified: true })
     await expect(acquireRelease(db, input())).rejects.toThrow('UNIQUE')
     await expect(
       advanceRelease(db, lease, 'complete', {
@@ -98,6 +118,6 @@ describe('durable release coordination', () => {
     })
     expect(await releaseMaintenanceRequired(db, lease.target)).toBe(false)
     expect(() => sqlite.exec('DELETE FROM release_events')).toThrow('append-only')
-    expect(sqlite.prepare('SELECT count(*) AS n FROM release_events').get()?.n).toBe(7)
+    expect(sqlite.prepare('SELECT count(*) AS n FROM release_events').get()?.n).toBe(11)
   })
 })

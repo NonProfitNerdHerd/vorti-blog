@@ -68,7 +68,8 @@ export function TenantSettingsHub({
     [savedOrigins, setSavedOrigins] = useState(''),
     [tenantRevision, setTenantRevision] = useState<number | null>(null)
   const [websiteDirty, setWebsiteDirty] = useState(false)
-  const dirty = websiteDirty ||
+  const dirty =
+    websiteDirty ||
     JSON.stringify(form) !== baseline ||
     (!!role && JSON.stringify(role) !== roleBaseline) ||
     origins !== savedOrigins
@@ -483,13 +484,17 @@ export function TenantSettingsHub({
                   ))}
                 </tbody>
               </table>
-              <form onSubmit={save}>
-                {toggle('categoriesEnabled', 'Enable Categories')}
-                <p>Tag management is controlled by the scoped Tags permission under Roles.</p>
-                <button type="submit" disabled={busy || !dirty}>
-                  Save Categories setting
-                </button>
-              </form>
+              {'categoriesEnabled' in form ? (
+                <form onSubmit={save}>
+                  {toggle('categoriesEnabled', 'Enable Categories')}
+                  <p>Tag management is controlled by the scoped Tags permission under Roles.</p>
+                  <button type="submit" disabled={busy || !dirty}>
+                    Save Categories setting
+                  </button>
+                </form>
+              ) : (
+                <p>Managing Categories requires the scoped Settings permission.</p>
+              )}
             </>
           )}
           {section === 'Roles' && (

@@ -5,7 +5,7 @@ import { cmsDatabase } from '../organizations/cms-scope'
 import { tenantAuthorityActive } from '../organizations/tenant-runtime'
 import { ScopedSettingsRepository } from '../organizations/scoped-settings'
 import { claimRequest } from '../organizations/identity-authority'
-import { TenantRepository } from '../organizations/tenant-repository'
+import { TenantPermissionError, TenantRepository } from '../organizations/tenant-repository'
 
 export async function SettingsHub({ user, payload, initPageResult }: DocumentViewServerProps) {
   const req = initPageResult.req
@@ -20,9 +20,17 @@ export async function SettingsHub({ user, payload, initPageResult }: DocumentVie
         selected,
         section === 'roles' ? 'administration:roles' : 'administration:features',
       )
-    const value = administration
+    let value = administration
       ? { settings: {}, revision: 0 }
       : await new ScopedSettingsRepository(cmsDatabase(req), Number(user.id)).read(selected)
+    if (section === 'features') {
+      try {
+        value = await new ScopedSettingsRepository(cmsDatabase(req), Number(user.id)).read(selected)
+      } catch (error) {
+        // Feature managers without Settings authority must still reach feature controls.
+        if (!(error instanceof TenantPermissionError)) throw error
+      }
+    }
     return (
       <TenantSettingsHub
         key={selected + ':' + params.get('section')}

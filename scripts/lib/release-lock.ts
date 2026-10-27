@@ -38,7 +38,7 @@ const transitions: Record<ReleasePhase, ReleasePhase[]> = {
   frozen: ['cutover', 'recovering'],
   cutover: ['verifying', 'recovering'],
   verifying: ['observing', 'recovering'],
-  observing: ['complete', 'recovering'],
+  observing: ['complete', 'recovering', 'frozen'],
   recovering: ['aborted'],
   complete: [],
   aborted: [],
@@ -85,6 +85,18 @@ export async function advanceRelease(
     .bind(lease.id, lease.target)
     .first<{ mode: string }>()
   if (!run) throw Error('Release lease is unavailable.')
+  if (
+    lease.phase === 'observing' &&
+    phase === 'frozen' &&
+    (evidence.validationPassed !== true ||
+      evidence.artifactOnlyCorrection !== true ||
+      evidence.resourcesUnchanged !== true ||
+      evidence.migrationsUnchanged !== true ||
+      evidence.recoveryVerified !== true)
+  )
+    throw Error(
+      'A corrective cutover requires validated code, unchanged resources and migrations, and retained recovery.',
+    )
   if (phase === 'prepared' && evidence.validationPassed !== true)
     throw Error('Passing validation is required before preparation completes.')
   if (

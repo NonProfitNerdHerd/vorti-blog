@@ -16,6 +16,23 @@ const initial = {
   timeFormat: '12',
   categoriesEnabled: true,
 }
+it('does not offer a Categories write to a feature-only manager', async () => {
+  vi.stubGlobal('fetch', async () => Response.json({ revision: 5, features: [] }))
+  render(
+    <TenantSettingsHub
+      site="chapter"
+      section="features"
+      initial={{}}
+      initialRevision={0}
+      tenantAdministrator={false}
+    />,
+  )
+  expect(
+    await screen.findByText('Managing Categories requires the scoped Settings permission.'),
+  ).toBeTruthy()
+  expect(screen.queryByRole('checkbox', { name: 'Enable Categories' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Save Categories setting' })).toBeNull()
+})
 it('retains a conflicting settings draft, protects navigation, and preserves explicit site URLs', async () => {
   vi.stubGlobal('fetch', async (_url: string, options?: RequestInit) =>
     options?.method === 'POST'
@@ -46,7 +63,10 @@ it('renders built-in role permissions read-only with one named control per permi
   vi.stubGlobal('fetch', async () =>
     Response.json({
       revision: 10,
-      members: [], assignments: [], scopes: ['default'], tenantScope: true,
+      members: [],
+      assignments: [],
+      scopes: ['default'],
+      tenantScope: true,
       roles: [
         {
           id: 'admin',
@@ -100,8 +120,11 @@ it('explains tenant-controlled feature locks and shows effective availability', 
     />,
   )
   expect(
-    ((await screen.findByRole('combobox', { name: 'tasks site setting' })) as unknown as HTMLSelectElement)
-      .disabled,
+    (
+      (await screen.findByRole('combobox', {
+        name: 'tasks site setting',
+      })) as unknown as HTMLSelectElement
+    ).disabled,
   ).toBe(true)
   expect(screen.getByText('Disabled by the tenant. A site cannot enable it.')).toBeTruthy()
   expect(screen.queryByRole('checkbox', { name: 'tasks tenant availability' })).toBeNull()
