@@ -47,8 +47,8 @@ export function audienceCompatibility(config: Config): Config {
             ...(collection.hooks?.beforeRead || []),
           ],
           beforeChange: [
-            async ({ data, originalDoc }) => {
-              if ((originalDoc && originalDoc.audience !== 'public') ||
+            async ({ data, originalDoc, operation }) => {
+              if ((operation === 'update' && originalDoc?.audience !== 'public') ||
                   (data.audience !== undefined && data.audience !== 'public'))
                 throw new APIError('Internal publishing requires the unified publisher.', 409)
               return { ...data, audience: 'public' }

@@ -32,10 +32,11 @@ describe('audience-compatible recovery build', () => {
     const hook = config().hooks!.beforeChange![0]
     for (const args of [
       { data: { audience: 'intranet' } },
-      { data: { audience: 'public' }, originalDoc: { audience: 'intranet' } },
-      { data: {}, originalDoc: { audience: 'intranet' } },
+      { operation: 'update', data: { audience: 'public' }, originalDoc: { audience: 'intranet' } },
+      { operation: 'update', data: {}, originalDoc: { audience: 'intranet' } },
     ]) await expect(hook(args as never)).rejects.toThrow('unified publisher')
     expect(await hook({ data: { title: 'Preserve' } } as never)).toEqual({ title: 'Preserve', audience: 'public' })
+    expect(await hook({ operation: 'create', data: { title: 'New' }, originalDoc: {} } as never)).toEqual({ title: 'New', audience: 'public' })
   })
   it('keeps design definitions shared and protects every audience-owned supporting collection', () => {
     const collections = [...audienceCollections, 'site-templates', 'design-templates'].map(slug => ({ slug, fields: [] as Field[] })) as CollectionConfig[]
