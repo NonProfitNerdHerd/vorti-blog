@@ -9,9 +9,10 @@ beforeAll(async () => {
   payload = await getPayload({ config })
   db = (payload.db as unknown as { client: D1Database }).client
   for (const [slug, title] of [['compat-public', 'Public fixture'], ['compat-internal', 'Internal fixture']]) {
+    const req = await fixtureRequest(payload)
     const post = await payload.create({
-      collection: 'posts', req: await fixtureRequest(payload),
-      data: { title, slug, _status: 'published' },
+      collection: 'posts', req,
+      data: { title, slug, author: Number(req.user!.id), _status: 'published' },
     })
     if (slug === 'compat-public') publicID = post.id
     else internal = post.id
@@ -41,7 +42,7 @@ it('denies direct internal reads, changes, deletes and history restoration', asy
   await expect(payload.delete({ collection: 'posts', id: internal, req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
   const version = await db.prepare('SELECT id FROM _posts_v WHERE parent_id=? ORDER BY id DESC LIMIT 1').bind(internal).first<{ id: number }>()
   expect(version).not.toBeNull()
-  await expect(payload.restoreVersion({ collection: 'posts', id: version!.id, req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
+  await expect(payload.restoreVersion({ collection: 'posts', id: String(version!.id), req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
   expect(await db.prepare('SELECT title,audience FROM posts WHERE id=?').bind(internal).first()).toEqual({ title: 'Internal fixture', audience: 'intranet' })
 })
 
