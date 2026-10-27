@@ -1,3 +1,16 @@
+/** Drain streamed pages without retaining content or canceling Worker execution. */
+export async function consumeHealthResponse(response) {
+  if (!response.body) return
+  const reader = response.body.getReader()
+  try {
+    while (!(await reader.read()).done) {
+      // Fully consume each chunk so Cloudflare can report the completed response.
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
 /** Decode Wrangler's streamed JSON without persisting request headers or log bodies. */
 export function jsonEventDecoder(accept) {
   let buffer = ''

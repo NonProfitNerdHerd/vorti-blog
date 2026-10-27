@@ -1,7 +1,11 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import ts from 'typescript'
-import { HealthObservation, jsonEventDecoder } from './lib/health-observation.mjs'
+import {
+  consumeHealthResponse,
+  HealthObservation,
+  jsonEventDecoder,
+} from './lib/health-observation.mjs'
 
 const args = {}
 for (let index = 2; index < process.argv.length; index += 2) {
@@ -77,7 +81,7 @@ const probe = async (pathname, expectedStatus) => {
     signal: AbortSignal.timeout(10000),
   })
   observation.response(id, response.status)
-  await response.body?.cancel()
+  await consumeHealthResponse(response)
   check()
 }
 let receipt

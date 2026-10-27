@@ -1,6 +1,36 @@
 import { expect, it } from 'vitest'
-import { HealthObservation, jsonEventDecoder } from '../../scripts/lib/health-observation.mjs'
+import {
+  consumeHealthResponse,
+  HealthObservation,
+  jsonEventDecoder,
+} from '../../scripts/lib/health-observation.mjs'
 const origin = 'https://example.com'
+it('fully drains streamed health pages without canceling execution or retaining a reader lock', async () => {
+  let chunks = 0,
+    canceled = false
+  const body = new ReadableStream({
+    pull(controller) {
+      if (chunks++ < 3) controller.enqueue(new Uint8Array([1, 2, 3]))
+      else controller.close()
+    },
+    cancel() {
+      canceled = true
+    },
+  })
+  await consumeHealthResponse(new Response(body))
+  expect(chunks).toBe(4)
+  expect(canceled).toBe(false)
+  expect(body.locked).toBe(false)
+})
+it('rejects interrupted response streams so incomplete probes cannot pass', async () => {
+  const body = new ReadableStream({
+    pull(controller) {
+      controller.error(new Error('Stream interrupted'))
+    },
+  })
+  await expect(consumeHealthResponse(new Response(body))).rejects.toThrow('Stream interrupted')
+  expect(body.locked).toBe(false)
+})
 const event = (id: string, status = 200) => ({
   outcome: 'ok',
   event: {
