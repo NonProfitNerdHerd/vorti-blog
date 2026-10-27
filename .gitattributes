@@ -1,1 +1,3 @@
 public/forms-assets/* text eol=lf
+src/payload-types.ts text eol=lf
+cloudflare-env.d.ts text eol=lf

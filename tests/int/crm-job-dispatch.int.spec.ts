@@ -32,6 +32,7 @@ it('recovers a lost publish acknowledgement without duplicate checkpoints and se
           loseAck = false
           throw Error('Uncertain publish')
         }
+        return { metadata: { metrics: { backlogCount: pending.length, backlogBytes: 0 } } }
       },
     }
     const handler: CRMJobHandler = {
@@ -103,6 +104,7 @@ it('recovers eligible jobs and expired leases, excludes active leases, and fails
       queue = {
         send: async (body: CRMJobWake) => {
           delivered.push(body.job)
+          return { metadata: { metrics: { backlogCount: delivered.length, backlogBytes: 0 } } }
         },
       }
     expect(await recoverCRMJobWakes(fixture.db, queue, ['import-apply'])).toBe(2)

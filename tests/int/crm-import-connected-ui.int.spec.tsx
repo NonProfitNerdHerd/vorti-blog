@@ -48,10 +48,12 @@ it('completes upload, preview, staging, mapping, bulk review, explicit approval 
         queue: {
           send: async (body: CRMJobWake) => {
             wakes.push(body)
-            if (pauseDispatch) return
+            if (pauseDispatch)
+              return { metadata: { metrics: { backlogCount: wakes.length, backlogBytes: 0 } } }
             // Deterministic transport for this rendered journey; Queue redelivery is tested separately.
             for (let step = 0; step < 50; step++)
               if (!(await runner.tick(handlers, body.job))) break
+            return { metadata: { metrics: { backlogCount: wakes.length, backlogBytes: 0 } } }
           },
         },
       })({} as Config)
