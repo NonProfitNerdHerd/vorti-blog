@@ -44,7 +44,7 @@ describe('audience-compatible recovery build', () => {
     expect(await hook({ operation: 'create', data: { title: 'New' }, originalDoc: {} } as never)).toEqual({ title: 'New', audience: 'public' })
   })
   it('keeps design definitions shared and protects every audience-owned supporting collection', () => {
-    const collections = [...audienceCollections, 'site-templates', 'design-templates'].map(slug => ({ slug, fields: [] as Field[] })) as CollectionConfig[]
+    const collections = [...audienceCollections, 'design-templates'].map(slug => ({ slug, fields: [] as Field[] })) as CollectionConfig[]
     const result = audienceCompatibility({ collections } as Config).collections!
     for (const collection of result) expect(collection.fields.some(field => 'name' in field && field.name === 'audience')).toBe(audienceCollections.has(collection.slug))
   })

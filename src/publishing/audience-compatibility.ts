@@ -79,6 +79,10 @@ export function audienceCompatibility(config: Config): Config {
                 if (!req.user || (['posts', 'pages'].includes(collection.slug) && claim?.permissions &&
                     !claim.permissions.includes(`${collection.slug}:read-history` as Permission)))
                   throw new APIError('History unavailable.', 403)
+                const administration = collection.slug === 'site-templates' ? 'administration:templates' :
+                  collection.slug === 'saved-views' ? 'administration:saved-views' : null
+                if (administration && claim?.permissions && !claim.permissions.includes(administration))
+                  throw new APIError('History unavailable.', 403)
                 const candidate = ((req.context as Record<symbol, unknown>)[readCandidates] as Map<string, unknown> | undefined)?.get(collection.slug)
                 if (candidate != null) {
                   const permitted = await cmsDatabase(req).prepare(`SELECT v.id FROM "${mapping[2]}" v JOIN "${mapping[1]}" p ON p.id=v.parent_id WHERE v.id=? AND p.audience='public' AND p.platform_site=?`).bind(candidate, scope.site).first()

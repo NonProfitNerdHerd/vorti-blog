@@ -967,6 +967,7 @@ export interface SiteTemplate {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
@@ -3609,6 +3610,7 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
