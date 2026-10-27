@@ -20,6 +20,7 @@ import { automationsModule } from './automations/plugin'
 import { emailRuntimeFromBindings } from './crm/email-provider'
 import { accountStatusGuards } from './organizations/account-guards'
 import { tenantCMS } from './organizations/cms-plugin'
+import { audienceCompatibility } from './publishing/audience-compatibility'
 import { tenantUsers } from './organizations/users-plugin'
 import { tenantGlobals } from './organizations/globals-plugin'
 import { tenantForms } from './organizations/forms-plugin'
@@ -290,6 +291,7 @@ export default buildConfig({
     contentWorkspace({ enabled: true }),
     documentReview,
     tenantCMS,
+    audienceCompatibility,
     tenantUsers,
     tenantGlobals,
     tenantForms,

@@ -406,6 +406,7 @@ export interface Post {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   automationOrigin?: string | null;
   updatedAt: string;
@@ -549,6 +550,7 @@ export interface Media {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
@@ -577,6 +579,7 @@ export interface Category {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -596,6 +599,7 @@ export interface Tag {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -824,6 +828,7 @@ export interface Page {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   automationOrigin?: string | null;
   updatedAt: string;
@@ -990,6 +995,7 @@ export interface Menu {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
@@ -2124,6 +2130,7 @@ export interface SavedView {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -2151,6 +2158,7 @@ export interface EventSery {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -2177,6 +2185,7 @@ export interface Search {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -2204,6 +2213,7 @@ export interface Redirect {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -2958,6 +2968,7 @@ export interface Export {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -2999,6 +3010,7 @@ export interface Import {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -3460,6 +3472,7 @@ export interface PostsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   automationOrigin?: T;
   updatedAt?: T;
@@ -3499,6 +3512,7 @@ export interface PagesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   automationOrigin?: T;
   updatedAt?: T;
@@ -3517,6 +3531,7 @@ export interface CategoriesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3532,6 +3547,7 @@ export interface TagsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3545,6 +3561,7 @@ export interface MediaSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
@@ -3659,6 +3676,7 @@ export interface MenusSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
@@ -4243,6 +4261,7 @@ export interface SavedViewsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4261,6 +4280,7 @@ export interface EventSeriesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4398,6 +4418,7 @@ export interface SearchSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4418,6 +4439,7 @@ export interface RedirectsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4863,6 +4885,7 @@ export interface ExportsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4897,6 +4920,7 @@ export interface ImportsSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
