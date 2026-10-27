@@ -108,6 +108,9 @@ test('readable groups, section dialogs, field wizard, notifications, Gantt Timel
   await menu.getByRole('button', { name: 'Edit field', exact: true }).click()
   await dialog.getByLabel('high', { exact: true }).fill('#7c3aed')
   await dialog.getByRole('button', { name: 'Save colors', exact: true }).click()
+  // selectOption can act on a background control while the modal is saving.
+  // Follow the user-visible completion before editing the Task's priority.
+  await expect(dialog).toHaveCount(0)
   await page.getByLabel('Priority for Plan launch', { exact: true }).selectOption('high')
   await expect(page.getByLabel('Priority for Plan launch', { exact: true })).toHaveCSS(
     'border-left-color',
