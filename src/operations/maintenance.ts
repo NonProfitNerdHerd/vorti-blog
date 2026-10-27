@@ -8,7 +8,7 @@ export interface OperationsEnvironment {
 
 /** Operational state survives replacement of the application database. Missing or
  * unavailable state fails closed once an installation declares its release target. */
-export async function maintenanceRequired(env: OperationsEnvironment): Promise<boolean> {
+export async function maintenanceRequired(env: OperationsEnvironment, request?: Request): Promise<boolean> {
   if (!env.RELEASE_TARGET) return false
   if (!env.OPERATIONS) return true
   const run = await env.OPERATIONS.prepare(
@@ -16,6 +16,14 @@ export async function maintenanceRequired(env: OperationsEnvironment): Promise<b
   )
     .bind(env.RELEASE_TARGET)
     .first<{ phase: string }>()
+  // A human must be able to confirm retained credentials before normal access
+  // resumes. Only authentication is available on the replacement in verification;
+  // application reads/writes, account setup/recovery and background jobs stay stopped.
+  if (run?.phase === 'verifying' && request) {
+    const pathname = new URL(request.url).pathname
+    if ((request.method === 'GET' && ['/admin/login', '/api/users/me'].includes(pathname)) ||
+        (request.method === 'POST' && pathname === '/api/users/login')) return false
+  }
   return !!run && ['frozen', 'cutover', 'verifying', 'recovering'].includes(run.phase)
 }
 

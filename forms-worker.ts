@@ -35,7 +35,7 @@ export default {
     try {
       const reconciled = await reconcileRetiredCallback(request, env)
       if (reconciled) return reconciled
-      if ((await maintenanceRequired(env)) && !operationalProbe(request, env))
+      if ((await maintenanceRequired(env, request)) && !operationalProbe(request, env))
         return maintenanceResponse()
     } catch {
       return maintenanceResponse()

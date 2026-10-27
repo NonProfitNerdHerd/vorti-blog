@@ -42,3 +42,26 @@ it('requires a configured high-entropy operator secret for maintenance probes', 
   expect(operationalProbe(request('wrong'), { RELEASE_OPERATOR_TOKEN: token })).toBe(false)
   expect(operationalProbe(request(token), { RELEASE_OPERATOR_TOKEN: token })).toBe(true)
 })
+
+it('permits only the real login check during verification, never ordinary writes or jobs', async () => {
+  const fixture = localD1()
+  try {
+    for (const sql of releaseOperationsSchema) fixture.sqlite.exec(sql)
+    const env = {OPERATIONS:fixture.db,RELEASE_TARGET:'test-installation'}
+    const login = new Request('https://example.com/api/users/login',{method:'POST'})
+    let lease = await acquireRelease(fixture.db,{id:crypto.randomUUID(),target:env.RELEASE_TARGET,mode:'development-reset',baseline:{}})
+    lease = await advanceRelease(fixture.db,lease,'prepared',{validationPassed:true})
+    lease = await advanceRelease(fixture.db,lease,'frozen',{})
+    expect(await maintenanceRequired(env,login)).toBe(true)
+    lease = await advanceRelease(fixture.db,lease,'cutover',{writesStopped:true,recoveryVerified:true,queuesStopped:true,queuesPurged:true})
+    expect(await maintenanceRequired(env,login)).toBe(true)
+    lease = await advanceRelease(fixture.db,lease,'verifying',{})
+    expect(await maintenanceRequired(env,login)).toBe(false)
+    for (const path of ['/admin/login','/api/users/me']) expect(await maintenanceRequired(env,new Request(`https://example.com${path}`))).toBe(false)
+    expect(await maintenanceRequired(env)).toBe(true)
+    for (const path of ['/api/users','/api/users/reset-password','/api/review-tasks','/api/tenant-settings']) expect(await maintenanceRequired(env,new Request(`https://example.com${path}`,{method:'POST'}))).toBe(true)
+    expect(await maintenanceRequired(env,new Request('https://example.com/admin'))).toBe(true)
+    await advanceRelease(fixture.db,lease,'recovering',{})
+    expect(await maintenanceRequired(env,login)).toBe(true)
+  } finally { fixture.close() }
+})
