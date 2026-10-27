@@ -1,4 +1,6 @@
 import { mask, validateDefinition, type Definition, type StepResult } from './model'
+import { TenantRepository } from '../organizations/tenant-repository'
+import { tenantAuthorityActive } from '../organizations/tenant-runtime'
 export interface AutomationRow {
   id: string
   site: string
@@ -44,6 +46,46 @@ export interface EventRow {
 }
 export class AutomationStore {
   constructor(readonly db: D1Database) {}
+  async view(site: string, actor: number, input: { id?: string; search?: string; run?: string }) {
+    if (!(await tenantAuthorityActive(this.db, site))) {
+      return input.run
+        ? this.run(site, actor, input.run)
+        : input.id
+          ? this.get(site, actor, input.id)
+          : this.list(site, actor, input.search)
+    }
+    const repository = new TenantRepository(this.db, actor)
+    const authority = await repository.require(site, 'workflows:read')
+    if (input.run) await repository.require(site, 'workflows:diagnostics')
+    // Only the built-in administrator exception removes the owner predicate.
+    const administrator = authority.auditAdministratorRead
+    return repository.read(
+      {
+        site,
+        permission: 'workflows:read',
+        resource: `workflows:${input.run || input.id || 'listing'}`,
+      },
+      async () => {
+        if (input.run || input.id) {
+          const table = input.run ? 'vc_automation_runs' : 'vc_automations'
+          const row = await this.db
+            .prepare(`SELECT * FROM ${table} WHERE site=? AND id=? AND (?=1 OR owner=?)`)
+            .bind(site, input.run || input.id, administrator ? 1 : 0, actor)
+            .first<AutomationRow | RunRow>()
+          if (!row) throw Error('Workflow unavailable.')
+          return row
+        }
+        return (
+          await this.db
+            .prepare(
+              'SELECT a.*,(SELECT status FROM vc_automation_runs r WHERE r.automation=a.id ORDER BY created_at DESC,id DESC LIMIT 1) AS latest FROM vc_automations a WHERE site=? AND (?=1 OR owner=?) AND name LIKE ? ORDER BY updated_at DESC LIMIT 100',
+            )
+            .bind(site, administrator ? 1 : 0, actor, `%${(input.search || '').slice(0, 120)}%`)
+            .all<AutomationRow>()
+        ).results
+      },
+    )
+  }
   async shared(site: string, search = '') {
     return (
       await this.db
@@ -120,6 +162,23 @@ export class AutomationStore {
         .bind(id, site, owner, name, JSON.stringify(definition), now, now)
         .run()
     return this.get(site, owner, id)
+  }
+  async transfer(row: AutomationRow, email: string) {
+    const authority = await new TenantRepository(this.db, row.owner).require(row.site, 'workflows:edit')
+    const recipient = await this.db.prepare('SELECT u.id FROM users u JOIN vc_tenant_memberships m ON m.user_id=u.id WHERE m.tenant_id=? AND m.active=1 AND lower(trim(u.email))=?').bind(authority.tenant, email.trim().toLowerCase()).first<{id:number}>()
+    if (!recipient || recipient.id === row.owner) throw Error('Choose an active workflow owner in this tenant.')
+    const target = await new TenantRepository(this.db, recipient.id).require(row.site, 'workflows:execute')
+    if (target.revision !== authority.revision) throw Error('This draft changed. Reload before transferring.')
+    const guard = crypto.randomUUID(), now = new Date().toISOString()
+    await this.db.batch([
+      this.db.prepare('UPDATE vc_automations SET owner=?,active=0,shared=0,published=NULL,revision=revision+1,updated_at=? WHERE id=? AND site=? AND owner=? AND revision=?').bind(recipient.id, now, row.id, row.site, row.owner, row.revision),
+      this.db.prepare('INSERT INTO vc_write_guards(operation_key,affected) VALUES(?,changes())').bind(guard),
+      this.db.prepare('INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,count(*) FROM vc_organizations WHERE id=? AND authority_revision=?').bind(`${guard}:authority`, authority.tenant, authority.revision),
+      this.db.prepare("UPDATE vc_automation_runs SET cancel_requested=1,status=CASE WHEN status='queued' THEN 'canceled' ELSE status END,error='Ownership transferred. Review and republish before execution.' WHERE automation=? AND status IN('queued','running')").bind(row.id),
+      this.db.prepare('INSERT INTO vc_platform_audit(id,organization_id,site_id,actor_id,action,record_type,record_id,before_value,after_value,operation_key,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(guard, authority.tenant, row.site, row.owner, 'workflow.transferred', 'workflow', row.id, JSON.stringify({owner:row.owner}), JSON.stringify({owner:recipient.id,active:false}), guard, now),
+      this.db.prepare('DELETE FROM vc_write_guards WHERE operation_key IN(?,?)').bind(guard, `${guard}:authority`),
+    ])
+    return { transferred: true, paused: true }
   }
   async control(row: AutomationRow, action: 'publish' | 'pause') {
     if (action === 'publish') {

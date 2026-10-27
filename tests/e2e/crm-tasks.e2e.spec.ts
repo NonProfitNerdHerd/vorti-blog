@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { createBrowserUser } from '../helpers/browser-user'
 
 test('household follow-ups open in a pinned tab and persist through completion and reload', async ({
   page,
@@ -92,7 +93,9 @@ test('save a donor call, assign another staff member and complete the follow-up 
     '/api/users?where[username][equals]=crm-followup-assignee&limit=1&depth=0',
   )
   expect(staff.ok(), await staff.text()).toBe(true)
-  const assignee = (await staff.json()).docs[0]
+  const assignee = (await staff.json()).docs[0] || (await (await createBrowserUser(page.request, {data: {
+    username: 'crm-followup-assignee', email: 'crm-followup-assignee@example.invalid', password: 'local-followup-only-password', role: 'editor',
+  }})).json()).doc
   expect(assignee?.id).toBeTruthy()
   await page.goto(
     `/admin/crm?${new URLSearchParams({ site: 'default', view: 'contacts', contact: contact.id })}`,

@@ -1,9 +1,10 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { localTaskDay, nextTaskDay } from '../../src/review/dashboard-model'
 test.use({ actionTimeout: 20000 })
 
 async function create(request: APIRequestContext, collection: string, data: object) {
-  const response = await request.post(`/api/${collection}`, { data })
+  const response = collection === 'users' ? await createBrowserUser(request, {data: data as Record<string, unknown>}) : await request.post(`/api/${collection}`, { data })
   expect(response.ok(), await response.text()).toBeTruthy()
   return (await response.json()).doc
 }
@@ -71,9 +72,9 @@ test('Dashboard shows personal counts, ordered tasks, shared editing and filtere
   const recent = page.getByRole('region', { name: 'Recently updated content' })
   await expect(recent.getByRole('link', { name: document.title })).toBeVisible()
   await widget.getByRole('button', { name: `Overdue first ${suffix}` }).click()
-  const dialog = page.getByRole('dialog', { name: 'Task details' })
+  const dialog = page.locator('.editor-dialog-layer')
   await dialog.getByLabel('Status', { exact: true }).selectOption('done')
-  await dialog.getByRole('button', { name: 'Save task', exact: true }).click()
+  await expect(dialog.getByText('Saved', {exact: true})).toBeVisible()
   await expect(widget.getByRole('link', { name: '5 Unfinished' })).toBeVisible()
   await expect(page.getByRole('link', { name: /My unfinished tasks\s*5/ })).toBeVisible()
   await dialog.getByRole('button', { name: 'Close dialog' }).click()
@@ -92,18 +93,13 @@ test('navigation order, administrator links, responsive Dashboard and keyboard f
   if (!(await page.locator('.nav').getAttribute('class'))?.includes('nav--nav-open'))
     await page.getByRole('button', { name: /^Open Menu$/i }).click()
   const nav = page.locator('.nav__wrap')
-  const labels = await nav
-    .locator(
-      ':scope > .vorti-dashboard-link, :scope > .vorticause-task-nav > .vorti-nav-parent-link, :scope > .nav-group > button',
-    )
-    .allTextContents()
-  expect(labels.map((label) => label.trim()).slice(0, 4)).toEqual([
-    'Dashboard',
-    'Content',
-    'Site Design',
-    'Forms',
-  ])
-  expect(labels.map((label) => label.trim()).slice(-2)).toEqual(['Tasks', 'Admin'])
+  for (const name of ['Dashboard', 'Tasks', 'CRM', 'Workflows'])
+    await expect(nav.getByRole('link', {name, exact: true})).toBeVisible()
+  const dashboardBox = await nav.getByRole('link', {name: 'Dashboard', exact: true}).boundingBox()
+  const tasksBox = await nav.getByRole('link', {name: 'Tasks', exact: true}).boundingBox()
+  const contentBox = await nav.getByRole('button', {name: 'Content', exact: true}).boundingBox()
+  expect(tasksBox!.y).toBeGreaterThan(dashboardBox!.y)
+  expect(contentBox!.y).toBeGreaterThan(tasksBox!.y)
   await expect(nav.locator('#nav-group-Review')).toHaveCount(0)
   await expect(nav.locator('#nav-group-Site')).toHaveCount(0)
   const admin = nav.locator('#nav-group-Admin')
@@ -120,10 +116,7 @@ test('navigation order, administrator links, responsive Dashboard and keyboard f
   const design = nav.locator('[id="nav-group-Site Design"]')
   if ((await design.getAttribute('class'))?.includes('nav-group--collapsed'))
     await design.getByRole('button', { name: 'Site Design', exact: true }).click()
-  await expect(design.getByRole('link', { name: 'Site Settings', exact: true })).toHaveAttribute(
-    'href',
-    '/admin/globals/site-settings',
-  )
+  await expect(design.getByRole('link', { name: 'Site Settings', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: /^Close Menu$/i }).click()
   await page.getByRole('button', { name: 'Refresh Dashboard' }).focus()
   await expect(page.getByRole('button', { name: 'Refresh Dashboard' })).toBeFocused()

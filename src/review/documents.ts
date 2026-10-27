@@ -11,7 +11,14 @@ export const relationID = (value: unknown): string =>
 
 export function canReviewCollection(req: PayloadRequest, collection: string) {
   if (!req.user || !reviewDocuments.includes(collection as ReviewDocument)) return false
-  const content = authorityClaim(req.user)?.allowed.content
+  const claim = authorityClaim(req.user)
+  // Review records include draft titles and discussion. Published-content-only
+  // access must not expose that private review metadata.
+  if (claim?.permissions) {
+    if (collection === 'posts' || collection === 'pages') return claim.permissions.includes(`${collection}:read-history`)
+    return claim.permissions.includes(collection === 'site-templates' ? 'administration:templates' : 'administration:designs')
+  }
+  const content = claim?.allowed.content
   return !!content?.includes(['posts', 'pages'].includes(collection) ? 'read' : 'configure')
 }
 

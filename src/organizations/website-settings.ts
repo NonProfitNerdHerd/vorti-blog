@@ -6,11 +6,15 @@ import { atomicSiteMutation } from './atomic'
 import { validateSiteSettings } from '../lib/site-settings-validation'
 
 import { websiteSettingSections, websiteReferences, websiteBooleans } from './website-fields'
+import { tenantAuthorityActive } from './tenant-runtime'
+import { ScopedSettingsRepository } from './scoped-settings'
 
 export async function saveWebsiteSettings(
   req: PayloadRequest,
   input: { site: string; settings: unknown; expectedRevision: number; operationKey: string },
 ) {
+  if (await tenantAuthorityActive(cmsDatabase(req), input.site))
+    return new ScopedSettingsRepository(cmsDatabase(req), Number(req.user?.id)).save({ ...input, scope: 'site' })
   if (input.site === 'default') throw new Error('Use the primary Site Settings editor.')
   const db = cmsDatabase(req),
     repo = new OrganizationRepository(db, Number(req.user!.id))

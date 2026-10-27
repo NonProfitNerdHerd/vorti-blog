@@ -7,10 +7,11 @@ import {
 } from 'payload'
 import { OrganizationRepository } from './repository'
 import { cmsDatabase, cmsScope, migrationRequest } from './cms-scope'
-import { identityAuthority } from './identity-authority'
+import { identityAuthority, claimRequest } from './identity-authority'
 import { withAuthority } from './claims'
 import { formCapabilities } from '../forms/access'
 import { mutationFence } from './mutation-guards'
+import { invitedAccountEmail } from './invitation-context'
 const directoryList = Symbol('account-directory-list')
 
 async function installed(req: PayloadRequest): Promise<boolean> {
@@ -67,6 +68,20 @@ export const tenantUsers = (config: Config): Config => ({
             access: { create: () => false, update: () => false },
           },
           {
+            name: 'platformPermissions',
+            type: 'json',
+            virtual: true,
+            admin: { hidden: true },
+            access: { create: () => false, update: () => false },
+          },
+          {
+            name: 'platformTenantAdministrator',
+            type: 'checkbox',
+            virtual: true,
+            admin: { hidden: true },
+            access: { create: () => false, update: () => false },
+          },
+          {
             name: 'platformForms',
             type: 'json',
             virtual: true,
@@ -91,10 +106,20 @@ export const tenantUsers = (config: Config): Config => ({
             admin: { hidden: true },
             access: { read: () => false },
           },
+          {
+            name: 'tenantDirectory',
+            type: 'join',
+            collection: 'platform-tenant-user-sites' as CollectionSlug,
+            on: 'user',
+            maxDepth: 0,
+            admin: { hidden: true },
+            access: { read: () => false },
+          },
         ],
         access: {
           ...collection.access,
           create: async ({ req }) =>
+            Boolean(invitedAccountEmail(req)) ||
             (await installationOperator(req)) ||
             (!req.user &&
               (await req.payload.count({ collection: 'users', overrideAccess: true })).totalDocs ===
@@ -105,6 +130,21 @@ export const tenantUsers = (config: Config): Config => ({
             const own: Where = { id: { equals: req.user.id } }
             if (!(await installed(req))) return true // Pre-upgrade compatibility installation has only one audience.
             try {
+              const claim = await claimRequest(req)
+              if (claim?.permissions)
+                return claim.permissions.length
+                  ? {
+                      or: [
+                        own,
+                        {
+                          and: [
+                            { 'tenantDirectory.site': { equals: claim.site } },
+                            { 'tenantDirectory.enabled': { equals: true } },
+                          ],
+                        },
+                      ],
+                    }
+                  : own
               const scope = await cmsScope(req, 'read')
               return {
                 or: [
@@ -138,6 +178,14 @@ export const tenantUsers = (config: Config): Config => ({
         },
         hooks: {
           ...collection.hooks,
+          beforeValidate: [
+            ({ req, data, operation }) => {
+              const email = invitedAccountEmail(req)
+              if (email && operation === 'create' && data) return { ...data, email, role: 'editor' }
+              return data
+            },
+            ...(collection.hooks?.beforeValidate || []),
+          ],
           beforeOperation: [
             async ({ req, args, operation }) => {
               if (operation === 'read')
@@ -155,9 +203,12 @@ export const tenantUsers = (config: Config): Config => ({
               // discarded and always derived again, never accepted as authority or membership.
               if ('data' in args && args.data && typeof args.data === 'object') {
                 delete (args.data as Record<string, unknown>).platformOperator
+                delete (args.data as Record<string, unknown>).platformPermissions
+                delete (args.data as Record<string, unknown>).platformTenantAdministrator
                 delete (args.data as Record<string, unknown>).platformForms
                 delete (args.data as Record<string, unknown>).platformAuthority
                 delete (args.data as Record<string, unknown>).siteDirectory
+                delete (args.data as Record<string, unknown>).tenantDirectory
               }
               return args
             },
@@ -167,6 +218,7 @@ export const tenantUsers = (config: Config): Config => ({
             ...(collection.hooks?.afterRead || []),
             async ({ doc, req }) => {
               delete doc.siteDirectory
+              delete doc.tenantDirectory
               if (migrationRequest(req)) return doc
               if (
                 (!req.user && !(req.context as Record<symbol, unknown>)[directoryList]) ||
@@ -182,6 +234,8 @@ export const tenantUsers = (config: Config): Config => ({
                   {
                     ...doc,
                     platformOperator: claim.operator,
+                    platformPermissions: claim.permissions || null,
+                    platformTenantAdministrator: claim.tenantAdministrator === true,
                     platformForms: permissions.length ? [{ site: claim.site, permissions }] : [],
                   },
                   claim,
@@ -276,5 +330,6 @@ export const tenantUsers = (config: Config): Config => ({
       } satisfies CollectionConfig
     }),
     directory,
+    { ...directory, slug: 'platform-tenant-user-sites', dbName: 'vc_tenant_user_sites' },
   ],
 })

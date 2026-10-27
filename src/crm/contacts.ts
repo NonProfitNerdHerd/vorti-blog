@@ -1,5 +1,6 @@
 import { atomicSiteMutation, SiteConflictError } from '../organizations/atomic'
 import { OrganizationRepository, SiteAccessError } from '../organizations/repository'
+import { requireCRMAction } from './tenant-actions'
 import {
   contactLabel,
   validateContactProfile,
@@ -122,6 +123,7 @@ export class ContactRepository {
     operationKey: string
   }): Promise<Record<string, unknown>> {
     const site = await this.authority.require(input.site, 'identity', 'edit')
+    await requireCRMAction(this.db, this.actor, input.site, 'crm:create', site.authorityRevision)
     const profile = validateContactProfile(input.profile),
       roles = validateRoles(input.roles),
       tags = validateContactTags(input.tags === undefined ? [] : input.tags)
@@ -282,6 +284,13 @@ export class ContactRepository {
     const context = await this.authority.require(input.site, 'identity', 'read')
     const original = await this.row(input.site, input.id)
     const source = await this.authority.require(original.source_site_id, 'identity', 'edit')
+    await requireCRMAction(
+      this.db,
+      this.actor,
+      original.source_site_id,
+      'crm:edit',
+      source.authorityRevision,
+    )
     if (source.authorityRevision !== context.authorityRevision) throw new SiteConflictError()
     if (source.organization_id !== context.organization_id || input.confirmedSharedUpdate !== true)
       throw new Error('Confirm that this updates the shared contact profile.')
@@ -333,6 +342,7 @@ export class ContactRepository {
     operationKey: string
   }): Promise<Record<string, unknown>> {
     const site = await this.authority.require(input.site, 'identity', 'edit')
+    await requireCRMAction(this.db, this.actor, input.site, 'crm:edit', site.authorityRevision)
     const original = await this.row(site.id, input.id)
     const roles = validateRoles(input.roles),
       tags = validateContactTags(input.tags)
@@ -449,6 +459,13 @@ export class ContactRepository {
     if (identity.authorityRevision !== context.authorityRevision) throw new SiteAccessError()
     const contact = await this.row(input.site, input.id)
     const source = await this.authority.require(contact.source_site_id, 'identity', 'edit')
+    await requireCRMAction(
+      this.db,
+      this.actor,
+      contact.source_site_id,
+      'crm:edit',
+      source.authorityRevision,
+    )
     if (source.authorityRevision !== context.authorityRevision) throw new SiteConflictError()
     if (
       !['resolved', 'declined'].includes(input.status) ||

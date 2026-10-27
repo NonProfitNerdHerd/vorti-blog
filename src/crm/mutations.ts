@@ -1,5 +1,6 @@
 import { atomicSiteMutation, prepareAtomicSiteCheckpoint } from '../organizations/atomic'
 import { SiteConflictError } from '../organizations/atomic'
+import { authorizeCRMMutation, crmMutationPermissions, requireCRMAction } from './tenant-actions'
 type Intent = { action: string; site: string; type: string; intent: unknown }
 async function hashIntent(input: Intent): Promise<string> {
   return Array.from(
@@ -25,6 +26,8 @@ export async function replayCRM(
   key: string,
   input: Intent,
 ): Promise<Record<string, unknown> | null> {
+  for (const permission of crmMutationPermissions(input.action))
+    await requireCRMAction(db, actor, input.site, permission)
   if (!/^[a-zA-Z0-9_-]{16,128}$/.test(key)) throw new Error('Enter a valid operation key.')
   const row = await db
     .prepare('SELECT actor_id,fingerprint,result FROM vc_platform_operations WHERE operation_key=?')
@@ -86,6 +89,7 @@ function afterWrite(input: CRMCommit): D1PreparedStatement[] {
 }
 /** Shared private-record commit contract: actor + payload-bound retries, epoch fence, immutable audit. */
 export async function commitCRM(input: CRMCommit): Promise<Record<string, unknown>> {
+  await authorizeCRMMutation(input)
   return atomicSiteMutation(input.db, {
     actor: input.actor,
     operationKey: input.key,
@@ -100,6 +104,7 @@ export async function commitCRM(input: CRMCommit): Promise<Record<string, unknow
  * No domain write or audit is committed by preparation; every CAS/epoch guard remains atomic.
  */
 export async function prepareCRMCheckpoint(input: CRMCommit): Promise<D1PreparedStatement[]> {
+  await authorizeCRMMutation(input)
   return prepareAtomicSiteCheckpoint(input.db, {
     actor: input.actor,
     operationKey: input.key,

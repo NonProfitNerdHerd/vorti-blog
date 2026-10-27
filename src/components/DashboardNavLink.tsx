@@ -103,6 +103,7 @@ export function PolicyNav({
   const enabled = useCategoriesEnabled()
   const { navOpen, setNavOpen } = useNav()
   const { user } = useAuth()
+  const fine = Array.isArray(user?.platformPermissions) ? user.platformPermissions as string[] : null
   const { config } = useConfig()
   const { binding } = useAdminSite()
   const { breakpoints } = useWindowInfo()
@@ -218,6 +219,9 @@ export function PolicyNav({
   return (
     <>
       <DashboardNavLink admin={admin} />
+      {(['wiki','intranet'] as const).filter(kind => fine?.some(permission => permission.startsWith(`${kind}:read`))).map(kind =>
+        <a key={kind} className="nav__link" href={`/${kind}?site=${encodeURIComponent(site || 'default')}&manage=1`} onClick={onNavigate}>{kind==='wiki'?'Wiki':'Intranet'}</a>
+      )}
       {tasks && (
         <NavigationGroup
           label="Tasks"
@@ -253,7 +257,7 @@ export function PolicyNav({
         />
       )}
       {primary.filter((group) => group.label === 'Content').map(renderNativeGroup)}
-      <NavigationGroup
+      {(!fine || fine.includes('crm:read')) && <NavigationGroup
         label="CRM"
         href={crmURL(admin, 'overview', site)}
         open={Boolean(open.CRM)}
@@ -277,9 +281,9 @@ export function PolicyNav({
             <span className="nav__link-label">{label}</span>
           </Link>
         ))}
-      </NavigationGroup>
+      </NavigationGroup>}
       {primary.filter((group) => group.label !== 'Content' && group.label !== 'Site Design').map(renderNativeGroup)}
-      <NavigationGroup
+      {(!fine || fine.includes('workflows:read')) && <NavigationGroup
         label="Workflows"
         href={`${admin}/workflows${site ? `?site=${encodeURIComponent(site)}` : ''}`}
         open={Boolean(open.Workflows)}
@@ -308,7 +312,7 @@ export function PolicyNav({
             {label}
           </Link>
         ))}
-      </NavigationGroup>
+      </NavigationGroup>}
       {primary.filter((group) => group.label === 'Site Design').map(renderNativeGroup)}
       {visible.filter((group) => group.label === 'Admin').map(renderNativeGroup)}
     </>

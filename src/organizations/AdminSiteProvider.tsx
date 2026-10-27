@@ -233,7 +233,7 @@ export function AdminSiteSwitcher() {
   return (
     <div className="vc-site-tab">
       {path.endsWith('/globals/system-settings') && (
-        <span className="vc-site-installation">Installation-wide settings</span>
+        <span className="vc-site-installation">Tenant and site settings</span>
       )}
       {sites.length === 1 && !binding.needsChoice ? (
         <span aria-label="Current site">{site.name}</span>

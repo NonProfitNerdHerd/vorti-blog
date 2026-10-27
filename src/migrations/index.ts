@@ -240,4 +240,6 @@ export const migrations = [
   { up: migration_20261025_060000_crm_import_results.up, down: migration_20261025_060000_crm_import_results.down, name: '20261025_060000_crm_import_results' },
   { up: migration_20261026_130000_automations.up, down: migration_20261026_130000_automations.down, name: '20261026_130000_automations' },
   { up: migration_20261026_220000_task_creation_keys.up, down: migration_20261026_220000_task_creation_keys.down, name: '20261026_220000_task_creation_keys' },
+  { up: migration_20261027_000000_tenant_authority.up, down: migration_20261027_000000_tenant_authority.down, name: '20261027_000000_tenant_authority' },
 ];
+import * as migration_20261027_000000_tenant_authority from './20261027_000000_tenant_authority'

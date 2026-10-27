@@ -25,6 +25,10 @@ import { tenantGlobals } from './organizations/globals-plugin'
 import { tenantForms } from './organizations/forms-plugin'
 import { tenantWorkspace } from './organizations/workspace-plugin'
 import { tenantAuthority } from './organizations/authority-plugin'
+import { tenantSettingsAdministration } from './organizations/tenant-settings-plugin'
+import { settingsCompatibility } from './organizations/settings-compatibility'
+import { knowledgeModule } from './knowledge/plugin'
+import { tenantInvitations } from './organizations/invitation-plugin'
 import { tenantMutationGuards } from './organizations/mutation-guards'
 import { organizationAdministration } from './organizations/admin-plugin'
 import { tenantEditorSite } from './organizations/editor-site'
@@ -224,6 +228,8 @@ export default buildConfig({
   }),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
+    // Release validation checks committed generated output without rewriting its inputs.
+    autoGenerate: process.env.VORTI_FROZEN_VALIDATION !== '1',
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: !migrationManaged }),
@@ -290,15 +296,16 @@ export default buildConfig({
     tenantWorkspace,
     tenantMutationGuards,
     tenantEditorSite,
-    organizationAdministration({
-      enabled:
-        Boolean(localPersistPath) ||
-        (cloudflare.env as CloudflareEnv & { ORGANIZATION_ADMIN_ENABLED?: string })
-          .ORGANIZATION_ADMIN_ENABLED === 'true',
-    }),
-    tenantAuthority,
+    // Site selection and recovery settings are required application infrastructure.
+    // Runtime feature flags must not remove their endpoints from the built admin.
+    organizationAdministration({ enabled: true }),
+    tenantSettingsAdministration,
+    tenantInvitations,
+    settingsCompatibility,
+    knowledgeModule(cloudflare.env.D1, cloudflare.env.WORKSPACE_FILES),
     websiteCopyRecords,
     automationsModule(cloudflare.env.D1),
+    tenantAuthority,
     accountStatusGuards(cloudflare.env.D1),
   ],
 })

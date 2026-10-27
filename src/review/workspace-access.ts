@@ -62,7 +62,33 @@ export function taskWhere(
   permission: 'read' | 'edit' | 'comment' = 'read',
   prefix = '',
 ): boolean | Where {
-  return crmTaskWhere(req, permission, prefix, workspaceTaskWhere(req, permission, prefix))
+  const claim = authorityClaim(req.user)
+  if (claim?.permissions && !claim.permissions.includes(permission === 'read' ? 'tasks:read' : permission === 'comment' ? 'tasks:comment' : 'tasks:edit'))
+    return false
+  const workspace = claim?.permissions && claim.tenantAdministrator && permission === 'read'
+    ? { [`${prefix}creationTenant`]: { equals: claim.organization } }
+    : workspaceTaskWhere(req, permission, prefix)
+  const result = crmTaskWhere(req, permission, prefix, workspace)
+  if (!result || !claim?.permissions) return result
+  return { and: [
+    { [`${prefix}creationTenant`]: { equals: claim.organization } },
+    ...(claim.featureSites ? [{ or: [
+      { and: [{ [`${prefix}boards`]: { exists: false } }, { or: [{ [`${prefix}personal`]: { equals: true } }, { [`${prefix}documentType`]: { exists: false } }] }] },
+      { [`${prefix}boards.platformSite`]: { in: claim.featureSites.tasks || [] } },
+      { and: [{ [`${prefix}boards`]: { exists: false } }, { [`${prefix}documentSite`]: { in: claim.featureSites.tasks || [] } }] },
+    ] } as Where] : []),
+    ...(claim.featureSites ? (['pages', 'posts'] as const).map(type => ({ or: [
+      { [`${prefix}documentType`]: { not_equals: type } },
+      { [`${prefix}documentType`]: { exists: false } },
+      { [`${prefix}documentSite`]: { in: claim.featureSites![type] || [] } },
+    ] } as Where)) : []),
+    { or: [
+      { [`${prefix}documentType`]: { exists: false } },
+      { [`${prefix}documentType`]: { equals: 'none' } },
+      { [`${prefix}documentType`]: { in: reviewDocuments.filter(type => canReviewCollection(req, type)) } },
+    ] },
+    ...(result === true ? [] : [result]),
+  ] }
 }
 export function taskReadWhere(req: PayloadRequest, prefix = 'task.'): Where {
   const access = taskWhere(req, 'read', prefix)
@@ -173,12 +199,16 @@ export async function boardRole(req: PayloadRequest, id: unknown): Promise<Board
     depth: 0,
   })
   if (isAdministrator(req)) return 'owner'
+  if (claim?.permissions) {
+    if ((board as unknown as { creationTenant?: string }).creationTenant !== claim.organization || !claim.permissions.includes('tasks:read')) return null
+  }
   if (
     board.platformSite &&
     (board.platformSite !== claim?.site || !claim.allowed.workspace?.includes('read'))
   )
     return null
   if (relationID(board.owner) === String(req.user.id)) return 'owner'
+  if (claim?.tenantAdministrator) return 'viewer'
   const members = await req.payload.find({
     collection: 'task-board-memberships',
     req: workspaceReq(req),

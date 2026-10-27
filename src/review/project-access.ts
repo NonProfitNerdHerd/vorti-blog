@@ -25,8 +25,12 @@ export async function projectRole(req: PayloadRequest, id: unknown): Promise<Boa
     overrideAccess: true,
   })
   if (isAdministrator(req)) return 'owner'
+  if (claim?.permissions) {
+    if ((project as unknown as { creationTenant?: string }).creationTenant !== claim.organization || !claim.permissions.includes('tasks:read')) return null
+  }
   if (project.platformSite && (project.platformSite !== claim?.site || !claim.allowed.workspace?.includes('read'))) return null
   if (relationID(project.owner) === String(req.user.id)) return 'owner'
+  if (claim?.tenantAdministrator) return 'viewer'
   const result = await req.payload.find({
     collection: 'task-project-memberships',
     req: workspaceReq(req),

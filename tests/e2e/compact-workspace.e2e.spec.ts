@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { expect, test } from '@playwright/test'
 test('compact menu, personal colors, filter panel and inline task/subtask entry', async ({
   page,
@@ -6,7 +7,7 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   const username = `compact-ui-${Date.now()}`
-  const created = await page.request.post('/api/users', {
+  const created = await createBrowserUser(page.request, {
     data: {
       username,
       email: `${username}@example.invalid`,
@@ -64,7 +65,7 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
     input = page.getByLabel('Add task in Open', { exact: true })
   await input.fill(title)
   await page.route(
-    '**/api/review-tasks?depth=0',
+    '**/api/task-workspace/create*',
     (r) =>
       r.fulfill({
         status: 503,
@@ -74,11 +75,10 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
     { times: 1 },
   )
   await input.press('Enter')
-  await expect(input).toHaveValue(title)
-  await expect(page.locator('.workspace-inline-entry').getByRole('alert')).toContainText(
-    'Try again',
-  )
-  await input.press('Enter')
+  await expect(input).toHaveValue('')
+  const failedCreation = page.locator('.workspace-creation-errors').filter({ hasText: title })
+  await expect(failedCreation).toContainText('Try again')
+  await failedCreation.getByRole('button', { name: 'Retry creation', exact: true }).click()
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible()
   await expect(input).toHaveValue('')
   await page.getByRole('button', { name: `Expand subtasks for ${title}` }).click()
@@ -100,7 +100,7 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
   await grouped.fill('Hidden grouped task')
   const saved = page.waitForResponse(
     (response) =>
-      response.url().includes('/api/review-tasks?depth=0') &&
+      response.url().includes('/api/task-workspace/create') &&
       response.request().method() === 'POST',
   )
   await grouped.press('Enter')
@@ -108,12 +108,12 @@ test('compact menu, personal colors, filter panel and inline task/subtask entry'
   await expect(page.getByRole('button', { name: 'Hidden grouped task', exact: true })).toHaveCount(
     0,
   )
-  await page.getByRole('button', { name: 'View task', exact: true }).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByRole('button', { name: 'Close dialog' }).click()
   await page.getByRole('button', { name: 'Filter board tasks' }).click()
   await filters.getByRole('button', { name: 'Reset filters and view' }).click()
   await filters.getByRole('button', { name: 'Close board filters' }).click()
+  await page.getByRole('button', { name: 'Hidden grouped task', exact: true }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.getByRole('button', { name: 'Close dialog' }).click()
   await page.reload()
   await expect(color).toHaveCSS('background-color', 'rgb(15, 118, 110)')
   await expect(page.getByRole('heading', { name: "Personal To-Do's", exact: true })).toBeVisible()

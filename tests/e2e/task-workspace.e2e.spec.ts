@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { expect, test } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
@@ -230,7 +231,7 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   baseURL,
 }) => {
   const suffix = Date.now()
-  const userResponse = await page.request.post('/api/users', {
+  const userResponse = await createBrowserUser(page.request, {
     data: {
       username: `mention-${suffix}`,
       email: `mention-${suffix}@example.invalid`,
@@ -240,6 +241,8 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
   })
   expect(userResponse.ok(), await userResponse.text()).toBe(true)
   const user = (await userResponse.json()).doc
+  const tenantRoles = await page.request.get('/api/tenant-settings?site=default&section=roles')
+  if (!tenantRoles.ok()) {
   const authority = await (await page.request.get('/api/organization-admin?site=default')).json()
   const chapter = authority.site
   const chapterMembership = await page.request.post('/api/organization-admin', {
@@ -255,6 +258,7 @@ test('mentions reach a permitted account inbox and open the exact comment', asyn
     },
   })
   expect(chapterMembership.ok(), await chapterMembership.text()).toBe(true)
+  }
   const board = (
     await (
       await page.request.post('/api/task-boards', { data: { name: `Mentions ${suffix}` } })

@@ -1,4 +1,5 @@
 import { workspaceReq } from './workspace-access'
+import { claimRequest } from '../organizations/identity-authority'
 import { mutationFence } from '../organizations/mutation-guards'
 import { workspaceMutationFence } from './workspace-commit'
 import type { Endpoint, PayloadRequest } from 'payload'
@@ -275,6 +276,9 @@ export const workspaceEndpoint: Endpoint = {
     if (!req.user || !body) reject('Sign in.', 401)
     const task = await requireTask(req, req.routeParams?.id)
     const action = String(body.action)
+    const claim = await claimRequest(req)
+    if (claim?.permissions && action !== 'follow' && !claim.permissions.includes('tasks:share'))
+      reject('Task sharing permission is required.')
     if (action === 'follow') {
       const key = `${task.id}:${req.user.id}`
       const existing = await req.payload.find({

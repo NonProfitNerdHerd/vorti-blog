@@ -31,6 +31,7 @@ const writeFields: Partial<Record<Resource, string[]>> = {
 }
 export interface AutomationAdapter {
   authorize(site: string, owner: number): Promise<void>
+  authorizeDiagnostics?(site: string, viewer: number): Promise<void>
   read(site: string, owner: number, reference: Reference): Promise<Record<string, unknown>>
   execute(
     site: string,
@@ -41,7 +42,7 @@ export interface AutomationAdapter {
 }
 /** Every call creates a new request and resolves authority from primary D1 again. */
 export function payloadAdapter(payload: Payload, db: D1Database): AutomationAdapter {
-  async function request(site: string, owner: number): Promise<PayloadRequest> {
+  async function request(site: string, owner: number, action: 'execute' | 'diagnostics' | 'read' = 'execute'): Promise<PayloadRequest> {
     // Sole privileged lookup: the stored execution identity, never a target resource.
     const user = await payload.findByID({
       collection: 'users',
@@ -54,6 +55,10 @@ export function payloadAdapter(payload: Payload, db: D1Database): AutomationAdap
       payload,
     )
     const claim = await claimRequest(req, site)
+    if (claim?.permissions && !(action === 'read'
+      ? claim.permissions.includes('workflows:read') || claim.permissions.includes('workflows:execute')
+      : claim.permissions.includes(`workflows:${action}`)))
+      throw Error('The account no longer has the required workflow permission in this site.')
     if (
       !claim ||
       (!claim.bootstrap && !claim.operator && !Object.values(claim.allowed).some((v) => v?.length))
@@ -65,8 +70,11 @@ export function payloadAdapter(payload: Payload, db: D1Database): AutomationAdap
     authorize: async (site, owner) => {
       await request(site, owner)
     },
+    authorizeDiagnostics: async (site, viewer) => {
+      await request(site, viewer, 'diagnostics')
+    },
     read: async (site, owner, ref) => {
-      const req = await request(site, owner)
+      const req = await request(site, owner, 'read')
       if (ref.resource === 'contacts')
         return { ...(await new ContactRepository(db, owner).get(site, ref.id)) }
       const doc = (await payload.findByID({
@@ -326,7 +334,7 @@ export class AutomationRunner {
       .bind(status, error, JSON.stringify(mask(results)), JSON.stringify(refs), now(), run.id)
       .run()
   }
-  async diagnostics(run: RunRow) {
+  async diagnostics(run: RunRow, viewer = run.owner) {
     let visible = true
     let valuesVisible = true
     const results = JSON.parse(run.steps) as StepResult[]
@@ -344,19 +352,19 @@ export class AutomationRunner {
       )
     }
     try {
-      await this.adapter.authorize(run.site, run.owner)
+      await (this.adapter.authorizeDiagnostics || this.adapter.authorize)(run.site, viewer)
       for (const reference of JSON.parse(run.refs) as Reference[])
-        await this.adapter.read(run.site, run.owner, reference)
+        await this.adapter.read(run.site, viewer, reference)
       const event = JSON.parse(run.event) as EventRow & { input?: unknown }
       current.trigger = event.resource
-        ? await this.adapter.read(run.site, run.owner, {
+        ? await this.adapter.read(run.site, viewer, {
             resource: event.resource as Resource,
             id: event.record_id,
           })
         : event.input || {}
       for (const result of results) {
         if (result.reference) {
-          const allowed = await this.adapter.read(run.site, run.owner, result.reference)
+          const allowed = await this.adapter.read(run.site, viewer, result.reference)
           ;(current.steps as Record<string, unknown>)[result.id] = allowed
           if (!covered(result.output, allowed)) valuesVisible = false
         } else if (definition.steps.find((s) => s.id === result.id)?.kind === 'condition') {

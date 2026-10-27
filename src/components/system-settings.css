@@ -93,6 +93,14 @@
   }
 }
 .settings-hub { max-width: 1040px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px) 56px; color: var(--theme-text); }
+.settings-hub--scoped { max-width: 1320px; }
+.settings-hub__workspace { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 24px; align-items: start; }
+.settings-hub__sidebar { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 24px; }
+.settings-hub__sidebar a { padding: 12px 16px; border-radius: 8px; color: var(--theme-text); text-decoration: none; }
+.settings-hub__sidebar a[aria-current] { background: var(--theme-elevation-100); font-weight: 600; }
+.settings-hub--scoped .system-settings-table { table-layout: auto; }
+.settings-hub--scoped .system-settings-table th:first-child { width: auto; }
+@media(max-width: 760px) { .settings-hub__workspace { grid-template-columns: minmax(0,1fr); } .settings-hub__sidebar { position: static; flex-direction: row; flex-wrap: wrap; } .settings-hub--scoped .system-settings-table { display: block; overflow-x: auto; } }
 .settings-hub header h1 { margin: 0 0 8px; font-size: 30px; }
 .settings-hub header > p { margin: 0 0 18px; color: var(--theme-elevation-650); }
 .settings-hub .settings-hub__eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 8px; }

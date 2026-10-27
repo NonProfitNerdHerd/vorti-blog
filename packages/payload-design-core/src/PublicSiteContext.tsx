@@ -51,5 +51,15 @@ export function SiteAnchor({ href, ...props }: AnchorHTMLAttributes<HTMLAnchorEl
 }
 export function usePublicFetch() {
   const path = usePublicSitePath()
-  return useCallback((url: string, options?: RequestInit) => fetch(path(url), options), [path])
+  return useCallback((url: string, options?: RequestInit) => {
+    if (!/^\/api\/forms-(?:runtime|placement)(?:\/|$)/.test(url)) return fetch(path(url), options)
+    const location = window.location.pathname.replace(/^\/sites\/[^/]+(?=\/|$)/, '') || '/'
+    const host = /^\/posts(?:\/|$)/.test(location) ? 'posts'
+      : /^\/wiki(?:\/|$)/.test(location) ? 'wiki'
+      : /^\/intranet(?:\/|$)/.test(location) ? 'intranet'
+      : /^\/(?:forms|api|admin)(?:\/|$)/.test(location) ? undefined : 'pages'
+    const headers = new Headers(options?.headers)
+    if (host) headers.set('x-vorti-form-host', host)
+    return fetch(path(url), { ...options, headers })
+  }, [path])
 }

@@ -1,4 +1,5 @@
 import type { InformationCategory, SiteOperation } from './policy'
+import type { Permission } from './permission-catalog'
 export const SERVER_AUTHORITY = Symbol('server-derived-site-authority')
 export interface AuthorityClaim {
   actor: number
@@ -6,6 +7,9 @@ export interface AuthorityClaim {
   organization: string
   epoch: number
   operator: boolean
+  tenantAdministrator?: boolean
+  permissions?: Permission[]
+  featureSites?: Record<string, string[]>
   bootstrap: boolean
   allowed: Partial<Record<InformationCategory, SiteOperation[]>>
 }

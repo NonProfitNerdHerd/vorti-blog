@@ -133,6 +133,7 @@ export interface Config {
     exports: Export;
     imports: Import;
     'platform-user-sites': PlatformUserSite;
+    'platform-tenant-user-sites': PlatformTenantUserSite;
     'platform-workspace-access': PlatformWorkspaceAccess;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -143,6 +144,7 @@ export interface Config {
   collectionsJoins: {
     users: {
       siteDirectory: 'platform-user-sites';
+      tenantDirectory: 'platform-tenant-user-sites';
     };
     'review-tasks': {
       crmContext: 'crm-task-contexts';
@@ -234,6 +236,7 @@ export interface Config {
     exports: ExportsSelect<false> | ExportsSelect<true>;
     imports: ImportsSelect<false> | ImportsSelect<true>;
     'platform-user-sites': PlatformUserSitesSelect<false> | PlatformUserSitesSelect<true>;
+    'platform-tenant-user-sites': PlatformTenantUserSitesSelect<false> | PlatformTenantUserSitesSelect<true>;
     'platform-workspace-access': PlatformWorkspaceAccessSelect<false> | PlatformWorkspaceAccessSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -646,6 +649,16 @@ export interface User {
   instagramURL?: string | null;
   githubURL?: string | null;
   platformOperator?: boolean | null;
+  platformPermissions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  platformTenantAdministrator?: boolean | null;
   platformForms?:
     | {
         [k: string]: unknown;
@@ -666,6 +679,11 @@ export interface User {
     | null;
   siteDirectory?: {
     docs?: (string | PlatformUserSite)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  tenantDirectory?: {
+    docs?: (string | PlatformTenantUserSite)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -707,6 +725,16 @@ export interface User {
  * via the `definition` "platform-user-sites".
  */
 export interface PlatformUserSite {
+  id: string;
+  user: number | User;
+  site: string;
+  enabled: boolean;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-tenant-user-sites".
+ */
+export interface PlatformTenantUserSite {
   id: string;
   user: number | User;
   site: string;
@@ -1035,6 +1063,7 @@ export interface ReviewTask {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  creationTenant?: string | null;
   documentSite?: string | null;
   platformMutationProof?:
     | {
@@ -1091,6 +1120,7 @@ export interface TaskBoard {
     totalDocs?: number;
   };
   expectedUpdatedAt?: string | null;
+  creationTenant?: string | null;
   platformSite?: string | null;
   siteAccessGrants?: {
     docs?: (string | PlatformWorkspaceAccess)[];
@@ -1154,6 +1184,7 @@ export interface TaskProject {
     totalDocs?: number;
   };
   expectedUpdatedAt?: string | null;
+  creationTenant?: string | null;
   platformSite?: string | null;
   projectSiteAccessGrants?: {
     docs?: (string | PlatformWorkspaceAccess)[];
@@ -3346,6 +3377,10 @@ export interface PayloadLockedDocument {
         value: string | PlatformUserSite;
       } | null)
     | ({
+        relationTo: 'platform-tenant-user-sites';
+        value: string | PlatformTenantUserSite;
+      } | null)
+    | ({
         relationTo: 'platform-workspace-access';
         value: string | PlatformWorkspaceAccess;
       } | null);
@@ -3585,9 +3620,12 @@ export interface UsersSelect<T extends boolean = true> {
   instagramURL?: T;
   githubURL?: T;
   platformOperator?: T;
+  platformPermissions?: T;
+  platformTenantAdministrator?: T;
   platformForms?: T;
   platformAuthority?: T;
   siteDirectory?: T;
+  tenantDirectory?: T;
   platformMutationProof?: T;
   editorSite?: T;
   updatedAt?: T;
@@ -3669,6 +3707,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   crmAuthorityRevision?: T;
   crmContext?: T;
   crmConstituents?: T;
+  creationTenant?: T;
   documentSite?: T;
   platformMutationProof?: T;
   editorSite?: T;
@@ -3731,6 +3770,7 @@ export interface TaskBoardsSelect<T extends boolean = true> {
   preferences?: T;
   directMemberships?: T;
   expectedUpdatedAt?: T;
+  creationTenant?: T;
   platformSite?: T;
   siteAccessGrants?: T;
   taskSiteAccessGrants?: T;
@@ -3891,6 +3931,7 @@ export interface TaskProjectsSelect<T extends boolean = true> {
   notificationProjectGrants?: T;
   projectPreferences?: T;
   expectedUpdatedAt?: T;
+  creationTenant?: T;
   platformSite?: T;
   projectSiteAccessGrants?: T;
   platformMutationProof?: T;
@@ -4881,6 +4922,16 @@ export interface PlatformUserSitesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platform-tenant-user-sites_select".
+ */
+export interface PlatformTenantUserSitesSelect<T extends boolean = true> {
+  id?: T;
+  user?: T;
+  site?: T;
+  enabled?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "platform-workspace-access_select".
  */
 export interface PlatformWorkspaceAccessSelect<T extends boolean = true> {
@@ -5080,6 +5131,7 @@ export interface SiteSetting {
     | number
     | boolean
     | null;
+  platformSettingsRevision?: number | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -5109,6 +5161,7 @@ export interface SystemSetting {
     | number
     | boolean
     | null;
+  platformSettingsRevision?: number | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -5206,6 +5259,7 @@ export interface SiteSettingsSelect<T extends boolean = true> {
   contactEmail?: T;
   contactInformation?: T;
   platformGlobalProof?: T;
+  platformSettingsRevision?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -5219,6 +5273,7 @@ export interface SystemSettingsSelect<T extends boolean = true> {
   tagManagementRoles?: T;
   categoriesEnabled?: T;
   platformGlobalProof?: T;
+  platformSettingsRevision?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

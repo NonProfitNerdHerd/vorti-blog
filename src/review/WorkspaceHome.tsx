@@ -148,6 +148,7 @@ export function WorkspaceHome({
       <Widget title="My work" load={personal} version={version + refreshKey}>
         {({ docs, counts }) => (
           <>
+            <p>Personal Tasks stay in the tenant where they were created. Tenant Administrators can read them; administrator access is audited.</p>
             <div className="workspace-home-counts">
               {['Unfinished', 'Overdue', 'Due soon'].map((label, index) => (
                 <Link

@@ -1,5 +1,9 @@
 import { disabledAncestorSQL } from './website-schema-v1'
+import { tenantAuthorityActive, tenantAuthorityMatrix, tenantSchemaInstalled } from './tenant-runtime'
+import type { Permission } from './permission-catalog'
 import { atomicSiteMutation, SiteConflictError } from './atomic'
+import { ScopedSettingsRepository } from './scoped-settings'
+import { TenantRepository } from './tenant-repository'
 import { decodeSiteCursor, encodeSiteCursor } from './site-cursor'
 import { validateScopedSiteSettings, type ScopedSiteSettings } from './site-settings'
 import {
@@ -67,6 +71,7 @@ export class OrganizationRepository {
     if (!Number.isSafeInteger(actor) || actor <= 0) throw new SiteAccessError()
   }
   async isOperator(): Promise<boolean> {
+    if (await tenantAuthorityActive(this.db)) return false
     return !!(await this.db
       .prepare(
         'SELECT user_id FROM vc_installation_operators WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status a WHERE a.user_id=vc_installation_operators.user_id AND a.disabled=1)',
@@ -78,13 +83,15 @@ export class OrganizationRepository {
   async listSites(after = ''): Promise<{ sites: SiteRow[]; next: string | null }> {
     const cursor = await decodeSiteCursor(after, this.actor)
     const operator = await this.isOperator()
+    const tenantSchema = await tenantSchemaInstalled(this.db)
     const rows = await this.db.prepare(`SELECT s.id,s.organization_id,s.parent_id,s.archived,s.revision,s.name,s.route_key FROM vc_sites s
       WHERE s.id>? AND (?=1 OR EXISTS(SELECT 1 FROM vc_site_memberships m JOIN vc_site_ancestry a ON a.ancestor_id=m.site_id
         WHERE m.user_id=? AND m.active=1 AND a.descendant_id=s.id)
       OR EXISTS(SELECT 1 FROM vc_site_grants g JOIN vc_site_memberships m ON m.user_id=? AND m.active=1
         WHERE g.source_id=s.id AND g.revoked=0 AND (g.receiver_id=m.site_id OR (g.receiver_descendants=1 AND EXISTS(
-          SELECT 1 FROM vc_site_ancestry a WHERE a.ancestor_id=g.receiver_id AND a.descendant_id=m.site_id)))))
-      ORDER BY s.id LIMIT 50`).bind(cursor, operator ? 1 : 0, this.actor, this.actor).all<SiteRow>()
+          SELECT 1 FROM vc_site_ancestry a WHERE a.ancestor_id=g.receiver_id AND a.descendant_id=m.site_id))))
+      ${tenantSchema ? 'OR EXISTS(SELECT 1 FROM vc_tenant_memberships tm WHERE tm.tenant_id=s.organization_id AND tm.user_id=? AND tm.active=1)' : ''})
+      ORDER BY s.id LIMIT 50`).bind(cursor, operator ? 1 : 0, this.actor, this.actor, ...(tenantSchema ? [this.actor] : [])).all<SiteRow>()
     if (operator) {
       if (!(await this.isOperator())) throw new SiteAccessError()
       return { sites: rows.results, next: rows.results.length === 50 ? await encodeSiteCursor(rows.results.at(-1)!.id, this.actor) : null }
@@ -147,6 +154,7 @@ export class OrganizationRepository {
     return await this.db.prepare('SELECT site_id AS site,revision FROM vc_site_contexts WHERE user_id=?').bind(this.actor).first<{ site: string; revision: number }>() || { site: 'default', revision: 0 }
   }
   async settings(siteID: string) {
+    if (await tenantAuthorityActive(this.db, siteID)) return new ScopedSettingsRepository(this.db, this.actor).read(siteID)
     const site = await this.require(siteID, 'content', 'read')
     if (siteID === 'default') throw new Error('Use the compatibility Site Settings workspace.')
     const row = await this.db.prepare('SELECT value,revision FROM vc_site_settings WHERE site_id=?')
@@ -155,6 +163,7 @@ export class OrganizationRepository {
     return { settings: row ? JSON.parse(row.value) as ScopedSiteSettings : { siteName: site.name, siteTagline: '', timezone: 'UTC' }, revision: row?.revision ?? 0 }
   }
   async setSettings(input: { site: string; expectedRevision: number; operationKey: string; settings: unknown }) {
+    if (await tenantAuthorityActive(this.db, input.site)) return new ScopedSettingsRepository(this.db, this.actor).save({ ...input, scope: 'site' })
     const site = await this.require(input.site, 'content', 'configure')
     if (input.site === 'default') throw new Error('Use the compatibility Site Settings workspace.')
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) throw new SiteConflictError()
@@ -240,6 +249,10 @@ export class OrganizationRepository {
     category: InformationCategory,
     operation: SiteOperation,
   ): Promise<{ decision: AuthorityDecision; authorityRevision: number }> {
+    if (await tenantAuthorityActive(this.db, site)) {
+      const result = await tenantAuthorityMatrix(this.db, this.actor, site)
+      return { decision: result.decisions.find(item => item.category === category && item.operation === operation)!, authorityRevision: result.authorityRevision }
+    }
     const snapshot: PolicySnapshot = { sites: [], memberships: [], rules: [], grants: [] }
     const target = await this.site(site)
     const organization = target.organization_id
@@ -362,16 +375,20 @@ export class OrganizationRepository {
   ): Promise<SiteRow & { authorityRevision: number }> {
     const { decision, authorityRevision } = await this.decision(site, category, operation)
     if (!decision.allowed) throw new SiteAccessError()
+    if(decision.reason==='tenant-role'&&operation==='read'&&!['content','workspace','forms','form-submissions'].includes(category))
+      await new TenantRepository(this.db,this.actor).read({site,permission:'crm:read',resource:`${category}:${site}`},async():Promise<void>=>{})
     return { ...(await this.site(site)), authorityRevision }
   }
   /** One joined, paginated snapshot evaluates the complete capability matrix. Used when issuing
    * request claims; do not perform fifty independent hierarchy queries during authentication. */
   async authoritySet(siteID: string): Promise<{
     site: SiteRow; authorityRevision: number; operator: boolean;
+    tenantAdministrator?: boolean; permissions?: Permission[];
     allowed: Partial<Record<InformationCategory, SiteOperation[]>>
     decisions: Array<AuthorityDecision & { category: InformationCategory; operation: SiteOperation }>
   }> {
     const site = await this.site(siteID), root = site.organization_id
+    if (await tenantAuthorityActive(this.db, siteID)) return { site, ...await tenantAuthorityMatrix(this.db, this.actor, siteID) }
     const before = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=? AND NOT EXISTS(SELECT 1 FROM vc_account_status WHERE user_id=? AND disabled=1)')
       .bind(root, this.actor).first<{ authority_revision: number }>()
     if (!before) throw new SiteAccessError()

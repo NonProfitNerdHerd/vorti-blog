@@ -9,6 +9,8 @@ import { internalWorkspace, ids } from '../review/workspace-access'
 import { authorityClaim } from './claims'
 import { claimRequest } from './identity-authority'
 import { cmsDatabase, migrationRequest } from './cms-scope'
+import { TenantRepository } from './tenant-repository'
+import type { Permission } from './permission-catalog'
 
 const siteField = (name: string): Field => ({
   name,
@@ -58,7 +60,20 @@ export const tenantWorkspace = (config: Config): Config => ({
   ...config,
   collections: [
     ...(config.collections || []).map((collection): CollectionConfig => {
-      if (!protectedCollections.has(collection.slug)) return collection
+      if (!protectedCollections.has(collection.slug)) {
+        if (!collection.slug.startsWith('task-')) return collection
+        return { ...collection, hooks: { ...collection.hooks, beforeOperation: [async ({ req, operation }) => {
+          if (migrationRequest(req)) return
+          const claim = await claimRequest(req)
+          if (!claim?.permissions) return
+          const reading = ['read', 'count', 'readDistinct', 'readVersions'].includes(operation)
+          const permission: Permission = reading || /preferences|notifications|followers/.test(collection.slug) ? 'tasks:read'
+            : /memberships|sharing|project-changes/.test(collection.slug) ? 'tasks:share'
+            : collection.slug === 'task-field-definitions' ? 'tasks:configure'
+            : 'tasks:edit'
+          if (!claim.permissions.includes('tasks:read') || (!internalWorkspace(req) && !claim.permissions.includes(permission))) throw new APIError('Tasks are unavailable or your permissions changed.', 403)
+        }, ...(collection.hooks?.beforeOperation || [])] } }
+      }
       const container = ['task-projects', 'task-boards'].includes(collection.slug)
       // Distinct join names avoid native SQL alias reuse across task.board, board and project
       // branches of the same Inbox predicate. These joins are authorization-only.
@@ -70,6 +85,7 @@ export const tenantWorkspace = (config: Config): Config => ({
         ...collection,
         fields: [
           ...collection.fields,
+          ...(container || collection.slug === 'review-tasks' ? [siteField('creationTenant')] : []),
           ...(container
             ? [
                 siteField('platformSite'),
@@ -90,6 +106,7 @@ export const tenantWorkspace = (config: Config): Config => ({
         ],
         forceSelect: {
           ...collection.forceSelect,
+          ...(container || collection.slug === 'review-tasks' ? { creationTenant: true } : {}),
           ...(container
             ? { platformSite: true }
             : collection.slug === 'review-tasks'
@@ -109,7 +126,25 @@ export const tenantWorkspace = (config: Config): Config => ({
                   }
               }
               if (!migrationRequest(req)) {
-                await claimRequest(req)
+                const claim = await claimRequest(req)
+                if (claim?.permissions) {
+                  const reading = ['read', 'count', 'readDistinct'].includes(operation)
+                  const permission: Permission = reading ? 'tasks:read'
+                    : container ? 'tasks:manage-projects'
+                    : collection.slug === 'review-comments' ? 'tasks:comment'
+                    : operation === 'create' ? 'tasks:create'
+                    : operation === 'delete' ? 'tasks:delete' : 'tasks:edit'
+                  // Server helpers still respect feature availability. They may maintain
+                  // derived activity after the initiating operation has been authorized.
+                  if (!claim.permissions.includes('tasks:read') ||
+                    (!internalWorkspace(req) && !claim.permissions.includes(permission)))
+                    throw new APIError('Tasks are unavailable or your permissions changed.', 403)
+                  if (reading && claim.tenantAdministrator)
+                    await new TenantRepository(cmsDatabase(req), claim.actor).read({
+                      site: claim.site, permission: 'tasks:read',
+                      resource: `${collection.slug}:${operation}`, privateRecord: true,
+                    }, async (): Promise<void> => {})
+                }
                 if (
                   req.user &&
                   !internalWorkspace(req) &&
@@ -125,6 +160,18 @@ export const tenantWorkspace = (config: Config): Config => ({
             async ({ req, data, originalDoc, operation }) => {
               if (!data || migrationRequest(req)) return data
               const claim = await claimRequest(req)
+              if (claim?.permissions && !internalWorkspace(req)) {
+                const identity = (value: unknown) => value && typeof value === 'object' ? String((value as {id:unknown}).id) : String(value ?? '')
+                if (collection.slug === 'review-tasks' && 'assignee' in data && identity(data.assignee) !== identity(originalDoc?.assignee) && !claim.permissions.includes('tasks:assign')) throw new APIError('Task assignment permission is required.', 403)
+                if (originalDoc && ['owner','visibility'].some(field => field in data && identity(data[field]) !== identity(originalDoc[field])) && !claim.permissions.includes('tasks:share')) throw new APIError('Task sharing permission is required.', 403)
+              }
+              if (container || collection.slug === 'review-tasks') {
+                if ('creationTenant' in data && data.creationTenant !== originalDoc?.creationTenant)
+                  throw new APIError('Creation tenant is server-managed.', 403)
+                data.creationTenant = originalDoc?.creationTenant || claim?.organization || null
+                if (claim?.permissions && data.creationTenant !== claim.organization)
+                  throw new APIError('This workspace belongs to another tenant.', 403)
+              }
               const name = container ? 'platformSite' : 'documentSite'
               if (name in data && data[name] !== originalDoc?.[name])
                 throw new APIError('Workspace ownership is server-managed.', 403)
@@ -190,9 +237,11 @@ export const tenantWorkspace = (config: Config): Config => ({
                 if (!originalDoc?.id && data.parent) {
                   const parent = typeof data.parent === 'object' ? data.parent.id : data.parent
                   const source = await db
-                    .prepare('SELECT document_site FROM review_tasks WHERE id=?')
+                    .prepare('SELECT document_site,creation_tenant FROM review_tasks WHERE id=?')
                     .bind(parent)
-                    .first<{ document_site: string | null }>()
+                    .first<{ document_site: string | null; creation_tenant: string | null }>()
+                  if (claim?.permissions && source?.creation_tenant !== data.creationTenant)
+                    throw new APIError('Parent task belongs to another tenant.', 403)
                   data.documentSite = source?.document_site || null
                 }
                 const boards = ids(data.boards ?? originalDoc?.boards),

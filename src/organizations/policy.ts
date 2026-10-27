@@ -61,6 +61,7 @@ export interface AuthorityDecision {
   allowed: boolean
   reason:
     | 'operator'
+    | 'tenant-role'
     | 'local-membership'
     | 'ancestor-oversight'
     | 'explicit-sharing'

@@ -70,12 +70,12 @@ test('project hierarchy, every board view, rich page, messages, protected files 
   }
   await tabs.getByRole('button', { name: 'List', exact: true }).click()
   await page.getByRole('button', { name: task.title, exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Task details', exact: true })
-  await expect(dialog.getByRole('tab', { name: 'Default', exact: true })).toHaveAttribute(
+  const dialog = page.locator('.editor-dialog-layer')
+  await expect(dialog.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
   )
-  await dialog.getByRole('tab', { name: 'Comment Log', exact: true }).click()
+  await dialog.getByRole('tab', { name: 'Comments', exact: true }).click()
   await dialog
     .getByLabel('Add comment', { exact: true })
     .fill('Keep the appointment confirmation here.')

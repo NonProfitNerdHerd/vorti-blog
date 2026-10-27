@@ -3,9 +3,10 @@ import { claimRequest } from '../organizations/identity-authority'
 import { authorityClaim } from '../organizations/claims'
 import { cmsSiteContext } from '../organizations/cms-scope'
 import { readBoundedJSON, constantEqual } from '../forms/security'
-import { AutomationStore } from './store'
+import { AutomationStore, type AutomationRow, type RunRow } from './store'
 import { AUTOMATION_WRITE, AutomationRunner, payloadAdapter } from './runtime'
 import { resources, registry, type Resource } from './model'
+import type { Permission } from '../organizations/permission-catalog'
 
 const json = (value: unknown, status = 200) =>
   Response.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } })
@@ -18,6 +19,8 @@ export function automationsModule(db: D1Database) {
         site = url.searchParams.get('site') || 'default'
       Object.assign(req.context, cmsSiteContext(site))
       const claim = await claimRequest(req, site)
+      if (claim?.permissions && !claim.permissions.includes('workflows:read'))
+        throw Error('Workflow unavailable.')
       if (
         !claim ||
         (!claim.bootstrap &&
@@ -52,21 +55,45 @@ export function automationsModule(db: D1Database) {
             if (url.searchParams.has('run'))
               return json({
                 run: await runner.diagnostics(
-                  await store.run(site, owner, url.searchParams.get('run')!),
+                  (await store.view(site, owner, { run: url.searchParams.get('run')! })) as RunRow,
+                  owner,
                 ),
               })
             const id = url.searchParams.get('id')
             if (id) {
-              const doc = await store.get(site, owner, id)
-              return json({ doc, runs: await store.runs(doc) })
+              const doc = (await store.view(site, owner, { id })) as AutomationRow
+              const claim = authorityClaim(req.user)
+              return json({
+                doc,
+                runs:
+                  !claim?.permissions || claim.permissions.includes('workflows:diagnostics')
+                    ? await store.runs(doc)
+                    : [],
+              })
             }
             return json({
-              docs: await store.list(site, owner, url.searchParams.get('search') || ''),
+              docs: await store.view(site, owner, { search: url.searchParams.get('search') || '' }),
             })
           }
           if (req.headers.get('origin') !== url.origin)
             return json({ message: 'A same-origin request is required.' }, 403)
           const body = await readBoundedJSON(req, 80000)
+          const claim = authorityClaim(req.user)
+          if (claim?.permissions) {
+            const permission: Permission =
+              body.action === 'transfer' ? 'workflows:edit' : body.action === 'save'
+                ? body.id
+                  ? 'workflows:edit'
+                  : 'workflows:create'
+                : body.action === 'cancel'
+                  ? 'workflows:cancel'
+                  : body.action === 'share' || body.action === 'unshare'
+                    ? 'workflows:share-templates'
+                    : body.action === 'publish' || body.action === 'pause'
+                      ? 'workflows:publish'
+                      : 'workflows:execute'
+            if (!claim.permissions.includes(permission)) throw Error('Workflow unavailable.')
+          }
           if (body.action === 'save')
             return json({ doc: await store.save(site, owner, body as never) })
           if (body.action === 'cancel') {
@@ -74,6 +101,10 @@ export function automationsModule(db: D1Database) {
             return json({ ok: true })
           }
           const doc = await store.get(site, owner, String(body.id))
+          if (body.action === 'transfer') {
+            if (body.confirmPause !== true || typeof body.email !== 'string') throw Error('Confirm that the workflow will pause before transfer.')
+            return json(await store.transfer(doc, body.email))
+          }
           if (body.action === 'share' || body.action === 'unshare')
             return json({ doc: await store.share(doc, body.action === 'share') })
           if (body.action === 'publish' || body.action === 'pause')

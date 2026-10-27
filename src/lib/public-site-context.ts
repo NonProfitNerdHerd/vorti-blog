@@ -10,6 +10,7 @@ import {
   PUBLIC_PREVIEW_HEADER,
 } from '@/organizations/public-website'
 import { cmsSiteContext } from '@/organizations/cms-scope'
+import { tenantAuthorityActive } from '@/organizations/tenant-runtime'
 
 export const publicSiteContext = cache(async () => {
   let requestHeaders: Headers
@@ -18,8 +19,10 @@ export const publicSiteContext = cache(async () => {
   } catch {
     requestHeaders = new Headers()
   }
-  const site = requestHeaders.get(PUBLIC_SITE_HEADER)
-  if (!site)
+  const site = requestHeaders.get(PUBLIC_SITE_HEADER) || 'default'
+  const payload = await getPayload({ config })
+  const db = (payload.db as unknown as { client: D1Database }).client
+  if (site === 'default' && !await tenantAuthorityActive(db, site))
     return {
       site: 'default',
       prefix: '',
@@ -28,8 +31,6 @@ export const publicSiteContext = cache(async () => {
       preview: false,
       website: undefined,
     }
-  const payload = await getPayload({ config })
-  const db = (payload.db as unknown as { client: D1Database }).client
   const preview = requestHeaders.get(PUBLIC_PREVIEW_HEADER) === '1'
   let user
   if (preview) {
@@ -42,7 +43,7 @@ export const publicSiteContext = cache(async () => {
   if (!website) notFound()
   return {
     site,
-    prefix: `/sites/${website.route_key}`,
+    prefix: site === 'default' ? '' : `/sites/${website.route_key}`,
     context: cmsSiteContext(site),
     website,
     user,

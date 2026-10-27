@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { expect, test } from '@playwright/test'
 
 test('starter navigator, persistent caret, independent create popup, archive and mobile layout', async ({
@@ -7,7 +8,7 @@ test('starter navigator, persistent caret, independent create popup, archive and
   await page.request.post('/api/users/login', {
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
-  const response = await page.request.post('/api/users', {
+  const response = await createBrowserUser(page.request, {
     data: {
       username: `starter-ui-${suffix}`,
       email: `starter-ui-${suffix}@example.invalid`,

@@ -12,7 +12,7 @@ export async function AdminPolicy({
   children,
 }: ServerProps & { children: ReactNode }) {
   const [categoriesEnabled, preference, site] = await Promise.all([
-    readCategoriesEnabled(payload),
+    readCategoriesEnabled(payload, user),
     user
       ? payload.find({
           collection: 'payload-preferences',
@@ -29,7 +29,7 @@ export async function AdminPolicy({
           },
         })
       : null,
-    payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: false }),
+    payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: false, user }),
   ])
   const value = preference?.docs[0]?.value as { open?: boolean } | undefined
   return (
@@ -38,9 +38,7 @@ export async function AdminPolicy({
       initialCategoriesEnabled={categoriesEnabled}
       initialDashboardOpen={value?.open !== false}
     >
-      {payload.config.endpoints.some(endpoint => endpoint.path === '/organization-admin')
-        ? <AdminSiteProvider>{children}</AdminSiteProvider>
-        : children}
+      <AdminSiteProvider>{children}</AdminSiteProvider>
       <WorkspaceDialogs/>
     </AdminPolicyClient></SiteFormatProvider>
   )

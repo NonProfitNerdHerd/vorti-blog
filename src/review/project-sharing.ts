@@ -1,4 +1,5 @@
 import type { CollectionConfig, Endpoint, PayloadRequest } from 'payload'
+import { claimRequest } from '../organizations/identity-authority'
 import { isAdministrator, relationID } from './documents'
 import {
   boardRole,
@@ -251,6 +252,9 @@ export const projectSharingEndpoints: Endpoint[] = [
     method: 'post',
     handler: async (req) => {
       if (!req.user) reject('Sign in.', 401)
+      const claim = await claimRequest(req)
+      if (claim?.permissions && !claim.permissions.includes('tasks:share'))
+        reject('Task sharing permission is required.')
       const body = (await req.json!()) as Record<string, any>
       if (body.action === 'preview' || body.action === 'request') {
         await requireBoard(req, body.board, 'owner')

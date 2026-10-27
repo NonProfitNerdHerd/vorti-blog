@@ -148,9 +148,9 @@ export function WebsiteControls({
               )}
             </details>
           )}
-          {site !== 'default' && (
+          {(
             <>
-              {!status.initialized && (
+              {site !== 'default' && !status.initialized && (
                 <button
                   type="button"
                   disabled={busy}
@@ -159,10 +159,10 @@ export function WebsiteControls({
                   Initialize website from parent design
                 </button>
               )}
-              {status.initialized && (
+              {site !== 'default' && status.initialized && (
                 <WebsiteSettingsEditor
                   site={site}
-                  revision={status.revision}
+                  revision={status.settingsRevision ?? status.revision}
                   presentation={JSON.stringify({
                     ...JSON.parse(status.presentation),
                     ...JSON.parse(status.navigation),
@@ -190,7 +190,7 @@ export function WebsiteControls({
                 Open site editor
               </button>
               {status.initialized && (
-                <a href={`/sites/${status.route_key}?preview=1`} target="_blank" rel="noreferrer">
+                <a href={`${site === 'default' ? '/' : `/sites/${status.route_key}`}?preview=1`} target="_blank" rel="noreferrer">
                   Preview website
                 </a>
               )}
@@ -215,7 +215,7 @@ export function WebsiteControls({
                 {status.published ? 'Unpublish website' : 'Publish website'}
               </button>
               {status.published && !status.controller && (
-                <a href={`/sites/${status.route_key}`} target="_blank" rel="noreferrer">
+                <a href={site === 'default' ? '/' : `/sites/${status.route_key}`} target="_blank" rel="noreferrer">
                   View website
                 </a>
               )}

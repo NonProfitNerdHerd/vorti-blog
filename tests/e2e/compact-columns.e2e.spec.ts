@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { expect, test } from '@playwright/test'
 test.use({ actionTimeout: 20000 })
 
@@ -8,7 +9,7 @@ test('compact column menus, personal layout, collaborators and shared time contr
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   const username = `columns-ui-${Date.now()}`
-  const created = await page.request.post('/api/users', {
+  const created = await createBrowserUser(page.request, {
     data: {
       username,
       email: `${username}@example.invalid`,
@@ -17,7 +18,7 @@ test('compact column menus, personal layout, collaborators and shared time contr
     },
   })
   expect(created.ok(), await created.text()).toBe(true)
-  const collaboratorResponse = await page.request.post('/api/users', {
+  const collaboratorResponse = await createBrowserUser(page.request, {
     data: {
       username: `${username}-c`,
       email: `${username}-c@example.invalid`,

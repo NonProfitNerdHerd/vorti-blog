@@ -9,6 +9,7 @@ import { ContactRepository } from './contacts'
 import { authorizeCRMTaskActor, crmTaskIntentHash, crmTaskWrite } from './task-access'
 import { calendarDate } from './finance'
 import { crmTaskInternalRead } from './task-where'
+import { tenantAuthorityActive } from '../organizations/tenant-runtime'
 
 export type CreateCRMTask = {
   site: string
@@ -128,9 +129,13 @@ export class CRMTasks {
       throw new Error('Choose a valid assignee search.')
     // Scan bounded candidates from this root only. Authorization decides which
     // names may be returned; unrelated roots never enter the candidate query.
+    const tenant = await tenantAuthorityActive(this.db, site)
+    const membership = tenant
+      ? 'EXISTS(SELECT 1 FROM vc_tenant_memberships membership WHERE membership.user_id=u.id AND membership.active=1 AND membership.tenant_id=?)'
+      : 'EXISTS(SELECT 1 FROM vc_installation_operators operator WHERE operator.user_id=u.id) OR EXISTS(SELECT 1 FROM vc_site_memberships membership JOIN vc_sites member_site ON member_site.id=membership.site_id WHERE membership.user_id=u.id AND membership.active=1 AND member_site.organization_id=?)'
     const candidates = await this.db
       .prepare(
-        `SELECT u.id,coalesce(nullif(u.attribution_label,''),'Account #'||u.id) AS label FROM users u WHERE u.id>? AND instr(lower(coalesce(nullif(u.attribution_label,''),'Account #'||u.id)),lower(?))>0 AND NOT EXISTS(SELECT 1 FROM vc_account_status disabled WHERE disabled.user_id=u.id AND disabled.disabled=1) AND(EXISTS(SELECT 1 FROM vc_installation_operators operator WHERE operator.user_id=u.id) OR EXISTS(SELECT 1 FROM vc_site_memberships membership JOIN vc_sites member_site ON member_site.id=membership.site_id WHERE membership.user_id=u.id AND membership.active=1 AND member_site.organization_id=?)) ORDER BY u.id LIMIT 5`,
+        `SELECT u.id,coalesce(nullif(u.attribution_label,''),'Account #'||u.id) AS label FROM users u WHERE u.id>? AND instr(lower(coalesce(nullif(u.attribution_label,''),'Account #'||u.id)),lower(?))>0 AND NOT EXISTS(SELECT 1 FROM vc_account_status disabled WHERE disabled.user_id=u.id AND disabled.disabled=1) AND(${membership}) ORDER BY u.id LIMIT 5`,
       )
       .bind(after, search.trim(), scope.site.organization_id)
       .all<{ id: number; label: string }>()

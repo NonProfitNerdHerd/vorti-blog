@@ -98,11 +98,26 @@ export async function identityAuthority(
       organization: result.site.organization_id,
       epoch: result.authorityRevision,
       operator: result.operator,
+      tenantAdministrator: result.tenantAdministrator,
+      permissions: result.permissions,
       bootstrap: false,
       allowed: result.allowed,
     }
+    if (result.tenantAdministrator) {
+      const available = await db.prepare(`SELECT s.id,f.feature FROM vc_sites s
+        JOIN vc_tenant_features f ON f.tenant_id=s.organization_id AND f.available=1
+        WHERE s.organization_id=? AND s.archived=0
+        AND NOT EXISTS(SELECT 1 FROM vc_site_ancestry a JOIN vc_sites p ON p.id=a.ancestor_id WHERE a.descendant_id=s.id AND p.archived=1)
+        AND COALESCE((SELECT v.value FROM vc_site_features v JOIN vc_site_ancestry a ON a.ancestor_id=v.site_id WHERE a.descendant_id=s.id AND v.feature=f.feature AND v.value<>'inherit' ORDER BY a.distance LIMIT 1),'enabled')='enabled'`)
+        .bind(claim.organization).all<{id: string; feature: string}>()
+      claim.featureSites = {}
+      for (const row of available.results) (claim.featureSites[row.feature] ||= []).push(row.id)
+      for (const sites of Object.values(claim.featureSites)) Object.freeze(sites)
+      Object.freeze(claim.featureSites)
+    }
     for (const operations of Object.values(claim.allowed)) Object.freeze(operations)
     Object.freeze(claim.allowed)
+    if (claim.permissions) Object.freeze(claim.permissions)
     Object.freeze(claim)
     if (cache.size >= 128) cache.delete(cache.keys().next().value!)
     cache.set(key, { claim, until: Date.now() + 60000 })

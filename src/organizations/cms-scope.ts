@@ -3,6 +3,7 @@ import { APIError, type PayloadRequest } from 'payload'
 import { OrganizationRepository } from './repository'
 import type { SiteOperation } from './policy'
 import { PLATFORM_MIGRATION } from './account-guards'
+import { tenantAuthorityActive } from './tenant-runtime'
 
 // Payload's cached config and Next's API/RSC bundles can load separate module instances.
 // Registry symbols bridge those server instances; JSON cannot construct symbol keys.
@@ -126,7 +127,7 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
   let scope = state.scopes.get(operation)
   if (!scope) {
     const selected = state.site
-    if (!actor && selected !== 'default' && !(await publicWebsite(db, selected)))
+    if (!actor && (selected !== 'default' || await tenantAuthorityActive(db, selected)) && !(await publicWebsite(db, selected)))
       throw new APIError('Site unavailable.', 404)
     scope = (async (): Promise<CMSScope> => {
       if (actor) {

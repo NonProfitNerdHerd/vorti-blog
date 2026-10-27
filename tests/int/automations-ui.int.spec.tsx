@@ -6,6 +6,7 @@ import type { AutomationRow } from '@/automations/store'
 import type { Definition } from '@/automations/model'
 
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }))
+vi.mock('@payloadcms/ui', () => ({ useAuth: () => ({ user: { id: 7 } }) }))
 
 vi.mock('@/organizations/AdminSiteProvider', () => ({
   useAdminSite: () => ({ binding: { site: { id: 'default' } } }),

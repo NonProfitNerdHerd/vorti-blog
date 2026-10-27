@@ -1,5 +1,6 @@
 import type { FormAction } from '@design-system/payload-design-core/forms'
 import { FormHTTPError } from './security'
+import { featureAvailableAt } from '../organizations/tenant-runtime'
 
 export interface OutboxJob {
   id: number; site: string; event_i_d: string; submission_i_d: string; revision: string
@@ -39,6 +40,11 @@ export class FormOutbox {
       const cycleAttempt = job.attempts - retryFrom
       let status = 'complete', result = 'Delivered', next: string | null = null
       try {
+        if (!(await featureAvailableAt(this.db, site, 'forms')))
+          throw new PermanentActionError('Forms is disabled. Delivery requires explicit review and replay.')
+        const host = (JSON.parse(job.payload) as {hostFeature?: 'pages' | 'posts' | 'wiki' | 'intranet'}).hostFeature
+        if (host && (!['pages', 'posts', 'wiki', 'intranet'].includes(host) || !await featureAvailableAt(this.db, site, host)))
+          throw new PermanentActionError('The form host is disabled. Delivery requires explicit review and replay.')
         if (cycleAttempt > 8) throw new PermanentActionError('Retry limit reached after an interrupted worker.')
         await this.handlers.dispatch(job)
       } catch (error) {

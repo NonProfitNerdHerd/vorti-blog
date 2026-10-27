@@ -1,0 +1,47 @@
+# Tenant installation and release
+
+Use the pinned Node version in `.node-version`, the locked pnpm dependencies, and a matching isolated Linux build runtime. Production requires application D1 (`D1`), public application storage (`R2`), protected storage (`WORKSPACE_FILES`), a job queue (`CRM_JOB_QUEUE`), and a separate operational D1 (`OPERATIONS`). Keep operational storage across application resets. The secret-free `.env.example` documents environment inputs; upload secrets through Wrangler, never through source configuration or release receipts.
+
+## Modes
+
+- `install` targets an unused Worker and empty application resources. Set a configurable administrator email and supply `VORTI_BOOTSTRAP_PASSWORD` through the environment. Setup is single-use: a database with an existing migration ledger is rejected.
+- `upgrade` preserves the application database, storage, identities, content and queued jobs. Stop writes before the final recovery capture and apply only the missing suffix of the actual migration chain. It never replaces credentials or purges queues.
+- `development-reset` requires `--discard-development-data`, an exact Worker identity, an active deployment baseline, and newly created application database and storage resources. Existing application content is discarded. Only the named administrator's identity and password verifier transfer; sessions are revoked. This mode must never become the default upgrade behavior.
+
+All historical migrations remain executable. The installer applies their real chain, creates built-in templates/designs, bootstraps Default tenant/site and the protected Tenant Administrator assignment, and initializes scoped defaults. Defaults are VortiCause, UTC, long dates, 12-hour time, categories enabled, no homepage/blog/privacy references, no embed origins, and all application features available. The primary website starts initialized and published with an empty shell; Settings → Reading controls publication. Unpublishing blocks anonymous website content while authorized internal Wiki/Intranet access remains available. Wiki content defaults to private. The installation otherwise contains no application content. Synthetic fixtures belong only in isolated validation databases.
+
+## Preparation and validation
+
+`scripts/capture-release-baseline.mjs` reads the active deployment and bindings, remote `main`, migration ledger, foreign keys and the normalized administrator identity. Record again immediately before cutover. Reconcile an intervening deployment or source change before proceeding.
+
+`scripts/validate-frozen-source.mjs --source <full-commit> --image <pinned-runtime-image> --dependency-volume <cache-volume> --output <new-directory>` validates an immutable Git archive in a new runtime. Required gates include TypeScript, lint, shared design/editor checks, every integration project, build, browser acceptance and artifact verification. Its receipt alone does not authorize release: browser, packaging and live gates remain separate.
+
+`scripts/prepare-release.ts --mode <mode> --target-config <config> --baseline <baseline.json> --expected-worker <worker> --admin-email <email> --receipt <new-receipt.json>` initializes isolated replacement resources. Reset adds `--discard-development-data`. Use Node's `--import tsx` when invoking TypeScript commands. Preparation does not switch traffic. Failure leaves resources isolated for diagnosis; do not fabricate migration ledger entries to resume.
+
+Provision those resources with `scripts/provision-release.mjs --mode <mode> --baseline <baseline.json> --validation <frozen-receipt> --expected-worker <worker> --output <new-config.json>`. Add `--discard-development-data` for reset. The command records each created resource in a journal and never changes public traffic. A partial failure retains that journal for reconciliation; do not rerun into guessed resource names.
+
+## Maintenance, cutover and recovery
+
+`scripts/release-operation.ts` uses Cloudflare operational credentials and an exact `--expected-worker`, `--config` and `--lease`. `--action acquire` records the baseline and mode. `--action advance --phase <phase> --evidence <json>` applies revision-checked transitions. Prepared requires passing validation; cutover requires stopped writes/queues, verified recovery, and (reset only) purged old queue messages. Completion requires successful live validation and at least 600 seconds with no observed exceptions or server errors.
+
+Activate maintenance before `--action freeze`. Freeze targets only the retained baseline D1, fences writes at SQLite, then inventories opaque external-effect references into operational storage. Capture and verify the final recovery export after that fence. For installations predating maintenance support, a small maintenance Worker must first replace normal traffic and stop scheduled execution, while the queue is paused. Preserve the immediately preceding Worker/version and exact bindings for recovery.
+
+Upload only the already-tested immutable Worker and assets, without rebuilding. Retain the public URL, service configuration and secrets. Recheck source/deployment identities before activation. During maintenance, `x-vorti-release-probe` permits a secret-authenticated operational probe to reach application authentication; it grants no application identity or permissions.
+
+Build in the validated runtime, then run `scripts/package-release.mjs --config wrangler.test.jsonc --validation <frozen-receipt> --output <new-directory>`. It verifies the source archive, bundles against isolated bindings, inventories Worker modules and assets, and writes a `no_bundle` preview configuration. Run browser acceptance against that packaged preview. Verify the manifest again before deployment; only resource bindings and the target Worker name change for production.
+
+Set `VORTI_ARTIFACT_HASH` and `VORTI_SOURCE_COMMIT` from that manifest when running `playwright.tenant-release.config.ts`. Its JSON report records the exact artifact identity. `scripts/deploy-release.mjs` requires `--artifact`, `--manifest`, `--config`, `--validation`, `--browser-report`, `--lease`, `--expected-worker`, `--expected-deployment` and `--receipt`, plus `DESIGN_PRODUCTION_DEPLOY=YES`. It rejects skipped/failing acceptance, dirty or unpushed source, a changed operational lease, a changed deployment, or modified artifact files. It uploads with bundling disabled and leaves live verification pending.
+
+Advance `verifying` to `observing` only after public/authenticated checks and administrator login pass. This reopens normal access while retaining the exclusive release lock. Observe at least ten minutes with zero exceptions/server errors before `complete` and cleanup. A failure during observation can still transition to `recovering` and restore maintenance.
+
+If verification fails, retain maintenance, restore the matching prior Worker/bindings, and use `--action thaw` only in the recovering phase against the exact prior database. Do not merge discarded development records into the replacement. Cleanup of the explicitly inventoried old application database/buckets and temporary recovery material follows successful live verification and ten minutes of healthy observation. Keep the non-sensitive receipt.
+
+`scripts/cleanup-release.ts --config <replacement-config> --baseline <prior-baseline> --verification <live-receipt> --lease <completed-lease> --expected-worker <worker> --receipt <new-cleanup-receipt> --discard-development-data YES` removes only the validated prior application database and buckets. It verifies the active deployment again, requires the completed reset lease, and records each deletion. It never deletes the operational database or queue. Delete the precisely inventoried temporary recovery exports only after this verification, retaining the non-sensitive receipts.
+
+## External effects and account recovery
+
+Retired Stripe test callbacks are signature-verified and recorded as hashed reconciliation evidence. They do not create new submissions, charges, jobs or sends. `release-operation.ts --action reconcile --provider <provider> --reference-hash <sha256> --evidence <json>` records a provider-verified outcome and evidence digest. Unknown outcomes remain blocked. Resolving a record never replays an effect.
+
+Global credential recovery is an operational command, not a Tenant Administrator capability: `scripts/recover-account.ts --config <config> --expected-worker <worker> --email <email> --case <non-sensitive-case-id>`, with `VORTI_RECOVERY_PASSWORD` supplied only through the environment. It audits the attempt and completion in operational storage, revokes sessions and restores the account without changing tenant memberships. An interrupted attempt requires inspecting its audit before retrying.
+
+Tenant Administrators invite accounts using single-use, seven-day invitation links and then assign tenant/site roles. Existing shared credentials cannot be changed through tenant membership administration. Tenant Administrators can read private content in their own tenant, with audit records; Site Administrators and custom roles receive no implicit private-content exception.

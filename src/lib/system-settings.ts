@@ -3,19 +3,28 @@ import type { Payload, PayloadRequest } from 'payload'
 import { ValidationError } from 'payload'
 
 /** Request-scoped only: a saved switch must take effect without restarting a Worker. */
-export const readCategoriesEnabled = cache(async (payload: Payload): Promise<boolean> => {
+export const readCategoriesEnabled = cache(async (payload: Payload, user?: PayloadRequest['user']): Promise<boolean> => {
   const settings = await payload.findGlobal({
     slug: 'system-settings',
     depth: 0,
     overrideAccess: false,
+    user,
   })
   return settings.categoriesEnabled !== false
 })
 
 export async function categoriesEnabledForRequest(req: PayloadRequest): Promise<boolean> {
   const key = 'systemCategoriesEnabled'
-  if (!req.context[key]) req.context[key] = readCategoriesEnabled(req.payload)
-  return req.context[key] as Promise<boolean>
+  const cached = req.context[key] as Promise<boolean> | boolean | undefined
+  if (cached !== undefined) return cached
+  // Payload initializes a Local API request in place. A nested read must not
+  // replace the outer mutation's context while its access predicate is running.
+  const pending = req.payload.findGlobal({
+    slug: 'system-settings', depth: 0, overrideAccess: false,
+    req: { ...req, context: { ...req.context } },
+  }).then(settings => settings.categoriesEnabled !== false)
+  req.context[key] = pending
+  return pending
 }
 
 export function categoryIDs(value: unknown): string[] {

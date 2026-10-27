@@ -1,4 +1,6 @@
 import { PUBLIC_PREFIX_HEADER, publicWebsite } from '../organizations/public-website'
+import { featureAvailableAt, tenantAuthorityActive } from '../organizations/tenant-runtime'
+import { formHostFeature, formSessionScope } from './host-feature'
 import { runGraph, graphScope, graphAnswers, type GraphEvent } from '@design-system/payload-design-core/forms'
 import type { Endpoint, PayloadRequest } from 'payload'
 import { validateAnswers, validateTemporal, publicDefinition, flattenFields, answerFields, attachmentReferences, type Answers, type FormDefinition } from '@design-system/payload-design-core/forms'
@@ -31,6 +33,7 @@ const errors = (handler: (req: PayloadRequest) => Promise<Response>) => async (r
 }
 async function session(req: PayloadRequest, revision: string, issue = false, fresh = false): Promise<{ token: string; hash: string }> {
   const secret = req.payload.secret
+  revision = formSessionScope(revision, req.headers)
   const supplied = fresh ? '' : req.headers.get('x-form-session') || ''
   if (supplied) {
     const [nonce, expiry, signature] = supplied.split('.')
@@ -43,7 +46,10 @@ async function session(req: PayloadRequest, revision: string, issue = false, fre
 }
 async function published(req: PayloadRequest, platform: FormPlatform, revisionID?: string) {
   const site = platform.resolveSite?.(req) || FORM_SITE
-  if (site !== FORM_SITE && !await publicWebsite(platform.db,site)) throw new FormHTTPError('Form unavailable.',404)
+  if (!await featureAvailableAt(platform.db, site, 'forms')) throw new FormHTTPError('Form unavailable.',404)
+  const host = formHostFeature(req.headers)
+  if (host && !await featureAvailableAt(platform.db, site, host)) throw new FormHTTPError('Form unavailable.',404)
+  if ((site !== FORM_SITE || await tenantAuthorityActive(platform.db,site)) && !await publicWebsite(platform.db,site)) throw new FormHTTPError('Form unavailable.',404)
   const slug = String(req.routeParams?.slug || '')
   // Deliberate public read: query is server-built, published-only and site-scoped; private data never leaves projection.
   const forms = await req.payload.find({ collection: 'forms', overrideAccess: true, draft: false, depth: 0, limit: 1,
@@ -295,6 +301,7 @@ export function formRuntimeEndpoints(platform: FormPlatform): Endpoint[] {
         bookings.push({ tokenHash: await hashToken(token), resource: field.date.resource, startsAt: new Date(String(value)).toISOString() })
       }
       const accepted = await acceptSubmission(platform.db, {
+        hostFeature: formHostFeature(req.headers),
         formID: form.id, site, revision, key, sessionHash: auth.hash, answers: evaluation.answers,
         snapshot: { title: snapshot.title || form.title, fields: definition.fields, confirmation: evaluation.confirmation, redirect: definition.redirect },
         actions: definition.actions.filter(action => evaluation.actions.includes(action.id)),

@@ -7,6 +7,7 @@ import { EmailConfiguration } from './email-configuration'
 import { emailDigest, type EmailOutboxRow, type QueuedEmailPayload } from './email-outbox'
 import { emailAddress, withinEmailRetryWindow, type ProviderEmail } from './email-model'
 import { EmailProviderError, ResendEmailProvider, type EmailRuntime } from './email-provider'
+import { requireCRMAction } from './tenant-actions'
 /** External dispatch is preceded by an atomic authorization checkpoint, never hidden in a D1 transaction. */
 export class EmailDispatcher {
   private provider: ResendEmailProvider
@@ -61,6 +62,7 @@ export class EmailDispatcher {
         throw new EmailProviderError('reconcile')
       const authority = new OrganizationRepository(this.db, row.actor_id)
       const site = await authority.require(row.site_id, 'communications', 'edit')
+      await requireCRMAction(this.db, row.actor_id, row.site_id, 'crm:edit', site.authorityRevision)
       const documents = new CorrespondenceDocuments(this.db, row.actor_id)
       await documents.get(row.site_id, row.document_id)
       const contact = await new ContactRepository(this.db, row.actor_id).get(

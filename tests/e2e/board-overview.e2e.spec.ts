@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { test, expect } from '@playwright/test'
 
 test('Overview inline description, permission avatars, progress and paginated deep-linked activity', async ({
@@ -7,7 +8,7 @@ test('Overview inline description, permission avatars, progress and paginated de
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   const username = `overview-ui-${Date.now()}`
-  const created = await page.request.post('/api/users', {
+  const created = await createBrowserUser(page.request, {
     data: {
       username,
       email: `${username}@example.invalid`,
@@ -134,7 +135,7 @@ test('Overview inline description, permission avatars, progress and paginated de
   await activity.getByRole('button', { name: 'Previous activity page', exact: true }).click()
   await activity.getByRole('button', { name: 'Comment added', exact: true }).click()
   await expect(
-    page.getByRole('dialog').getByRole('tab', { name: 'Comment Log', exact: true }),
+    page.getByRole('dialog').getByRole('tab', { name: 'Comments', exact: true }),
   ).toHaveAttribute('aria-selected', 'true')
   await expect(
     page.getByRole('dialog').getByText('Review this activity deep link.', { exact: true }),

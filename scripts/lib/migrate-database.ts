@@ -40,8 +40,8 @@ export async function migrateDatabase(database: D1Database, onApplied?: (name: s
         batch: number
       }>)
     : []
-  if (history.some((row) => !migrations.some((migration) => migration.name === row.name)))
-    throw Error('Unrecognized migration ledger entries.')
+  if (history.some((row, index) => row.name !== migrations[index]?.name))
+    throw Error('Migration ledger must be an exact ordered prefix of the registered chain.')
   const applied: string[] = []
   for (const migration of migrations) {
     if (history.some((row) => row.name === migration.name)) continue

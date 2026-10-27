@@ -1,6 +1,10 @@
 import { APIError, type Config, type PayloadRequest } from 'payload'
-import { CMS_MENU_RENDER, CMS_SITE, cmsScope, confirmCMSScope, migrationRequest } from './cms-scope'
+import { CMS_MENU_RENDER, CMS_SITE, cmsScope, confirmCMSScope, migrationRequest, cmsDatabase, cmsSiteContext } from './cms-scope'
 import { installationOperator } from './users-plugin'
+import { tenantAuthorityActive } from './tenant-runtime'
+import { scopedSettingsForAuthorizedSite } from './scoped-settings'
+import { websiteReferences } from './website-fields'
+import type { CollectionSlug } from 'payload'
 
 async function requireGlobalWrite(req: PayloadRequest, slug: string): Promise<void> {
   if (migrationRequest(req)) return
@@ -11,6 +15,8 @@ async function requireGlobalWrite(req: PayloadRequest, slug: string): Promise<vo
     return
   }
   const scope = await cmsScope(req, slug === 'navigation' ? 'edit' : 'configure')
+  if (slug === 'site-settings' && await tenantAuthorityActive(cmsDatabase(req), scope.site))
+    throw new APIError('Use Settings to save this site with its current revision.', 409)
   if (scope.site !== 'default')
     throw new APIError(
       'Use this site’s settings instead of changing the installation’s default site.',
@@ -36,7 +42,7 @@ export const tenantGlobals = (config: Config): Config => ({
         },
       ],
       ...(global.slug === 'system-settings'
-        ? { admin: { ...global.admin, hidden: ({ user }) => user?.platformOperator !== true } }
+        ? { admin: { ...global.admin, hidden: ({ user }) => user?.platformOperator !== true && !((user as unknown as { platformPermissions?: string[] })?.platformPermissions?.includes('administration:settings')) } }
         : {}),
       access: {
         ...global.access,
@@ -103,6 +109,29 @@ export const tenantGlobals = (config: Config): Config => ({
           ...(global.hooks?.afterRead || []),
           async ({ doc, req }) => {
             if (doc && typeof doc === 'object') delete doc.platformGlobalProof
+            if (!migrationRequest(req) && ['site-settings', 'system-settings'].includes(global.slug) && await tenantAuthorityActive(cmsDatabase(req))) {
+              const scope = await cmsScope(req, 'read')
+              if (!scope.bootstrap && await tenantAuthorityActive(cmsDatabase(req), scope.site)) {
+                const values = await scopedSettingsForAuthorizedSite(cmsDatabase(req), scope.site, scope.organization)
+                if (global.slug === 'system-settings') doc = { ...doc, categoriesEnabled: values.site.settings.categoriesEnabled, workspaceEmbedOrigins: values.tenant.settings.workspaceEmbedOrigins, tagManagementRoles: [], platformSettingsRevision: values.site.revision }
+                else {
+                  doc = { ...doc, ...values.site.settings, platformSettingsRevision: values.site.revision }
+                  for (const [field, collection] of Object.entries(websiteReferences)) {
+                    if (!Number.isSafeInteger(doc[field]) || Number(doc[field]) < 1) continue
+                    try {
+                      doc[field] = await req.payload.findByID({ collection: collection as CollectionSlug, id: Number(doc[field]), depth: 0, overrideAccess: false,
+                        req: { ...req, context: { ...req.context, ...cmsSiteContext(scope.site) } } })
+                    } catch (error) {
+                      const status = error && typeof error === 'object' && 'status' in error ? Number(error.status) : 0
+                      if (![403, 404].includes(status)) throw error
+                      // Preserve the stored reference while withholding unavailable metadata.
+                      doc[field] = null
+                    }
+                  }
+                }
+                await confirmCMSScope(req, scope)
+              }
+            }
             if (global.slug === 'navigation' && !migrationRequest(req))
               await confirmCMSScope(req, await cmsScope(req, 'read'))
             return doc

@@ -1,6 +1,9 @@
 import { OrganizationRepository, SiteAccessError } from './repository'
 import { atomicSiteMutation, SiteConflictError } from './atomic'
 import { disabledAncestorSQL } from './website-schema-v1'
+import { tenantAuthorityActive } from './tenant-runtime'
+import { ScopedSettingsRepository } from './scoped-settings'
+import { TenantRepository } from './tenant-repository'
 
 export interface WebsiteRecord {
   site_id: string
@@ -27,7 +30,7 @@ export async function websiteStatus(db: D1Database, site: string) {
       .first<{ count: number }>(),
   ])
   if (!record) throw new Error('Website migrations are pending.')
-  return { ...record, controller, descendants: descendants?.count ?? 0 }
+  return { ...record, controller, descendants: descendants?.count ?? 0, settingsRevision: undefined as number|undefined }
 }
 
 export class WebsiteRepository {
@@ -39,6 +42,12 @@ export class WebsiteRepository {
     const repo = new OrganizationRepository(this.db, this.actor)
     const authority = await repo.require(site, 'content', 'read')
     const result = await websiteStatus(this.db, site)
+    if(await tenantAuthorityActive(this.db,site)) {
+      const scoped=await new ScopedSettingsRepository(this.db,this.actor).read(site)
+      result.presentation=JSON.stringify(scoped.settings)
+      result.navigation=JSON.stringify({primaryMenu:scoped.settings.primaryMenu||null,footerMenu:scoped.settings.footerMenu||null})
+      result.settingsRevision=scoped.revision
+    }
     if (
       (await repo.require(site, 'content', 'read')).authorityRevision !==
       authority.authorityRevision
@@ -61,6 +70,7 @@ export class WebsiteRepository {
       input.action === 'publication' ? 'publish' : 'configure',
     )
     const before = await websiteStatus(this.db, input.site)
+    if(await tenantAuthorityActive(this.db,input.site))await new TenantRepository(this.db,this.actor).require(input.site,input.action==='publication'?'administration:website-publication':'administration:subsites')
     if (typeof input.enabled !== 'boolean' || !Number.isSafeInteger(input.expectedRevision))
       throw new Error('Review valid website settings.')
     if (input.enabled && before.controller)
@@ -73,9 +83,9 @@ export class WebsiteRepository {
       throw new SiteConflictError()
     if (
       input.action === 'publication' &&
-      (input.site === 'default' || (input.enabled && !before.initialized))
+      (input.enabled && !before.initialized)
     )
-      throw new Error('Initialize this child website before publishing.')
+      throw new Error('Initialize this website before publishing.')
     const digest = await crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(JSON.stringify(input)),

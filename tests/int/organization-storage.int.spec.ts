@@ -577,11 +577,17 @@ describe('organization storage SQL and atomic writes', () => {
         return db.prepare(sql)
       },
     } as unknown as D1Database
+    await new OrganizationRepository(counted, 3).authority('deep-009', 'identity', 'read')
+    const shallowQueries = queries
+    queries = 0
     expect(
       (await new OrganizationRepository(counted, 3).authority('deep-119', 'identity', 'read'))
         .reason,
     ).toBe('ancestor-oversight')
-    expect(queries).toBeLessThanOrEqual(10)
+    // Tenant-model detection adds a fixed compatibility check; hierarchy depth
+    // may add joined pages, never one lookup per ancestor.
+    expect(queries).toBeLessThanOrEqual(12)
+    expect(queries - shallowQueries).toBeLessThanOrEqual(2)
   })
   it('narrows capabilities independently of roles and invalidates decisions immediately', async () => {
     const { sqlite, db } = fixture()

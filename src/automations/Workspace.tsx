@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useAuth } from '@payloadcms/ui'
 import { workflowTemplates } from './templates'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import {
@@ -197,6 +198,8 @@ export function AutomationsWorkspace() {
   return <AutomationEditor key={`${site}:${view}`} site={site} view={view} />
 }
 function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' | 'shared' }) {
+  const { user } = useAuth()
+  const [transferEmail, setTransferEmail] = useState('')
   const [catalog, setCatalog] = useState(view === 'create')
   const [docs, setDocs] = useState<(AutomationRow & { latest?: string })[]>([]),
     [search, setSearch] = useState(''),
@@ -211,6 +214,9 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
     [confirmed, setConfirmed] = useState(false),
     [sample, setSample] = useState('{}'),
     [record, setRecord] = useState('')
+  const ownsDocument = !doc || String(doc.owner) === String(user?.id)
+  const grants = (user as {platformPermissions?: string[]} | null)?.platformPermissions
+  const permitted = (action: string) => !Array.isArray(grants) || grants.includes(`workflows:${action}`)
   const api = useCallback(
     async (query = '', body?: unknown) => {
       const response = await fetch(
@@ -306,7 +312,7 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
           <p>Connect forms, CRM, tasks, pages and posts.</p>
         </div>
         <button
-          disabled={busy}
+          disabled={busy || !permitted('create')}
           onClick={() => {
             setDoc(null)
             setCatalog(true)
@@ -333,13 +339,14 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
           <h2>{name}</h2>
           {doc && (
             <p>
-              Owner: you (#{doc.owner}) · {doc.active ? 'Active' : 'Paused / draft'} · Published
+              Owner: {String(doc.owner) === String(user?.id) ? 'you' : `account #${doc.owner}`} · {doc.active ? 'Active' : 'Paused / draft'} · Published
               version {doc.version} · Draft revision {doc.revision}
             </p>
           )}
           {!editing && doc && (
             <nav>
               <button
+                disabled={!ownsDocument || !permitted('edit')}
                 onClick={() => {
                   setEditing(true)
                   setRun(null)
@@ -347,17 +354,17 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
               >
                 Edit
               </button>
-              <button disabled={busy} onClick={() => act(() => control('publish'))}>
+              <button disabled={busy || !ownsDocument || !permitted('publish')} onClick={() => act(() => control('publish'))}>
                 Publish own draft
               </button>
-              <button disabled={busy || !doc.active} onClick={() => act(() => control('pause'))}>
+              <button disabled={busy || !doc.active || !ownsDocument || !permitted('publish')} onClick={() => act(() => control('pause'))}>
                 Pause
               </button>
               <button disabled={busy} onClick={() => act(() => load(doc.id))}>
                 Refresh history
               </button>
               <button
-                disabled={busy || !doc.published}
+                disabled={busy || !doc.published || !ownsDocument || !permitted('share-templates')}
                 onClick={() => act(() => control(doc.shared ? 'unshare' : 'share'))}
               >
                 {doc.shared ? 'Stop sharing template' : 'Share published template'}
@@ -366,9 +373,20 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
           )}
           {!editing && doc && (
             <p>
+              {!ownsDocument && 'You are viewing another account’s workflow. Only its owner can edit or run it. '}
               Sharing makes the published definition available as a template to other backend users
-              in this site. Copies run with their own permissions; your run history remains private.
+              in this site. Copies run with their own permissions. Tenant Administrators can read tenant workflows and run history; their access is audited.
             </p>
+          )}
+          {!editing && doc && String(doc.owner) === String(user?.id) && (
+            <form onSubmit={event => { event.preventDefault(); void act(async () => {
+              await api('', { action: 'transfer', id: doc.id, email: transferEmail, confirmPause: true })
+              setDoc(null); setTransferEmail(''); setRun(null); await refresh(); setMessage('Ownership transferred. The workflow is paused until its new owner validates and republishes it.')
+            }) }}>
+              <label>New owner’s account email <input type="email" required value={transferEmail} onChange={event => setTransferEmail(event.target.value)} /></label>
+              <p>Transfer pauses this workflow and cancels pending runs. The new owner must review permissions and republish before it runs again.</p>
+              <button disabled={busy || !transferEmail} type="submit">Pause and transfer ownership</button>
+            </form>
           )}
           {editing ? (
             <section>
@@ -735,7 +753,7 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
                     I understand this performs real writes.
                   </label>
                   <button
-                    disabled={busy || !confirmed}
+                    disabled={busy || !confirmed || !ownsDocument || !permitted('execute')}
                     onClick={() =>
                       act(async () => {
                         const result = await api('', {
@@ -754,7 +772,7 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
                   </button>
                   {doc.active && JSON.parse(doc.published || '{}').trigger?.kind === 'manual' && (
                     <button
-                      disabled={busy || !confirmed}
+                      disabled={busy || !confirmed || !ownsDocument || !permitted('execute')}
                       onClick={() =>
                         act(async () => {
                           const result = await api('', {
@@ -923,7 +941,7 @@ function AutomationEditor({ site, view }: { site: string; view: 'create' | 'my' 
                       <button onClick={() => act(() => load(item.id))}>{item.name}</button>
                     )}
                   </td>
-                  <td>{view === 'shared' ? `Owner #${item.owner}` : `You (#${item.owner})`}</td>
+                  <td>{String(item.owner) === String(user?.id) ? 'You' : `Owner #${item.owner}`}</td>
                   <td>
                     {view === 'shared' ? item.version : item.active ? 'Active' : 'Paused / draft'}
                   </td>

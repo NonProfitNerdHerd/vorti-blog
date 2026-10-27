@@ -3,6 +3,9 @@ import { canForm, internalRequest, type FormPermission } from '../forms/access'
 import { authorityClaim } from './claims'
 import { claimRequest } from './identity-authority'
 import { migrationRequest } from './cms-scope'
+import type { Permission } from './permission-catalog'
+import { TenantRepository } from './tenant-repository'
+import { cmsDatabase } from './cms-scope'
 
 const permissions: Record<string, FormPermission> = {
   forms: 'edit',
@@ -38,6 +41,19 @@ export const tenantForms = (config: Config): Config => ({
   collections: (config.collections || []).map((collection) => {
     const permission = permissions[collection.slug]
     if (!permission) return collection
+    const readPermission: Permission = [
+      'forms',
+      'form-revisions',
+      'form-drafts',
+      'form-resources',
+      'form-templates',
+    ].includes(collection.slug)
+      ? 'forms:read'
+      : permission === 'integrations'
+        ? 'forms:configure-integrations'
+        : permission === 'export'
+          ? 'forms:export'
+          : 'forms:read-submissions'
     return {
       ...collection,
       fields: collection.slug === 'forms' ? scopedSlug(collection.fields) : collection.fields,
@@ -47,10 +63,43 @@ export const tenantForms = (config: Config): Config => ({
       ],
       access: {
         ...collection.access,
+        read: async (args) => {
+          const claim = authorityClaim(args.req.user)
+          if (claim?.permissions && staffRequest(args.req))
+            return claim.permissions.includes(readPermission)
+              ? { site: { equals: claim.site } }
+              : false
+          return collection.access?.read ? collection.access.read(args) : false
+        },
+        ...(collection.slug === 'form-submissions'
+          ? {
+              update: async (args: Parameters<NonNullable<typeof collection.access.update>>[0]) => {
+                const claim = authorityClaim(args.req.user)
+                if (claim?.permissions && staffRequest(args.req))
+                  return claim.permissions.includes('forms:update-submissions')
+                    ? { site: { equals: claim.site } }
+                    : false
+                return collection.access?.update ? collection.access.update(args) : false
+              },
+              delete: async (args: Parameters<NonNullable<typeof collection.access.delete>>[0]) => {
+                const claim = authorityClaim(args.req.user)
+                if (claim?.permissions && staffRequest(args.req))
+                  return claim.permissions.includes('forms:delete-submissions')
+                    ? { site: { equals: claim.site } }
+                    : false
+                return collection.access?.delete ? collection.access.delete(args) : false
+              },
+            }
+          : {}),
         ...(collection.versions
           ? {
               readVersions: ({ req }) => {
-                const site = authorityClaim(req.user)?.site
+                const claim = authorityClaim(req.user),
+                  site = claim?.site
+                if (claim?.permissions)
+                  return claim.permissions.includes(readPermission)
+                    ? { 'version.site': { equals: site } }
+                    : false
                 return site && canForm(req.user, permission, site)
                   ? { 'version.site': { equals: site } }
                   : false
@@ -65,6 +114,37 @@ export const tenantForms = (config: Config): Config => ({
           async ({ req, args, operation }) => {
             if (!staffRequest(req)) return args
             const claim = await claimRequest(req)
+            if (claim?.permissions) {
+              const reading = [
+                'read',
+                'count',
+                'readDistinct',
+                'readVersions',
+                'readVersionByID',
+              ].includes(operation)
+              const exact: Permission = reading
+                ? readPermission
+                : collection.slug === 'forms'
+                  ? `forms:${operation === 'create' ? 'create' : operation === 'delete' ? 'delete' : 'edit'}`
+                  : collection.slug === 'form-submissions'
+                    ? operation === 'delete'
+                      ? 'forms:delete-submissions'
+                      : 'forms:update-submissions'
+                    : permission === 'integrations' || permission === 'admin'
+                      ? 'forms:configure-integrations'
+                      : 'forms:edit'
+              if (!claim.permissions.includes(exact))
+                throw new APIError('Form operation unavailable.', 403)
+              if (reading && claim.tenantAdministrator)
+                await new TenantRepository(cmsDatabase(req), claim.actor).read(
+                  {
+                    site: claim.site,
+                    permission: readPermission,
+                    resource: `${collection.slug}:${operation}`,
+                  },
+                  async (): Promise<void> => {},
+                )
+            }
             ;(args as unknown as { overrideAccess: boolean }).overrideAccess = false
             if (operation === 'restoreVersion' && collection.slug === 'forms' && 'id' in args) {
               const { cmsDatabase } = await import('./cms-scope')
@@ -90,7 +170,9 @@ export const tenantForms = (config: Config): Config => ({
           async ({ req, doc }) => {
             if (
               staffRequest(req) &&
-              (!canForm(req.user, permission, doc.site) ||
+              (!(authorityClaim(req.user)?.permissions
+                ? authorityClaim(req.user)!.permissions!.includes(readPermission)
+                : canForm(req.user, permission, doc.site)) ||
                 doc.site !== authorityClaim(req.user)?.site)
             )
               throw new APIError('Form record unavailable in this site.', 403)
@@ -99,7 +181,7 @@ export const tenantForms = (config: Config): Config => ({
           ...(collection.hooks?.beforeRead || []),
         ],
         beforeChange: [
-          async ({ req, data, originalDoc }) => {
+          async ({ req, data, originalDoc, operation }) => {
             if (!internalRequest(req) && !migrationRequest(req)) {
               const claim = await claimRequest(req)
               if (
@@ -109,8 +191,20 @@ export const tenantForms = (config: Config): Config => ({
               )
                 throw new APIError('Form records cannot move between sites.', 403)
               data.site = claim.site
-              if (!canForm(req.user, permission, claim.site))
-                throw new APIError('Form editing unavailable in this site.', 403)
+              const allowed = claim.permissions
+                ? claim.permissions.includes(
+                    collection.slug === 'forms'
+                      ? operation === 'create'
+                        ? 'forms:create'
+                        : 'forms:edit'
+                      : collection.slug === 'form-submissions'
+                        ? 'forms:update-submissions'
+                        : permission === 'integrations' || permission === 'admin'
+                          ? 'forms:configure-integrations'
+                          : 'forms:edit',
+                  )
+                : canForm(req.user, permission, claim.site)
+              if (!allowed) throw new APIError('Form editing unavailable in this site.', 403)
             }
             return data
           },

@@ -1,3 +1,4 @@
+import { createBrowserUser } from '../helpers/browser-user'
 import { test, expect } from '@playwright/test'
 test.use({ actionTimeout: 20000 })
 test('readable groups, section dialogs, field wizard, notifications, Gantt Timeline and Calendar views', async ({
@@ -7,7 +8,7 @@ test('readable groups, section dialogs, field wizard, notifications, Gantt Timel
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   const username = `board-ui-${Date.now()}`
-  const user = await page.request.post('/api/users', {
+  const user = await createBrowserUser(page.request, {
     data: {
       username,
       email: `${username}@example.invalid`,
@@ -46,7 +47,7 @@ test('readable groups, section dialogs, field wizard, notifications, Gantt Timel
   await dialog.getByRole('button', { name: 'Save section', exact: true }).click()
   await page.getByLabel('Add task in Preparation', { exact: true }).fill('Plan launch')
   await page.getByLabel('Add task in Preparation', { exact: true }).press('Enter')
-  await expect(page.locator('.workspace-success-notice')).toContainText('Plan launch was created')
+  await expect(page.getByLabel('Add task in Preparation', {exact: true})).toHaveValue('')
   await expect(page.getByRole('button', { name: 'Open task', exact: true })).toHaveCount(0)
   await expect(page.locator('.workspace-success-notice')).toHaveCount(0, { timeout: 10000 })
   await page.getByRole('button', { name: 'Options for Preparation', exact: true }).click()
@@ -113,7 +114,7 @@ test('readable groups, section dialogs, field wizard, notifications, Gantt Timel
     'rgb(124, 58, 237)',
   )
   await page.getByRole('button', { name: 'Timeline', exact: true }).click()
-  await expect(page.locator('.workspace-timeline')).toBeVisible()
+  await expect(page.locator('.workspace-timeline-scroll')).toBeVisible()
   await page.getByRole('button', { name: 'Calendar', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Group tasks', exact: true })).toHaveCount(0)
   expect(

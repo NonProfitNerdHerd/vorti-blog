@@ -1,6 +1,7 @@
 import { requireWebsitePublishing } from './websites'
 import {
   APIError,
+  addDataAndFileToRequest,
   type Access,
   type AccessResult,
   type CollectionConfig,
@@ -21,6 +22,11 @@ import {
   type CMSScope,
 } from './cms-scope'
 import type { SiteOperation } from './policy'
+import { claimRequest } from './identity-authority'
+import type { Permission } from './permission-catalog'
+import { featureAvailableAt } from './tenant-runtime'
+import { TenantRepository } from './tenant-repository'
+import { readBoundedJSON } from '../forms/security'
 
 const draftWrites = Symbol('native-cms-draft-writes')
 const indexWrite = Symbol('validated-cms-index-write')
@@ -88,11 +94,10 @@ function cmsAccess(
             },
           }
     const permission: SiteOperation =
+      collection.slug === 'exports' ? 'export' :
       action === 'read' || action === 'readVersions'
         ? 'read'
-        : designCMS.has(collection.slug)
-          ? 'configure'
-          : 'edit'
+        : mutationPermission(collection.slug)
     let scope: CMSScope
     try {
       scope = await cmsScope(req, permission)
@@ -109,6 +114,11 @@ function cmsAccess(
     const predicate = {
       [action === 'readVersions' ? 'version.platformSite' : 'platformSite']: { equals: scope.site },
     }
+    if (
+      (collection.slug === 'pages' || collection.slug === 'posts') &&
+      !(await featureAvailableAt(cmsDatabase(req), scope.site, collection.slug))
+    )
+      return false
     if (
       ['search', 'event-series'].includes(collection.slug) &&
       (req.context as Record<symbol, unknown>)[indexWrite] === true
@@ -127,11 +137,82 @@ function cmsAccess(
     )
       return predicate
     let allowed: AccessResult = true
+    let fineWhere: Where | undefined
+    if (collection.slug === 'search' && action === 'read') {
+      const claim = req.user ? await claimRequest(req, scope.site) : null
+      const resources: string[] = []
+      for (const resource of ['posts', 'pages'] as const)
+        if (
+          (await featureAvailableAt(cmsDatabase(req), scope.site, resource)) &&
+          (!claim?.permissions || claim.permissions.includes(`${resource}:read-published`))
+        )
+          resources.push(resource)
+      if (!resources.length) return false
+      fineWhere = { 'doc.relationTo': { in: resources } }
+    }
+    if (req.user && !scope.bootstrap) {
+      const claim = await claimRequest(req, scope.site)
+      if (claim?.permissions) {
+        if (collection.slug === 'imports' || collection.slug === 'exports') {
+          const actionName = collection.slug === 'imports' ? 'import' : 'export'
+          const targets = ['pages', 'posts'].filter((target) =>
+            claim.permissions!.includes(`${target}:${actionName}` as Permission),
+          )
+          if (!targets.length) return false
+          if (action === 'create' && !targets.includes(String(args.data?.collectionSlug)))
+            return false
+          if (action !== 'create') fineWhere = { collectionSlug: { in: targets } }
+        }
+        if (collection.slug === 'pages' || collection.slug === 'posts') {
+          const actionName =
+            action === 'read'
+              ? 'read-published'
+              : action === 'readVersions'
+                ? 'read-history'
+                : action === 'update'
+                  ? 'edit'
+                  : action
+          const permission = `${collection.slug}:${actionName}` as Permission
+          const history = claim.permissions.includes(`${collection.slug}:read-history`)
+          if (!claim.permissions.includes(permission) && !(action === 'read' && history))
+            return false
+          if (action === 'read' && !history) fineWhere = { _status: { equals: 'published' } }
+          if (
+            args.data?._status === 'published' &&
+            ['create', 'update'].includes(action) &&
+            !claim.permissions.includes(`${collection.slug}:publish`)
+          )
+            return false
+        } else if (!['read', 'readVersions'].includes(action)) {
+          const controls: Record<string, Permission> = {
+            media: 'administration:media',
+            categories: 'administration:categories',
+            tags: 'administration:tags',
+            menus: 'administration:menus',
+            'site-templates': 'administration:templates',
+            'saved-views': 'administration:saved-views',
+            redirects: 'administration:redirects',
+            'design-block-types': 'administration:designs',
+            'design-block-designs': 'administration:designs',
+            'design-templates': 'administration:designs',
+          }
+          if (controls[collection.slug] && !claim.permissions.includes(controls[collection.slug]))
+            return false
+        }
+      }
+    }
     if (designCMS.has(collection.slug) && req.user && !scope.bootstrap) {
       let manager = false
       try {
         await cmsScope(req, 'configure')
-        manager = true
+        const claim = await claimRequest(req, scope.site)
+        manager =
+          !claim?.permissions ||
+          claim.permissions.includes(
+            collection.slug === 'site-templates'
+              ? 'administration:templates'
+              : 'administration:designs',
+          )
       } catch {
         /* Published design selection remains available to readers. */
       }
@@ -147,11 +228,13 @@ function cmsAccess(
         }
       else if (scope.site === 'default' && original) allowed = await original(args)
     } else allowed = original ? await original(args) : Boolean(req.user)
+    if (fineWhere) allowed = withWhere(allowed, fineWhere)
     if (action === 'create') return allowed === true
     return withWhere(allowed, predicate)
   }
 }
 function mutationPermission(collection: string): SiteOperation {
+  if (collection === 'exports') return 'export'
   return designCMS.has(collection) ? 'configure' : 'edit'
 }
 /** Access predicates apply to REST/GraphQL/counts/versions and also privileged Local API calls. */
@@ -173,6 +256,16 @@ export const tenantCMS = (config: Config): Config => ({
         (req.context as Record<symbol, unknown>)[draftWrites] as Map<string, boolean> | undefined
       )?.get(collection.slug)
       const status = data._status ?? originalDoc?._status
+      if (req.user && (collection.slug === 'pages' || collection.slug === 'posts')) {
+        const claim = await claimRequest(req, scope.site)
+        if (
+          claim?.permissions &&
+          !draft &&
+          (status === 'published' || originalDoc?._status === 'published') &&
+          !claim.permissions.includes(`${collection.slug}:publish`)
+        )
+          throw new APIError('Publishing permission is required to change published content.', 403)
+      }
       if (
         !draft &&
         (status === 'published' ||
@@ -184,6 +277,36 @@ export const tenantCMS = (config: Config): Config => ({
     }
     return {
       ...collection,
+      endpoints: (collection.endpoints || []).map((endpoint) =>
+        !['imports', 'exports'].includes(collection.slug)
+          ? endpoint
+          : {
+              ...endpoint,
+              handler: async (req) => {
+                const scope = await cmsScope(req, mutationPermission(collection.slug))
+                const claim = req.user ? await claimRequest(req, scope.site) : null
+                if (claim?.permissions) {
+                  let data: Record<string, unknown>
+                  if (collection.slug === 'imports') {
+                    await addDataAndFileToRequest(req)
+                    data = req.data || {}
+                  } else {
+                    const body = await readBoundedJSON(req.clone(), 128000)
+                    data = (body.data || body) as Record<string, unknown>
+                  }
+                  const target = String(data.collectionSlug)
+                  if (
+                    !['pages', 'posts'].includes(target) ||
+                    !claim.permissions.includes(
+                      `${target}:${collection.slug === 'imports' ? 'import' : 'export'}` as Permission,
+                    )
+                  )
+                    throw new APIError('This import or export is unavailable.', 403)
+                }
+                return endpoint.handler(req)
+              },
+            },
+      ),
       fields: [...fields, ...ownershipFields],
       forceSelect: {
         ...collection.forceSelect,
@@ -205,12 +328,15 @@ export const tenantCMS = (config: Config): Config => ({
         ...collection.hooks,
         afterRead: [
           ...(collection.hooks?.afterRead || []),
-          async ({req,doc}) => {
+          async ({ req, doc }) => {
             if (collection.slug !== 'media' || migrationRequest(req)) return doc
-            const scope = await cmsScope(req,'read')
+            const scope = await cmsScope(req, 'read')
             if (scope.site === 'default' || !doc.filename) return doc
-            const site = await cmsDatabase(req).prepare('SELECT route_key FROM vc_sites WHERE id=?').bind(scope.site).first<{route_key:string}>()
-            if (!site) throw new APIError('Site unavailable.',404)
+            const site = await cmsDatabase(req)
+              .prepare('SELECT route_key FROM vc_sites WHERE id=?')
+              .bind(scope.site)
+              .first<{ route_key: string }>()
+            if (!site) throw new APIError('Site unavailable.', 404)
             const path = `/sites/${site.route_key}/api/media/file/${encodeURIComponent(String(doc.filename))}`
             doc.url = path + (scope.actor ? '?preview=1' : '')
             return doc
@@ -219,7 +345,7 @@ export const tenantCMS = (config: Config): Config => ({
         beforeRead: [
           async ({ doc, req }) => {
             if (migrationRequest(req)) return doc
-            const scope = await cmsScope(req, 'read')
+            const scope = await cmsScope(req, collection.slug === 'exports' ? 'export' : 'read')
             // Some installed version operations capture overrideAccess before hooks run. Their
             // inner version document still passes this hook before any field hooks or response.
             if (doc.platformSite !== scope.site)
@@ -240,10 +366,39 @@ export const tenantCMS = (config: Config): Config => ({
             if (migrationRequest(req)) return args
             const scope = await cmsScope(
               req,
-              ['create', 'update', 'delete', 'restoreVersion'].includes(operation)
+              collection.slug === 'exports' || ['create', 'update', 'delete', 'restoreVersion'].includes(operation)
                 ? permission
                 : 'read',
             )
+            if (['imports', 'exports'].includes(collection.slug) && operation === 'create') {
+              const claim = req.user ? await claimRequest(req, scope.site) : null
+              if (claim?.permissions) {
+                const target = String('data' in args && args.data?.collectionSlug)
+                if (
+                  !['pages', 'posts'].includes(target) ||
+                  !claim.permissions.includes(
+                    `${target}:${collection.slug === 'imports' ? 'import' : 'export'}` as Permission,
+                  )
+                )
+                  throw new APIError('This import or export is unavailable.', 403)
+              }
+            }
+            if (
+              req.user &&
+              ['pages', 'posts'].includes(collection.slug) &&
+              !['create', 'update', 'delete', 'restoreVersion'].includes(operation)
+            ) {
+              const claim = await claimRequest(req, scope.site)
+              if (claim?.tenantAdministrator)
+                await new TenantRepository(cmsDatabase(req), Number(req.user.id)).read(
+                  {
+                    site: scope.site,
+                    permission: `${collection.slug}:read-published` as Permission,
+                    resource: `${collection.slug}:${'id' in args ? String(args.id) : operation}`,
+                  },
+                  async (): Promise<void> => {},
+                )
+            }
             if (operation === 'restoreVersion' && 'id' in args) {
               const versions = cmsCollections.find(([slug]) => slug === collection.slug)?.[2]
               if (
@@ -296,7 +451,8 @@ export const tenantCMS = (config: Config): Config => ({
                 platformSite: originalDoc?.platformSite || data.platformSite || 'default',
               }
             const scope = await authorizeWrite(data, originalDoc, req)
-            if (['posts','pages'].includes(collection.slug) && data._status === 'published') await requireWebsitePublishing(cmsDatabase(req),scope.site)
+            if (['posts', 'pages'].includes(collection.slug) && data._status === 'published')
+              await requireWebsitePublishing(cmsDatabase(req), scope.site)
             await validateCMSRelations(req, fields, data, originalDoc)
             await confirmCMSScope(req, scope)
             return {
