@@ -3,8 +3,8 @@ import { SettingsHub } from '../../src/components/SettingsHub'
 import { TenantPermissionError } from '../../src/organizations/tenant-repository'
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), require: vi.fn() }))
-vi.mock('../../src/components/SettingsHubClient', () => ({ SettingsHubClient: () => null }))
-vi.mock('../../src/components/TenantSettingsHub', () => ({ TenantSettingsHub: () => null }))
+vi.mock('../../src/components/SettingsHubClient', () => ({ SettingsHubClient: (): null => null }))
+vi.mock('../../src/components/TenantSettingsHub', () => ({ TenantSettingsHub: (): null => null }))
 vi.mock('../../src/organizations/cms-scope', () => ({ cmsDatabase: () => ({}) }))
 vi.mock('../../src/organizations/tenant-runtime', () => ({
   tenantAuthorityActive: async () => true,
