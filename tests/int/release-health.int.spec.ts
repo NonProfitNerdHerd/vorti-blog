@@ -3,7 +3,10 @@ import { HealthObservation, jsonEventDecoder } from '../../scripts/lib/health-ob
 const origin = 'https://example.com'
 const event = (id: string, status = 200) => ({
   outcome: 'ok',
-  event: { request: { url: `${origin}/?__vorti_release_probe=${id}` }, response: { status } },
+  event: {
+    request: { url: `${origin}/?__vorti_release_probe_${id}=REDACTED` },
+    response: { status },
+  },
 })
 it('starts only after correlated telemetry and requires a complete ten-minute window', () => {
   const health = new HealthObservation(origin)
@@ -54,7 +57,7 @@ it('does not accept the wrong origin, path, or response as probe confirmation', 
     {
       ...event('probe'),
       event: {
-        request: { url: 'https://other.com/?__vorti_release_probe=probe' },
+        request: { url: 'https://other.com/?__vorti_release_probe_probe=REDACTED' },
         response: { status: 200 },
       },
     },

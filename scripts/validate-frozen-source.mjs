@@ -126,10 +126,33 @@ await run('runtime-identity', [
   '-e',
   'import fs from "node:fs"; import cp from "node:child_process"; const expected=fs.readFileSync(".node-version","utf8").trim().replace(/^v/,""); const pkg=JSON.parse(fs.readFileSync("package.json","utf8")); const pnpm=cp.execFileSync("pnpm",["--version"],{encoding:"utf8"}).trim(); if(process.versions.node!==expected||pkg.packageManager.split("+")[0]!==`pnpm@${pnpm}`)throw Error("Runtime mismatch"); console.log(JSON.stringify({node:process.versions.node,pnpm,platform:process.platform})); if(process.platform!=="linux")throw Error("Linux release runtime required");',
 ])
+await run('generated-bindings', [
+  'exec',
+  '-w',
+  '/build',
+  name,
+  'pnpm',
+  'run',
+  'generate:types:cloudflare',
+])
+await run('verify-generated-inputs', [
+  'exec',
+  '-w',
+  '/build',
+  name,
+  'node',
+  '--input-type=module',
+  '-e',
+  fingerprintSource +
+    'if(fs.readFileSync("/tmp/source-hash","utf8")!==hash)throw Error("Binding generation changed frozen source");console.log(hash);',
+])
 for (const [stage, command] of [
   ['typescript', ['pnpm', 'exec', 'tsc', '--noEmit']],
   ['lint', ['pnpm', 'exec', 'eslint', '.', '--quiet']],
-  ['design-editor', ['pnpm', '--filter', '@design-system/payload-design-core', 'test', '--maxWorkers', '2']],
+  [
+    'design-editor',
+    ['pnpm', '--filter', '@design-system/payload-design-core', 'test', '--maxWorkers', '2'],
+  ],
   ['integration', ['pnpm', 'run', 'test:int']],
 ])
   await run(stage, ['exec', '-e', 'VORTI_FROZEN_VALIDATION=1', '-w', '/build', name, ...command])

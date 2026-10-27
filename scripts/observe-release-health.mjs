@@ -69,7 +69,7 @@ const check = () => {
 const probe = async (pathname, expectedStatus) => {
   const id = crypto.randomUUID(),
     url = new URL(pathname, base)
-  url.searchParams.set('__vorti_release_probe', id)
+  url.searchParams.set(`__vorti_release_probe_${id}`, '1')
   observation.register(id, pathname, expectedStatus, Date.now())
   const response = await fetch(url, {
     redirect: 'manual',

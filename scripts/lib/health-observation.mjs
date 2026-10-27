@@ -89,7 +89,13 @@ export class HealthObservation {
       return
     }
     if (url.origin !== this.origin) return
-    const probe = this.probes.get(url.searchParams.get('__vorti_release_probe'))
+    // Wrangler sanitizes query values. Keep its sanitization enabled and put
+    // the non-sensitive correlation marker in the parameter name instead.
+    const markers = [...url.searchParams.keys()].filter((key) =>
+      key.startsWith('__vorti_release_probe_'),
+    )
+    if (markers.length !== 1) return
+    const probe = this.probes.get(markers[0].slice('__vorti_release_probe_'.length))
     if (!probe || probe.pathname !== url.pathname) return
     probe.telemetryAt ??= now
     if (event.event.response?.status !== probe.expectedStatus)
