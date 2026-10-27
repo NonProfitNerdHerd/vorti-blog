@@ -129,7 +129,7 @@ await run('runtime-identity', [
 for (const [stage, command] of [
   ['typescript', ['pnpm', 'exec', 'tsc', '--noEmit']],
   ['lint', ['pnpm', 'exec', 'eslint', '.', '--quiet']],
-  ['design-editor', ['pnpm', '--filter', '@design-system/payload-design-core', 'test']],
+  ['design-editor', ['pnpm', '--filter', '@design-system/payload-design-core', 'test', '--maxWorkers', '2']],
   ['integration', ['pnpm', 'run', 'test:int']],
 ])
   await run(stage, ['exec', '-e', 'VORTI_FROZEN_VALIDATION=1', '-w', '/build', name, ...command])
