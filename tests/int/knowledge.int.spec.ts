@@ -87,12 +87,7 @@ describe('Wiki and Intranet boundaries', () => {
           operationKey: crypto.randomUUID(),
         }),
       ).rejects.toMatchObject({ status: 403 })
-      await bootstrapTenant(f.db, {
-        tenant: 'foreign',
-        site: 'foreign',
-        administratorEmail: 'owner@example.com',
-      })
-      await activateTenantAuthority(f.db, 'foreign')
+      f.sqlite.exec("INSERT INTO vc_organizations(id,name,created_at,updated_at) VALUES('foreign','Foreign','now','now'); INSERT INTO vc_sites(id,organization_id,name,route_key,created_at,updated_at) VALUES('foreign','foreign','Foreign','foreign','now','now')")
       await expect(member.get('foreign', 'wiki', article.id)).rejects.toMatchObject({ status: 403 })
       f.sqlite.exec(
         "UPDATE vc_tenant_memberships SET active=0 WHERE tenant_id='default' AND user_id=2",
