@@ -39,6 +39,14 @@ it('allows duplicate public/internal slugs but rejects a parent from another aud
   expect(child.slug).toBe(external.slug)
   await expect(payload.update({ collection: 'pages', id: child.id, req: await admin(), data: { parent: external.id } })).rejects.toThrow()
 })
+it('publishes an existing internal draft without treating its generated self breadcrumb as a separate unpublished dependency', async () => {
+  const page = await payload.create({ collection: 'pages', req: await admin(), draft: true, data: { title: 'Draft resource publication', slug: 'draft-resource-publication', audience: 'intranet' } })
+  try {
+    await expect(payload.findByID({ collection: 'pages', id: page.id, req: await readerRequest(), depth: 0 })).rejects.toThrow()
+    await payload.update({ collection: 'pages', id: page.id, req: await admin(), data: { _status: 'published' } })
+    expect((await payload.findByID({ collection: 'pages', id: page.id, req: await readerRequest(), depth: 0 })).title).toBe('Draft resource publication')
+  } finally { await payload.delete({ collection: 'pages', id: page.id, req: await admin() }) }
+})
 it('rechecks ancestors after reparenting for fresh and already-used requests, lists and counts', async () => {
   const sameRequest = await readerRequest()
   expect((await payload.findByID({ collection: 'pages', id: child.id, req: sameRequest, depth: 0 })).id).toBe(child.id)

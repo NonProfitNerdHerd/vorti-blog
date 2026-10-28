@@ -114,8 +114,8 @@ export const unifiedPublishing = (config: Config): Config => ({
       fields: [...collection.fields, ...fields, ...(['posts', 'pages'].includes(collection.slug) ? [{ name: 'publishingTransfer', type: 'ui' as const, admin: { position: 'sidebar' as const, components: { Field: './publishing/TransferPanel#TransferPanel' } } },
         { name: 'publishingPrivateHistory', type: 'ui' as const, admin: { position: 'sidebar' as const, components: { Field: './publishing/LegacyHistoryPanel#PrivateHistoryPanel' } } }] : []), ...(collection.slug === 'site-templates' ? [{ name: 'publishingTemplateRole', label: 'Site purpose', type: 'text' as const, virtual: true, admin: { readOnly: true, position: 'sidebar' as const }, access: { create: () => false, update: () => false } }] : []), ...(collection.slug === 'pages' ? [{ name: 'publishingArchived', type: 'checkbox' as const, defaultValue: false, admin: { hidden: true }, access: { create: () => false, update: () => false } },
         { name: 'publishingLegacyHistory', type: 'ui' as const, admin: { position: 'sidebar' as const, components: { Field: './publishing/LegacyHistoryPanel#LegacyHistoryPanel' } } }] : []), { name: 'publishingReadability', type: 'join', collection: readersSlug(collection.slug) as CollectionSlug, on: 'record', admin: { hidden: true }, access: { read: () => false } }, ...(['media', 'imports', 'exports'].includes(collection.slug) ? [{ name: 'prefix', type: 'text' as const,
-        admin: { hidden: true }, access: { create: () => false, update: () => false } }] : []), ...(collection.slug === 'media' ? [{ name: 'publishingSourceCollection', type: 'text' as const, admin: { hidden: true }, access: { read: () => false, create: () => false, update: () => false } },
-        { name: 'publishingSourceID', type: 'number' as const, admin: { hidden: true }, access: { read: () => false, create: () => false, update: () => false } },
+        admin: { hidden: true }, access: { create: () => false, update: () => false } }] : []), ...(collection.slug === 'media' ? [{ name: 'publishingSourceCollection', type: 'text' as const, admin: { hidden: true }, access: { create: () => false, update: () => false } },
+        { name: 'publishingSourceID', type: 'number' as const, admin: { hidden: true }, access: { create: () => false, update: () => false } },
         { name: 'publishingSourceIdentity', type: 'text' as const, admin: { hidden: true }, access: { read: () => false, create: () => false, update: () => false } },
         { name: 'publishingRequiresPublication', type: 'checkbox' as const, defaultValue: false, admin: { hidden: true }, access: { read: () => false, create: () => false, update: () => false } },
         { name: 'publishingOriginalFilename', type: 'text' as const, admin: { readOnly: true }, access: { create: () => false, update: () => false } }] : [])],
@@ -298,7 +298,7 @@ export const unifiedPublishing = (config: Config): Config => ({
           if (!(['search', 'event-series', 'imports', 'exports'].includes(collection.slug)) &&
             (!collection.versions || (!(req.context as Context)[draftWrite] && (data._status ?? originalDoc?._status) === 'published'))) {
             const scope = await cmsScope(req, 'read')
-            await validatePublishingDependencies(req, scope.site, { ...originalDoc, ...data }, collection.fields, audience(req))
+            await validatePublishingDependencies(req, scope.site, { ...originalDoc, ...data }, collection.fields, audience(req), originalDoc?.id ? { collection: collection.slug, id: Number(originalDoc.id) } : undefined)
           }
           return data
         }],

@@ -89,7 +89,7 @@ export const publishingReadersSchemaV1 = () => [
   `DROP VIEW IF EXISTS "${readersView('review_document')}"`,
   `CREATE VIEW "${readersView('review_document')}" AS ${(['posts', 'pages', 'site-templates'] as const).map(collection => {
     const table = collection === 'site-templates' ? 'site_tpl' : collection
-    return `SELECT printf('%d:%d',t.id,p.actor) id,t.id record_id,p.actor,p.site,p.audience,p.valid_structure,p.published_tree,p.ordinary_access
+    return `SELECT printf('%d:%d',t.id,p.actor) id,t.id record_id,p.actor,p.site,p.audience,p.valid_structure,p.published_tree,p.ordinary_access,'${collection}' source_collection
       FROM review_tasks t JOIN "${readersView(table)}" p ON p.record_id=CAST(t.document_i_d AS INTEGER) AND p.site=t.document_site WHERE t.document_type='${collection}'`
   }).join(' UNION ALL ')}`,
 ]

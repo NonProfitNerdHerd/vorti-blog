@@ -1861,6 +1861,7 @@ export interface PublishingReviewTasksReader {
   validStructure?: boolean | null;
   publishedTree?: boolean | null;
   ordinaryAccess?: boolean | null;
+  sourceCollection?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4369,6 +4370,7 @@ export interface PublishingReviewTasksReadersSelect<T extends boolean = true> {
   validStructure?: T;
   publishedTree?: T;
   ordinaryAccess?: T;
+  sourceCollection?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

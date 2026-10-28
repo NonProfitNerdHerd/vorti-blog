@@ -1,4 +1,14 @@
 .intranet-site { background: #f4f6fa; color: #182b43; }
+:where(.intranet-site) .site-template-header .site-shell-layout--row,
+:where(.intranet-site) .site-template-footer .site-shell-layout--row { flex-wrap: wrap; }
+:where(.intranet-site .site-template-header) .site-shell-element--search { width: min(100%, 22rem); min-width: 0; }
+:where(.intranet-site) .site-shell-search form { align-items: center; }
+:where(.intranet-site) .site-shell-search label { flex: 1 1 9rem; min-width: 0; }
+:where(.intranet-site) .site-shell-search input { width: 100%; padding: .65rem .8rem; border: 1px solid #bccbdc; border-radius: .35rem; background: white; color: #182b43; }
+:where(.intranet-site) .site-shell-search button { padding: .65rem .8rem; border: 1px solid #bccbdc; border-radius: .35rem; background: #e7f3f2; color: #102a43; cursor: pointer; }
+:where(.intranet-site .site-template-header, .intranet-site .site-template-footer) .vc-menu .vc-menu__item > a[aria-current='page'],
+:where(.intranet-site .site-template-header, .intranet-site .site-template-footer) .vc-menu .vc-menu__item > a:hover,
+:where(.intranet-site .site-template-header, .intranet-site .site-template-footer) .vc-menu .vc-menu__item > a:focus-visible { color: inherit; text-decoration: underline; text-underline-offset: .3em; }
 .intranet-search-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1rem; border-bottom: 1px solid #d8e0ec; font-size: .875rem; }
 .intranet-search-bar form { display: flex; align-items: center; gap: .5rem; }
 .intranet-search-bar input, .intranet-portal input { padding: .65rem .8rem; border: 1px solid #bccbdc; border-radius: .35rem; background: #fff; color: #182b43; }
@@ -18,3 +28,8 @@
 .intranet-resource-list { list-style: none; padding: 0; display: grid; gap: .5rem; }
 .intranet-resource-list a { display: block; padding: 1rem 1.3rem; border-left: 3px solid #3477bd; background: white; }
 @media(max-width: 640px) { .intranet-search-bar { align-items: stretch; flex-direction: column; } .intranet-search-bar form { flex-wrap: wrap; } .intranet-search-bar input { min-width: 0; flex: 1; } .intranet-portal__welcome { padding: 1.2rem; } }
+@media(max-width: 768px) {
+  :where(.intranet-site .site-template-header) .site-shell-element--search { order: 3; width: 100%; }
+  :where(.intranet-site .site-template-header) .site-shell-element--mobileMenuToggle { order: 1; }
+  :where(.intranet-site .site-template-header) .site-shell-element--navigation { order: 2; width: 100%; }
+}

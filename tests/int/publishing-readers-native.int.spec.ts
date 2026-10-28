@@ -8,6 +8,7 @@ import { cmsSiteContext } from '@/organizations/cms-scope'
 import { PublishingSharing } from '@/publishing/sharing'
 import { PublishingTransfers } from '@/publishing/transfers'
 import { privatePublishingHistory } from '@/publishing/private-history'
+import { notify } from '@/review/workspace-collections'
 import type { User } from '@/payload-types'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -59,6 +60,12 @@ it('uses native joins for audience-filtered lists and counts', async () => {
   const countReq = await fixtureRequest(payload)
   Object.assign(countReq.context, { [CMS_AUDIENCE]: 'intranet' })
   expect((await payload.count({ collection: 'posts', req: countReq })).totalDocs).toBe(internal.totalDocs)
+})
+
+it('keeps administrator notification lists and counts within SQLite’s join budget', async () => {
+  const options = { collection: 'task-notifications' as const, req: await fixtureRequest(payload), overrideAccess: false, where: { read: { not_equals: true } } }
+  expect((await payload.count(options)).totalDocs).toBeGreaterThanOrEqual(0)
+  expect((await payload.find({ ...options, depth: 0, limit: 10 })).docs).toBeInstanceOf(Array)
 })
 
 it('queries current-parent readership for native version lists', async () => {
@@ -213,12 +220,15 @@ it('requires current document readership for review-task direct reads, lists and
   const task = await payload.create({ collection: 'review-tasks', req: await fixtureRequest(payload), data: { title: 'Restricted document discussion', documentType: 'posts', documentID: String(document.id), region: 'document', status: 'open', priority: 'normal' } })
   try {
     expect((await payload.findByID({ collection: 'review-tasks', id: task.id, req: await readerRequest(), depth: 0 })).id).toBe(task.id)
+    await notify(await fixtureRequest(payload), { recipient: String(reader.id), task: String(task.id), kind: 'comment', message: 'Document discussion fixture', key: 'private_doc_notification_fixture' })
+    expect((await payload.count({ collection: 'task-notifications', req: await readerRequest(), overrideAccess: false, where: { task: { equals: task.id } } })).totalDocs).toBe(1)
     const sharing = new PublishingSharing(await fixtureRequest(payload)), current = await sharing.read('default', 'posts', document.id)
     await sharing.save({ site: 'default', collection: 'posts', id: document.id, readership: 'restricted', people: [], groups: [],
       expectedRevision: current.revision, expectedAuthorityRevision: current.authorityRevision, key: 'restrict_review_doc_123456789' })
     await expect(payload.findByID({ collection: 'review-tasks', id: task.id, req: await readerRequest(), depth: 0 })).rejects.toThrow()
     expect((await payload.find({ collection: 'review-tasks', req: await readerRequest(), where: { id: { equals: task.id } }, depth: 0 })).docs).toEqual([])
     expect((await payload.count({ collection: 'review-tasks', req: await readerRequest(), where: { id: { equals: task.id } } })).totalDocs).toBe(0)
+    expect((await payload.count({ collection: 'task-notifications', req: await readerRequest(), overrideAccess: false, where: { task: { equals: task.id } } })).totalDocs).toBe(0)
   } finally {
     // Tasks retain their activity history; this fixture must respect their
     // existing no-delete rule. Removing its document also removes read access.

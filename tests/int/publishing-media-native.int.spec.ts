@@ -41,6 +41,9 @@ it('keeps a draft-linked upload hidden from ordinary readers until its source is
   await expect(payload.findByID({ collection: 'media', id: file, req: await readerRequest(), depth: 0 })).rejects.toThrow()
   await payload.update({ collection: 'posts', id: source, req: await adminRequest(), data: { _status: 'published' } })
   expect((await payload.findByID({ collection: 'media', id: file, req: await readerRequest(), depth: 0 })).id).toBe(file)
+  const listed = await payload.find({ collection: 'media', req: await readerRequest(), depth: 0,
+    where: { and: [{ publishingSourceCollection: { equals: 'posts' } }, { publishingSourceID: { equals: source } }] } })
+  expect(listed.docs.map(doc => doc.id)).toEqual([file])
   const original = await readerRequest(), req = { ...original, url: `http://local.invalid/api/publishing/media/${file}?site=default`, routeParams: { id: String(file) } }
   const endpoint = payload.config.endpoints.find(item => item.path === '/publishing/media/:id')!
   const response = await endpoint.handler(req)
@@ -56,4 +59,14 @@ it('retains protected file access after a source moves publicly, then revokes it
   const db = (payload.db as unknown as { client: D1Database }).client
   await db.prepare("UPDATE vc_tenant_memberships SET active=0 WHERE tenant_id='default' AND user_id=?").bind(reader.id).run()
   await expect(payload.findByID({ collection: 'media', id: file, req: await readerRequest(), depth: 0 })).rejects.toThrow()
+})
+it('still rejects a private media dependency when publishing a public Page with its own breadcrumb', async () => {
+  const page = await payload.create({ collection: 'pages', req: await fixtureRequest(payload), draft: true, data: {
+    title: 'Public dependency review', slug: 'public-dependency-review',
+    contentLayout: { version: 1, nodes: [{ id: 'private-reference', kind: 'image', props: { mediaID: file } }] },
+  } })
+  try {
+    await expect(payload.update({ collection: 'pages', id: page.id, req: await fixtureRequest(payload), data: { _status: 'published' } })).rejects.toMatchObject({ status: 400 })
+    expect((await payload.findByID({ collection: 'pages', id: page.id, req: await fixtureRequest(payload), draft: true, depth: 0 }))._status).toBe('draft')
+  } finally { await payload.delete({ collection: 'pages', id: page.id, req: await fixtureRequest(payload) }) }
 })

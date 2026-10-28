@@ -13,7 +13,7 @@ export const publishingReaderCollections: CollectionConfig[] = [...audienceTable
     { name: 'record', type: 'relationship', relationTo: slug as CollectionSlug, required: true },
     { name: 'actor', type: 'number' }, { name: 'site', type: 'text' }, { name: 'audience', type: 'text' },
     { name: 'validStructure', type: 'checkbox' }, { name: 'publishedTree', type: 'checkbox' }, { name: 'ordinaryAccess', type: 'checkbox' },
-    ...(slug === 'search' ? [{ name: 'sourceCollection', type: 'text' as const }] : []),
+    ...(['search', 'review-tasks'].includes(slug) ? [{ name: 'sourceCollection', type: 'text' as const }] : []),
     ...(versions ? [{ name: 'draftFree', type: 'checkbox' as const }] : []),
   ],
 }))

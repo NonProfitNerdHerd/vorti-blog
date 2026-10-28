@@ -70,8 +70,11 @@ export function publicDependencyInventory(data: unknown, fields: Field[] = []) {
   return { references: distinct, problems }
 }
 
-export async function validatePublishingDependencies(req: PayloadRequest, site: string, data: unknown, fields: Field[], audience: Audience) {
-  const queue = [publicDependencyInventory(data, fields)], seen = new Set<string>(), problems: string[] = []
+export async function validatePublishingDependencies(req: PayloadRequest, site: string, data: unknown, fields: Field[], audience: Audience, self?: { collection: string; id: number }) {
+  // The document being published is validated by this operation. Generated
+  // self-breadcrumbs (and intentional self-links) must not require its previous
+  // draft to have already been published. Other references still need review.
+  const queue = [publicDependencyInventory(data, fields)], seen = new Set<string>(self ? [`${self.collection}:${self.id}`] : []), problems: string[] = []
   const local = await createLocalReq({ user: req.user, context: { ...cmsSiteContext(site), [CMS_AUDIENCE]: audience, ...(audience === 'public' ? { [CMS_PUBLIC_RENDER]: true } : {}) } }, req.payload)
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const inventory = queue[cursor]
