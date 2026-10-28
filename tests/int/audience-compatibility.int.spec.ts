@@ -22,7 +22,7 @@ describe('audience-compatible recovery build', () => {
     expect(await collection.access!.read!(args)).toEqual({ and: [
       { platformSite: { equals: 'chapter' } }, { audience: { equals: 'public' } },
     ] })
-    expect(await collection.access!.readVersions!(args)).toEqual({ and: [{ 'version.audience': { equals: 'public' } }, { parent: { in: [7] } }] })
+    expect(await collection.access!.readVersions!(args)).toEqual({ and: [{ 'version.audience': { equals: 'public' } }, { 'parent.audience': { equals: 'public' } }] })
     for (const action of ['update', 'delete'] as const)
       expect(await collection.access![action]!(args)).toEqual({ audience: { equals: 'public' } })
     expect(await config(false).access!.read!(args)).toBe(false)

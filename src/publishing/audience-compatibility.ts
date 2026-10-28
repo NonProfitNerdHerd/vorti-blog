@@ -33,10 +33,7 @@ export function audienceCompatibility(config: Config): Config {
         access[operation] = async (args) => {
           const result = publicOnly(original ? await original(args) : Boolean(args.req.user), operation === 'readVersions')
           if (operation !== 'readVersions' || result === false) return result
-          const scope = await cmsScope(args.req, 'read')
-          const rows = await cmsDatabase(args.req).prepare(`SELECT id FROM "${mapping[1]}" WHERE platform_site=? AND audience='public' LIMIT 10001`).bind(scope.site).all<{ id: number }>()
-          if (rows.results.length > 10000) throw new APIError('History scope is too large.', 503)
-          return { and: [result as Where, { parent: { in: rows.results.map(row => row.id) } }] }
+          return { and: [result as Where, { 'parent.audience': { equals: 'public' } }] }
         }
       }
       return {
