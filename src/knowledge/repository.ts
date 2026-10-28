@@ -39,6 +39,13 @@ export class KnowledgeRepository {
     private db: D1Database,
     private actor: number | null,
   ) {}
+  private async requireLegacyModel(kind: KnowledgeKind) {
+    if (kind === 'intranet' && await this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vc_publishing_legacy_map'").first()) {
+      const error = new Error('Use the unified Intranet Pages interface.') as Error & { status: number }
+      error.status = this.actor ? 409 : 404
+      throw error
+    }
+  }
   private async scope(site: string, kind: KnowledgeKind, history = false) {
     if (
       !idPattern.test(site) ||
@@ -76,6 +83,7 @@ export class KnowledgeRepository {
         ? 'wiki:read-published'
         : 'intranet:read'
     if (!can(permission)) throw new KnowledgeUnavailable(true)
+    await this.requireLegacyModel(kind)
     return {
       tenant: snapshot.policy.tenant,
       revision: snapshot.revision,
@@ -217,6 +225,7 @@ export class KnowledgeRepository {
       repo = new TenantRepository(this.db, this.actor)
     const permission: Permission = `${input.kind}:${input.action === 'delete' ? 'delete' : input.action === 'publish' || input.action === 'unpublish' ? 'publish' : input.expectedRevision ? 'edit' : 'create'}`
     const authority = await repo.require(input.site, permission)
+    await this.requireLegacyModel(input.kind)
     if (!(await tenantAuthorityActive(this.db, input.site))) throw new KnowledgeUnavailable(true)
     const current = await this.db
       .prepare('SELECT * FROM vc_knowledge_pages WHERE id=? AND site_id=? AND kind=? AND deleted=0')
@@ -366,6 +375,7 @@ export class KnowledgeRepository {
   async upload(site: string, kind: KnowledgeKind, page: string, file: File, storage: R2Bucket) {
     if (!this.actor) throw new KnowledgeUnavailable(false)
     const authority = await new TenantRepository(this.db, this.actor).require(site, `${kind}:edit`)
+    await this.requireLegacyModel(kind)
     await this.get(site, kind, page, true)
     if (file.size < 1 || file.size > 10 * 1024 * 1024) throw Error('Choose a file up to 10 MB.')
     const bytes = new Uint8Array(await file.arrayBuffer())
