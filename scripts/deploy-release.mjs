@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { verifyArtifact } from './lib/release-artifact.mjs'
@@ -33,7 +33,9 @@ if (current()?.id !== args['--expected-deployment']) throw Error('Production adv
 const upload = {...config, main: path.join(artifact, manifest.entrypoint), no_bundle: true, find_additional_modules: true, assets: {...config.assets, directory: path.join(artifact, 'assets')}}
 delete upload.build
 delete upload.$schema
-const uploadPath = configPath + '.immutable.json'
+const uploadDirectory = path.resolve('.wrangler', 'release-upload-configs')
+mkdirSync(uploadDirectory, {recursive: true})
+const uploadPath = path.join(uploadDirectory, lease.id + '.json')
 writeFileSync(uploadPath, JSON.stringify(upload, null, 2) + '\n', {flag: 'wx'})
 const output = cli('deploy', '--config', uploadPath)
 verifyArtifact(artifact, manifest, manifest)
