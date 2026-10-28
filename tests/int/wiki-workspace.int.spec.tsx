@@ -14,7 +14,7 @@ const doc = {
   id: 'article',
   title: 'Initial article',
   slug: 'initial',
-  parent: null,
+  parent: null as string | null,
   body: {
     root: {
       type: 'root',
@@ -31,7 +31,7 @@ const props = {
   kind: 'wiki' as const,
   prefix: '',
   id: doc.id,
-  initial: { docs: [{ ...doc, published: 1 }], next: null },
+  initial: { docs: [{ ...doc, published: 1 }], next: null as string | null },
   manage: false,
   initialDoc: doc,
   permissions: [] as string[],
@@ -92,7 +92,10 @@ it('retains a conflicting draft and blocks navigation when changes are unsaved',
 it('searches the authorized list and keeps history flags out of reading requests', async () => {
   const fetch = vi
     .fn()
-    .mockResolvedValue({ ok: true, json: async () => ({ docs: [], next: null }) })
+    .mockResolvedValue({
+      ok: true,
+      json: async () => ({ docs: [] as typeof props.initial.docs, next: null as string | null }),
+    })
   vi.stubGlobal('fetch', fetch)
   render(<KnowledgeWorkspace {...props} initialDoc={null} />)
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Needle' } })

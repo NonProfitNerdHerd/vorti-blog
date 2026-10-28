@@ -41,6 +41,67 @@ const draft = (id: string, parent: string | null = null) => ({
 })
 
 describe('Wiki and Intranet boundaries', () => {
+  it('separates readers, history readers and editors while rejecting inactive and cross-tenant access', async () => {
+    const f = await fixture()
+    try {
+      f.sqlite.exec(
+        "INSERT INTO vc_tenant_memberships(tenant_id,user_id,active) VALUES('default',2,1); INSERT INTO vc_tenant_roles(id,tenant_id,name) VALUES('wiki-reader','default','Wiki reader'); INSERT INTO vc_tenant_assignments(id,tenant_id,user_id,role_id,site_id,descendants) VALUES('wiki-reader','default',2,'wiki-reader','default',0); INSERT INTO vc_tenant_role_permissions(role_id,permission) VALUES('wiki-reader','wiki:read-published')",
+      )
+      const article = { ...draft('permission-article'), visibility: 'public' as const }
+      await f.admin.save(article)
+      await f.admin.save({
+        ...article,
+        action: 'publish',
+        expectedRevision: 1,
+        operationKey: crypto.randomUUID(),
+      })
+      const member = new KnowledgeRepository(f.db, 2)
+      expect((await member.get('default', 'wiki', article.id)).title).toBe(article.title)
+      await expect(member.get('default', 'wiki', article.id, true)).rejects.toMatchObject({
+        status: 403,
+      })
+      await expect(member.versions('default', 'wiki', article.id)).rejects.toMatchObject({
+        status: 403,
+      })
+      f.sqlite.exec(
+        "INSERT INTO vc_tenant_role_permissions(role_id,permission) VALUES('wiki-reader','wiki:read-history')",
+      )
+      expect(await member.versions('default', 'wiki', article.id)).toHaveLength(2)
+      await expect(
+        member.save({ ...article, expectedRevision: 2, operationKey: crypto.randomUUID() }),
+      ).rejects.toMatchObject({ status: 403 })
+      f.sqlite.exec(
+        "INSERT INTO vc_tenant_role_permissions(role_id,permission) VALUES('wiki-reader','wiki:edit')",
+      )
+      await member.save({
+        ...article,
+        title: 'Editor draft',
+        expectedRevision: 2,
+        operationKey: crypto.randomUUID(),
+      })
+      await expect(
+        member.save({
+          ...article,
+          action: 'publish',
+          expectedRevision: 3,
+          operationKey: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ status: 403 })
+      await bootstrapTenant(f.db, {
+        tenant: 'foreign',
+        site: 'foreign',
+        administratorEmail: 'owner@example.com',
+      })
+      await activateTenantAuthority(f.db, 'foreign')
+      await expect(member.get('foreign', 'wiki', article.id)).rejects.toMatchObject({ status: 403 })
+      f.sqlite.exec(
+        "UPDATE vc_tenant_memberships SET active=0 WHERE tenant_id='default' AND user_id=2",
+      )
+      await expect(member.get('default', 'wiki', article.id)).rejects.toMatchObject({ status: 403 })
+    } finally {
+      f.close()
+    }
+  })
   it('withholds private ancestry from reads/search, keeps published text separate and audits administrator access', async () => {
     const f = await fixture()
     try {
@@ -120,7 +181,9 @@ describe('Wiki and Intranet boundaries', () => {
         f.sqlite.prepare("SELECT parent_id FROM vc_knowledge_pages WHERE id='internal-root'").get()
           ?.parent_id,
       ).toBeNull()
-      f.sqlite.exec("INSERT INTO vc_sites(id,organization_id,parent_id,name,route_key,created_at,updated_at) VALUES('other','default','default','Other','other','2026-10-27T00:00:00.000Z','2026-10-27T00:00:00.000Z'); INSERT INTO vc_site_ancestry(ancestor_id,descendant_id,distance) VALUES('default','other',1),('other','other',0)")
+      f.sqlite.exec(
+        "INSERT INTO vc_sites(id,organization_id,parent_id,name,route_key,created_at,updated_at) VALUES('other','default','default','Other','other','2026-10-27T00:00:00.000Z','2026-10-27T00:00:00.000Z'); INSERT INTO vc_site_ancestry(ancestor_id,descendant_id,distance) VALUES('default','other',1),('other','other',0)",
+      )
       const wiki = { ...draft('wiki-root'), site: 'other' }
       await f.admin.save(wiki)
       await expect(
@@ -133,11 +196,15 @@ describe('Wiki and Intranet boundaries', () => {
       ).rejects.toMatchObject({ status: 403 })
       const websites = new WebsiteRepository(f.db, 1)
       const current = await websites.status('default')
-      await websites.update({site:'default',action:'publication',enabled:false,expectedRevision:current.revision,operationKey:crypto.randomUUID()})
-      expect(await publicWebsite(f.db,'default')).toBeNull()
-      expect((await f.admin.get('default', 'wiki', 'internal-root')).title).toBe(
-        'internal-root',
-      )
+      await websites.update({
+        site: 'default',
+        action: 'publication',
+        enabled: false,
+        expectedRevision: current.revision,
+        operationKey: crypto.randomUUID(),
+      })
+      expect(await publicWebsite(f.db, 'default')).toBeNull()
+      expect((await f.admin.get('default', 'wiki', 'internal-root')).title).toBe('internal-root')
       await expect(f.public.list('default', 'wiki')).rejects.toMatchObject({ status: 404 })
       await expect(
         new KnowledgeRepository(f.db, 2).get('default', 'wiki', 'internal-root'),
@@ -149,8 +216,7 @@ describe('Wiki and Intranet boundaries', () => {
         status: 403,
       })
       expect(
-        f.sqlite.prepare("SELECT count(*) AS n FROM vc_knowledge_pages WHERE kind='wiki'").get()
-          ?.n,
+        f.sqlite.prepare("SELECT count(*) AS n FROM vc_knowledge_pages WHERE kind='wiki'").get()?.n,
       ).toBe(3)
     } finally {
       f.close()

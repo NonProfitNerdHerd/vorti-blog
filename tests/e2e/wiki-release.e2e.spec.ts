@@ -29,7 +29,7 @@ test('Wiki article, editor, history, attachments, conflicts and responsive conte
     version: 1,
     ...(tag ? { tag } : {}),
     children: [text(value)],
-    direction: null,
+    direction: null as null,
     format: '',
     indent: 0,
   })
@@ -44,14 +44,14 @@ test('Wiki article, editor, history, attachments, conflicts and responsive conte
         block('heading', 'Details', 'h4'),
         block('heading', 'Overview', 'h3'),
       ],
-      direction: null,
+      direction: null as null,
       format: '',
       indent: 0,
     },
   }
   const draft = {
     id,
-    parent: null,
+    parent: null as string | null,
     title: 'Wiki design reference',
     slug: id,
     body,
