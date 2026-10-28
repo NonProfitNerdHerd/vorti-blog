@@ -17,9 +17,10 @@ import { ChevronDown } from './ContentIcons'
 import { InboxBadge } from '../review/WorkspaceInbox'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { hasUnsavedSiteChanges } from '../organizations/admin-site'
-import { crmSections, crmURL, crmView } from '../crm/navigation'
+import { crmURL } from '../crm/navigation'
 import { matchesAdminPath } from './navigation-state'
 import { useNavigationExpansion } from './NavigationExpansionProvider'
+import { useCRMSecondary } from './CRMSecondaryProvider'
 import './dashboard-nav.css'
 
 export function DashboardNavLink({ admin }: { admin: string }) {
@@ -102,6 +103,7 @@ export function PolicyNav({
   Partial<Pick<ComponentProps<typeof DefaultNavClient>, 'navPreferences'>> & { admin: string }) {
   const enabled = useCategoriesEnabled()
   const { navOpen, setNavOpen } = useNav()
+  const crmSecondary = useCRMSecondary()
   const { user } = useAuth()
   const fine = Array.isArray(user?.platformPermissions) ? user.platformPermissions as string[] : null
   const { config } = useConfig()
@@ -222,7 +224,6 @@ export function PolicyNav({
       })}
     </NavigationGroup>
   )
-  const selectedCRM = inCRM ? crmView(params.get('view')) : undefined
   const selectedTask = inTasks
     ? params.get('workspace') || (params.get('taskView') === 'assigned' ? 'assigned' : 'all')
     : undefined
@@ -292,31 +293,15 @@ export function PolicyNav({
             <span className="nav__link-label">Sharing Groups</span>
           </PayloadLink>}
         </NavigationGroup>}
-      {(!fine || fine.includes('crm:read')) && <NavigationGroup
-        label="CRM"
-        href={crmURL(admin, 'overview', site)}
-        open={Boolean(open.CRM)}
-        toggle={() => toggle('CRM')}
-        navOpen={navOpen}
-        onNavigate={(event) => onNavigate(event, true)}
-        navigationLabel="CRM sections"
-      >
-        {crmSections.map(([id, label]) => (
-          <Link
-            key={id}
-            className="nav__link"
-            href={crmURL(admin, id, site)}
-            prefetch={false}
-            data-vc-crm-navigation="true"
-            aria-current={selectedCRM === id ? 'page' : undefined}
-            tabIndex={navOpen ? undefined : -1}
-            onClick={(event) => onNavigate(event, true)}
-          >
-            {selectedCRM === id && <div className="nav__link-indicator" />}
-            <span className="nav__link-label">{label}</span>
-          </Link>
-        ))}
-      </NavigationGroup>}
+      {(!fine || fine.includes('crm:read')) && <div id="nav-group-CRM" className="nav-group"
+        onMouseEnter={crmSecondary.showPreview} onMouseLeave={crmSecondary.hidePreview}
+        onFocus={crmSecondary.showPreview}
+        onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) crmSecondary.hidePreview() }}>
+        <div className="task-nav-heading"><Link className="vorti-nav-parent-link" href={crmURL(admin, 'overview', site)}
+          data-vc-crm-navigation
+          prefetch={false} aria-current={inCRM ? 'page' : undefined} tabIndex={navOpen ? undefined : -1}
+          onClick={(event) => { onNavigate(event, true); if (!event.defaultPrevented) crmSecondary.pin() }}>CRM</Link></div>
+      </div>}
       {fine?.some(permission => permission.startsWith('wiki:read')) && (
         <div id="nav-group-Wiki" className="nav-group">
           <div className="task-nav-heading">

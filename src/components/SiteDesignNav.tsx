@@ -1,5 +1,6 @@
 import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
 import { PolicyNav } from './DashboardNavLink'
+import { CRMSecondaryNav } from './CRMSecondaryNav'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
 import type { ServerProps } from 'payload'
@@ -35,7 +36,7 @@ export async function SiteDesignNav({ payload, permissions, i18n, visibleEntitie
       )
   }
   return (
-    <NavWrapper baseClass="nav">
+    <><NavWrapper baseClass="nav">
       <nav className="nav__wrap">
         <PolicyNav admin={payload.config.routes.admin} groups={groups} />
         <div className="nav__controls">
@@ -47,6 +48,6 @@ export async function SiteDesignNav({ payload, permissions, i18n, visibleEntitie
           <NavHamburger baseClass="nav" />
         </div>
       </div>
-    </NavWrapper>
+    </NavWrapper><CRMSecondaryNav /></>
   )
 }

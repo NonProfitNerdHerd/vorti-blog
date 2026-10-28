@@ -29,6 +29,7 @@ vi.mock('../../src/components/DashboardNavLink', () => ({
     </div>
   ),
 }))
+vi.mock('../../src/components/CRMSecondaryNav', () => ({ CRMSecondaryNav: (): null => null }))
 import { SiteDesignNav } from '../../src/components/SiteDesignNav'
 
 describe('navigation server preferences', () => {

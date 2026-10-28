@@ -6,6 +6,7 @@ import { NavContext, useNav, useConfig, toast, useWindowInfo, useAuth } from '@p
 import { CategoriesEnabledProvider } from '@design-system/payload-design-core/admin'
 import { saveDashboardSidebar } from './sidebar-preferences'
 import { NavigationExpansionProvider } from './NavigationExpansionProvider'
+import { CRMSecondaryProvider } from './CRMSecondaryProvider'
 
 export function AdminPolicyClient({
   children,
@@ -26,6 +27,7 @@ export function AdminPolicyClient({
   const router = useRouter()
   const { user, refreshPermissions } = useAuth()
   const dashboard = pathname.replace(/\/$/, '') === config.routes.admin.replace(/\/$/, '')
+  const crm = pathname === `${config.routes.admin}/crm` || pathname.startsWith(`${config.routes.admin}/crm/`)
   const mobile = breakpoints.l !== false
   const [dashboardOpen, setDashboardOpen] = useState(initialDashboardOpen)
   const [local, setLocal] = useState<{ path: string; open: boolean; mobile: boolean } | null>(null)
@@ -38,7 +40,7 @@ export function AdminPolicyClient({
   const navOpen =
     local?.path === pathname && local.mobile === mobile
       ? local.open
-      : dashboard && !mobile && dashboardOpen
+      : !mobile && (crm || (dashboard && dashboardOpen))
   const setNavOpen = useCallback(
     (open: boolean) => {
       setLocal({ path: pathname, open, mobile })
@@ -86,6 +88,7 @@ export function AdminPolicyClient({
   }, [config.routes.api, router, refreshPermissions])
   return (
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
+      <CRMSecondaryProvider identity={user ? `${user.collection}:${user.id}` : 'anonymous'}>
       <NavigationExpansionProvider key={user ? `${user.collection}:${user.id}` : 'anonymous'}>
         <CategoriesEnabledProvider value={categoriesEnabled}>
           <WorkspaceFeedback />
@@ -103,6 +106,7 @@ export function AdminPolicyClient({
           )}
         </CategoriesEnabledProvider>
       </NavigationExpansionProvider>
+      </CRMSecondaryProvider>
     </NavContext.Provider>
   )
 }

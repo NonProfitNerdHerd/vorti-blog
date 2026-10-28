@@ -63,6 +63,8 @@ vi.mock('../../src/organizations/AdminSiteProvider', () => ({
 vi.mock('../../src/review/WorkspaceInbox', () => ({ InboxBadge: (): null => null }))
 import { PolicyNav } from '../../src/components/DashboardNavLink'
 import { NavigationExpansionProvider } from '../../src/components/NavigationExpansionProvider'
+import { CRMSecondaryProvider } from '../../src/components/CRMSecondaryProvider'
+import { CRMSecondaryNav } from '../../src/components/CRMSecondaryNav'
 const groups = [
   { label: 'Content', entities: [{ slug: 'posts', type: 'collections', label: 'Posts' }] },
   {
@@ -78,7 +80,7 @@ const groups = [
 ]
 function Menu({ show = true }: { show?: boolean } = {}) {
   return (
-    <NavigationExpansionProvider>
+    <CRMSecondaryProvider identity={`users:${state.user}`}><NavigationExpansionProvider>
       {show && (
         <PolicyNav
           admin="/admin"
@@ -89,7 +91,8 @@ function Menu({ show = true }: { show?: boolean } = {}) {
           }}
         />
       )}
-    </NavigationExpansionProvider>
+      <CRMSecondaryNav />
+    </NavigationExpansionProvider></CRMSecondaryProvider>
   )
 }
 const button = (label: string) => screen.getByRole('button', { name: label })
@@ -148,7 +151,7 @@ describe('shared admin sidebar groups', () => {
     state.path = '/admin/crm'
     state.query = 'view=contacts&site=chapter-a'
     view.rerender(<Menu />)
-    expect(button('Toggle CRM navigation').getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('link', { name: 'CRM' }).getAttribute('href')).toContain('view=overview')
     expect(button('Forms').getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByRole('link', { name: 'Constituents' }).getAttribute('aria-current')).toBe(
       'page',
@@ -159,12 +162,12 @@ describe('shared admin sidebar groups', () => {
     view.unmount()
     const fresh = render(<Menu />)
     expect(button('Forms').getAttribute('aria-expanded')).toBe('false')
-    expect(button('Toggle CRM navigation').getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('navigation', { name: 'CRM sections' })).toBeTruthy()
     state.user = 2
     state.path = '/admin'
     state.query = ''
     fresh.rerender(<Menu />)
-    expect(button('Toggle CRM navigation').getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('navigation', { name: 'CRM sections' })).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
   })
   it('handles tool views, globals, custom site administration and query-selected Tasks', () => {
@@ -198,6 +201,7 @@ describe('shared admin sidebar groups', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     try {
       render(<Menu />)
+      fireEvent.mouseEnter(screen.getByRole('link', { name: 'CRM' }))
       fireEvent.click(screen.getByRole('link', { name: 'Donations' }))
       expect(confirm).toHaveBeenCalledOnce()
       expect(state.close).not.toHaveBeenCalled()

@@ -1,0 +1,35 @@
+.vc-crm-secondary {
+  --vc-secondary-width: 246px;
+  position: sticky;
+  top: 0;
+  z-index: 19;
+  width: var(--vc-secondary-width);
+  height: 100dvh;
+  overflow-y: auto;
+  background: #f7f6fb;
+  border-right: 1px solid #e6e3ef;
+  box-shadow: 8px 0 24px #241d390d;
+  color: #252136;
+  padding: 22px 12px;
+}
+.vc-crm-secondary__head { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 16px; }
+.vc-crm-secondary__head strong { font-size: 15px; letter-spacing: .04em; }
+.vc-crm-secondary__head button { border: 0; background: transparent; color: #625b70; cursor: pointer; padding: 6px; }
+.vc-crm-secondary nav { display: grid; gap: 3px; }
+.vc-crm-secondary nav a { display: block; padding: 10px 12px; border-radius: 8px; color: inherit; text-decoration: none; font-size: 14px; line-height: 1.3; }
+.vc-crm-secondary nav a:hover, .vc-crm-secondary nav a:focus-visible { background: #ece8f9; }
+.vc-crm-secondary nav a[aria-current='page'] { background: #e5ddff; color: #362081; font-weight: 700; }
+.vc-crm-secondary :is(a,button):focus-visible { outline: 2px solid #6542e8; outline-offset: 2px; }
+@media (min-width: 1025px) {
+  .template-default:has(> .vc-crm-secondary[data-pinned='true']) { grid-template-columns: 0 var(--vc-secondary-width, 246px) minmax(0,1fr); }
+  .template-default--nav-open:has(> .vc-crm-secondary[data-pinned='true']) { grid-template-columns: var(--nav-width) 246px minmax(0,1fr); }
+  .vc-crm-secondary[data-pinned='false'] { position: fixed; left: var(--nav-width); top: 0; box-shadow: 12px 0 30px #241d3933; }
+  .template-default:not(.template-default--nav-open) .vc-crm-secondary[data-pinned='false'] { left: 0; }
+}
+@media (max-width: 1024px) {
+  .vc-crm-secondary { position: fixed; left: 0; top: 0; width: min(280px, 86vw); box-shadow: 12px 0 30px #241d3933; z-index: 29; }
+}
+.vc-crm-secondary-toggle { display: none; }
+@media (max-width: 1024px) {
+  .vc-crm-secondary-toggle { display: inline-flex; margin: 12px var(--gutter-h) 0; padding: 7px 11px; border: 1px solid #d8d1ea; border-radius: 7px; background: #f7f6fb; color: #362081; cursor: pointer; }
+}

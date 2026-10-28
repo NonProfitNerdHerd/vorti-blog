@@ -11,6 +11,8 @@ import { timelineEndpoints } from '../../src/crm/timeline-endpoints'
 import { ContactTimeline } from '../../src/crm/ContactTimeline'
 import { errorResponse } from '../../src/crm/plugin'
 import { CRMAttachments } from '../../src/crm/attachments'
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
+HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new Event('close')) }
 vi.mock('@payloadcms/ui', () => ({
   Gutter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useConfig: () => ({ config: { routes: { api: '/api', admin: '/staff' } } }),
@@ -51,6 +53,8 @@ it('opens task history in the existing workspace and clears its private title af
         }),
   )
   render(<ContactTimeline api="/api" site="default" contact="fictional-donor" />)
+  await screen.findByText('Related record: Fictional private renewal task')
+  fireEvent.click(screen.getByRole('button', { name: 'Read more' }))
   const link = await screen.findByRole('link', {
     name: 'Open follow-up task (opens in another tab)',
   })
@@ -99,6 +103,7 @@ it('opens a related-record file in a separate pinned chapter tab and clears its 
     const onOpen = vi.fn()
     render(<ContactTimeline api="/api" site="default" contact={fixture.contact} onOpen={onOpen} />)
     await screen.findByText('Related record: Fictional private household.txt')
+    fireEvent.click(screen.getAllByRole('button', { name: 'Read more' })[0])
     const link = screen.getByRole('link', {
       name: 'Private record attachments (opens in another tab)',
     })
@@ -196,8 +201,11 @@ it('paginates the real authorized timeline, opens source areas and clears revoke
     fireEvent.change(screen.getByRole('combobox', { name: 'Timeline area' }), {
       target: { value: 'giving' },
     })
-    await screen.findByText('Recorded gift amount: USD 10.00')
-    fireEvent.click(screen.getByRole('button', { name: 'View gifts, pledges and recurring' }))
+    await screen.findByRole('button', { name: 'Read more' })
+    fireEvent.click(screen.getByRole('button', { name: 'Read more' }))
+    expect(screen.getByText('Recorded gift amount')).toBeTruthy()
+    expect(screen.getByText('USD 10.00')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open relevant section' }))
     expect(onOpen).toHaveBeenLastCalledWith('gifts')
     await authority.setRestrictions({
       site: 'default',

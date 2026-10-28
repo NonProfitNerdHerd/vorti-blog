@@ -15,6 +15,7 @@ import {
 
 export type TimelineDestination =
   | 'profile'
+  | 'chapter'
   | 'relationships'
   | 'communications'
   | 'gifts'
@@ -60,7 +61,18 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
     [refresh, setRefresh] = useState(0),
     [loading, setLoading] = useState(true),
     [error, setError] = useState('')
+  const [selected, setSelected] = useState<TimelineEvent | null>(null)
+  const dialog = useRef<HTMLDialogElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
   const denied = useRef(onDenied)
+  useEffect(() => {
+    if (selected && !dialog.current?.open) dialog.current?.showModal()
+  }, [selected])
+  const closeDetail = () => {
+    dialog.current?.close()
+    setSelected(null)
+    requestAnimationFrame(() => trigger.current?.focus())
+  }
   useEffect(() => {
     denied.current = onDenied
   }, [onDenied])
@@ -70,6 +82,8 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
   useEffect(() => {
     const controller = new AbortController(),
       query = new URLSearchParams({ site, contact, group })
+    dialog.current?.close()
+    setSelected(null)
     if (before) {
       query.set('beforeDate', before.date)
       query.set('beforeID', before.id)
@@ -113,7 +127,7 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
     return () => window.removeEventListener('focus', focus)
   }, [])
   return (
-    <section className="vc-crm-domain" aria-label="Authorized contact timeline">
+    <section className="vc-crm-domain vc-crm-timeline" aria-label="Authorized contact timeline">
       <h2>Contact timeline</h2>
       <p>History from records you can access in this chapter.</p>
       {error && <p role="alert">{error}</p>}
@@ -160,31 +174,10 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
                     )}
                     {row.effectiveOn && <> · Effective date: {row.effectiveOn}</>}
                   </p>
-                  {row.amount && row.moneyRole && (
-                    <p>
-                      {amountLabels[row.moneyRole]}: {row.amount}
-                    </p>
-                  )}
-                  {row.detail && <p style={{ whiteSpace: 'pre-wrap' }}>{row.detail}</p>}
-                  {row.group === 'tasks' ? (
-                    <RecordTaskLink site={site} task={row.targetID} />
-                  ) : row.group === 'attachments' &&
-                    crmRecordTypes.includes(row.targetType as CRMRecordType) ? (
-                    <RecordAttachmentLink
-                      site={site}
-                      link={{ type: row.targetType as CRMRecordType, id: row.targetID }}
-                    />
-                  ) : (
-                    onOpen && (
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={() => onOpen(destination(row))}
-                      >
-                        View {timelineLabels[row.group].toLowerCase()}
-                      </button>
-                    )
-                  )}
+                  <button type="button" className="vc-crm-read-more" disabled={loading}
+                    onClick={(event) => { trigger.current = event.currentTarget; setSelected(row) }}>
+                    Read more
+                  </button>
                 </article>
               </li>
             ))}
@@ -214,6 +207,28 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
           Refresh timeline
         </button>
       </div>
+      {selected && <dialog ref={dialog} className="vc-crm-event-dialog"
+        aria-labelledby="vc-crm-event-title" onClose={() => { setSelected(null); requestAnimationFrame(() => trigger.current?.focus()) }}>
+        <h2 id="vc-crm-event-title">{selected.title}</h2>
+        <dl>
+          <div><dt>Related record</dt><dd>{selected.label}</dd></div>
+          <div><dt>Recorded</dt><dd>{selected.at ? new Date(selected.at).toLocaleString() : 'Date unavailable'}</dd></div>
+          {selected.effectiveOn && <div><dt>Effective date</dt><dd>{selected.effectiveOn}</dd></div>}
+          {selected.amount && selected.moneyRole && <div><dt>{amountLabels[selected.moneyRole]}</dt><dd>{selected.amount}</dd></div>}
+          {selected.detail && <div><dt>Details</dt><dd className="vc-crm-event-detail">{selected.detail}</dd></div>}
+        </dl>
+        <div className="vc-crm-event-actions">
+          {selected.group === 'tasks' && <RecordTaskLink site={site} task={selected.targetID} />}
+          {selected.group === 'attachments' && crmRecordTypes.includes(selected.targetType as CRMRecordType) &&
+            <RecordAttachmentLink site={site} link={{ type: selected.targetType as CRMRecordType, id: selected.targetID }} />}
+          <button type="button" onClick={closeDetail}>Close</button>
+          {onOpen && <button type="button" className="vc-crm-primary" onClick={() => {
+            const target = selected.group === 'profile' && selected.id.startsWith('affiliation:') ? 'chapter' : destination(selected)
+            closeDetail()
+            onOpen(target)
+          }}>Open relevant section</button>}
+        </div>
+      </dialog>}
     </section>
   )
 }

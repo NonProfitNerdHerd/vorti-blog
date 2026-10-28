@@ -102,11 +102,30 @@ export function ContactWorkspace() {
     [profile, setProfile] = useState<ContactProfile>(empty),
     [roles, setRoles] = useState<string[]>(['contact'])
   const [followUp, setFollowUp] = useState<{ id: string; subject: string } | null>(null)
-  const [dirty, setDirty] = useState(false),
-    [saving, setSaving] = useState(false),
+  const [profileDirty, setProfileDirty] = useState(false),
+    [chapterDirty, setChapterDirty] = useState(false),
+    [childDirty, setChildDirty] = useState<Record<string, boolean>>({}),
+    [parentSaving, setParentSaving] = useState(false),
+    [childSaving, setChildSaving] = useState<Record<string, boolean>>({}),
     [saveError, setSaveError] = useState(''),
     [confirmed, setConfirmed] = useState(false),
     [correction, setCorrection] = useState('')
+  const dirty = profileDirty || chapterDirty || Object.values(childDirty).some(Boolean)
+  const saving = parentSaving || Object.values(childSaving).some(Boolean)
+  const clearDirty = useCallback(() => { setProfileDirty(false); setChapterDirty(false); setChildDirty({}) }, [])
+  const clearSaving = useCallback(() => { setParentSaving(false); setChildSaving({}) }, [])
+  const dirtyCallbacks = useRef<Record<string, (value: boolean) => void>>({})
+  const savingCallbacks = useRef<Record<string, (value: boolean) => void>>({})
+  const markChildDirty = useCallback((section: string) => {
+    dirtyCallbacks.current[section] ||= (value: boolean) =>
+      setChildDirty(current => ({ ...current, [section]: value }))
+    return dirtyCallbacks.current[section]
+  }, [])
+  const markChildSaving = useCallback((section: string) => {
+    savingCallbacks.current[section] ||= (value: boolean) =>
+      setChildSaving(current => ({ ...current, [section]: value }))
+    return savingCallbacks.current[section]
+  }, [])
   const operation = useRef<string | null>(null),
     requestSequence = useRef(0)
   const accessGeneration = useRef(0)
@@ -121,12 +140,12 @@ export function ContactWorkspace() {
     setDocs([])
     setTotal(0)
     setCanCreate(false)
-    setDirty(false)
+    clearDirty()
     setLoading(false)
-    setSaving(false)
+    clearSaving()
     operation.current = null
     setError('Your CRM access changed. Reload the workspace to check your current permissions.')
-  }, [])
+  }, [clearDirty, clearSaving])
   const [tab, setTab] = useState<
       | 'profile'
       | 'chapter'
@@ -257,13 +276,13 @@ export function ContactWorkspace() {
   }, [dirty])
   const change = (patch: Partial<ContactProfile>) => {
     setProfile((value) => ({ ...value, ...patch }))
-    setDirty(true)
+    setProfileDirty(true)
     operation.current = null
   }
   const close = () => {
     if (saving || (dirty && !window.confirm('Discard the unsaved contact changes?'))) return
     setEditor(null)
-    setDirty(false)
+    clearDirty()
     operation.current = null
     const location = new URL(window.location.href)
     location.searchParams.delete('contact')
@@ -288,7 +307,7 @@ export function ContactWorkspace() {
       setTagInput('')
       setConfirmed(false)
       setCorrection('')
-      setDirty(false)
+      clearDirty()
       operation.current = null
       if (!id) {
         if (!canCreate) {
@@ -346,7 +365,7 @@ export function ContactWorkspace() {
         setError(cause instanceof Error ? cause.message : 'Unable to open contact.')
       }
     },
-    [site, api, read, loseAccess, canCreate],
+    [site, api, read, loseAccess, canCreate, clearDirty],
   )
   useEffect(() => {
     if (!site) return
@@ -357,7 +376,7 @@ export function ContactWorkspace() {
     if (!requestedContact) {
       if (editor) {
         setEditor(null)
-        setDirty(false)
+        clearDirty()
         openedLocation.current = ''
       }
       return
@@ -371,8 +390,15 @@ export function ContactWorkspace() {
     openedLocation.current = `${site.id}:${requestedContact}`
     void open(requestedContact, true)
   }, [site, requestedContact, requestedTab, requestedNew, params, open, editor])
-  const editable =
-    editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
+  useEffect(() => {
+    if (!editor || editor === 'new' || !isInformation(tab) || tab === 'profile') return
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`vc-crm-info-${tab}`)?.scrollIntoView({ block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [editor, tab])
+  const profileEditable = editor === 'new' || !!editor?.canEditProfile
+  const chapterEditable = editor === 'new' || !!editor?.canEditChapter
   const switchTab = (
     nextTab:
       | 'profile'
@@ -390,21 +416,26 @@ export function ContactWorkspace() {
       | 'timeline'
       | 'comments'
       | 'tasks',
+    confirmedNavigation = false,
+    activity?: { id: string; subject: string },
   ) => {
     if (
       saving ||
       !editor ||
       editor === 'new' ||
-      tab === nextTab ||
-      (dirty && !window.confirm('Discard unsaved changes before changing tabs?'))
+      (tab === nextTab && !isInformation(tab)) ||
+      (dirty && !confirmedNavigation && !(isInformation(tab) && isInformation(nextTab)) &&
+        !window.confirm('Discard unsaved changes before changing tabs?'))
     )
       return
-    setProfile(editor.profile)
-    setRoles(editor.roles)
-    setTagInput(editor.tags.join(', '))
-    setDirty(false)
-    setSaveError('')
-    if (nextTab === 'tasks') setFollowUp(null)
+    if (!(isInformation(tab) && isInformation(nextTab))) {
+      setProfile(editor.profile)
+      setRoles(editor.roles)
+      setTagInput(editor.tags.join(', '))
+      clearDirty()
+      setSaveError('')
+    }
+    if (nextTab === 'tasks') setFollowUp(activity || null)
     setTab(nextTab)
     const location = new URL(window.location.href)
     location.searchParams.set('contactTab', tabURL(nextTab))
@@ -413,27 +444,21 @@ export function ContactWorkspace() {
     window.history.replaceState(null, '', location)
     operation.current = null
   }
-  const save = async () => {
+  const save = async (section: 'profile' | 'chapter' = 'profile') => {
     if (
       !site ||
       !editor ||
       saving ||
-      tab === 'corrections' ||
-      tab === 'gifts' ||
-      tab === 'relationships' ||
-      tab === 'communications' ||
-      tab === 'giving' ||
-      tab === 'memberships' ||
-      tab === 'opportunities' ||
-      tab === 'volunteers' ||
-      tab === 'correspondence' ||
-      tab === 'attachments' ||
-      tab === 'timeline'
-      || tab === 'comments'
-      || tab === 'tasks'
+      (!isInformation(tab) && editor !== 'new')
     )
       return
-    setSaving(true)
+    const editable = section === 'chapter' ? chapterEditable : profileEditable
+    if (section === 'chapter' && !chapterEditable) return
+    if (section === 'profile' && editable && editor !== 'new' && !confirmed) {
+      setSaveError('Confirm the shared profile update before saving.')
+      return
+    }
+    setParentSaving(true)
     setSaveError('')
     operation.current ||= crypto.randomUUID()
     const creating = editor === 'new'
@@ -446,7 +471,7 @@ export function ContactWorkspace() {
           operationKey: operation.current,
           action: creating
             ? 'create'
-            : tab === 'chapter'
+            : section === 'chapter'
               ? 'update-chapter'
               : editable
                 ? 'update-profile'
@@ -454,7 +479,7 @@ export function ContactWorkspace() {
           id: creating ? undefined : editor.id,
           expectedRevision: creating
             ? undefined
-            : tab === 'chapter'
+            : section === 'chapter'
               ? editor.affiliationRevision
               : editor.revision,
           profile,
@@ -467,16 +492,20 @@ export function ContactWorkspace() {
           message: correction,
         }),
       })
-      setDirty(false)
+      if (creating) clearDirty()
+      else if (section === 'profile') setProfileDirty(false)
+      else setChapterDirty(false)
       operation.current = null
       setConfirmed(false)
       const id = saved.doc.id || (editor !== 'new' ? editor.id : '')
       if (id) {
         const detail = await read<{ doc: Detail }>(api + '/crm/contacts?' + new URLSearchParams({ site: site.id, id }))
         setEditor(detail.doc)
-        setProfile(detail.doc.profile)
-        setRoles(detail.doc.roles)
-        setTagInput(detail.doc.tags.join(', '))
+        if (section === 'profile' || !profileDirty) setProfile(detail.doc.profile)
+        if (section === 'chapter' || !chapterDirty) {
+          setRoles(detail.doc.roles)
+          setTagInput(detail.doc.tags.join(', '))
+        }
         if (creating) {
           setTab('timeline')
           openedLocation.current = `${site.id}:${id}`
@@ -491,7 +520,7 @@ export function ContactWorkspace() {
         editable
           ? creating
             ? 'Contact created.'
-            : tab === 'chapter'
+            : section === 'chapter'
               ? 'Chapter details updated.'
               : 'Shared contact profile updated.'
           : 'Correction request submitted.',
@@ -511,7 +540,7 @@ export function ContactWorkspace() {
         cause instanceof Error ? cause.message : 'Unable to save. Your input has been retained.',
       )
     } finally {
-      setSaving(false)
+      setParentSaving(false)
     }
   }
   const showDetail = Boolean(editor || requestedContact || requestedNew)
@@ -660,7 +689,6 @@ export function ContactWorkspace() {
       {showDetail && <section className="vc-crm-detail" aria-labelledby="vc-contact-heading">
         {editor ? <form onSubmit={(event) => { event.preventDefault(); void save() }}>
           <header className="vc-crm-detail-header">
-            <button type="button" className="vc-crm-back" onClick={close} disabled={saving}>← Contacts</button>
             <h1 id="vc-contact-heading">{editor === 'new' ? 'New contact' : editor.label}</h1>
             {editor !== 'new' && <p className="vc-crm-contact-methods">
               {(() => {
@@ -694,57 +722,21 @@ export function ContactWorkspace() {
               }} onClick={() => switchTab(value)}>{label}</button>)}
           </div>}
           {editor === 'new' && <p>Save this contact to open activity, comments, tasks, and giving records.</p>}
-          {isInformation(tab) && editor !== 'new' && <nav className="vc-crm-information-nav" aria-label="Information sections">
-            {([
-              ['profile', 'Shared profile'], ['chapter', 'Chapter details'],
-              ['communications', 'Communications'], ['relationships', 'Relationships'],
-              ['corrections', 'Corrections'], ['attachments', 'Private attachments'],
-            ] as const).map(([value, label]) => <button key={value} type="button"
-              aria-current={tab === value ? 'page' : undefined} onClick={() => switchTab(value)}>{label}</button>)}
-          </nav>}
           <div className="vc-crm-dialog-body" id={editor === 'new' ? undefined : 'vc-crm-tabpanel'}
             role={editor === 'new' ? undefined : 'tabpanel'}>
             {tab === 'comments' && editor && editor !== 'new' && site && <ContactComments
-              api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} onDenied={loseAccess} />}
+              api={api} site={site.id} contact={editor.id} onDirty={markChildDirty('comments')} onSaving={markChildSaving('comments')} onDenied={loseAccess} />}
             {tab === 'tasks' && editor && editor !== 'new' && site && <RecordTasks
               api={api} admin={admin} site={site.id} link={{ type: 'contact', id: editor.id }}
               activity={followUp?.id} defaultTitle={followUp?.subject}
-              onDirty={setDirty} onSaving={setSaving} />}
+              onDirty={markChildDirty('tasks')} onSaving={markChildSaving('tasks')} />}
             {tab === 'gifts' && editor && editor !== 'new' && site && (
               <ContactGifts
                 api={api}
                 site={site.id}
                 contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
-              />
-            )}
-            {tab === 'relationships' && editor && editor !== 'new' && site && (
-              <ContactRelationships
-                key={`${site.id}:${editor.id}`}
-                api={api}
-                site={site.id}
-                contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
-              />
-            )}
-            {tab === 'communications' && editor && editor !== 'new' && site && (
-              <ContactActivities
-                key={`${site.id}:${editor.id}`}
-                api={api}
-                site={site.id}
-                contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
-                onFollowUp={(activity) => {
-                  setFollowUp(activity)
-                  setTab('tasks')
-                  const location = new URL(window.location.href)
-                  location.searchParams.set('contactTab', 'tasks')
-                  location.searchParams.delete('infoSection')
-                  window.history.replaceState(null, '', location)
-                }}
+                onDirty={markChildDirty('gifts')}
+                onSaving={markChildSaving('gifts')}
               />
             )}
             {tab === 'giving' && editor && editor !== 'new' && site && (
@@ -753,8 +745,8 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
+                onDirty={markChildDirty('giving')}
+                onSaving={markChildSaving('giving')}
               />
             )}
             {tab === 'memberships' && editor && editor !== 'new' && site && (
@@ -763,8 +755,8 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
+                onDirty={markChildDirty('memberships')}
+                onSaving={markChildSaving('memberships')}
               />
             )}
             {tab === 'opportunities' && editor && editor !== 'new' && site && (
@@ -773,8 +765,8 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
+                onDirty={markChildDirty('opportunities')}
+                onSaving={markChildSaving('opportunities')}
               />
             )}
             {tab === 'volunteers' && editor && editor !== 'new' && site && (
@@ -783,8 +775,8 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
+                onDirty={markChildDirty('volunteers')}
+                onSaving={markChildSaving('volunteers')}
               />
             )}
             {tab === 'correspondence' && editor && editor !== 'new' && site && (
@@ -803,18 +795,8 @@ export function ContactWorkspace() {
                     ? params.get('renewalMembership') || undefined
                     : undefined
                 }
-                onDirty={setDirty}
-                onSaving={setSaving}
-              />
-            )}
-            {tab === 'attachments' && editor && editor !== 'new' && site && (
-              <AttachmentWorkspace
-                api={api}
-                site={site.id}
-                link={{ type: 'contact', id: editor.id }}
-                onDirty={setDirty}
-                onSaving={setSaving}
-                onDenied={loseAccess}
+                onDirty={markChildDirty('correspondence')}
+                onSaving={markChildSaving('correspondence')}
               />
             )}
             {tab === 'timeline' && editor && editor !== 'new' && site && (
@@ -823,23 +805,13 @@ export function ContactWorkspace() {
                 site={site.id}
                 contact={editor.id}
                 onOpen={switchTab}
-                onSaving={setSaving}
+                onSaving={markChildSaving('timeline')}
                 onDenied={loseAccess}
               />
             )}
-            {tab === 'corrections' && editor && editor !== 'new' && site && (
-              <ContactCorrections
-                api={api}
-                site={site.id}
-                contact={editor.id}
-                onDirty={setDirty}
-                onSaving={setSaving}
-                onAccessLost={loseAccess}
-              />
-            )}
-            {tab === 'profile' && (
-              <fieldset disabled={!editable || saving}>
-                <legend>Shared profile</legend>
+            {(isInformation(tab) || editor === 'new') && <section id="vc-crm-info-profile" className="vc-crm-info-section" aria-labelledby="vc-crm-profile-heading">
+              <h2 id="vc-crm-profile-heading">Shared profile</h2>
+              <fieldset disabled={!profileEditable || saving}>
                 <label>
                   Contact type
                   <select
@@ -1064,10 +1036,23 @@ export function ContactWorkspace() {
                   ))}
                 </div>
               </fieldset>
-            )}
-            {(editor === 'new' || tab === 'chapter') && (
-              <fieldset disabled={saving || !editable}>
-                <legend>Chapter roles</legend>
+              {editor !== 'new' && (profileEditable ? <label className="vc-crm-check vc-crm-confirm">
+                <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
+                Confirm this update to the shared contact profile used by authorized chapters.
+              </label> : <label>Request a correction
+                <textarea maxLength={4000} value={correction} onChange={(event) => {
+                  setCorrection(event.target.value)
+                  setProfileDirty(true)
+                  operation.current = null
+                }} />
+              </label>)}
+              {editor !== 'new' && <div className="vc-crm-section-actions"><button className="vc-crm-primary" type="button"
+                disabled={saving || (profileEditable && !confirmed) || (!profileEditable && !correction.trim())}
+                onClick={() => void save('profile')}>{saving ? 'Saving…' : profileEditable ? 'Save shared profile' : 'Request correction'}</button></div>}
+            </section>}
+            {(editor === 'new' || isInformation(tab)) && <section id="vc-crm-info-chapter" className="vc-crm-info-section" aria-labelledby="vc-crm-chapter-heading">
+              <h2 id="vc-crm-chapter-heading">Chapter details</h2>
+              <fieldset disabled={saving || !chapterEditable}>
                 <div className="vc-crm-fields">
                   {constituentRoles.map((item) => (
                     <label className="vc-crm-check" key={item}>
@@ -1080,7 +1065,7 @@ export function ContactWorkspace() {
                               ? [...value, item]
                               : value.filter((role) => role !== item),
                           )
-                          setDirty(true)
+                          setChapterDirty(true)
                           operation.current = null
                         }}
                       />
@@ -1094,81 +1079,50 @@ export function ContactWorkspace() {
                     value={tagInput}
                     onChange={(event) => {
                       setTagInput(event.target.value)
-                      setDirty(true)
+                      setChapterDirty(true)
                       operation.current = null
                     }}
                   />
                 </label>
               </fieldset>
-            )}
-            {editor &&
-              editor !== 'new' &&
-              tab === 'profile' &&
-              (editable ? (
-                <label className="vc-crm-check">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={confirmed}
-                    onChange={(event) => setConfirmed(event.target.checked)}
-                  />
-                  This updates the shared contact profile used by authorized chapters.
-                </label>
-              ) : (
-                <label>
-                  Request a correction
-                  <textarea
-                    required
-                    maxLength={4000}
-                    value={correction}
-                    onChange={(event) => {
-                      setCorrection(event.target.value)
-                      setDirty(true)
-                      operation.current = null
-                    }}
-                  />
-                </label>
-              ))}
+              {editor !== 'new' && chapterEditable && <div className="vc-crm-section-actions"><button className="vc-crm-primary" type="button"
+                disabled={saving || !chapterDirty} onClick={() => void save('chapter')}>{saving ? 'Saving…' : 'Save chapter details'}</button></div>}
+            </section>}
+            {isInformation(tab) && editor !== 'new' && site && <section id="vc-crm-info-communications" className="vc-crm-info-section" aria-labelledby="vc-crm-communications-heading">
+              <h2 id="vc-crm-communications-heading">Communications</h2>
+              <ContactActivities key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id}
+                onDirty={markChildDirty('communications')} onSaving={markChildSaving('communications')}
+                onFollowUp={(activity) => {
+                  if (saving || (dirty && !window.confirm('Discard unsaved changes before changing tabs?'))) return
+                  switchTab('tasks', true, activity)
+                }} />
+            </section>}
+            {isInformation(tab) && editor !== 'new' && site && <section id="vc-crm-info-relationships" className="vc-crm-info-section" aria-labelledby="vc-crm-relationships-heading">
+              <h2 id="vc-crm-relationships-heading">Relationships</h2>
+              <ContactRelationships key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id}
+                onDirty={markChildDirty('relationships')} onSaving={markChildSaving('relationships')} />
+            </section>}
+            {isInformation(tab) && editor !== 'new' && site && <section id="vc-crm-info-corrections" className="vc-crm-info-section" aria-labelledby="vc-crm-corrections-heading">
+              <h2 id="vc-crm-corrections-heading">Corrections</h2>
+              <ContactCorrections api={api} site={site.id} contact={editor.id}
+                onDirty={markChildDirty('corrections')} onSaving={markChildSaving('corrections')} onAccessLost={loseAccess} />
+            </section>}
+            {isInformation(tab) && editor !== 'new' && site && <section id="vc-crm-info-attachments" className="vc-crm-info-section" aria-labelledby="vc-crm-attachments-heading">
+              <h2 id="vc-crm-attachments-heading">Private attachments</h2>
+              <AttachmentWorkspace api={api} site={site.id} link={{ type: 'contact', id: editor.id }}
+                onDirty={markChildDirty('attachments')} onSaving={markChildSaving('attachments')} onDenied={loseAccess} />
+            </section>}
             {saveError && <p role="alert">{saveError}</p>}
           </div>
-          <footer>
+          {editor === 'new' && <footer>
             <button type="button" disabled={saving} onClick={close}>
               Cancel
             </button>
-            {tab !== 'corrections' &&
-              tab !== 'gifts' &&
-              tab !== 'relationships' &&
-              tab !== 'communications' &&
-              tab !== 'giving' &&
-              tab !== 'memberships' &&
-              tab !== 'opportunities' &&
-              tab !== 'volunteers' &&
-              tab !== 'correspondence' &&
-              tab !== 'attachments' &&
-              tab !== 'timeline' &&
-              tab !== 'comments' &&
-              tab !== 'tasks' && (
-                <button
-                  className="vc-crm-primary"
-                  type="submit"
-                  disabled={
-                    saving ||
-                    (tab === 'chapter' && !editable) ||
-                    (tab === 'profile' && editor !== 'new' && editable && !confirmed)
-                  }
-                >
-                  {saving
-                    ? 'Saving…'
-                    : tab === 'chapter'
-                      ? 'Save chapter details'
-                      : editable
-                        ? 'Save contact'
-                        : 'Request correction'}
-                </button>
-              )}
-          </footer>
-        </form> : <div><button type="button" onClick={close}>← Contacts</button>
-          <p role={error ? 'alert' : 'status'}>{error || 'Loading constituent…'}</p></div>}
+            <button className="vc-crm-primary" type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save contact'}
+            </button>
+          </footer>}
+        </form> : <div><p role={error ? 'alert' : 'status'}>{error || 'Loading constituent…'}</p></div>}
       </section>}
     </Gutter>
   )
