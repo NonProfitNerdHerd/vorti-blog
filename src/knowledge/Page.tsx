@@ -31,6 +31,7 @@ export async function KnowledgePage({
   const permissions = claim?.permissions || []
   const requestedView = wikiView(query.view, query.manage)
   const view =
+    user &&
     query.view == null &&
     query.manage === '1' &&
     !permissions.includes(`${kind}:edit`) &&

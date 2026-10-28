@@ -152,7 +152,7 @@ test('Wiki article, editor, history, attachments, conflicts and responsive conte
     )
     await anon.goto(path + '?view=edit')
     await expect(anon).toHaveURL(/\/admin\/login\?redirect=/)
-    await anon.getByLabel('Email', { exact: true }).fill('dev@payloadcms.com')
+    await anon.getByLabel(/email|username/i).fill('dev@payloadcms.com')
     await anon.getByLabel('Password', { exact: true }).fill('test')
     await anon.getByRole('button', { name: /log in/i }).click()
     await expect(anon.getByLabel('Title', { exact: true })).toBeVisible()
@@ -166,7 +166,7 @@ test('shared login rejects external return navigation and expired sessions canno
   page,
 }) => {
   await page.goto('/admin/login?redirect=https%3A%2F%2Fevil.invalid%2Fwiki')
-  await page.getByLabel('Email', { exact: true }).fill('dev@payloadcms.com')
+  await page.getByLabel(/email|username/i).fill('dev@payloadcms.com')
   await page.getByLabel('Password', { exact: true }).fill('test')
   await page.getByRole('button', { name: /log in/i }).click()
   await expect(page).toHaveURL(/\/admin(?:\?|$|\/)/)
