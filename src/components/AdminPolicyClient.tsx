@@ -27,7 +27,6 @@ export function AdminPolicyClient({
   const router = useRouter()
   const { user, refreshPermissions } = useAuth()
   const dashboard = pathname.replace(/\/$/, '') === config.routes.admin.replace(/\/$/, '')
-  const crm = pathname === `${config.routes.admin}/crm` || pathname.startsWith(`${config.routes.admin}/crm/`)
   const mobile = breakpoints.l !== false
   const [dashboardOpen, setDashboardOpen] = useState(initialDashboardOpen)
   const [local, setLocal] = useState<{ path: string; open: boolean; mobile: boolean } | null>(null)
@@ -40,7 +39,7 @@ export function AdminPolicyClient({
   const navOpen =
     local?.path === pathname && local.mobile === mobile
       ? local.open
-      : !mobile && (crm || (dashboard && dashboardOpen))
+      : !mobile && (dashboard ? dashboardOpen : true)
   const setNavOpen = useCallback(
     (open: boolean) => {
       setLocal({ path: pathname, open, mobile })

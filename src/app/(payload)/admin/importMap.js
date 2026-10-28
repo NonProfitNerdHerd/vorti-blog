@@ -85,8 +85,8 @@ import { SubSitesNavigation as SubSitesNavigation_b7b54baa8609952cfb9aa55d2d34c5
 import { SystemSettingsTable as SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68 } from '../../../components/SystemSettingsTable'
 import { SettingsHub as SettingsHub_cd94f594cada3901a15a9f15dbaa2349 } from '../../../components/SettingsHub'
 import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from '../../../components/SiteDesignNav'
-import { VortiCauseIcon as VortiCauseIcon_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
-import { VortiCauseLogo as VortiCauseLogo_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
+import { VortiPressIcon as VortiPressIcon_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
+import { VortiPressLogo as VortiPressLogo_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
 import { AdminSiteSwitcher as AdminSiteSwitcher_5ee053d92bcf2bec5c9c536f7ff74dbf } from '../../../organizations/AdminSiteProvider'
 import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../../../components/AdminPolicy'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -187,8 +187,8 @@ export const importMap = {
   "./components/SystemSettingsTable#SystemSettingsTable": SystemSettingsTable_44e0bce88a9ac6f7b4a444dbc25dce68,
   "./components/SettingsHub#SettingsHub": SettingsHub_cd94f594cada3901a15a9f15dbaa2349,
   "./components/SiteDesignNav#SiteDesignNav": SiteDesignNav_146389be3746eb1a45b524567d6e0718,
-  "./components/VortiCauseBrand#VortiCauseIcon": VortiCauseIcon_1d8591b2262f4b853f28e425d5019b65,
-  "./components/VortiCauseBrand#VortiCauseLogo": VortiCauseLogo_1d8591b2262f4b853f28e425d5019b65,
+  "./components/VortiCauseBrand#VortiPressIcon": VortiPressIcon_1d8591b2262f4b853f28e425d5019b65,
+  "./components/VortiCauseBrand#VortiPressLogo": VortiPressLogo_1d8591b2262f4b853f28e425d5019b65,
   "./organizations/AdminSiteProvider#AdminSiteSwitcher": AdminSiteSwitcher_5ee053d92bcf2bec5c9c536f7ff74dbf,
   "./components/AdminPolicy#AdminPolicy": AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,

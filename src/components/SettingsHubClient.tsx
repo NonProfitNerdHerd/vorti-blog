@@ -258,7 +258,7 @@ export function SettingsHubClient({
   return (
     <main className="settings-hub">
       <header>
-        <p className="settings-hub__eyebrow">VortiCause</p>
+        <p className="settings-hub__eyebrow">VortiPress</p>
         <h1>Settings</h1>
         <p>Manage your site’s identity, publishing defaults, and features.</p>
       </header>

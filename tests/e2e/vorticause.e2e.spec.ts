@@ -1,19 +1,19 @@
 import { expect, test } from '@playwright/test'
 test.use({ actionTimeout: 20000 })
 
-test('VortiCause branding, consistent black navigation and authorized workspace Dashboard', async ({
+test('VortiPress branding, module navigation and authorized workspace Dashboard', async ({
   page,
 }) => {
   await page.goto('/admin/login')
-  await expect(page.locator('.vorticause-wordmark')).toHaveText('VortiCause')
-  await expect(page).toHaveTitle(/VortiCause/)
+  await expect(page.locator('.vorticause-wordmark')).toHaveText('VortiPress')
+  await expect(page).toHaveTitle(/VortiPress/)
   await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
     'content',
-    'VortiCause',
+    'VortiPress',
   )
   await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute(
     'href',
-    /vorticause-icon\.svg/,
+    /vortipress-icon\.svg/,
   )
   await page.request.post('/api/users/login', {
     data: { email: 'dev@payloadcms.com', password: 'test' },
@@ -55,32 +55,8 @@ test('VortiCause branding, consistent black navigation and authorized workspace 
     await page.getByRole('button', { name: 'Open Menu', exact: true }).click()
   const nav = page.locator('.nav__wrap')
   await expect(page.locator('.nav')).toHaveCSS('background-color', 'rgb(0, 0, 0)')
-  const posts = nav.getByRole('link', { name: 'Posts', exact: true })
-  if (!(await posts.isVisible()))
-    await nav.getByRole('button', { name: 'Content', exact: true }).click()
-  const taskLink = nav.getByRole('link', { name: 'My tasks', exact: true })
-  for (const property of [
-    'padding-top',
-    'padding-bottom',
-    'padding-left',
-    'font-size',
-    'line-height',
-  ]) {
-    expect(
-      await posts.evaluate(
-        (element, property) => getComputedStyle(element).getPropertyValue(property),
-        property,
-      ),
-    ).toBe(
-      await taskLink.evaluate(
-        (element, property) => getComputedStyle(element).getPropertyValue(property),
-        property,
-      ),
-    )
-  }
-  await expect(taskLink).toHaveCSS('color', 'rgb(255, 255, 255)')
-  await taskLink.focus()
-  await expect(taskLink).toBeFocused()
+  await nav.getByRole('link', { name: 'Content', exact: true }).hover()
+  await expect(page.getByRole('navigation', { name: 'Content sections' }).getByRole('link', { name: 'Posts' })).toBeVisible()
   await page.screenshot({ path: '.wrangler/vorticause-dashboard-light.png', fullPage: true })
   await page
     .context()
@@ -94,10 +70,14 @@ test('VortiCause branding, consistent black navigation and authorized workspace 
   await expect(page.locator('.nav')).not.toHaveClass(/nav--nav-open/)
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), { timeout: 5000 }).toBe(true)
   await page.getByRole('banner').getByRole('button', { name: 'Open Menu', exact: true }).click()
-  await expect(taskLink).toBeVisible()
+  const taskParent = nav.getByRole('link', { name: 'Tasks', exact: true })
+  await expect(taskParent).toBeVisible()
   await expect(page.locator('.nav')).toHaveCSS('background-color', 'rgb(0, 0, 0)')
   await page.screenshot({ path: '.wrangler/vorticause-navigation-mobile.png', fullPage: true })
-  await taskLink.click()
+  await taskParent.click()
+  await expect(page).toHaveURL(/workspace=inbox/)
+  await page.getByRole('button', { name: 'Tasks menu' }).click()
+  await page.getByRole('navigation', { name: 'Tasks sections' }).getByRole('link', { name: 'My tasks' }).click()
   await expect(page).toHaveURL(/taskView=assigned/)
   await expect(page.locator('.nav')).not.toHaveClass(/nav--nav-open/)
   const uploaded = await page.request.post('/api/media', {

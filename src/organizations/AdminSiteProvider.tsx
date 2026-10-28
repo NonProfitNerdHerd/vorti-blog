@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { ActionsProvider, AppHeader, useAuth, useConfig } from '@payloadcms/ui'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { hasUnsavedSiteChanges, navigateAdminSite, siteLabel, type AdminSite } from './admin-site'
-import { VortiCauseIcon } from '../components/VortiCauseBrand'
+import { VortiPressIcon } from '../components/VortiCauseBrand'
 import './admin-site.css'
 
 type Binding = { site: AdminSite; sites: AdminSite[]; revision: number; needsChoice?: boolean }
@@ -185,7 +185,7 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
         binding.needsChoice ? (
           <section className="vc-site-initial">
             <ActionsProvider Actions={{ site: <AdminSiteSwitcher /> }}>
-              <AppHeader CustomIcon={<VortiCauseIcon />} />
+              <AppHeader CustomIcon={<VortiPressIcon />} />
             </ActionsProvider>
             <main className="vc-site-loading">
               <h1>Choose a site</h1>

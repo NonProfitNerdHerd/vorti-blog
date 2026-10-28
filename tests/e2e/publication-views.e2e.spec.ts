@@ -90,39 +90,28 @@ test('Posts and Pages publication views and native bulk icons', async ({ page })
   }
 })
 
-test('page-local Tasks menu, design order and mobile content views', async ({ page }) => {
+test('shared module menus, design order and mobile content views', async ({ page }) => {
   await page.request.post('/api/users/login', {
     data: { email: 'dev@payloadcms.com', password: 'test' },
   })
   await page.goto('/admin')
-  const nav = page.locator('.nav__wrap'),
-    toggle = nav.getByRole('button', { name: 'Toggle Tasks navigation' })
-  try {
-    await expect(toggle).toBeVisible({ timeout: 3000 })
-  } catch {
-    await page.getByRole('button', { name: 'Open Menu', exact: true }).click()
-  }
-  if ((await toggle.getAttribute('aria-expanded')) === 'true') await toggle.click()
-  await expect(nav.getByRole('link', { name: 'My tasks', exact: true })).not.toBeVisible()
+  const nav = page.locator('.nav__wrap')
+  await nav.getByRole('link', { name: 'Tasks', exact: true }).click()
+  await expect(page.getByRole('navigation', { name: 'Tasks sections' }).getByRole('link', { name: 'My tasks' })).toBeVisible()
   await page.reload()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  await toggle.click()
-  await expect(nav.getByRole('link', { name: 'My tasks', exact: true })).toBeVisible()
-  await page.reload()
-  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-  const design = nav.getByRole('button', { name: 'Site Design', exact: true })
-  if (!(await nav.getByRole('link', { name: 'Page/Post Templates', exact: true }).isVisible()))
-    await design.click()
-  const order = await page.locator('#nav-group-Site\\ Design .nav__link-label').allTextContents()
+  await expect(page.getByRole('navigation', { name: 'Tasks sections' })).toBeVisible()
+  await nav.getByRole('link', { name: 'Site Design', exact: true }).click()
+  const order = await page.getByRole('navigation', { name: 'Site Design sections' }).getByRole('link').allTextContents()
   expect(order.slice(0, 2)).toEqual(['Page/Post Templates', 'Site Templates'])
-  if (!(await nav.getByRole('link', { name: 'Site Settings', exact: true }).isVisible()))
-    await nav.getByRole('button', { name: 'Admin', exact: true }).click()
+  await nav.getByRole('link', { name: 'Admin', exact: true }).click()
   await expect(
-    page.locator('#nav-group-Admin').getByRole('link', { name: 'Site Settings', exact: true }),
+    page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Site Settings', exact: true }),
   ).toHaveCount(1)
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/admin/collections/pages?contentView=calendar')
   await expect(page.getByRole('region', { name: 'Publication calendar' })).toBeVisible()
+  await page.getByRole('button', { name: 'Content menu' }).click()
+  await expect(page.getByRole('navigation', { name: 'Content sections' })).toBeVisible()
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
   await page.screenshot({ path: '.wrangler/publication-mobile-dark.png', fullPage: true })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

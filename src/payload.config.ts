@@ -121,22 +121,22 @@ export const publishingConfig = (publishing: typeof unifiedPublishing = unifiedP
   admin: {
     user: Users.slug,
     meta: {
-      titleSuffix: ' | VortiCause',
-      icons: { icon: '/vorticause-icon.svg', shortcut: '/vorticause-icon.svg' },
-      applicationName: 'VortiCause',
-      description: 'VortiCause content and collaboration workspace.',
+      titleSuffix: ' | VortiPress',
+      icons: { icon: '/vortipress-icon.svg', shortcut: '/vortipress-icon.svg' },
+      applicationName: 'VortiPress',
+      description: 'VortiPress content and collaboration workspace.',
       openGraph: {
-        siteName: 'VortiCause',
-        title: 'VortiCause',
+        siteName: 'VortiPress',
+        title: 'VortiPress',
         description: 'Content. Collaboration. Community.',
-        images: [{ url: '/vorticause-social.svg', width: 1200, height: 630, alt: 'VortiCause' }],
+        images: [{ url: '/vortipress-social.svg', width: 1200, height: 630, alt: 'VortiPress' }],
       },
     },
     components: {
       actions: ['./organizations/AdminSiteProvider#AdminSiteSwitcher'],
       graphics: {
-        Icon: './components/VortiCauseBrand#VortiCauseIcon',
-        Logo: './components/VortiCauseBrand#VortiCauseLogo',
+        Icon: './components/VortiCauseBrand#VortiPressIcon',
+        Logo: './components/VortiCauseBrand#VortiPressLogo',
       },
       Nav: './components/SiteDesignNav#SiteDesignNav',
       providers: ['./components/AdminPolicy#AdminPolicy'],

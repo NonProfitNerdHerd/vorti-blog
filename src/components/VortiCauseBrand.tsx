@@ -1,17 +1,17 @@
 import './vorticause-brand.css'
 
-export function VortiCauseIcon() {
+export function VortiPressIcon() {
   return (
     <svg
       className="vorticause-icon"
       viewBox="0 0 40 40"
       role="img"
-      aria-label="VortiCause"
+      aria-label="VortiPress"
       xmlns="http://www.w3.org/2000/svg"
     >
       <rect width="40" height="40" rx="11" fill="#6d4aff" />
       <path
-        d="m7 13 5 15 5-15M31 14a8 8 0 1 0 0 12"
+        d="m5 13 6 15 6-15M21 28V13h6a5 5 0 0 1 0 10h-6"
         fill="none"
         stroke="#fff"
         strokeWidth="3"
@@ -22,11 +22,11 @@ export function VortiCauseIcon() {
   )
 }
 
-export function VortiCauseLogo() {
+export function VortiPressLogo() {
   return (
     <div className="vorticause-wordmark">
-      <VortiCauseIcon />
-      <span>VortiCause</span>
+      <VortiPressIcon />
+      <span>VortiPress</span>
     </div>
   )
 }

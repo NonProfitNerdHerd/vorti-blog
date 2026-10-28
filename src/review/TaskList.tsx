@@ -66,7 +66,7 @@ export function TaskList() {
         label: (
           <span className="workspace-app-title">
             <span role="heading" aria-level={1}>
-              Tasks
+              VortiTasks
             </span>
             <span>Your work, connected</span>
           </span>

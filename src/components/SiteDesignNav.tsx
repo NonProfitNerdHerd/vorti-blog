@@ -1,6 +1,6 @@
 import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
 import { PolicyNav } from './DashboardNavLink'
-import { CRMSecondaryNav } from './CRMSecondaryNav'
+import { CRMSecondaryNav, CRMSecondaryToggle } from './CRMSecondaryNav'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
 import type { ServerProps } from 'payload'
@@ -46,8 +46,9 @@ export async function SiteDesignNav({ payload, permissions, i18n, visibleEntitie
       <div className="nav__header">
         <div className="nav__header-content">
           <NavHamburger baseClass="nav" />
+          <CRMSecondaryToggle groups={groups} />
         </div>
       </div>
-    </NavWrapper><CRMSecondaryNav /></>
+    </NavWrapper><CRMSecondaryNav groups={groups} /></>
   )
 }

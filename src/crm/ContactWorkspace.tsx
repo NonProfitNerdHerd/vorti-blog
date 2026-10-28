@@ -549,7 +549,7 @@ export function ContactWorkspace() {
       <div hidden={showDetail}>
       <header className="vc-crm-heading">
         <div>
-          <h1>CRM</h1>
+          <h1>VortiCause</h1>
           <p>{site?.name || 'Constituent workspace'}</p>
           {binding && (
             <Link

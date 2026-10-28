@@ -1,18 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function workflowNavigation(page: Page) {
-  const toggle = page.getByRole('button', {
-    name: 'Toggle Workflows navigation',
-    includeHidden: true,
-  })
-  if ((await toggle.getAttribute('tabindex')) === '-1' || !(await toggle.isVisible()))
-    await page
-      .getByRole('button', { name: 'Open Menu', exact: true })
-      .filter({ visible: true })
-      .first()
-      .click()
-  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
-  return page.getByRole('navigation', { name: 'Workflows navigation' })
+  const navigation = page.getByRole('navigation', { name: 'Workflows sections' })
+  if (!(await navigation.isVisible().catch(() => false))) {
+    const drawer = page.getByRole('button', { name: 'Workflows menu' })
+    if (await drawer.isVisible().catch(() => false)) await drawer.click()
+    else await page.locator('#nav-group-Workflows').getByRole('link', { name: 'Workflows' }).hover()
+  }
+  await expect(navigation).toBeVisible()
+  return navigation
 }
 
 test('Workflows sidebar, template catalogue, saved workflow and private shared copies', async ({

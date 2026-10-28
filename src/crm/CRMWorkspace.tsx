@@ -10,7 +10,6 @@ import { OpportunityWorkspace } from './OpportunityWorkspace'
 import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { Gutter, useConfig } from '@payloadcms/ui'
-import { CRMSecondaryToggle } from '../components/CRMSecondaryNav'
 import { useSearchParams } from 'next/navigation'
 import { OverviewWorkspace } from './OverviewWorkspace'
 import { DonationWorkspace } from './DonationWorkspace'
@@ -55,10 +54,9 @@ export function CRMWorkspace() {
     )
   return (
     <div className="vc-crm-shell">
-      <CRMSecondaryToggle />
       {!constituentOpen && <Gutter className="vc-crm-heading">
-        <header aria-label="Donor CRM">
-          <strong>Donor CRM</strong>
+        <header aria-label="VortiCause">
+          <strong>VortiCause</strong>
           <p>{binding?.site.name || 'Chapter workspace'}</p>
         </header>
       </Gutter>}
