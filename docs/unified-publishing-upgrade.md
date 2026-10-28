@@ -77,3 +77,12 @@ D1 batch that temporarily removes them. It changes no historical actor, authorit
 epoch or application body. An aborted batch cannot leave ordinary writes unguarded.
 Recovery uses the tested compatible Worker and a matching database strategy; Worker
 rollback alone does not restore data.
+
+An explicit user request to deploy before testing finishes can be recorded with
+`--validation-waiver` on packaging, migration and deployment commands. The private
+waiver must identify the exact source, Worker, authorization, reason and outstanding
+gates. Incomplete reports stay incomplete; target/source/artifact matching,
+compatible recovery, maintenance, backup restoration and migration integrity remain
+mandatory. Record the exception in the release receipt. Leave acceptance and health
+observation pending until they actually pass; do not mark the release complete or
+delete recovery protection on the strength of a waiver.

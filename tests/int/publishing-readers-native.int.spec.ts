@@ -68,6 +68,12 @@ it('keeps administrator notification lists and counts within SQLite’s join bud
   expect((await payload.find({ ...options, depth: 0, limit: 10 })).docs).toBeInstanceOf(Array)
 })
 
+it('rejects an internal destination in a public menu even when navigation allows same-area drafts', async () => {
+  await expect(payload.create({ collection: 'menus', req: await fixtureRequest(payload), data: {
+    name: 'Invalid public internal link', items: [{ key: 'private', label: 'Internal destination', kind: 'post', target: internalID }],
+  } })).rejects.toThrow(/dependency review|public/)
+})
+
 it('queries current-parent readership for native version lists', async () => {
   const publicVersions = await payload.findVersions({ collection: 'posts', req: await fixtureRequest(payload), depth: 0 })
   expect(publicVersions.docs.some(doc => parentID(doc.parent) === publicID)).toBe(true)

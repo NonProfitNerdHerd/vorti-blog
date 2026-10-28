@@ -16,3 +16,12 @@ it('blocks internal URLs, protected storage paths and audience-forged block quer
   expect(result.problems).toHaveLength(5)
   expect(result.problems.join(' ')).not.toContain('ordinary')
 })
+
+it('distinguishes menu navigation from embedded content without weakening a duplicate strict dependency', () => {
+  expect(publicDependencyInventory({ items: [{ kind: 'page', target: 7 }] }, [], 'menus').references[0]).toMatchObject({ collection: 'pages', id: 7, navigation: true })
+  for (const data of [
+    { pageID: 7, items: [{ kind: 'page', target: 7 }] },
+    { items: [{ kind: 'page', target: 7 }], pageID: 7 },
+  ]) expect(publicDependencyInventory(data, [], 'menus').references[0].navigation).toBeUndefined()
+  expect(publicDependencyInventory({ node: { kind: 'page', target: 7 } }, [], 'pages').references[0].navigation).toBeUndefined()
+})

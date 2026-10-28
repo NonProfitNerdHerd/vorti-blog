@@ -3,7 +3,7 @@ import { cmsDatabase, cmsSiteContext } from '../organizations/cms-scope'
 import { audienceTablesV1 } from './audience-schema-v1'
 import { CMS_AUDIENCE, CMS_PUBLIC_RENDER, type Audience } from './readership'
 
-interface Reference { collection: string; id: number; path: string; identity?: string }
+interface Reference { collection: string; id: number; path: string; identity?: string; navigation?: boolean }
 const semanticReferences: Record<string, string> = {
   featuredImage: 'media', imageID: 'media', imageId: 'media', mediaID: 'media', mediaId: 'media', logo: 'media',
   image: 'media', backgroundImage: 'media', thumbnail: 'media', viewID: 'saved-views', savedViewID: 'saved-views',
@@ -20,14 +20,14 @@ const recordID = (value: unknown): number | null => {
  * blocks as well as declared relationships so layout snapshots cannot conceal a
  * private dependency behind the shared editor's generic JSON fields.
  */
-export function publicDependencyInventory(data: unknown, fields: Field[] = []) {
+export function publicDependencyInventory(data: unknown, fields: Field[] = [], sourceCollection?: string) {
   const references: Reference[] = [], problems: string[] = []
   let visited = 0
-  const add = (collection: string, value: unknown, path: string) => {
-    if (Array.isArray(value)) { for (const item of value) add(collection, item, path); return }
+  const add = (collection: string, value: unknown, path: string, navigation = false) => {
+    if (Array.isArray(value)) { for (const item of value) add(collection, item, path, navigation); return }
     const id = recordID(value)
     const identity = value && typeof value === 'object' && 'publishingIdentity' in value && typeof value.publishingIdentity === 'string' ? value.publishingIdentity : undefined
-    if (id) references.push({ collection, id, path, ...(identity ? { identity } : {}) })
+    if (id) references.push({ collection, id, path, ...(identity ? { identity } : {}), ...(navigation ? { navigation: true } : {}) })
   }
   const schema = (value: unknown, definitions: Field[], path: string) => {
     if (!value || typeof value !== 'object') return
@@ -53,8 +53,8 @@ export function publicDependencyInventory(data: unknown, fields: Field[] = []) {
     if (!value || typeof value !== 'object') return
     if (Array.isArray(value)) { value.forEach((item, index) => walk(item, `${path}[${index}]`, depth + 1)); return }
     const row = value as Record<string, unknown>
-    if (row.kind === 'page') add('pages', row.target, path)
-    if (row.kind === 'post') add('posts', row.target, path)
+    if (row.kind === 'page') add('pages', row.target, path, sourceCollection === 'menus')
+    if (row.kind === 'post') add('posts', row.target, path, sourceCollection === 'menus')
     if (typeof row.relationTo === 'string') add(row.relationTo, row.value, path)
     if (typeof row.collection === 'string' && row.id != null) add(row.collection, row.id, path)
     for (const [key, child] of Object.entries(row)) {
@@ -65,32 +65,43 @@ export function publicDependencyInventory(data: unknown, fields: Field[] = []) {
     }
   }
   schema(data, fields, 'document'); walk(data, 'document', 0)
-  const distinct = [...new Map(references.map(reference => [`${reference.collection}:${reference.id}`, reference])).values()]
+  const byRecord = new Map<string, Reference>()
+  for (const reference of references) {
+    const key = `${reference.collection}:${reference.id}`, previous = byRecord.get(key)
+    // A navigation link must never weaken an embedded/relationship dependency
+    // to the same document, regardless of their order in the JSON tree.
+    if (!previous || previous.navigation && !reference.navigation) byRecord.set(key, reference)
+  }
+  const distinct = [...byRecord.values()]
   if (distinct.length > 300) throw new APIError('Review fewer than 300 distinct dependencies per published document.', 400)
   return { references: distinct, problems }
 }
 
-export async function validatePublishingDependencies(req: PayloadRequest, site: string, data: unknown, fields: Field[], audience: Audience, self?: { collection: string; id: number }) {
+export async function validatePublishingDependencies(req: PayloadRequest, site: string, data: unknown, fields: Field[], audience: Audience, self?: { collection: string; id?: number }) {
   // The document being published is validated by this operation. Generated
   // self-breadcrumbs (and intentional self-links) must not require its previous
   // draft to have already been published. Other references still need review.
-  const queue = [publicDependencyInventory(data, fields)], seen = new Set<string>(self ? [`${self.collection}:${self.id}`] : []), problems: string[] = []
+  const queue = [publicDependencyInventory(data, fields, self?.collection)], seen = new Set<string>(self?.id ? [`${self.collection}:${self.id}`] : []), problems: string[] = []
   const local = await createLocalReq({ user: req.user, context: { ...cmsSiteContext(site), [CMS_AUDIENCE]: audience, ...(audience === 'public' ? { [CMS_PUBLIC_RENDER]: true } : {}) } }, req.payload)
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const inventory = queue[cursor]
     if (audience === 'public') problems.push(...inventory.problems)
     for (const ref of inventory.references) {
-      const key = `${ref.collection}:${ref.id}`
-      if (seen.has(key)) continue
+      const record = `${ref.collection}:${ref.id}`, key = record + (ref.navigation ? ':navigation' : '')
+      if (seen.has(record) || seen.has(key)) continue
       seen.add(key)
       if (seen.size > 300) throw new APIError('The dependency tree exceeds 300 records. Simplify it before publication.', 400)
       const mapping = audienceTablesV1.find(([slug]) => slug === ref.collection)
       if (mapping) {
         const row = await cmsDatabase(req).prepare(`SELECT audience,platform_site${mapping[2] ? ',_status' : ''} FROM "${mapping[1]}" WHERE id=?`).bind(ref.id).first<{ audience: string; platform_site: string; _status?: string }>()
-        if (!row || row.audience !== audience || row.platform_site !== site || (mapping[2] && row._status !== 'published')) {
+        if (!row || row.audience !== audience || row.platform_site !== site || (mapping[2] && row._status !== 'published' && !ref.navigation)) {
           problems.push(`${ref.path}: ${ref.collection} #${ref.id} needs a published ${audience === 'public' ? 'public' : 'internal'} copy in this site`)
           continue
         }
+        // Menus retain links to same-area drafts and hide those destinations
+        // during rendering. The audience/site check above still rejects an
+        // internal destination in a public menu. Embedded content stays strict.
+        if (ref.navigation && mapping[2] && row._status !== 'published') continue
       }
       const collection = req.payload.collections[ref.collection as CollectionSlug]
       if (!collection || (!mapping && !['design-templates', 'design-block-types', 'design-block-designs', 'forms'].includes(ref.collection))) continue
@@ -100,7 +111,7 @@ export async function validatePublishingDependencies(req: PayloadRequest, site: 
           problems.push(`${ref.path}: ${ref.collection} #${ref.id} is unavailable for publication`)
           continue
         }
-        queue.push(publicDependencyInventory(record, collection.config.fields))
+        queue.push(publicDependencyInventory(record, collection.config.fields, ref.collection))
       } catch (error) {
         if (![403, 404].includes(Number((error as { status?: number }).status))) throw error
         problems.push(`${ref.path}: ${ref.collection} #${ref.id} is unavailable for publication`)

@@ -5,6 +5,7 @@ import path from 'node:path'
 import ts from 'typescript'
 import { getPlatformProxy } from 'wrangler'
 import { verifyArtifact } from './lib/release-artifact.mjs'
+import { releaseValidationWaiver } from './lib/release-validation.mjs'
 import { migrateDatabase } from './lib/migrate-database'
 import { migrations } from '../src/migrations'
 import { freezeDatabase, thawDatabase } from './lib/freeze-database'
@@ -15,7 +16,7 @@ import { completePublishingUpgrade, requireAudienceSafeBaseline, verifyPublishin
 const options: Record<string, string> = {}
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index], value = process.argv[index + 1]
-  if (!['--config', '--lease', '--manifest', '--artifact', '--validation', '--browser-report', '--recovery', '--action', '--expected-worker', '--receipt', '--deployment', '--compatibility-run', '--upgrade-receipt'].includes(key) || !value || options[key]) throw Error('Invalid protected upgrade arguments.')
+  if (!['--config', '--lease', '--manifest', '--artifact', '--validation', '--browser-report', '--recovery', '--action', '--expected-worker', '--receipt', '--deployment', '--compatibility-run', '--upgrade-receipt', '--validation-waiver'].includes(key) || !value || options[key]) throw Error('Invalid protected upgrade arguments.')
   options[key] = value
 }
 if (process.versions.node !== readFileSync('.node-version', 'utf8').trim().replace(/^v/, '')) throw Error('Use the pinned runtime.')
@@ -28,10 +29,13 @@ const config = parsed.config as { name: string; d1_databases: Array<{ binding: s
 const application = config.d1_databases.find(item => item.binding === 'D1'), operations = config.d1_databases.find(item => item.binding === 'OPERATIONS')
 if (!application || !operations) throw Error('Separate application and operational bindings are required.')
 const lease = json(options['--lease']) as ReleaseLease, manifest = json(options['--manifest']), validation = json(options['--validation']), browser = json(options['--browser-report'])
-if (validation.status !== 'passed' || validation.source !== manifest.sourceCommit || validation.archiveHash !== manifest.sourceHash ||
+const waiver = releaseValidationWaiver(options['--validation-waiver'], manifest.sourceCommit, config.name)
+if (validation.source !== manifest.sourceCommit || validation.archiveHash !== manifest.sourceHash ||
+    !waiver && (validation.status !== 'passed' ||
     !['typescript', 'lint', 'design-editor', 'integration'].every(stage => validation.records.some((record: { stage: string; exitCode: number }) => record.stage === stage && record.exitCode === 0)) ||
     browser.config?.metadata?.artifactHash !== manifest.artifactHash || browser.config?.metadata?.sourceCommit !== manifest.sourceCommit ||
-    !browser.stats?.expected || browser.stats.unexpected || browser.stats.skipped || browser.errors?.length) throw Error('Complete matching source, package and browser validation is required.')
+    !browser.stats?.expected || browser.stats.unexpected || browser.stats.skipped || browser.errors?.length)) throw Error('Complete matching source, package and browser validation or an explicit user waiver is required.')
+if (browser.config?.metadata?.artifactHash !== manifest.artifactHash || browser.config?.metadata?.sourceCommit !== manifest.sourceCommit) throw Error('Browser status receipt targets another package.')
 verifyArtifact(path.resolve(options['--artifact']), manifest, manifest)
 const git = (...args: string[]) => execFileSync('git', args, { encoding: 'utf8' }).trim()
 if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== manifest.sourceCommit || git('ls-remote', 'origin', 'refs/heads/main').split(/\s+/)[0] !== manifest.sourceCommit) throw Error('Commit and push the exact validated upgrade source first.')
@@ -90,6 +94,6 @@ try {
       throw Error('Publishing conversion or portal initialization is incomplete. Retain maintenance protection.')
     result = await thawDatabase(proxy.env.D1, lease.id)
   }
-  writeFileSync(options['--receipt'], JSON.stringify({ status: 'passed', action, run: lease.id, source: manifest.sourceCommit, artifactHash: manifest.artifactHash, databaseID: application.database_id, ...result, checkedAt: new Date().toISOString() }, null, 2) + '\n', { flag: 'wx' })
+  writeFileSync(options['--receipt'], JSON.stringify({ status: 'passed', action, run: lease.id, source: manifest.sourceCommit, artifactHash: manifest.artifactHash, databaseID: application.database_id, ...result, ...(waiver ? { validationStatus: 'incomplete-user-authorized', validationWaiverHash: waiver.sha256 } : {}), checkedAt: new Date().toISOString() }, null, 2) + '\n', { flag: 'wx' })
   console.log(JSON.stringify({ status: 'passed', action, run: lease.id }))
 } finally { await proxy.dispose() }

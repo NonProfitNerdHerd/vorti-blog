@@ -97,7 +97,10 @@ export async function advanceRelease(
     throw Error(
       'A corrective cutover requires validated code, unchanged resources and migrations, and retained recovery.',
     )
-  if (phase === 'prepared' && evidence.validationPassed !== true)
+  const explicitlyWaived = evidence.validationWaived === true && evidence.userAuthorizedIncompleteRelease === true &&
+    /^[a-f0-9]{64}$/.test(String(evidence.validationWaiverHash || '')) && /^[a-f0-9]{40}$/.test(String(evidence.source || '')) &&
+    typeof evidence.reason === 'string' && evidence.reason.trim().length > 0
+  if (phase === 'prepared' && evidence.validationPassed !== true && !explicitlyWaived)
     throw Error('Passing validation is required before preparation completes.')
   if (
     phase === 'cutover' &&

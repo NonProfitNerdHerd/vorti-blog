@@ -4,16 +4,18 @@ import { createHash } from 'node:crypto'
 import path from 'node:path'
 import ts from 'typescript'
 import { createArtifactManifest, verifyArtifact } from './lib/release-artifact.mjs'
+import { releaseValidationWaiver } from './lib/release-validation.mjs'
 
 const args = {}
 for (let i = 2; i < process.argv.length; i += 2) {
   const key = process.argv[i], value = process.argv[i + 1]
-  if (!['--config', '--validation', '--output'].includes(key) || !value || args[key]) throw Error('Use --config <isolated-config> --validation <receipt> --output <new-directory>.')
+  if (!['--config', '--validation', '--output', '--validation-waiver'].includes(key) || !value || args[key]) throw Error('Use --config <isolated-config> --validation <receipt> --output <new-directory> [--validation-waiver <explicit-user-authorization>].')
   args[key] = value
 }
 if (process.platform !== 'linux' || process.versions.node !== readFileSync('.node-version', 'utf8').trim().replace(/^v/, '')) throw Error('Package inside the pinned Linux release runtime.')
 const validation = JSON.parse(readFileSync(args['--validation'], 'utf8'))
-if (validation.status !== 'passed' || !/^[a-f0-9]{40}$/.test(validation.source)) throw Error('Passing frozen-source validation is required.')
+const waiver = releaseValidationWaiver(args['--validation-waiver'], validation.source, validation.worker)
+if ((!waiver && validation.status !== 'passed') || !/^[a-f0-9]{40}$/.test(validation.source)) throw Error('Passing frozen-source validation or an explicit user waiver is required.')
 const sourceFiles = JSON.parse(readFileSync('/tmp/source-files.json', 'utf8'))
 const sourceDigest = createHash('sha256')
 for (const file of sourceFiles) sourceDigest.update(file + '\0').update(readFileSync(file)).update('\0')
@@ -37,6 +39,7 @@ const identity = {sourceCommit: validation.source, sourceHash: validation.archiv
 const manifest = createArtifactManifest(artifact, identity)
 verifyArtifact(artifact, manifest, identity)
 writeFileSync(path.join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', {flag: 'wx'})
+if (waiver) writeFileSync(path.join(output, 'validation-waiver.json'), JSON.stringify(waiver, null, 2) + '\n', {flag: 'wx'})
 const preview = {...config, main: path.join(artifact, entrypoint), no_bundle: true, find_additional_modules: true, assets: {...config.assets, directory: path.join(artifact, 'assets')}}
 delete preview.build
 delete preview.$schema

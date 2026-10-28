@@ -3,11 +3,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { verifyArtifact } from './lib/release-artifact.mjs'
+import { releaseValidationWaiver } from './lib/release-validation.mjs'
 
 const args = {}
 for (let i = 2; i < process.argv.length; i += 2) {
   const key = process.argv[i], value = process.argv[i + 1]
-  if (!['--artifact', '--manifest', '--config', '--validation', '--browser-report', '--lease', '--expected-worker', '--expected-deployment', '--receipt'].includes(key) || !value || args[key]) throw Error('Invalid immutable deployment arguments.')
+  if (!['--artifact', '--manifest', '--config', '--validation', '--browser-report', '--lease', '--expected-worker', '--expected-deployment', '--receipt', '--validation-waiver'].includes(key) || !value || args[key]) throw Error('Invalid immutable deployment arguments.')
   args[key] = value
 }
 if (process.versions.node !== readFileSync('.node-version', 'utf8').trim().replace(/^v/, '')) throw Error('Use the pinned Node runtime.')
@@ -15,8 +16,9 @@ execFileSync(process.execPath, ['scripts/require-production-intent.mjs', 'deploy
 const artifact = path.resolve(args['--artifact']), manifest = JSON.parse(readFileSync(args['--manifest'], 'utf8'))
 const validation = JSON.parse(readFileSync(args['--validation'], 'utf8'))
 const browser = JSON.parse(readFileSync(args['--browser-report'], 'utf8'))
-if (validation.status !== 'passed' || validation.source !== manifest.sourceCommit || validation.archiveHash !== manifest.sourceHash || !['typescript', 'lint', 'design-editor', 'integration'].every(stage => validation.records.some(record => record.stage === stage && record.exitCode === 0))) throw Error('Frozen validation does not match this artifact.')
-if (browser.config?.metadata?.artifactHash !== manifest.artifactHash || browser.config?.metadata?.sourceCommit !== manifest.sourceCommit || !browser.stats?.expected || browser.stats.unexpected || browser.stats.skipped || browser.errors?.length) throw Error('Complete passing browser acceptance against this artifact is required.')
+const waiver = releaseValidationWaiver(args['--validation-waiver'], manifest.sourceCommit, args['--expected-worker'])
+if (validation.source !== manifest.sourceCommit || validation.archiveHash !== manifest.sourceHash || !waiver && (validation.status !== 'passed' || !['typescript', 'lint', 'design-editor', 'integration'].every(stage => validation.records.some(record => record.stage === stage && record.exitCode === 0)))) throw Error('Frozen validation does not match this artifact.')
+if (browser.config?.metadata?.artifactHash !== manifest.artifactHash || browser.config?.metadata?.sourceCommit !== manifest.sourceCommit || !waiver && (!browser.stats?.expected || browser.stats.unexpected || browser.stats.skipped || browser.errors?.length)) throw Error('Complete passing browser acceptance against this artifact or an explicit user waiver is required.')
 const git = (...parameters) => execFileSync('git', parameters, {encoding: 'utf8'}).trim()
 if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== manifest.sourceCommit || git('ls-remote', 'origin', 'refs/heads/main').split(/\s+/)[0] !== manifest.sourceCommit) throw Error('Commit and push the validated source before deployment; do not overwrite newer source.')
 verifyArtifact(artifact, manifest, manifest)
@@ -41,5 +43,5 @@ const output = cli('deploy', '--config', uploadPath)
 verifyArtifact(artifact, manifest, manifest)
 const deployed = current()
 if (!deployed || deployed.id === args['--expected-deployment'] || deployed.versions.length !== 1 || deployed.versions[0].percentage !== 100) throw Error('Deployment outcome is uncertain. Retain maintenance and inspect live state.')
-writeFileSync(path.resolve(args['--receipt']), JSON.stringify({worker: config.name, source: manifest.sourceCommit, artifactHash: manifest.artifactHash, deployment: deployed.id, workerVersion: deployed.versions[0].version_id, deployedAt: deployed.created_on, liveVerified: false}, null, 2) + '\n', {flag: 'wx'})
+writeFileSync(path.resolve(args['--receipt']), JSON.stringify({worker: config.name, source: manifest.sourceCommit, artifactHash: manifest.artifactHash, deployment: deployed.id, workerVersion: deployed.versions[0].version_id, deployedAt: deployed.created_on, liveVerified: false, ...(waiver ? { validationStatus: 'incomplete-user-authorized', validationWaiverHash: waiver.sha256 } : {})}, null, 2) + '\n', {flag: 'wx'})
 console.log(output)

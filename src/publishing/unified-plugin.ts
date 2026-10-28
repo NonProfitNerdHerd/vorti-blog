@@ -298,7 +298,7 @@ export const unifiedPublishing = (config: Config): Config => ({
           if (!(['search', 'event-series', 'imports', 'exports'].includes(collection.slug)) &&
             (!collection.versions || (!(req.context as Context)[draftWrite] && (data._status ?? originalDoc?._status) === 'published'))) {
             const scope = await cmsScope(req, 'read')
-            await validatePublishingDependencies(req, scope.site, { ...originalDoc, ...data }, collection.fields, audience(req), originalDoc?.id ? { collection: collection.slug, id: Number(originalDoc.id) } : undefined)
+            await validatePublishingDependencies(req, scope.site, { ...originalDoc, ...data }, collection.fields, audience(req), { collection: collection.slug, ...(originalDoc?.id ? { id: Number(originalDoc.id) } : {}) })
           }
           return data
         }],
