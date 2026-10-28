@@ -9,6 +9,7 @@ const fixture = () => ({
 })
 it('permits only a current protected upgrade against its preserved database', () => {
   expect(() => assertUpgradeState(fixture())).not.toThrow()
+  expect(() => assertUpgradeState({ ...fixture(), action: 'verify-schema' })).not.toThrow()
   expect(() => assertUpgradeState({ ...fixture(), lease: { ...fixture().lease, phase: 'verifying' }, actual: { ...fixture().actual, phase: 'verifying' }, action: 'verification-thaw' })).not.toThrow()
   for (const patch of [
     { actual: null }, { actual: { ...fixture().actual, mode: 'development-reset' } },
@@ -20,4 +21,5 @@ it('rejects unprotected states and thawing before a deployed verification phase'
   for (const phase of ['preparing', 'prepared', 'cutover', 'observing', 'recovering', 'complete'] as const)
     expect(() => assertUpgradeState({ ...fixture(), lease: { ...fixture().lease, phase }, actual: { ...fixture().actual, phase } })).toThrow()
   expect(() => assertUpgradeState({ ...fixture(), action: 'verification-thaw' })).toThrow()
+  expect(() => assertUpgradeState({ ...fixture(), action: 'verify-schema', lease: { ...fixture().lease, phase: 'verifying' }, actual: { ...fixture().actual, phase: 'verifying' } })).toThrow()
 })

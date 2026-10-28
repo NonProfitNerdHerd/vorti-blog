@@ -6,7 +6,7 @@ import type { ReleaseLease } from './release-lock'
 export function assertUpgradeState(input: {
   lease: ReleaseLease
   actual: { id: string; target: string; phase: string; revision: number; mode: string } | null
-  action: 'migrate' | 'verification-thaw'
+  action: 'migrate' | 'verify-schema' | 'verification-thaw'
   applicationID: string
   operationsID: string
   baselineApplicationID: string
@@ -19,6 +19,6 @@ export function assertUpgradeState(input: {
   if (!input.applicationID || input.applicationID === input.operationsID || input.applicationID !== input.baselineApplicationID)
     throw Error('The upgrade must retain the baseline application database and separate operational database.')
   if (!input.recoveryVerified || !input.artifactVerified) throw Error('Verified recovery and the tested artifact are required.')
-  if (lease.phase !== (input.action === 'migrate' ? 'frozen' : 'verifying'))
+  if (lease.phase !== (input.action === 'verification-thaw' ? 'verifying' : 'frozen'))
     throw Error('Database guards may only change during protected migration or verification.')
 }

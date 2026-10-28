@@ -37,7 +37,7 @@ delete upload.build
 delete upload.$schema
 const uploadDirectory = path.resolve('.wrangler', 'release-upload-configs')
 mkdirSync(uploadDirectory, {recursive: true})
-const uploadPath = path.join(uploadDirectory, lease.id + '.json')
+const uploadPath = path.join(uploadDirectory, `${lease.id}-${lease.revision}.json`)
 writeFileSync(uploadPath, JSON.stringify(upload, null, 2) + '\n', {flag: 'wx'})
 const output = cli('deploy', '--config', uploadPath)
 verifyArtifact(artifact, manifest, manifest)

@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { wikiOutline } from './wiki-view'
 type Node = {
   type: string
   text?: string
@@ -9,7 +10,14 @@ type Node = {
   fields?: { url?: string }
   children?: Node[]
 }
-export function KnowledgeRichText({ body }: { body: unknown }) {
+export function KnowledgeRichText({
+  body,
+  anchorPrefix = '',
+}: {
+  body: unknown
+  anchorPrefix?: string
+}) {
+  const headings = new Map(wikiOutline(body).map((heading) => [heading.node, heading]))
   const render = (node: Node, key: number): ReactNode => {
     const children = node.children?.map(render)
     if (node.type === 'text') {
@@ -22,8 +30,15 @@ export function KnowledgeRichText({ body }: { body: unknown }) {
       return <Fragment key={key}>{text}</Fragment>
     }
     if (node.type === 'paragraph') return <p key={key}>{children}</p>
-    if (node.type === 'heading')
-      return node.tag === 'h3' ? <h3 key={key}>{children}</h3> : <h2 key={key}>{children}</h2>
+    if (node.type === 'heading') {
+      const heading = headings.get(node),
+        Tag = `h${heading?.level || 2}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+      return (
+        <Tag key={key} id={heading ? anchorPrefix + heading.id : undefined}>
+          {children}
+        </Tag>
+      )
+    }
     if (node.type === 'quote') return <blockquote key={key}>{children}</blockquote>
     if (node.type === 'list')
       return node.listType === 'number' ? (
