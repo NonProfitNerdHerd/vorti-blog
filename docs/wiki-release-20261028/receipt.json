@@ -1,0 +1,196 @@
+{
+  "scope": "approved-focused-wiki-code-only-correction",
+  "source": "64f639479f653c9b5f13ee35af93ef70de669856",
+  "sourceArchiveHash": "9f1cfe2064080a7f425f93bd8e3dc24583e18729d0a98fd4191ba1982fd7dc1b",
+  "artifactHash": "ade8e872f83e9f3399b778ef3b32b4f20316927beee940fd799a7b897bf22b47",
+  "configurationHash": "7987b0fcb96e4c2e06ed1d86e61536aeb9cbf343fb63f790f603f3bc2f6056b1",
+  "migrationHash": "0ea412755a1e7ddb06c69fdefde6cbbef122aafbae5e1589b2a893d0b82fcf6f",
+  "url": "https://vorti-blog.ike-j-rebout.workers.dev/wiki",
+  "deployment": "a44817bc-9c20-4839-8aa1-e7b1e9c8e314",
+  "workerVersion": "a15ade78-0a5c-4164-9046-550caa15c3c6",
+  "deployedAt": "2026-10-28T14:17:31.757037Z",
+  "previousCompatibleDeployment": "1b4a0293-efca-4f9c-8652-7168a806511a",
+  "previousCompatibleVersion": "1cab544b-630e-4929-afda-e9bbeb5dc405",
+  "migrations": {
+    "registered": 63,
+    "applied": [],
+    "latest": "20261028_000000_unified_publishing",
+    "foreignKeyViolations": 0
+  },
+  "validation": {
+    "status": "passed-within-approved-focused-scope",
+    "records": [
+      {
+        "stage": "typescript",
+        "exitCode": 0,
+        "durationMs": 63749
+      },
+      {
+        "stage": "lint",
+        "exitCode": 0,
+        "durationMs": 58825
+      },
+      {
+        "stage": "wiki-focused-integration",
+        "exitCode": 0,
+        "durationMs": 31107
+      },
+      {
+        "stage": "build",
+        "exitCode": 0,
+        "durationMs": 240542
+      },
+      {
+        "stage": "package",
+        "exitCode": 0,
+        "durationMs": 11952
+      }
+    ],
+    "focusedTests": 28,
+    "focusedFiles": 9,
+    "browserScenarios": 3,
+    "browserUnexpected": 0,
+    "browserSkipped": 0,
+    "trackedBytesUnchanged": true,
+    "artifactFiles": 147,
+    "secretFixtureRecoveryScan": "passed"
+  },
+  "preservation": {
+    "status": "passed",
+    "verifiedOriginalRecords": 2000,
+    "verifiedPopulatedTables": 44,
+    "preservedExistingContentSettingsAndCredentials": true,
+    "excludedEphemeralTables": [
+      "users_sessions",
+      "payload_locked_documents",
+      "payload_locked_documents_rels"
+    ],
+    "foreignKeyViolations": 0,
+    "checkedAt": "2026-10-28T14:18:22.669Z"
+  },
+  "sharedAdministratorSession": "verified-after-deployment",
+  "publicSmoke": {
+    "status": "passed",
+    "checks": [
+      {
+        "path": "/wiki",
+        "status": 200,
+        "cache": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      {
+        "path": "/admin/login",
+        "status": 200,
+        "cache": "private, no-cache, no-store, max-age=0, must-revalidate"
+      },
+      {
+        "path": "/api/knowledge?site=default&kind=wiki",
+        "status": 200,
+        "cache": "private, no-store"
+      },
+      {
+        "path": "/api/knowledge?site=default&kind=wiki&draft=1",
+        "status": 404,
+        "cache": "private, no-store"
+      },
+      {
+        "path": "/api/knowledge?site=default&kind=wiki&id=release-nonexistent-private",
+        "status": 404,
+        "cache": "private, no-store"
+      },
+      {
+        "path": "/wiki?view=edit&new=1",
+        "status": 307,
+        "sharedLoginRedirect": true
+      }
+    ],
+    "scope": "focused-public-wiki-smoke",
+    "checkedAt": "2026-10-28T14:19:56.585Z"
+  },
+  "authenticatedSmoke": {
+    "status": "passed",
+    "source": "64f639479f653c9b5f13ee35af93ef70de669856",
+    "artifactHash": "ade8e872f83e9f3399b778ef3b32b4f20316927beee940fd799a7b897bf22b47",
+    "accountID": 1,
+    "sharedSessionVerified": true,
+    "checks": [
+      "Signed-in Wiki homepage and permission-aware empty state",
+      "Existing rich-text editor loads with private default",
+      "No production test article saved",
+      "Returned to Wiki home for user testing"
+    ],
+    "checkedAt": "2026-10-28T14:20:52.080Z"
+  },
+  "queues": "preserved-and-resumed",
+  "lease": {
+    "id": "207793f4-d053-40cf-9f35-fb3ffc57bfca",
+    "target": "vorti-blog",
+    "phase": "observing",
+    "revision": 10
+  },
+  "recovery": [
+    {
+      "mode": "preliminary",
+      "sqlFile": ".wrangler/wiki-release/preliminary-recovery.sql",
+      "sqlHash": "7eb29b70c39cbe09aaa7f66823b2986d889aed4deb9113871527e746f6e3b0b8",
+      "restoredFile": ".wrangler/wiki-release/preliminary-recovery.sqlite",
+      "restoredHash": "e691c36cc26582546cf0f7f6d8fb101415ac3043a5b2a9577cd098071c7bce96",
+      "restoredIntegrity": "ok",
+      "foreignKeyViolations": 0,
+      "retained": true
+    },
+    {
+      "mode": "frozen",
+      "sqlFile": ".wrangler/wiki-release/frozen-recovery.sql",
+      "sqlHash": "2a84ab13211d2973bb22577955541db8ff40ad91b972d9715905abde5b96a483",
+      "restoredFile": ".wrangler/wiki-release/frozen-recovery.sqlite",
+      "restoredHash": "ca7493b9d39e6422b3ee7f6c01f9347635e6aaf24c7df7513d859ea57972a626",
+      "restoredIntegrity": "ok",
+      "foreignKeyViolations": 0,
+      "retained": true
+    }
+  ],
+  "temporaryRuntimes": {
+    "stopped": [
+      "vorti-wiki-d16a4870",
+      "vorti-wiki-fa530b33",
+      "vorti-wiki-f012132e",
+      "vorti-wiki-f012132e-preview",
+      "vorti-wiki-64f63947",
+      "vorti-wiki-64f63947-preview"
+    ],
+    "volumesRetainedForPendingAcceptance": true
+  },
+  "fullPlatformAcceptance": "outstanding",
+  "continuousHealthObservation": "not-performed-for-this-correction",
+  "acceptanceDependentCleanup": "pending",
+  "recordedAt": "2026-10-28T14:22:53.971Z",
+  "resources": [
+    {
+      "binding": "D1",
+      "type": "d1",
+      "id": "f317a17c-ac2d-418b-a687-0f5eca8e42c3",
+      "name": "vorti-blog-bbf925205f7a-app"
+    },
+    {
+      "binding": "OPERATIONS",
+      "type": "d1",
+      "id": "de36bfca-fba9-4877-afc3-52f51a8bdb69",
+      "name": "vorti-blog-bbf925205f7a-ops"
+    },
+    {
+      "binding": "WORKSPACE_FILES",
+      "type": "r2_bucket",
+      "name": "vorti-blog-bbf925205f7a-private"
+    },
+    {
+      "binding": "R2",
+      "type": "r2_bucket",
+      "name": "vorti-blog-bbf925205f7a-public"
+    },
+    {
+      "binding": "CRM_JOB_QUEUE",
+      "type": "queue",
+      "name": "vorti-crm-jobs"
+    }
+  ]
+}
