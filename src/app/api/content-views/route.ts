@@ -1,17 +1,17 @@
 import { getPayload } from 'payload'
 import config from '@/payload.config'
 import { queryView, readSavedView } from '@/content-framework/query'
+import { publishingRequestScope } from '@/publishing/request-scope'
 export async function GET(request: Request) {
   try {
     const params = new URL(request.url).searchParams,
       payload = await getPayload({ config })
-    const draft = params.get('draft') === 'true',
-      user = draft ? (await payload.auth({ headers: request.headers })).user : undefined
-    if (draft && !user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const draft = params.get('draft') === 'true'
+    const scope = await publishingRequestScope(payload, request, draft)
     const id = params.get('view')
     if (!id) return Response.json({ error: 'Choose a Saved View' }, { status: 400 })
-    const view = await readSavedView(payload, id, { user, draft })
-    return Response.json(await queryView(payload, view, params, { user, draft }), {
+    const view = await readSavedView(payload, id, scope)
+    return Response.json(await queryView(payload, view, params, scope), {
       headers: { 'Cache-Control': 'no-store' },
     })
   } catch (error) {
@@ -30,11 +30,9 @@ export async function POST(request: Request) {
       configuration: import('@design-system/payload-design-core').ViewConfig
       params?: Record<string, string>
     }
+    const scope = await publishingRequestScope(payload, request, true)
     return Response.json(
-      await queryView(payload, body.configuration, new URLSearchParams(body.params || {}), {
-        user,
-        draft: true,
-      }),
+      await queryView(payload, body.configuration, new URLSearchParams(body.params || {}), scope),
       { headers: { 'Cache-Control': 'no-store' } },
     )
   } catch (error) {

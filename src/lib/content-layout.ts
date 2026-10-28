@@ -25,7 +25,8 @@ export async function resolveDocumentBlocks(
   document: Record<string, unknown>,
   context: RenderScope = {},
 ): Promise<ContentNode[] | null> {
-  context={...context,site:typeof document.platformSite==='string'?document.platformSite:context.site}
+  context={...context,site:typeof document.platformSite==='string'?document.platformSite:context.site,
+    audience:document.audience === 'intranet' ? 'intranet' : 'public'}
   const req=await rendererRequest(payload,context)
   const categoriesEnabled = await readCategoriesEnabled(payload)
   const reference = document.designTemplate
@@ -129,7 +130,7 @@ export async function resolveDocumentBlocks(
   return resolveBlocks(result, {
     categoriesEnabled,
     document,
-    menu: id => resolveMenu(payload, id, context.site),
+    menu: id => resolveMenu(payload, id, context.site, context),
     view: async id => queryView(payload,await readSavedView(payload,id,context),undefined,context),
     list: (props, page) => queryBlockListing(payload, props, page, context),
   })

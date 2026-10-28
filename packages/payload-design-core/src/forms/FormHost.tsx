@@ -1,5 +1,5 @@
 'use client'
-import { usePublicFetch, usePublicSitePath } from '../PublicSiteContext'
+import { usePublicFetch, usePublicSitePath, usePublicRequestHeaders } from '../PublicSiteContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FormRenderer, type FormRendererProps } from './FormRenderer'
 import type { BookingAdapter, BookingOption, BookingSelection } from './BookingInput'
@@ -14,7 +14,7 @@ export function FormHost({ slug, embedded = false }: { slug: string; embedded?: 
   return <FormInstance key={slug} slug={slug} embedded={embedded} />
 }
 function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
-  const publicFetch = usePublicFetch(), publicPath = usePublicSitePath()
+  const publicFetch = usePublicFetch(), publicPath = usePublicSitePath(), requestHeaders = usePublicRequestHeaders()
   const [form, setForm] = useState<PublicForm>(), [error, setError] = useState(''), [retry, setRetry] = useState(0)
   const [receipt, setReceipt] = useState(''), [receiptURL, setReceiptURL] = useState('')
   const [payment, setPayment] = useState('')
@@ -146,6 +146,7 @@ function FormInstance({ slug, embedded }: { slug: string; embedded: boolean }) {
     if (form.definition.access.autosaveProgress && !revoking.current) { if (autosave.current) clearTimeout(autosave.current); autosave.current = setTimeout(() => { void save(answers).catch(() => {}) }, 2000) }
   }} onUpload={(file, field, progress) => new Promise((resolve, reject) => {
     const request = new XMLHttpRequest(); request.open('POST', publicPath(`/api/forms-runtime/${encodeURIComponent(slug)}/upload`))
+    new Headers(requestHeaders(`/api/forms-runtime/${encodeURIComponent(slug)}/upload`)).forEach((value, name) => request.setRequestHeader(name, value))
     request.setRequestHeader('Content-Type', file.type); request.setRequestHeader('X-Form-Session', form.session); request.setRequestHeader('X-Form-Revision', form.revision); request.setRequestHeader('X-Form-Field', field.id); request.setRequestHeader('X-File-Name', encodeURIComponent(file.name))
     request.upload.onprogress = event => { if (event.lengthComputable) progress(Math.round(event.loaded / event.total * 100)) }
     request.onerror = () => reject(new Error('Upload failed. Please retry.'))

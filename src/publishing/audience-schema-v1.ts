@@ -2,6 +2,7 @@
 export const audienceTablesV1: ReadonlyArray<readonly [string, string, string | null]> = [
   ['posts', 'posts', '_posts_v'],
   ['pages', 'pages', '_pages_v'],
+  ['site-templates', 'site_tpl', '_site_tpl_v'],
   ['media', 'media', null],
   ['categories', 'categories', null],
   ['tags', 'tags', null],

@@ -1,6 +1,6 @@
 'use client';
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { usePublicFetch, usePublicSitePath } from '../PublicSiteContext.js';
+import { usePublicFetch, usePublicSitePath, usePublicRequestHeaders } from '../PublicSiteContext.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FormRenderer } from './FormRenderer.js';
 import { SavedDrafts } from './SavedDrafts.js';
@@ -11,7 +11,7 @@ export function FormHost({ slug, embedded = false }) {
     return _jsx(FormInstance, { slug: slug, embedded: embedded }, slug);
 }
 function FormInstance({ slug, embedded }) {
-    const publicFetch = usePublicFetch(), publicPath = usePublicSitePath();
+    const publicFetch = usePublicFetch(), publicPath = usePublicSitePath(), requestHeaders = usePublicRequestHeaders();
     const [form, setForm] = useState(), [error, setError] = useState(''), [retry, setRetry] = useState(0);
     const [receipt, setReceipt] = useState(''), [receiptURL, setReceiptURL] = useState('');
     const [payment, setPayment] = useState('');
@@ -205,6 +205,7 @@ function FormInstance({ slug, embedded }) {
                 }, onUpload: (file, field, progress) => new Promise((resolve, reject) => {
                     const request = new XMLHttpRequest();
                     request.open('POST', publicPath(`/api/forms-runtime/${encodeURIComponent(slug)}/upload`));
+                    new Headers(requestHeaders(`/api/forms-runtime/${encodeURIComponent(slug)}/upload`)).forEach((value, name) => request.setRequestHeader(name, value));
                     request.setRequestHeader('Content-Type', file.type);
                     request.setRequestHeader('X-Form-Session', form.session);
                     request.setRequestHeader('X-Form-Revision', form.revision);

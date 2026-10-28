@@ -13,6 +13,7 @@ import {
   type SiteShellStyle,
 } from '@design-system/payload-design-core'
 import { MobileMenuProvider, MobileMenuToggle, SiteNavigation } from './Navigation'
+import { SiteShellSearch } from './SiteShellSearch'
 
 type ShellProps = {
   template: SiteTemplate
@@ -42,6 +43,7 @@ function LegacyShellElement({
 }) {
   const props = node.props ?? {}
   const className = `site-shell-element site-shell-element--${node.element} ${nodeClass(node.id)}`
+  if (node.element === 'search') return <div className={className}><SiteShellSearch label={text(props.label) || 'Search'} placeholder={text(props.placeholder) || 'Search content'} /></div>
   if (node.element === 'siteName') {
     const Tag = (
       ['span', 'div', 'p', 'h1', 'h2'].includes(String(props.htmlElement))

@@ -1,8 +1,9 @@
 import { rendererRequest, type RenderScope } from './render-scope'
-import type { Payload, PayloadRequest, Where } from 'payload'
+import { APIError, type Payload, type PayloadRequest, type Where } from 'payload'
 import { mediaURL } from './media'
 import { readCategoriesEnabled } from './system-settings'
 import {documentURL} from '@design-system/payload-design-core/content'
+import { internalPagePath } from '../publishing/paths'
 /** Only publicly accessible document data crosses the block rendering boundary. */
 export async function queryBlockListing(
   payload: Payload,
@@ -16,6 +17,8 @@ export async function queryBlockListing(
   const limit = Math.min(50, Math.max(1, Number(props.limit) || 6))
   const draft = !!context.draft && !!context.user
   const where: Where[] = draft ? [] : [{ _status: { equals: 'published' } }]
+  const term = typeof props.q === 'string' ? props.q.trim().slice(0, 200) : ''
+  if (term) where.push({ or: [{ title: { like: term } }, ...(collection === 'posts' ? [{ excerpt: { like: term } }] : [])] })
   const ids = String(props.ids ?? '')
     .split(',')
     .map((value) => value.trim())
@@ -24,7 +27,10 @@ export async function queryBlockListing(
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean)
+  const excluded = String(props.excludeIDs ?? '').split(',').map(value => value.trim()).filter(Boolean)
+  if (ids.length + categories.length + excluded.length > 60) throw new APIError('Choose at most 60 listing filters.', 400)
   if (ids.length) where.push({ id: { in: ids } })
+  if (excluded.length) where.push({ id: { not_in: excluded } })
   if (categories.length && collection === 'posts') where.push({ categories: { in: categories } })
   const sort = ['-publishedAt', 'publishedAt', 'title', '-updatedAt'].includes(String(props.sort))
     ? String(props.sort)
@@ -47,7 +53,7 @@ export async function queryBlockListing(
       const item = doc as unknown as Record<string, unknown>
       return {
         title: String(item.title ?? ''),
-        url: collection === 'posts' ? documentURL(item) : `/${item.slug}`,
+        url: collection === 'posts' ? documentURL(item) : context.audience === 'intranet' ? internalPagePath(item) : `/${item.slug}`,
         excerpt: String(item.excerpt ?? ''),
         publishedAt: String(item.publishedAt ?? ''),
         image:

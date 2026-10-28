@@ -95,11 +95,11 @@ describe('Wiki and Intranet boundaries', () => {
       f.close()
     }
   })
-  it('rejects hierarchy cycles and foreign parents, keeps internal pages available when the public website is paused, and enforces feature disabling', async () => {
+  it('retains Wiki hierarchy, private access and feature controls after unified Intranet publishing is installed', async () => {
     const f = await fixture()
     try {
-      const root = { ...draft('internal-root'), kind: 'intranet' as const },
-        child = { ...draft('internal-child', 'internal-root'), kind: 'intranet' as const }
+      const root = draft('internal-root'),
+        child = draft('internal-child', 'internal-root')
       await f.admin.save(root)
       await f.admin.save({
         ...root,
@@ -120,7 +120,8 @@ describe('Wiki and Intranet boundaries', () => {
         f.sqlite.prepare("SELECT parent_id FROM vc_knowledge_pages WHERE id='internal-root'").get()
           ?.parent_id,
       ).toBeNull()
-      const wiki = draft('wiki-root')
+      f.sqlite.exec("INSERT INTO vc_sites(id,organization_id,parent_id,name,route_key,created_at,updated_at) VALUES('other','default','default','Other','other','2026-10-27T00:00:00.000Z','2026-10-27T00:00:00.000Z'); INSERT INTO vc_site_ancestry(ancestor_id,descendant_id,distance) VALUES('default','other',1),('other','other',0)")
+      const wiki = { ...draft('wiki-root'), site: 'other' }
       await f.admin.save(wiki)
       await expect(
         f.admin.save({
@@ -134,23 +135,23 @@ describe('Wiki and Intranet boundaries', () => {
       const current = await websites.status('default')
       await websites.update({site:'default',action:'publication',enabled:false,expectedRevision:current.revision,operationKey:crypto.randomUUID()})
       expect(await publicWebsite(f.db,'default')).toBeNull()
-      expect((await f.admin.get('default', 'intranet', 'internal-root')).title).toBe(
+      expect((await f.admin.get('default', 'wiki', 'internal-root')).title).toBe(
         'internal-root',
       )
-      await expect(f.public.list('default', 'intranet')).rejects.toMatchObject({ status: 404 })
+      await expect(f.public.list('default', 'wiki')).rejects.toMatchObject({ status: 404 })
       await expect(
-        new KnowledgeRepository(f.db, 2).get('default', 'intranet', 'internal-root'),
+        new KnowledgeRepository(f.db, 2).get('default', 'wiki', 'internal-root'),
       ).rejects.toMatchObject({ status: 403 })
       f.sqlite.exec(
-        "UPDATE vc_tenant_features SET available=0 WHERE tenant_id='default' AND feature='intranet'",
+        "UPDATE vc_tenant_features SET available=0 WHERE tenant_id='default' AND feature='wiki'",
       )
-      await expect(f.admin.get('default', 'intranet', 'internal-root')).rejects.toMatchObject({
+      await expect(f.admin.get('default', 'wiki', 'internal-root')).rejects.toMatchObject({
         status: 403,
       })
       expect(
-        f.sqlite.prepare("SELECT count(*) AS n FROM vc_knowledge_pages WHERE kind='intranet'").get()
+        f.sqlite.prepare("SELECT count(*) AS n FROM vc_knowledge_pages WHERE kind='wiki'").get()
           ?.n,
-      ).toBe(2)
+      ).toBe(3)
     } finally {
       f.close()
     }

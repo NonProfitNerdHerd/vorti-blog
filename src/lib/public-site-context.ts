@@ -11,6 +11,9 @@ import {
 } from '@/organizations/public-website'
 import { cmsSiteContext } from '@/organizations/cms-scope'
 import { tenantAuthorityActive } from '@/organizations/tenant-runtime'
+import { CMS_AUDIENCE, CMS_PUBLIC_RENDER } from '@/publishing/readership'
+
+const publicContext = (site: string) => ({ ...cmsSiteContext(site), [CMS_AUDIENCE]: 'public', [CMS_PUBLIC_RENDER]: true })
 
 export const publicSiteContext = cache(async () => {
   let requestHeaders: Headers
@@ -26,7 +29,7 @@ export const publicSiteContext = cache(async () => {
     return {
       site: 'default',
       prefix: '',
-      context: cmsSiteContext('default'),
+      context: publicContext('default'),
       user: undefined,
       preview: false,
       website: undefined,
@@ -44,7 +47,7 @@ export const publicSiteContext = cache(async () => {
   return {
     site,
     prefix: site === 'default' ? '' : `/sites/${website.route_key}`,
-    context: cmsSiteContext(site),
+    context: publicContext(site),
     website,
     user,
     preview,

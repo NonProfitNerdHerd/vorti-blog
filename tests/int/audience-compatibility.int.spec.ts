@@ -1,9 +1,14 @@
 import { DatabaseSync } from 'node:sqlite'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AccessResult, CollectionConfig, Config, Field } from 'payload'
 import { audienceCollections, audienceCompatibility } from '@/publishing/audience-compatibility'
 import { cmsCollections } from '@/organizations/cms-collections'
 import { up, down } from '@/migrations/20261027_230000_publishing_audience_compatibility'
+
+vi.mock('@/organizations/cms-scope', () => ({
+  cmsScope: async () => ({ site: 'chapter' }),
+  cmsDatabase: () => ({ prepare: () => ({ bind: () => ({ all: async () => ({ results: [{ id: 7 }] }) }) }) }),
+}))
 
 const config = (read: AccessResult = true) => audienceCompatibility({ collections: [{
   slug: 'posts', fields: [], versions: { drafts: true },
@@ -17,7 +22,7 @@ describe('audience-compatible recovery build', () => {
     expect(await collection.access!.read!(args)).toEqual({ and: [
       { platformSite: { equals: 'chapter' } }, { audience: { equals: 'public' } },
     ] })
-    expect(await collection.access!.readVersions!(args)).toEqual({ 'version.audience': { equals: 'public' } })
+    expect(await collection.access!.readVersions!(args)).toEqual({ and: [{ 'version.audience': { equals: 'public' } }, { 'parent.audience': { equals: 'public' } }] })
     for (const action of ['update', 'delete'] as const)
       expect(await collection.access![action]!(args)).toEqual({ audience: { equals: 'public' } })
     expect(await config(false).access!.read!(args)).toBe(false)
@@ -32,13 +37,14 @@ describe('audience-compatible recovery build', () => {
     const hook = config().hooks!.beforeChange![0]
     for (const args of [
       { data: { audience: 'intranet' } },
-      { data: { audience: 'public' }, originalDoc: { audience: 'intranet' } },
-      { data: {}, originalDoc: { audience: 'intranet' } },
+      { operation: 'update', data: { audience: 'public' }, originalDoc: { audience: 'intranet' } },
+      { operation: 'update', data: {}, originalDoc: { audience: 'intranet' } },
     ]) await expect(hook(args as never)).rejects.toThrow('unified publisher')
     expect(await hook({ data: { title: 'Preserve' } } as never)).toEqual({ title: 'Preserve', audience: 'public' })
+    expect(await hook({ operation: 'create', data: { title: 'New' }, originalDoc: {} } as never)).toEqual({ title: 'New', audience: 'public' })
   })
   it('keeps design definitions shared and protects every audience-owned supporting collection', () => {
-    const collections = [...audienceCollections, 'site-templates', 'design-templates'].map(slug => ({ slug, fields: [] as Field[] })) as CollectionConfig[]
+    const collections = [...audienceCollections, 'design-templates'].map(slug => ({ slug, fields: [] as Field[] })) as CollectionConfig[]
     const result = audienceCompatibility({ collections } as Config).collections!
     for (const collection of result) expect(collection.fields.some(field => 'name' in field && field.name === 'audience')).toBe(audienceCollections.has(collection.slug))
   })

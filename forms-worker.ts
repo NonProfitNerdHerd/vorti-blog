@@ -20,6 +20,13 @@ import {
 // @ts-ignore OpenNext generates these exports after Next's type check.
 export { DOQueueHandler, DOShardedTagCache, BucketCachePurge } from './.open-next/worker.js'
 
+function privateResponse(response: Response, internal = false) {
+  const headers = new Headers(response.headers)
+  headers.set('Cache-Control', 'private, no-store')
+  if (internal) headers.set('X-Robots-Tag', 'noindex, nofollow')
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+}
+
 export default {
   async queue(batch, env) {
     if (await maintenanceRequired(env)) {
@@ -50,8 +57,19 @@ export default {
     if (!key) {
       const internal = /^\/(admin|wiki|intranet|_next)(\/|$)/.test(url.pathname)
       const publicAPI = /^\/api\/(forms-runtime|forms-embed|forms-surveys|forms-payments|forms-placement|media\/file|menu-render|block-listing|content-views|public\/authors)(\/|$)/.test(url.pathname)
-      if (internal || (url.pathname.startsWith('/api/') && !publicAPI) || !await tenantAuthorityActive(env.D1, 'default'))
-        return handler.fetch(cleanRequest, env, ctx)
+      const internalForm = request.headers.get('x-vorti-form-host') === 'intranet' && /^\/api\/(forms-runtime|forms-embed|forms-surveys|forms-payments|forms-placement)(\/|$)/.test(url.pathname)
+      const internalAPI = internalForm || (request.headers.get('x-vorticause-audience') === 'intranet' && /^\/api\/(menu-render|block-listing|content-views)(\/|$)/.test(url.pathname))
+      if (internal || (url.pathname.startsWith('/api/') && (!publicAPI || internalAPI)) || !await tenantAuthorityActive(env.D1, 'default')) {
+        if (internalForm) headers.set(PUBLIC_SITE_HEADER, 'default')
+        const intranet = /^\/intranet(?:\/|$)/.test(url.pathname)
+        if (intranet) {
+          const site = url.searchParams.get('site') || 'default'
+          if (!/^[a-zA-Z0-9_-]{1,80}$/.test(site)) return new Response('Not found', { status: 404 })
+          headers.set(PUBLIC_SITE_HEADER, site)
+        }
+        const response = await handler.fetch(new Request(cleanRequest, { headers }), env, ctx)
+        return intranet || url.pathname.startsWith('/api/') ? privateResponse(response, intranet || internalAPI) : response
+      }
       const preview = url.searchParams.get('preview') === '1'
       const before = await publicWebsite(env.D1, 'default', preview)
       const unavailable = () => new Response('Not found', {status:404,headers:{'Cache-Control':'no-store'}})
@@ -80,7 +98,9 @@ export default {
       .first<{ id: string }>()
     const preview = url.searchParams.get('preview') === '1'
     const path = url.pathname.replace(/^\/sites\/[a-zA-Z0-9_-]{1,80}/, '') || '/'
-    const internalContent = /^\/(wiki|intranet)(\/|$)/.test(path)
+    const internalContent = /^\/(wiki|intranet|api\/publishing|api\/knowledge)(\/|$)/.test(path) ||
+      (request.headers.get('x-vorti-form-host') === 'intranet' && /^\/api\/(forms-runtime|forms-embed|forms-surveys|forms-payments|forms-placement)(\/|$)/.test(path)) ||
+      (request.headers.get('x-vorticause-audience') === 'intranet' && /^\/api\/(menu-render|block-listing|content-views)(\/|$)/.test(path))
     const internalSite = async () =>
       site &&
       env.D1.prepare(
@@ -108,7 +128,7 @@ export default {
     if (
       path.startsWith('/admin') ||
       (path.startsWith('/api/') &&
-        !/^\/api\/(forms-runtime|forms-embed|forms-surveys|forms-payments|forms-placement|media\/file|menu-render|block-listing|content-views|public\/authors)(\/|$)/.test(
+        !/^\/api\/(forms-runtime|forms-embed|forms-surveys|forms-payments|forms-placement|media\/file|publishing\/(media|files)|knowledge|menu-render|block-listing|content-views|public\/authors)(\/|$)/.test(
           path,
         ))
     )

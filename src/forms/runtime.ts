@@ -1,4 +1,5 @@
 import { PUBLIC_PREFIX_HEADER, publicWebsite } from '../organizations/public-website'
+import { internalFormAuthority } from './internal-host'
 import { featureAvailableAt, tenantAuthorityActive } from '../organizations/tenant-runtime'
 import { formHostFeature, formSessionScope } from './host-feature'
 import { runGraph, graphScope, graphAnswers, type GraphEvent } from '@design-system/payload-design-core/forms'
@@ -49,7 +50,8 @@ async function published(req: PayloadRequest, platform: FormPlatform, revisionID
   if (!await featureAvailableAt(platform.db, site, 'forms')) throw new FormHTTPError('Form unavailable.',404)
   const host = formHostFeature(req.headers)
   if (host && !await featureAvailableAt(platform.db, site, host)) throw new FormHTTPError('Form unavailable.',404)
-  if ((site !== FORM_SITE || await tenantAuthorityActive(platform.db,site)) && !await publicWebsite(platform.db,site)) throw new FormHTTPError('Form unavailable.',404)
+  const internal = await internalFormAuthority(req, platform)
+  if (!internal && (site !== FORM_SITE || await tenantAuthorityActive(platform.db,site)) && !await publicWebsite(platform.db,site)) throw new FormHTTPError('Form unavailable.',404)
   const slug = String(req.routeParams?.slug || '')
   // Deliberate public read: query is server-built, published-only and site-scoped; private data never leaves projection.
   const forms = await req.payload.find({ collection: 'forms', overrideAccess: true, draft: false, depth: 0, limit: 1,
@@ -302,6 +304,7 @@ export function formRuntimeEndpoints(platform: FormPlatform): Endpoint[] {
       }
       const accepted = await acceptSubmission(platform.db, {
         hostFeature: formHostFeature(req.headers),
+        internalActor: formHostFeature(req.headers) === 'intranet' ? Number(req.user?.id) : undefined,
         formID: form.id, site, revision, key, sessionHash: auth.hash, answers: evaluation.answers,
         snapshot: { title: snapshot.title || form.title, fields: definition.fields, confirmation: evaluation.confirmation, redirect: definition.redirect },
         actions: definition.actions.filter(action => evaluation.actions.includes(action.id)),

@@ -1,11 +1,32 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { PublicSiteProvider, SiteAnchor, sitePath } from './PublicSiteContext'
+import { PublicSiteProvider, SiteAnchor, sitePath, publicRequestHeaders } from './PublicSiteContext'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import { savedViewConverters } from './views/RichView'
 
 describe('child website destinations', () => {
+  it('carries the internal placement context across form uploads, payments and surveys, including already-prefixed URLs', () => {
+    for (const endpoint of ['runtime/apply/upload', 'placement/1', 'payments/submission', 'surveys/apply', 'embed/apply']) {
+      const headers = new Headers(publicRequestHeaders(`/sites/region/api/forms-${endpoint}`, 'intranet', '/sites/region/intranet/pages/handbook', { 'X-Form-Session': 'fixture' }))
+      expect(headers.get('x-vorti-form-host')).toBe('intranet')
+      expect(headers.get('x-vorticause-audience')).toBe('intranet')
+      expect(headers.get('X-Form-Session')).toBe('fixture')
+    }
+    const original = { 'X-Form-Payment': 'fixture' }
+    expect(publicRequestHeaders('/api/forms-payments/submission', 'public', '/forms/join', original)).toBe(original)
+    expect(new Headers(publicRequestHeaders('/api/forms-runtime/join/upload', 'public', '/posts/example')).get('x-vorti-form-host')).toBe('posts')
+  })
+  it('maps internal documents and navigation while retaining API and standalone feature routes', () => {
+    for (const [source, destination] of [
+      ['/', '/intranet'], ['/posts/news', '/intranet/posts/news'], ['/resources', '/intranet/resources'],
+      ['/handbook/policies', '/intranet/pages/handbook/policies'], ['/pages/handbook', '/intranet/pages/handbook'],
+      ['/api/content-views?view=1', '/api/content-views?view=1'], ['/forms/join', '/forms/join'], ['/wiki', '/wiki'],
+    ]) {
+      expect(sitePath('', source, 'intranet')).toBe(destination)
+      expect(sitePath('/sites/region', source, 'intranet')).toBe('/sites/region' + destination)
+    }
+  })
   it('keeps main-site links unchanged and scopes child pages, API calls, and media', () => {
     expect(sitePath('', '/posts/example')).toBe('/posts/example')
     for (const path of [

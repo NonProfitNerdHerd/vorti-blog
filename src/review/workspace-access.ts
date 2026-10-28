@@ -5,6 +5,7 @@ import { workspaceGrantWhere } from '../organizations/workspace-scope'
 import { authorityClaim } from '../organizations/claims'
 import { claimRequest } from '../organizations/identity-authority'
 import { crmTaskWhere } from '../crm/task-where'
+import { publishingReviewWhere } from '../publishing/review-readership'
 
 /** Only server code can authorize changes to the shared task audience. */
 export const workspaceWrite = Symbol('workspace-write')
@@ -77,11 +78,7 @@ export function taskWhere(
       { [`${prefix}boards.platformSite`]: { in: claim.featureSites.tasks || [] } },
       { and: [{ [`${prefix}boards`]: { exists: false } }, { [`${prefix}documentSite`]: { in: claim.featureSites.tasks || [] } }] },
     ] } as Where] : []),
-    ...(claim.featureSites ? (['pages', 'posts'] as const).map(type => ({ or: [
-      { [`${prefix}documentType`]: { not_equals: type } },
-      { [`${prefix}documentType`]: { exists: false } },
-      { [`${prefix}documentSite`]: { in: claim.featureSites![type] || [] } },
-    ] } as Where)) : []),
+    publishingReviewWhere(req, prefix),
     { or: [
       { [`${prefix}documentType`]: { exists: false } },
       { [`${prefix}documentType`]: { equals: 'none' } },

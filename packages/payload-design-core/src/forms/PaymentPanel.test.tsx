@@ -22,7 +22,7 @@ describe('payment experience', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Simulate success' }))
     await screen.findByText('Payment status: paid (simulated)')
     expect(JSON.parse(fetcher.mock.calls[1][1].body).eventID).toBe(JSON.parse(fetcher.mock.calls[2][1].body).eventID)
-    expect(fetcher.mock.calls[0][1].headers['X-Form-Payment']).toBe('submission.expiry.signature')
+    expect(new Headers(fetcher.mock.calls[0][1].headers).get('X-Form-Payment')).toBe('submission.expiry.signature')
     expect(fetcher.mock.calls[0][0]).toBe('/api/forms-payments/submission')
     fireEvent.click(screen.getByRole('button', { name: 'Simulate refund' }))
     await screen.findByText('Payment status: refunded')

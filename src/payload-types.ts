@@ -67,6 +67,20 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    'publishing-posts-readers': PublishingPostsReader;
+    'publishing-pages-readers': PublishingPagesReader;
+    'publishing-site-templates-readers': PublishingSiteTemplatesReader;
+    'publishing-media-readers': PublishingMediaReader;
+    'publishing-categories-readers': PublishingCategoriesReader;
+    'publishing-tags-readers': PublishingTagsReader;
+    'publishing-saved-views-readers': PublishingSavedViewsReader;
+    'publishing-menus-readers': PublishingMenusReader;
+    'publishing-search-readers': PublishingSearchReader;
+    'publishing-event-series-readers': PublishingEventSeriesReader;
+    'publishing-redirects-readers': PublishingRedirectsReader;
+    'publishing-imports-readers': PublishingImportsReader;
+    'publishing-exports-readers': PublishingExportsReader;
+    'publishing-review-tasks-readers': PublishingReviewTasksReader;
     posts: Post;
     pages: Page;
     categories: Category;
@@ -142,13 +156,35 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    posts: {
+      publishingReadability: 'publishing-posts-readers';
+    };
+    pages: {
+      publishingReadability: 'publishing-pages-readers';
+    };
+    categories: {
+      publishingReadability: 'publishing-categories-readers';
+    };
+    tags: {
+      publishingReadability: 'publishing-tags-readers';
+    };
+    media: {
+      publishingReadability: 'publishing-media-readers';
+    };
+    'site-templates': {
+      publishingReadability: 'publishing-site-templates-readers';
+    };
     users: {
       siteDirectory: 'platform-user-sites';
       tenantDirectory: 'platform-tenant-user-sites';
     };
+    menus: {
+      publishingReadability: 'publishing-menus-readers';
+    };
     'review-tasks': {
       crmContext: 'crm-task-contexts';
       crmConstituents: 'crm-task-constituents';
+      publishingDocumentReadability: 'publishing-review-tasks-readers';
     };
     'task-boards': {
       memberships: 'task-board-memberships';
@@ -165,11 +201,43 @@ export interface Config {
       projectPreferences: 'task-project-preferences';
       projectSiteAccessGrants: 'platform-workspace-access';
     };
+    'saved-views': {
+      publishingReadability: 'publishing-saved-views-readers';
+    };
+    'event-series': {
+      publishingReadability: 'publishing-event-series-readers';
+    };
     'design-block-types': {
       designs: 'design-block-designs';
     };
+    search: {
+      publishingReadability: 'publishing-search-readers';
+    };
+    redirects: {
+      publishingReadability: 'publishing-redirects-readers';
+    };
+    exports: {
+      publishingReadability: 'publishing-exports-readers';
+    };
+    imports: {
+      publishingReadability: 'publishing-imports-readers';
+    };
   };
   collectionsSelect: {
+    'publishing-posts-readers': PublishingPostsReadersSelect<false> | PublishingPostsReadersSelect<true>;
+    'publishing-pages-readers': PublishingPagesReadersSelect<false> | PublishingPagesReadersSelect<true>;
+    'publishing-site-templates-readers': PublishingSiteTemplatesReadersSelect<false> | PublishingSiteTemplatesReadersSelect<true>;
+    'publishing-media-readers': PublishingMediaReadersSelect<false> | PublishingMediaReadersSelect<true>;
+    'publishing-categories-readers': PublishingCategoriesReadersSelect<false> | PublishingCategoriesReadersSelect<true>;
+    'publishing-tags-readers': PublishingTagsReadersSelect<false> | PublishingTagsReadersSelect<true>;
+    'publishing-saved-views-readers': PublishingSavedViewsReadersSelect<false> | PublishingSavedViewsReadersSelect<true>;
+    'publishing-menus-readers': PublishingMenusReadersSelect<false> | PublishingMenusReadersSelect<true>;
+    'publishing-search-readers': PublishingSearchReadersSelect<false> | PublishingSearchReadersSelect<true>;
+    'publishing-event-series-readers': PublishingEventSeriesReadersSelect<false> | PublishingEventSeriesReadersSelect<true>;
+    'publishing-redirects-readers': PublishingRedirectsReadersSelect<false> | PublishingRedirectsReadersSelect<true>;
+    'publishing-imports-readers': PublishingImportsReadersSelect<false> | PublishingImportsReadersSelect<true>;
+    'publishing-exports-readers': PublishingExportsReadersSelect<false> | PublishingExportsReadersSelect<true>;
+    'publishing-review-tasks-readers': PublishingReviewTasksReadersSelect<false> | PublishingReviewTasksReadersSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
@@ -307,6 +375,21 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-posts-readers".
+ */
+export interface PublishingPostsReader {
+  id: string;
+  record: number | Post;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+  draftFree?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts".
  */
 export interface Post {
@@ -407,6 +490,36 @@ export interface Post {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingPostsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   automationOrigin?: string | null;
   updatedAt: string;
@@ -551,6 +664,42 @@ export interface Media {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingMediaReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  prefix?: string | null;
+  publishingSourceCollection?: string | null;
+  publishingSourceID?: number | null;
+  publishingSourceIdentity?: string | null;
+  publishingRequiresPublication?: boolean | null;
+  publishingOriginalFilename?: string | null;
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
@@ -562,6 +711,20 @@ export interface Media {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-media-readers".
+ */
+export interface PublishingMediaReader {
+  id: string;
+  record: number | Media;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -580,9 +743,53 @@ export interface Category {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingCategoriesReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-categories-readers".
+ */
+export interface PublishingCategoriesReader {
+  id: string;
+  record: number | Category;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -600,9 +807,53 @@ export interface Tag {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingTagsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-tags-readers".
+ */
+export interface PublishingTagsReader {
+  id: string;
+  record: number | Tag;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -746,6 +997,21 @@ export interface PlatformTenantUserSite {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-pages-readers".
+ */
+export interface PublishingPagesReader {
+  id: string;
+  record: number | Page;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+  draftFree?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "pages".
  */
 export interface Page {
@@ -829,11 +1095,57 @@ export interface Page {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingArchived?: boolean | null;
+  publishingReadability?: {
+    docs?: (string | PublishingPagesReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   automationOrigin?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-site-templates-readers".
+ */
+export interface PublishingSiteTemplatesReader {
+  id: string;
+  record: number | SiteTemplate;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+  draftFree?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -967,11 +1279,127 @@ export interface SiteTemplate {
   platformSite?: string | null;
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingTemplateRole?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingSiteTemplatesReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-saved-views-readers".
+ */
+export interface PublishingSavedViewsReader {
+  id: string;
+  record: number | SavedView;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+  draftFree?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "saved-views".
+ */
+export interface SavedView {
+  id: number;
+  name: string;
+  configuration:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingSavedViewsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-menus-readers".
+ */
+export interface PublishingMenusReader {
+  id: string;
+  record: number | Menu;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -996,10 +1424,443 @@ export interface Menu {
   platformWriteActor?: number | null;
   platformWriteEpoch?: number | null;
   audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingMenusReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   editorSite?: string | null;
   websiteCopyKey?: string | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-search-readers".
+ */
+export interface PublishingSearchReader {
+  id: string;
+  record: number | Search;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+  sourceCollection?: string | null;
+}
+/**
+ * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "search".
+ */
+export interface Search {
+  id: number;
+  title?: string | null;
+  priority?: number | null;
+  doc:
+    | {
+        relationTo: 'posts';
+        value: number | Post;
+      }
+    | {
+        relationTo: 'pages';
+        value: number | Page;
+      };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingSearchReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-event-series-readers".
+ */
+export interface PublishingEventSeriesReader {
+  id: string;
+  record: number | EventSery;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-series".
+ */
+export interface EventSery {
+  id: number;
+  post: number | Post;
+  start: string;
+  end: string;
+  recurring?: boolean | null;
+  schedule:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingEventSeriesReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-redirects-readers".
+ */
+export interface PublishingRedirectsReader {
+  id: string;
+  record: number | Redirect;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects".
+ */
+export interface Redirect {
+  id: number;
+  from: string;
+  to?: {
+    type?: ('reference' | 'custom') | null;
+    reference?:
+      | ({
+          relationTo: 'posts';
+          value: number | Post;
+        } | null)
+      | ({
+          relationTo: 'pages';
+          value: number | Page;
+        } | null);
+    url?: string | null;
+  };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingRedirectsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-imports-readers".
+ */
+export interface PublishingImportsReader {
+  id: string;
+  record: number | Import;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "imports".
+ */
+export interface Import {
+  id: number;
+  collectionSlug: string;
+  importMode?: ('create' | 'update' | 'upsert') | null;
+  matchField?: string | null;
+  status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
+  summary?: {
+    imported?: number | null;
+    updated?: number | null;
+    total?: number | null;
+    issues?: number | null;
+    issueDetails?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingImportsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  prefix?: string | null;
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-exports-readers".
+ */
+export interface PublishingExportsReader {
+  id: string;
+  record: number | Export;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "exports".
+ */
+export interface Export {
+  id: number;
+  name?: string | null;
+  format: 'csv' | 'json';
+  limit?: number | null;
+  page?: number | null;
+  sort?: string | null;
+  sortOrder?: ('asc' | 'desc') | null;
+  drafts?: ('yes' | 'no') | null;
+  selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
+  fields?: string[] | null;
+  collectionSlug: string;
+  where?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  platformSite?: string | null;
+  platformWriteActor?: number | null;
+  platformWriteEpoch?: number | null;
+  audience?: ('public' | 'intranet') | null;
+  publishingReadership?: ('site' | 'restricted') | null;
+  publishingPeople?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingGroups?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publishingOwner?: number | null;
+  publishingOperationKey?: string | null;
+  publishingLineage?: string | null;
+  publishingSitePrefix?: string | null;
+  publishingPublishedAt?: string | null;
+  publishingIdentity?: string | null;
+  publishingReadability?: {
+    docs?: (string | PublishingExportsReader)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  prefix?: string | null;
+  editorSite?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-review-tasks-readers".
+ */
+export interface PublishingReviewTasksReader {
+  id: string;
+  record: number | ReviewTask;
+  actor?: number | null;
+  site?: string | null;
+  audience?: string | null;
+  validStructure?: boolean | null;
+  publishedTree?: boolean | null;
+  ordinaryAccess?: boolean | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1066,6 +1927,11 @@ export interface ReviewTask {
   };
   crmConstituents?: {
     docs?: (string | CrmTaskConstituent)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  publishingDocumentReadability?: {
+    docs?: (string | PublishingReviewTasksReader)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -2113,113 +2979,6 @@ export interface TaskNotificationEvent {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "saved-views".
- */
-export interface SavedView {
-  id: number;
-  name: string;
-  configuration:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-series".
- */
-export interface EventSery {
-  id: number;
-  post: number | Post;
-  start: string;
-  end: string;
-  recurring?: boolean | null;
-  schedule:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This is a collection of automatically created search results. These results are used by the global site search and will be updated automatically as documents in the CMS are created or updated.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search".
- */
-export interface Search {
-  id: number;
-  title?: string | null;
-  priority?: number | null;
-  doc:
-    | {
-        relationTo: 'posts';
-        value: number | Post;
-      }
-    | {
-        relationTo: 'pages';
-        value: number | Page;
-      };
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "redirects".
- */
-export interface Redirect {
-  id: number;
-  from: string;
-  to?: {
-    type?: ('reference' | 'custom') | null;
-    reference?:
-      | ({
-          relationTo: 'posts';
-          value: number | Post;
-        } | null)
-      | ({
-          relationTo: 'pages';
-          value: number | Page;
-        } | null);
-    url?: string | null;
-  };
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-contacts".
  */
 export interface FormContact {
@@ -2942,90 +3701,6 @@ export interface FormExport {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "exports".
- */
-export interface Export {
-  id: number;
-  name?: string | null;
-  format: 'csv' | 'json';
-  limit?: number | null;
-  page?: number | null;
-  sort?: string | null;
-  sortOrder?: ('asc' | 'desc') | null;
-  drafts?: ('yes' | 'no') | null;
-  selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
-  fields?: string[] | null;
-  collectionSlug: string;
-  where?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "imports".
- */
-export interface Import {
-  id: number;
-  collectionSlug: string;
-  importMode?: ('create' | 'update' | 'upsert') | null;
-  matchField?: string | null;
-  status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
-  summary?: {
-    imported?: number | null;
-    updated?: number | null;
-    total?: number | null;
-    issues?: number | null;
-    issueDetails?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-  };
-  platformSite?: string | null;
-  platformWriteActor?: number | null;
-  platformWriteEpoch?: number | null;
-  audience?: ('public' | 'intranet') | null;
-  editorSite?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -3140,6 +3815,62 @@ export interface PayloadJob {
 export interface PayloadLockedDocument {
   id: number;
   document?:
+    | ({
+        relationTo: 'publishing-posts-readers';
+        value: string | PublishingPostsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-pages-readers';
+        value: string | PublishingPagesReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-site-templates-readers';
+        value: string | PublishingSiteTemplatesReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-media-readers';
+        value: string | PublishingMediaReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-categories-readers';
+        value: string | PublishingCategoriesReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-tags-readers';
+        value: string | PublishingTagsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-saved-views-readers';
+        value: string | PublishingSavedViewsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-menus-readers';
+        value: string | PublishingMenusReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-search-readers';
+        value: string | PublishingSearchReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-event-series-readers';
+        value: string | PublishingEventSeriesReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-redirects-readers';
+        value: string | PublishingRedirectsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-imports-readers';
+        value: string | PublishingImportsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-exports-readers';
+        value: string | PublishingExportsReader;
+      } | null)
+    | ({
+        relationTo: 'publishing-review-tasks-readers';
+        value: string | PublishingReviewTasksReader;
+      } | null)
     | ({
         relationTo: 'posts';
         value: number | Post;
@@ -3440,6 +4171,207 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-posts-readers_select".
+ */
+export interface PublishingPostsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+  draftFree?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-pages-readers_select".
+ */
+export interface PublishingPagesReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+  draftFree?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-site-templates-readers_select".
+ */
+export interface PublishingSiteTemplatesReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+  draftFree?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-media-readers_select".
+ */
+export interface PublishingMediaReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-categories-readers_select".
+ */
+export interface PublishingCategoriesReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-tags-readers_select".
+ */
+export interface PublishingTagsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-saved-views-readers_select".
+ */
+export interface PublishingSavedViewsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+  draftFree?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-menus-readers_select".
+ */
+export interface PublishingMenusReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-search-readers_select".
+ */
+export interface PublishingSearchReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+  sourceCollection?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-event-series-readers_select".
+ */
+export interface PublishingEventSeriesReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-redirects-readers_select".
+ */
+export interface PublishingRedirectsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-imports-readers_select".
+ */
+export interface PublishingImportsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-exports-readers_select".
+ */
+export interface PublishingExportsReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "publishing-review-tasks-readers_select".
+ */
+export interface PublishingReviewTasksReadersSelect<T extends boolean = true> {
+  id?: T;
+  record?: T;
+  actor?: T;
+  site?: T;
+  audience?: T;
+  validStructure?: T;
+  publishedTree?: T;
+  ordinaryAccess?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
@@ -3473,6 +4405,16 @@ export interface PostsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   automationOrigin?: T;
   updatedAt?: T;
@@ -3513,6 +4455,17 @@ export interface PagesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingArchived?: T;
+  publishingReadability?: T;
   editorSite?: T;
   automationOrigin?: T;
   updatedAt?: T;
@@ -3532,6 +4485,16 @@ export interface CategoriesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3548,6 +4511,16 @@ export interface TagsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -3562,6 +4535,22 @@ export interface MediaSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
+  prefix?: T;
+  publishingSourceCollection?: T;
+  publishingSourceID?: T;
+  publishingSourceIdentity?: T;
+  publishingRequiresPublication?: T;
+  publishingOriginalFilename?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
@@ -3609,6 +4598,18 @@ export interface SiteTemplatesSelect<T extends boolean = true> {
   platformSite?: T;
   platformWriteActor?: T;
   platformWriteEpoch?: T;
+  audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingTemplateRole?: T;
+  publishingReadability?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
@@ -3677,6 +4678,16 @@ export interface MenusSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   websiteCopyKey?: T;
   updatedAt?: T;
@@ -3725,6 +4736,7 @@ export interface ReviewTasksSelect<T extends boolean = true> {
   crmAuthorityRevision?: T;
   crmContext?: T;
   crmConstituents?: T;
+  publishingDocumentReadability?: T;
   creationTenant?: T;
   documentSite?: T;
   platformMutationProof?: T;
@@ -4262,6 +5274,16 @@ export interface SavedViewsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4281,6 +5303,16 @@ export interface EventSeriesSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4419,6 +5451,16 @@ export interface SearchSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4440,6 +5482,16 @@ export interface RedirectsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4886,6 +5938,17 @@ export interface ExportsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
+  prefix?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4921,6 +5984,17 @@ export interface ImportsSelect<T extends boolean = true> {
   platformWriteActor?: T;
   platformWriteEpoch?: T;
   audience?: T;
+  publishingReadership?: T;
+  publishingPeople?: T;
+  publishingGroups?: T;
+  publishingOwner?: T;
+  publishingOperationKey?: T;
+  publishingLineage?: T;
+  publishingSitePrefix?: T;
+  publishingPublishedAt?: T;
+  publishingIdentity?: T;
+  publishingReadability?: T;
+  prefix?: T;
   editorSite?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -5322,6 +6396,20 @@ export interface TaskCreateCollectionExport {
     name: string;
     batchSize?: number | null;
     collectionSlug:
+      | 'publishing-posts-readers'
+      | 'publishing-pages-readers'
+      | 'publishing-site-templates-readers'
+      | 'publishing-media-readers'
+      | 'publishing-categories-readers'
+      | 'publishing-tags-readers'
+      | 'publishing-saved-views-readers'
+      | 'publishing-menus-readers'
+      | 'publishing-search-readers'
+      | 'publishing-event-series-readers'
+      | 'publishing-redirects-readers'
+      | 'publishing-imports-readers'
+      | 'publishing-exports-readers'
+      | 'publishing-review-tasks-readers'
       | 'posts'
       | 'pages'
       | 'categories'

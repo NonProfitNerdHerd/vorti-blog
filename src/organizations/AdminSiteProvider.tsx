@@ -121,6 +121,14 @@ export function AdminSiteProvider({ children }: { children: ReactNode }) {
         init?.headers || (input instanceof Request ? input.headers : undefined),
       )
       if (!headers.has('x-vorticause-site')) headers.set('x-vorticause-site', selected)
+      if (!headers.has('x-vorticause-audience')) headers.set('x-vorticause-audience',
+        new URL(window.location.href).searchParams.get('audience') === 'intranet' ? 'intranet' : 'public')
+      const parent = /\/collections\/(posts|pages)\/(\d+)$/.exec(window.location.pathname)
+      if (parent && !headers.has('x-vorticause-publishing-parent'))
+        headers.set('x-vorticause-publishing-parent', JSON.stringify({ collection: parent[1], id: Number(parent[2]) }))
+      const unsaved = /\/collections\/(posts|pages)\/create$/.exec(window.location.pathname)
+      if (unsaved && new URL(window.location.href).searchParams.get('audience') === 'intranet' && !headers.has('x-vorticause-publishing-parent'))
+        headers.set('x-vorticause-publishing-parent', JSON.stringify({ collection: unsaved[1], id: null }))
       return original(input, { ...init, headers })
     }
     window.fetch = scoped

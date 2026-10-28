@@ -20,7 +20,9 @@ export function DocumentPreviewActions() {
   const modified = useFormModified()
   const processing = useFormProcessing()
   const [published, setPublished] = useState<{ key: string; url: string } | null>(null)
-  const prefix = collectionSlug === 'posts' ? '/posts/' : '/'
+  const internal = data?.audience === 'intranet'
+  const sitePrefix = typeof data?.publishingSitePrefix === 'string' ? data.publishingSitePrefix : ''
+  const prefix = sitePrefix + (internal ? collectionSlug === 'posts' ? '/intranet/posts/' : '/intranet/pages/' : collectionSlug === 'posts' ? '/posts/' : '/')
   const publishedKey = `${collectionSlug}/${id}/${lastUpdateTime}`
   const publishedURL = hasPublishedDoc && published?.key === publishedKey ? published.url : null
 
@@ -29,14 +31,14 @@ export function DocumentPreviewActions() {
     const controller = new AbortController()
     // Read the published slug: a saved draft may already have a different slug.
     fetch(
-      `${api}/${collectionSlug}/${encodeURIComponent(String(id))}?draft=false&depth=1&select[slug]=true&select[_status]=true`,
+      `${api}/${collectionSlug}/${encodeURIComponent(String(id))}?draft=false&depth=1&select[slug]=true&select[_status]=true${collectionSlug === 'pages' ? '&select[breadcrumbs]=true' : ''}`,
       {
         credentials: 'same-origin',
         signal: controller.signal,
       },
     )
       .then((response) =>
-        response.ok ? (response.json() as Promise<{ _status?: string; slug?: string }>) : null,
+        response.ok ? (response.json() as Promise<{ _status?: string; slug?: string; audience?: string; publishingSitePrefix?: string; breadcrumbs?: Array<{ url?: string }> }>) : null,
       )
       .then((doc) => {
         if (
@@ -45,12 +47,15 @@ export function DocumentPreviewActions() {
           typeof doc.slug === 'string' &&
           doc.slug
         ) {
-          setPublished({ key: publishedKey, url: collectionSlug === 'posts' ? documentURL(doc) : `/${encodeURIComponent(doc.slug)}` })
+          const internal = doc.audience === 'intranet'
+          const path = collectionSlug === 'posts' ? (internal ? '/intranet' : '') + documentURL(doc)
+            : internal ? '/intranet/pages' + (doc.breadcrumbs?.at(-1)?.url || `/${encodeURIComponent(doc.slug)}`) : `/${encodeURIComponent(doc.slug)}`
+          setPublished({ key: publishedKey, url: (doc.publishingSitePrefix || sitePrefix) + path })
         }
       })
       .catch(() => {})
     return () => controller.abort()
-  }, [api, collectionSlug, hasPublishedDoc, id, prefix, publishedKey])
+  }, [api, collectionSlug, hasPublishedDoc, id, prefix, publishedKey, sitePrefix])
 
   const previewURL = `${prefix}${encodeURIComponent(data?.slug || '__preview__')}?livePreview=${encodeURIComponent(String(id))}`
   const needsSave = !id || modified

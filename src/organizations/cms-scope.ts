@@ -4,6 +4,8 @@ import { OrganizationRepository } from './repository'
 import type { SiteOperation } from './policy'
 import { PLATFORM_MIGRATION } from './account-guards'
 import { tenantAuthorityActive } from './tenant-runtime'
+import { CMS_AUDIENCE, CMS_EXPORT_WRITE, CMS_PUBLIC_RENDER } from '../publishing/readership'
+import { TenantRepository } from './tenant-repository'
 
 // Payload's cached config and Next's API/RSC bundles can load separate module instances.
 // Registry symbols bridge those server instances; JSON cannot construct symbol keys.
@@ -59,6 +61,9 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
   } catch {
     /* Native Local API calls may have no Next request. */
   }
+  const internal = !context[CMS_PUBLIC_RENDER] &&
+    (context[CMS_AUDIENCE] ?? req.headers?.get('x-vorticause-audience') ?? routeHeaders?.get('x-vorticause-audience')) === 'intranet'
+  context[CMS_AUDIENCE] = internal ? 'intranet' : 'public'
   const publicSite =
     req.headers?.get(PUBLIC_SITE_HEADER) ||
     (!context[CMS_SITE] ? routeHeaders?.get(PUBLIC_SITE_HEADER) : null)
@@ -80,7 +85,7 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
     req.user = authenticated
     actor = Number(authenticated.id)
   }
-  if (publicSite && !(await publicWebsite(db, publicSite, preview && actor !== null)))
+  if (!internal && publicSite && !(await publicWebsite(db, publicSite, preview && actor !== null)))
     throw new APIError('Site unavailable.', 404)
   const explicit = publicFile
     ? publicSite || 'default'
@@ -90,7 +95,7 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
     states = new Map()
     context[requestState] = states
   }
-  const key = `${actor ?? 'public'}:${explicit ? siteID(explicit) : 'stored'}`
+  const key = `${actor ?? 'public'}:${explicit ? siteID(explicit) : 'stored'}:${internal ? 'intranet' : 'public'}`
   let pending = states.get(key)
   if (!pending) {
     pending = (async (): Promise<State> => {
@@ -127,10 +132,28 @@ export async function cmsScope(req: PayloadRequest, operation: SiteOperation): P
   let scope = state.scopes.get(operation)
   if (!scope) {
     const selected = state.site
+    if (internal && !actor) throw new APIError('Content unavailable.', 404)
     if (!actor && (selected !== 'default' || await tenantAuthorityActive(db, selected)) && !(await publicWebsite(db, selected)))
       throw new APIError('Site unavailable.', 404)
     scope = (async (): Promise<CMSScope> => {
       if (actor) {
+        if (internal) {
+          const repository = new TenantRepository(db, actor)
+          // This is the coarse CMS write scope. The unified collection access
+          // functions and operation hooks enforce the exact create/edit/delete
+          // action; requiring edit here would silently collapse distinct grants.
+          const actions = operation === 'read' ? ['intranet:read'] as const :
+            operation === 'publish' ? ['intranet:publish'] as const :
+              operation === 'export' || operation === 'edit' && (req.context as Record<symbol, unknown>)[CMS_EXPORT_WRITE] ? ['intranet:read-history'] as const :
+                ['intranet:edit', 'intranet:create', 'intranet:delete'] as const
+          let authority: Awaited<ReturnType<TenantRepository['require']>> | null = null
+          for (const permission of actions) {
+            try { authority = await repository.require(selected, permission); break }
+            catch (error) { if (Number((error as { status?: number }).status) !== 403) throw error }
+          }
+          if (!authority) throw new APIError('Content unavailable.', 403)
+          return { site: selected, organization: authority.tenant, epoch: authority.revision, actor, bootstrap: false }
+        }
         const site = await new OrganizationRepository(db, actor).require(
           selected,
           'content',

@@ -1,3 +1,5 @@
 public/forms-assets/* text eol=lf
 src/payload-types.ts text eol=lf
 cloudflare-env.d.ts text eol=lf
+src/app/(payload)/admin/importMap.js text eol=lf
+packages/payload-design-core/dist/** text eol=lf

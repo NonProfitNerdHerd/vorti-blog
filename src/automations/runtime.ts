@@ -26,8 +26,8 @@ const writeFields: Partial<Record<Resource, string[]>> = {
     'dueDate',
     'startDate',
   ],
-  pages: ['title', 'slug', 'content', 'excerpt', '_status'],
-  posts: ['title', 'slug', 'content', 'excerpt', '_status'],
+  pages: ['title', 'slug', 'content', 'excerpt', '_status', 'audience'],
+  posts: ['title', 'slug', 'content', 'excerpt', '_status', 'audience'],
 }
 export interface AutomationAdapter {
   authorize(site: string, owner: number): Promise<void>
@@ -137,6 +137,8 @@ export function payloadAdapter(payload: Payload, db: D1Database): AutomationAdap
         await adapter.read(site, owner, { resource, id: String(step.recordID || '') })
       req.context[AUTOMATION_WRITE as unknown as string] = key
       const data = { ...step.data }
+      if (['posts', 'pages'].includes(resource) && Object.hasOwn(data, 'audience') && !['public', 'intranet'].includes(String(data.audience)))
+        throw Error('Choose public or intranet as the publishing audience.')
       if (step.kind === 'create' && resource === 'review-tasks' && !data.initialBoard)
         throw Error('Choose a permitted board for the follow-up task.')
       const options = {

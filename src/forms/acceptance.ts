@@ -2,6 +2,7 @@ import { publicWebsite } from '../organizations/public-website'
 import type { Answers, FormAction, FormField, PaymentQuote } from '@design-system/payload-design-core/forms'
 import { FormHTTPError } from './security'
 import { tenantAuthorityActive, featureAvailableAt } from '../organizations/tenant-runtime'
+import { TenantRepository } from '../organizations/tenant-repository'
 
 export interface Acceptance {
   formID: number | string
@@ -18,6 +19,8 @@ export interface Acceptance {
   bookings?: { tokenHash: string; resource: string; startsAt: string }[]
   analytics?: boolean
   hostFeature?: 'pages' | 'posts' | 'wiki' | 'intranet'
+  /** Server-derived identity only; never populated from the submitted JSON. */
+  internalActor?: number
 }
 
 /** Stable comparison also accepts retries whose JSON object properties arrive in a different order. */
@@ -30,8 +33,13 @@ export function canonicalJSON(value: unknown): string {
 /** D1 batch runs in one transaction: acceptance, attachment claims and jobs succeed together. */
 export async function acceptSubmission(db: D1Database, input: Acceptance, now = new Date().toISOString()): Promise<{ created: boolean; id: string }> {
   const { site, revision, key, sessionHash } = input
+  let internalAuthority: { tenant: string; revision: number } | null = null
+  if (input.hostFeature === 'intranet') {
+    if (!Number.isSafeInteger(input.internalActor) || input.internalActor! < 1) throw new FormHTTPError('Sign in to use this internal form.', 401)
+    internalAuthority = await new TenantRepository(db, input.internalActor!).require(site, 'intranet:read', { dependencies: ['forms'] })
+  }
   const active = await tenantAuthorityActive(db, site)
-  const authority = active ? await db.prepare('SELECT o.id,o.authority_revision FROM vc_sites s JOIN vc_organizations o ON o.id=s.organization_id WHERE s.id=?').bind(site).first<{id:string;authority_revision:number}>() : null
+  const authority = internalAuthority ? { id: internalAuthority.tenant, authority_revision: internalAuthority.revision } : active ? await db.prepare('SELECT o.id,o.authority_revision FROM vc_sites s JOIN vc_organizations o ON o.id=s.organization_id WHERE s.id=?').bind(site).first<{id:string;authority_revision:number}>() : null
   if (active && (!authority || !(await featureAvailableAt(db, site, 'forms')))) throw new FormHTTPError('This form is unavailable.',404)
   if (input.hostFeature && !await featureAvailableAt(db, site, input.hostFeature)) throw new FormHTTPError('This form placement is unavailable.',404)
   if (input.payment && !input.paymentDetails) throw new FormHTTPError('A server-calculated payment quote is required.')
@@ -47,7 +55,7 @@ export async function acceptSubmission(db: D1Database, input: Acceptance, now = 
   // Recheck ownership inside the transaction, not only in application reads before acceptance.
   const validFiles = input.attachments.map(() => `EXISTS (SELECT 1 FROM form_attachments WHERE id=? AND field_i_d=? AND site=? AND revision=? AND session_hash=? AND submission_i_d IS NULL AND expires_at>? AND scan_status IN ('unscanned','clean'))`)
   const validHolds = bookings.map(() => `EXISTS (SELECT 1 FROM form_booking_holds h JOIN form_booking_slots s ON h.slot_id=s.id JOIN form_resources r ON CAST(r.id AS TEXT)=s.resource AND r.site=s.site WHERE h.token_hash=? AND h.site=? AND h.session_hash=? AND h.status='held' AND h.expires_ms>? AND s.resource=? AND s.starts_at=? AND EXISTS (SELECT 1 FROM json_each(r.availability) a WHERE json_extract(a.value,'$.id')=s.id))`)
-  const websiteRequired = site !== 'default' || active
+  const websiteRequired = input.hostFeature !== 'intranet' && (site !== 'default' || active)
   const website = websiteRequired ? await publicWebsite(db,site) : null
   if (websiteRequired && !website) throw new FormHTTPError('This website is paused. Your answers have not been cleared.',404)
   const websiteGuards = website ? [`EXISTS(SELECT 1 FROM vc_organizations WHERE id=? AND authority_revision=?)`] : []

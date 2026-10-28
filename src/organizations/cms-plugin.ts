@@ -1,4 +1,5 @@
 import { requireWebsitePublishing } from './websites'
+import { publishingPipelineAllowed } from '../publishing/pipeline-scope'
 import {
   APIError,
   addDataAndFileToRequest,
@@ -27,6 +28,7 @@ import type { Permission } from './permission-catalog'
 import { featureAvailableAt } from './tenant-runtime'
 import { TenantRepository } from './tenant-repository'
 import { readBoundedJSON } from '../forms/security'
+import { CMS_AUDIENCE } from '../publishing/readership'
 
 const draftWrites = Symbol('native-cms-draft-writes')
 const indexWrite = Symbol('validated-cms-index-write')
@@ -116,7 +118,8 @@ function cmsAccess(
     }
     if (
       (collection.slug === 'pages' || collection.slug === 'posts') &&
-      !(await featureAvailableAt(cmsDatabase(req), scope.site, collection.slug))
+      !(await featureAvailableAt(cmsDatabase(req), scope.site,
+        (req.context as Record<symbol, unknown>)[CMS_AUDIENCE] === 'intranet' ? 'intranet' : collection.slug))
     )
       return false
     if (
@@ -140,30 +143,30 @@ function cmsAccess(
     let fineWhere: Where | undefined
     if (collection.slug === 'search' && action === 'read') {
       const claim = req.user ? await claimRequest(req, scope.site) : null
+      const internal = (req.context as Record<symbol, unknown>)[CMS_AUDIENCE] === 'intranet'
       const resources: string[] = []
       for (const resource of ['posts', 'pages'] as const)
         if (
-          (await featureAvailableAt(cmsDatabase(req), scope.site, resource)) &&
-          (!claim?.permissions || claim.permissions.includes(`${resource}:read-published`))
+          (await featureAvailableAt(cmsDatabase(req), scope.site, internal ? 'intranet' : resource)) &&
+          (!claim?.permissions || claim.permissions.includes(internal ? 'intranet:read' : `${resource}:read-published`))
         )
           resources.push(resource)
       if (!resources.length) return false
-      fineWhere = { 'doc.relationTo': { in: resources } }
+      fineWhere = { 'publishingReadability.sourceCollection': { in: resources } }
     }
     if (req.user && !scope.bootstrap) {
       const claim = await claimRequest(req, scope.site)
       if (claim?.permissions) {
         if (collection.slug === 'imports' || collection.slug === 'exports') {
           const actionName = collection.slug === 'imports' ? 'import' : 'export'
-          const targets = ['pages', 'posts'].filter((target) =>
-            claim.permissions!.includes(`${target}:${actionName}` as Permission),
-          )
+          const targets = ['pages', 'posts'].filter(target => publishingPipelineAllowed(req, claim.permissions!, actionName, target, action === 'create' && args.data?.drafts === 'yes'))
           if (!targets.length) return false
           if (action === 'create' && !targets.includes(String(args.data?.collectionSlug)))
             return false
           if (action !== 'create') fineWhere = { collectionSlug: { in: targets } }
         }
-        if (collection.slug === 'pages' || collection.slug === 'posts') {
+        if ((collection.slug === 'pages' || collection.slug === 'posts') &&
+            (req.context as Record<symbol, unknown>)[CMS_AUDIENCE] !== 'intranet') {
           const actionName =
             action === 'read'
               ? 'read-published'
@@ -256,7 +259,8 @@ export const tenantCMS = (config: Config): Config => ({
         (req.context as Record<symbol, unknown>)[draftWrites] as Map<string, boolean> | undefined
       )?.get(collection.slug)
       const status = data._status ?? originalDoc?._status
-      if (req.user && (collection.slug === 'pages' || collection.slug === 'posts')) {
+      if (req.user && (collection.slug === 'pages' || collection.slug === 'posts') &&
+          (req.context as Record<symbol, unknown>)[CMS_AUDIENCE] !== 'intranet') {
         const claim = await claimRequest(req, scope.site)
         if (
           claim?.permissions &&
@@ -297,9 +301,7 @@ export const tenantCMS = (config: Config): Config => ({
                   const target = String(data.collectionSlug)
                   if (
                     !['pages', 'posts'].includes(target) ||
-                    !claim.permissions.includes(
-                      `${target}:${collection.slug === 'imports' ? 'import' : 'export'}` as Permission,
-                    )
+                    !publishingPipelineAllowed(req, claim.permissions, collection.slug === 'imports' ? 'import' : 'export', target, data.drafts === 'yes')
                   )
                     throw new APIError('This import or export is unavailable.', 403)
                 }
@@ -376,9 +378,7 @@ export const tenantCMS = (config: Config): Config => ({
                 const target = String('data' in args && args.data?.collectionSlug)
                 if (
                   !['pages', 'posts'].includes(target) ||
-                  !claim.permissions.includes(
-                    `${target}:${collection.slug === 'imports' ? 'import' : 'export'}` as Permission,
-                  )
+                  !publishingPipelineAllowed(req, claim.permissions, collection.slug === 'imports' ? 'import' : 'export', target, 'data' in args && args.data?.drafts === 'yes')
                 )
                   throw new APIError('This import or export is unavailable.', 403)
               }
@@ -393,7 +393,8 @@ export const tenantCMS = (config: Config): Config => ({
                 await new TenantRepository(cmsDatabase(req), Number(req.user.id)).read(
                   {
                     site: scope.site,
-                    permission: `${collection.slug}:read-published` as Permission,
+                    permission: ((req.context as Record<symbol, unknown>)[CMS_AUDIENCE] === 'intranet'
+                      ? 'intranet:read' : `${collection.slug}:read-published`) as Permission,
                     resource: `${collection.slug}:${'id' in args ? String(args.id) : operation}`,
                   },
                   async (): Promise<void> => {},
@@ -451,7 +452,8 @@ export const tenantCMS = (config: Config): Config => ({
                 platformSite: originalDoc?.platformSite || data.platformSite || 'default',
               }
             const scope = await authorizeWrite(data, originalDoc, req)
-            if (['posts', 'pages'].includes(collection.slug) && data._status === 'published')
+            if (['posts', 'pages'].includes(collection.slug) && data._status === 'published' &&
+                (req.context as Record<symbol, unknown>)[CMS_AUDIENCE] !== 'intranet')
               await requireWebsitePublishing(cmsDatabase(req), scope.site)
             await validateCMSRelations(req, fields, data, originalDoc)
             await confirmCMSScope(req, scope)

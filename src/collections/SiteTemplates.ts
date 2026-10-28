@@ -5,6 +5,9 @@ import {
 } from '@design-system/payload-design-core'
 import { canManageDesign, isDesignManager } from '../access/design'
 import { slugify } from '../fields/slug'
+import { cmsDatabase, cmsScope } from '../organizations/cms-scope'
+import { scopedSettingsForAuthorizedSite } from '../organizations/scoped-settings'
+import { tenantAuthorityActive } from '../organizations/tenant-runtime'
 
 const publishedOrDesignManager = ({ req }: Parameters<NonNullable<CollectionConfig['access']>['read']>[0]) =>
   isDesignManager(req.user as { role?: string } | null | undefined) ? true : { _status: { equals: 'published' } }
@@ -35,6 +38,12 @@ const shellRegion = (name: 'header' | 'footer', label: string): Field => ({
 })
 
 export const preventDeletingDefaultSiteTemplate: CollectionBeforeDeleteHook = async ({ id, req }) => {
+  const scope = await cmsScope(req, 'configure')
+  const database = cmsDatabase(req)
+  const internal = await scopedSettingsForAuthorizedSite(database, scope.site, scope.organization)
+  if ([internal.site.settings.intranetSiteTemplate, internal.site.settings.defaultSiteTemplate].some(selected => selected != null && String(selected) === String(id)))
+    throw new Error('This Site Template is assigned as a Main or Intranet default and cannot be deleted.')
+  if (await tenantAuthorityActive(database, scope.site)) return
   const settings = await req.payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: true, req })
   const selected = (settings as typeof settings & { defaultSiteTemplate?: unknown }).defaultSiteTemplate
   const selectedID = typeof selected === 'object' && selected ? selected.id : selected

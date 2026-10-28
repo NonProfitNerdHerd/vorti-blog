@@ -6,7 +6,7 @@ import { after } from 'next/server'
 import path from 'path'
 import { sqliteD1Adapter } from '@payloadcms/db-d1-sqlite'
 import { lexicalEditor, BlocksFeature } from '@payloadcms/richtext-lexical'
-import { buildConfig } from 'payload'
+import { buildConfig, deepCopyObjectComplex } from 'payload'
 import { fileURLToPath } from 'url'
 import { CloudflareContext, getCloudflareContext } from '@opennextjs/cloudflare'
 import { GetPlatformProxyOptions } from 'wrangler'
@@ -20,7 +20,10 @@ import { automationsModule } from './automations/plugin'
 import { emailRuntimeFromBindings } from './crm/email-provider'
 import { accountStatusGuards } from './organizations/account-guards'
 import { tenantCMS } from './organizations/cms-plugin'
-import { audienceCompatibility } from './publishing/audience-compatibility'
+import { unifiedPublishing } from './publishing/unified-plugin'
+import { publishingStorage } from './publishing/storage'
+import { publishingEndpoints } from './publishing/endpoints'
+import { publishingReaderCollections } from './publishing/readers-collections'
 import { tenantUsers } from './organizations/users-plugin'
 import { tenantGlobals } from './organizations/globals-plugin'
 import { tenantForms } from './organizations/forms-plugin'
@@ -111,18 +114,10 @@ const cloudflare =
     ? await getCloudflareContextFromWrangler()
     : await getCloudflareContext({ async: true })
 
-// Explicitly managed platform tables must not be removed by a development schema push.
-// Fresh isolated test databases can still bootstrap native tables before applying migrations.
-const migrationManaged =
-  isProduction ||
-  Boolean(process.env.DESIGN_CORE_TEST_PERSIST_PATH) ||
-  Boolean(
-    await cloudflare.env.D1.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='vc_organizations'",
-    ).first(),
-  )
+// Registered migrations own the schema, including read-only authorization views.
+// ORM schema push must never replace those views with writable collection tables.
 
-export default buildConfig({
+export const publishingConfig = (publishing: typeof unifiedPublishing = unifiedPublishing) => buildConfig({
   admin: {
     user: Users.slug,
     meta: {
@@ -152,8 +147,9 @@ export default buildConfig({
       url: async ({ collectionConfig, data, req }) => {
         if (!collectionConfig || !['posts', 'pages'].includes(collectionConfig.slug)) return null
         const slug = typeof data.slug === 'string' && data.slug ? data.slug : '__preview__'
-        const path =
-          collectionConfig.slug === 'posts' ? documentURL({ slug }) : `/${encodeURIComponent(slug)}`
+        const internal = data.audience === 'intranet'
+        const path = collectionConfig.slug === 'posts' ? (internal ? '/intranet' : '') + documentURL({ slug })
+          : `${internal ? '/intranet/pages' : ''}/${encodeURIComponent(slug)}`
         const id = typeof data.id === 'number' || typeof data.id === 'string' ? data.id : 'new'
         const site = String(data.editorSite || data.platformSite || 'default')
         if (site !== 'default') {
@@ -178,7 +174,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [
+  collections: deepCopyObjectComplex([
+    ...publishingReaderCollections,
     Posts,
     Pages,
     Categories,
@@ -196,10 +193,11 @@ export default buildConfig({
     TaskNotificationEvents,
     SavedViews,
     EventSeries,
-  ],
-  globals: [Navigation, SiteSettings, SystemSettings],
+  ]),
+  globals: deepCopyObjectComplex([Navigation, SiteSettings, SystemSettings]),
   endpoints: [
     menuRenderEndpoint,
+    ...publishingEndpoints(cloudflare.env.WORKSPACE_FILES),
     ...workspaceEndpoints,
     ...projectSharingEndpoints,
     ...workspaceFileEndpoints(cloudflare.env.WORKSPACE_FILES),
@@ -233,7 +231,7 @@ export default buildConfig({
     autoGenerate: process.env.VORTI_FROZEN_VALIDATION !== '1',
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: !migrationManaged }),
+  db: sqliteD1Adapter({ binding: cloudflare.env.D1, push: false }),
   logger: isProduction ? cloudflareLogger : undefined,
   plugins: [
     crmModule({ db: cloudflare.env.D1, storage: cloudflare.env.WORKSPACE_FILES, queue: cloudflare.env.CRM_JOB_QUEUE, email: emailRuntimeFromBindings(cloudflare.env as CloudflareEnv & { CRM_EMAIL_ENVIRONMENT?: string; CRM_EMAIL_LIVE_SEND_ENABLED?: string; CRM_EMAIL_RESEND_API_KEY?: string }, isCLI || !isProduction || Boolean(localPersistPath)) }),
@@ -282,7 +280,7 @@ export default buildConfig({
     nestedDocsPlugin({ collections: ['pages'] }),
     organizePageHierarchy,
     r2Storage({
-      bucket: cloudflare.env.R2,
+      bucket: publishingStorage(cloudflare.env.R2, cloudflare.env.WORKSPACE_FILES),
       collections: { media: true, exports: true, imports: true },
     }),
     contentTypes,
@@ -291,7 +289,7 @@ export default buildConfig({
     contentWorkspace({ enabled: true }),
     documentReview,
     tenantCMS,
-    audienceCompatibility,
+    publishing,
     tenantUsers,
     tenantGlobals,
     tenantForms,
@@ -311,6 +309,8 @@ export default buildConfig({
     accountStatusGuards(cloudflare.env.D1),
   ],
 })
+
+export default publishingConfig()
 
 // Adapted from https://github.com/opennextjs/opennextjs-cloudflare/blob/d00b3a13e42e65aad76fba41774815726422cc39/packages/cloudflare/src/api/cloudflare-context.ts#L328C36-L328C46
 function getCloudflareContextFromWrangler(): Promise<CloudflareContext> {

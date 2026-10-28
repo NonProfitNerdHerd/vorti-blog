@@ -1,12 +1,13 @@
 import { beforeAll, expect, it, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
-import config from '@/payload.config'
+import { publishingConfig } from '@/payload.config'
+import { audienceCompatibility } from '@/publishing/audience-compatibility'
 import { fixtureRequest } from '../helpers/native-authority'
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 let payload: Payload, db: D1Database, internal: number, publicID: number
 beforeAll(async () => {
-  payload = await getPayload({ config })
+  payload = await getPayload({ config: publishingConfig(audienceCompatibility), key: 'audience-compatible-recovery' })
   db = (payload.db as unknown as { client: D1Database }).client
   for (const [slug, title] of [['compat-public', 'Public fixture'], ['compat-internal', 'Internal fixture']]) {
     const req = await fixtureRequest(payload)
@@ -42,6 +43,9 @@ it('denies direct internal reads, changes, deletes and history restoration', asy
   await expect(payload.delete({ collection: 'posts', id: internal, req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
   const version = await db.prepare('SELECT id FROM _posts_v WHERE parent_id=? ORDER BY id DESC LIMIT 1').bind(internal).first<{ id: number }>()
   expect(version).not.toBeNull()
+  await expect(payload.findVersionByID({ collection: 'posts', id: String(version!.id), req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
+  await db.prepare("UPDATE _posts_v SET version_audience='public' WHERE id=?").bind(version!.id).run()
+  await expect(payload.findVersionByID({ collection: 'posts', id: String(version!.id), req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
   await expect(payload.restoreVersion({ collection: 'posts', id: String(version!.id), req: await fixtureRequest(payload), overrideAccess: true })).rejects.toThrow()
   expect(await db.prepare('SELECT title,audience FROM posts WHERE id=?').bind(internal).first()).toEqual({ title: 'Internal fixture', audience: 'intranet' })
 })

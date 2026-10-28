@@ -17,6 +17,10 @@ export const siteSettingDefaults = Object.freeze({
   showPrivacyPolicyLink: false,
   discourageSearchIndexing: false,
   categoriesEnabled: true,
+  intranetHomepage: null,
+  intranetSiteTemplate: null,
+  intranetPrimaryMenu: null,
+  intranetFooterMenu: null,
 })
 export const tenantSettingDefaults = Object.freeze({ workspaceEmbedOrigins: [] as string[] })
 type Settings = Record<string, unknown>
@@ -133,7 +137,7 @@ export async function publicScopedSiteSettings(db: D1Database, site: string) {
   const after = await publicWebsite(db, site)
   if (!after || after.authority_revision !== website.authority_revision)
     throw new SiteConflictError()
-  return value
+  return { ...value, settings: Object.fromEntries(Object.entries(value.settings).filter(([key]) => !key.startsWith('intranet'))) }
 }
 
 export class ScopedSettingsRepository {
@@ -204,7 +208,7 @@ export class ScopedSettingsRepository {
         referenceGuards.push(
           this.db
             .prepare(
-              `INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,COUNT(*) FROM "${table}" WHERE id=? AND platform_site=?${collection === 'pages' ? " AND _status='published' AND slug NOT IN('admin','api','posts','forms','_next','wiki','intranet')" : collection === 'media' ? " AND mime_type LIKE 'image/%'" : ''}`,
+              `INSERT INTO vc_write_guards(operation_key,affected) SELECT ?,COUNT(*) FROM "${table}" WHERE id=? AND platform_site=?${['pages', 'media', 'menus', 'site-templates'].includes(collection) ? ` AND audience='${key.startsWith('intranet') ? 'intranet' : 'public'}'` : ''}${collection === 'pages' ? " AND _status='published' AND slug NOT IN('admin','api','posts','forms','_next','wiki','intranet')" : collection === 'media' ? " AND mime_type LIKE 'image/%'" : ''}`,
             )
             .bind(guard, Number(value), input.site),
           this.db.prepare('DELETE FROM vc_write_guards WHERE operation_key=?').bind(guard),

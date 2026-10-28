@@ -64,7 +64,7 @@ export function categoryPermissions(
 ): Permission[] {
   const prefix =
     category === 'content'
-      ? ['pages:', 'posts:', 'administration:']
+      ? ['pages:', 'posts:', 'intranet:', 'administration:']
       : category === 'workspace'
         ? ['tasks:']
         : category === 'forms' || category === 'form-submissions'

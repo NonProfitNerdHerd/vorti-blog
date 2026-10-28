@@ -5,13 +5,15 @@ import { readBoundedJSON } from '../forms/security'
 import { errorResponse } from '../crm/plugin'
 import { claimRequest } from '../organizations/identity-authority'
 import { AUTHORITY_MUTATION_COMMITTED } from '../organizations/authority-plugin'
+import { readLegacyIntranet, retiredIntranetWrite } from '../publishing/legacy-api'
+import { publishingRequestSite } from '../publishing/request-site'
 
 export const knowledgeModule =
   (db: D1Database, storage: R2Bucket) =>
   (config: Config): Config => {
     const scope = async (req: PayloadRequest) => {
       const url = new URL(req.url!),
-        site = url.searchParams.get('site') || 'default',
+        site = publishingRequestSite(req.url!, req.headers),
         kind = url.searchParams.get('kind') as KnowledgeKind
       if (!['wiki', 'intranet'].includes(kind)) throw new APIError('Choose Wiki or Intranet.', 400)
       if (req.user) await claimRequest(req, site)
@@ -33,6 +35,7 @@ export const knowledgeModule =
             try {
               const { url, site, kind, repo } = await scope(req),
                 id = url.searchParams.get('id') || ''
+              if (kind === 'intranet') return await readLegacyIntranet(req, site, storage)
               if (url.searchParams.has('file')) {
                 const file = await repo.attachment(
                   site,
@@ -75,8 +78,9 @@ export const knowledgeModule =
               if (!req.user) throw new APIError('Sign in to edit content.', 401)
               if (req.headers.get('origin') !== new URL(req.url!).origin)
                 throw new APIError('Use the signed-in site to edit content.', 403)
-              const { site, kind, repo } = await scope(req),
-                body = await readBoundedJSON(req, 330000)
+              const { site, kind, repo } = await scope(req)
+              if (kind === 'intranet') return await retiredIntranetWrite(req, site)
+              const body = await readBoundedJSON(req, 330000)
               const result = await repo.save({ ...body, site, kind } as Parameters<
                 KnowledgeRepository['save']
               >[0])
@@ -94,11 +98,12 @@ export const knowledgeModule =
             try {
               if (!req.user || req.headers.get('origin') !== new URL(req.url!).origin)
                 throw new APIError('Sign in to upload attachments.', 403)
+              const { url, site, kind, repo } = await scope(req)
+              if (kind === 'intranet') return await retiredIntranetWrite(req, site)
               const size = Number(req.headers.get('content-length'))
               if (!Number.isSafeInteger(size) || size < 1 || size > 11 * 1024 * 1024)
                 throw new APIError('Choose a file up to 10 MB.', 413)
-              const { url, site, kind, repo } = await scope(req),
-                form = await req.formData!(),
+              const form = await req.formData!(),
                 file = form.get('file')
               if (!(file instanceof File)) throw new APIError('Choose an attachment.', 400)
               const result = await repo.upload(

@@ -135,7 +135,7 @@ export function WebsiteSettingsEditor({
               }}
             >
               <option value="">None</option>
-              {(choices[websiteReferences[name]] || []).map((item) => (
+              {(choices[`${name.startsWith('intranet') ? 'intranet:' : ''}${websiteReferences[name]}`] || []).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
                 </option>

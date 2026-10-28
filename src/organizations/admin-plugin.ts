@@ -10,6 +10,8 @@ import { OrganizationRepository } from './repository'
 import { cmsDatabase } from './cms-scope'
 import { claimRequest } from './identity-authority'
 import { AUTHORITY_MUTATION_COMMITTED } from './authority-plugin'
+import { CMS_AUDIENCE } from '../publishing/readership'
+import { TenantRepository } from './tenant-repository'
 import type { InformationCategory, SiteOperation, SiteRole } from './policy'
 
 function repository(req: PayloadRequest) {
@@ -39,16 +41,27 @@ export const organizationAdministration =
               const site = params.get('site')
               if (site && params.has('websiteChoices')) {
                 await repo.require(site, 'content', 'read')
+                const tenant = new TenantRepository(cmsDatabase(req), Number(req.user!.id))
+                await tenant.require(site, 'administration:settings')
                 const result: Record<string, unknown> = {}
-                for (const collection of ['pages', 'media', 'site-templates', 'menus'] as const) {
+                for (const audience of ['public', 'intranet'] as const) {
+                  if (audience === 'intranet') {
+                    try { await tenant.require(site, 'intranet:read') }
+                    catch (error) {
+                      if (Number((error as { status?: number }).status) !== 403) throw error
+                      continue
+                    }
+                  }
+                  for (const collection of ['pages', 'media', 'site-templates', 'menus'] as const) {
                   const data = await req.payload.find({
                     collection,
-                    req: { ...req, context: cmsSiteContext(site) },
+                    req: { ...req, context: { ...cmsSiteContext(site), [CMS_AUDIENCE]: audience } },
                     depth: 0,
                     limit: 100,
+                    ...(collection === 'pages' ? { where: { _status: { equals: 'published' as const } } } : {}),
                     overrideAccess: false,
                   })
-                  result[collection] = data.docs.map((doc) => ({
+                  result[audience === 'intranet' ? `intranet:${collection}` : collection] = data.docs.map((doc) => ({
                     id: doc.id,
                     label:
                       'title' in doc
@@ -59,6 +72,7 @@ export const organizationAdministration =
                             ? doc.alt
                             : String((doc as { id: number }).id),
                   }))
+                  }
                 }
                 return Response.json(result, { headers })
               }

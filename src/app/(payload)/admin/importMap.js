@@ -32,14 +32,20 @@ import { MetaImageComponent as MetaImageComponent_a8a977ebc872c5d5ea7ee689724c08
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { EventField as EventField_d07d43f5451e8f4239e604569c83c0ef } from '../../../content-framework/EventField'
 import { ContentWorkspace as ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { AudienceField as AudienceField_c7557cef4efcf6e9f0be487d7445caf4 } from '../../../publishing/AudienceField'
+import { SharingPanel as SharingPanel_e7b19774ba1fd10480586c81a66e0304 } from '../../../publishing/SharingPanel'
+import { TransferPanel as TransferPanel_5e1fed69dcb1396b34fe55aceec8ef25 } from '../../../publishing/TransferPanel'
+import { PrivateHistoryPanel as PrivateHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2 } from '../../../publishing/LegacyHistoryPanel'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
+import { AreaBanner as AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3 } from '../../../publishing/AreaBanner'
 import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
 import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '../../../review/TaskDocument'
 import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { PublicationList as PublicationList_1b7267da200a8f3d15161411e3aad0c6 } from '../../../components/PublicationList'
+import { LegacyHistoryPanel as LegacyHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2 } from '../../../publishing/LegacyHistoryPanel'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { AttributionPreference as AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc } from '../../../components/AttributionPreference'
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
@@ -86,6 +92,7 @@ import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
 import { Dashboard as Dashboard_0e35033058204011832f5374d42fa864 } from '../../../dashboard/Dashboard'
 import { CRMAdminView as CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
+import { GroupsPage as GroupsPage_a936e4a3f942f7d800821cf25d5389ac } from '../../../publishing/GroupsPage'
 import { SitesCompatibilityView as SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4 } from '../../../organizations/AdminWorkspaces'
 import { AutomationsAdminView as AutomationsAdminView_176d36e84f7f33d2f404d50e1d20a737 } from '../../../automations/AdminView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
@@ -126,14 +133,20 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "./content-framework/EventField#EventField": EventField_d07d43f5451e8f4239e604569c83c0ef,
   "@design-system/payload-design-core/admin#ContentWorkspace": ContentWorkspace_df906c3c971d30a9067b2148b7fc0a37,
+  "./publishing/AudienceField#AudienceField": AudienceField_c7557cef4efcf6e9f0be487d7445caf4,
+  "./publishing/SharingPanel#SharingPanel": SharingPanel_e7b19774ba1fd10480586c81a66e0304,
+  "./publishing/TransferPanel#TransferPanel": TransferPanel_5e1fed69dcb1396b34fe55aceec8ef25,
+  "./publishing/LegacyHistoryPanel#PrivateHistoryPanel": PrivateHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
+  "./publishing/AreaBanner#AreaBanner": AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3,
   "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
   "./review/TaskDocument#TaskDocument": TaskDocument_91330414dfe35b91fc3cf4e3b382220c,
   "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/PublicationList#PublicationList": PublicationList_1b7267da200a8f3d15161411e3aad0c6,
+  "./publishing/LegacyHistoryPanel#LegacyHistoryPanel": LegacyHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
   "./components/AttributionPreference#AttributionPreference": AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc,
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
@@ -180,6 +193,7 @@ export const importMap = {
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,
   "./dashboard/Dashboard#Dashboard": Dashboard_0e35033058204011832f5374d42fa864,
   "./organizations/AdminWorkspaces#CRMAdminView": CRMAdminView_3c4d3d914ea58a5b1068efd040430ba4,
+  "./publishing/GroupsPage#GroupsPage": GroupsPage_a936e4a3f942f7d800821cf25d5389ac,
   "./organizations/AdminWorkspaces#SitesCompatibilityView": SitesCompatibilityView_3c4d3d914ea58a5b1068efd040430ba4,
   "./automations/AdminView#AutomationsAdminView": AutomationsAdminView_176d36e84f7f33d2f404d50e1d20a737,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1

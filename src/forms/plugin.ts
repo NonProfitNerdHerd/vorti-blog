@@ -20,6 +20,7 @@ import { formExportEndpoints } from './exports'
 import { formReceiptEndpoints } from './receipts'
 import { validateEntryReview, auditEntryReview } from './entry-workflow'
 import { isFormDraftOperation } from './publication'
+import { protectInternalFormEndpoints } from './internal-host'
 
 const text = (name: string, label?: string): Field => ({ name, label, type: 'text' })
 const trusted = (req: PayloadRequest): PayloadRequest => ({ ...req, context: { ...req.context, formsOperation: 'published-snapshot', [FORM_INTERNAL]: true } })
@@ -165,5 +166,5 @@ export const formsModule = (platform: FormPlatform) => (config: Config): Config 
       }] },
     },
   })({ ...config, collections: [...(config.collections || []).map(addCMSPostFields), ...cmsCollections, ...formCollections.map(collection => collection.slug === 'form-resources' ? resourceCollection(collection, platform) : collection)] })
-  return { ...enhanced, endpoints: [...enhanced.endpoints || [], ...formRuntimeEndpoints(platform), ...formActionEndpoints(platform), ...formFileEndpoints(platform), ...formAnalyticsEndpoints(platform), ...formSurveyEndpoints(platform), ...formExportEndpoints(platform), ...formReceiptEndpoints(platform), ...formPaymentEndpoints(platform)] }
+  return { ...enhanced, endpoints: [...enhanced.endpoints || [], ...protectInternalFormEndpoints([...formRuntimeEndpoints(platform), ...formActionEndpoints(platform), ...formFileEndpoints(platform), ...formAnalyticsEndpoints(platform), ...formSurveyEndpoints(platform), ...formExportEndpoints(platform), ...formReceiptEndpoints(platform), ...formPaymentEndpoints(platform)], platform)] }
 }

@@ -15,7 +15,7 @@ export function canReviewCollection(req: PayloadRequest, collection: string) {
   // Review records include draft titles and discussion. Published-content-only
   // access must not expose that private review metadata.
   if (claim?.permissions) {
-    if (collection === 'posts' || collection === 'pages') return claim.permissions.includes(`${collection}:read-history`)
+    if (collection === 'posts' || collection === 'pages') return claim.permissions.includes(`${collection}:read-history`) || claim.permissions.includes('intranet:read-history')
     return claim.permissions.includes(collection === 'site-templates' ? 'administration:templates' : 'administration:designs')
   }
   const content = claim?.allowed.content

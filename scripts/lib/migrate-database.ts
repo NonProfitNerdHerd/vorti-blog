@@ -14,6 +14,7 @@ export async function migrateDatabase(database: D1Database, onApplied?: (name: s
       escapeString: (value: string) => `'${value.replaceAll("'", "''")}'`,
     } as unknown as Parameters<RawSQL['toQuery']>[0])
   const db = {
+    $client: database,
     run: async (statement: RawSQL) => {
       const value = compile(statement)
       return database

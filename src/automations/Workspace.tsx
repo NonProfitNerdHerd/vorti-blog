@@ -50,14 +50,14 @@ const fields: Partial<Record<Resource, string[]>> = {
     'assignee',
     'dueDate',
   ],
-  pages: ['title', 'slug', 'excerpt', '_status', 'content'],
-  posts: ['title', 'slug', 'excerpt', '_status', 'content'],
+  pages: ['title', 'slug', 'excerpt', '_status', 'content', 'audience'],
+  posts: ['title', 'slug', 'excerpt', '_status', 'content', 'audience'],
   contacts: ['profile', 'roles', 'tags'],
 }
 const outputFields: Record<Resource, string[]> = {
   'review-tasks': ['id', 'title', 'status', 'assignee', 'priority', 'dueDate'],
-  pages: ['id', 'title', 'slug', 'excerpt', '_status'],
-  posts: ['id', 'title', 'slug', 'excerpt', '_status'],
+  pages: ['id', 'title', 'slug', 'excerpt', '_status', 'audience'],
+  posts: ['id', 'title', 'slug', 'excerpt', '_status', 'audience'],
   'form-submissions': ['id', 'answers', 'workflowStatus'],
   contacts: ['id', 'label', 'profile', 'roles', 'tags'],
 }
@@ -76,6 +76,8 @@ function RecordPicker({
   const [docs, setDocs] = useState<{ id: string; label: string }[]>([]),
     [search, setSearch] = useState(''),
     [error, setError] = useState('')
+  const [audience, setAudience] = useState<'public' | 'intranet'>('public')
+  const publishing = resource === 'posts' || resource === 'pages'
   useEffect(() => {
     const controller = new AbortController()
     const url =
@@ -83,8 +85,8 @@ function RecordPicker({
         ? `/api/crm/contacts?site=${encodeURIComponent(site)}&search=${encodeURIComponent(search)}`
         : resource === 'form-submissions'
           ? '/api/form-submissions?limit=50&depth=0'
-          : `/api/${resource}?limit=50&depth=0&where[${resource === 'task-boards' ? 'name' : 'title'}][like]=${encodeURIComponent(search)}`
-    fetch(url, { headers: { 'x-vorticause-site': site }, signal: controller.signal })
+          : `/api/${resource}?limit=50&depth=0&where[${resource === 'task-boards' ? 'name' : 'title'}][like]=${encodeURIComponent(search)}${publishing ? `&audience=${audience}` : ''}`
+    fetch(url, { headers: { 'x-vorticause-site': site, ...(publishing ? { 'x-vorticause-audience': audience } : {}) }, signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw Error('Records unavailable with your current permissions.')
         const body = (await response.json()) as { docs?: Record<string, unknown>[] }
@@ -103,9 +105,10 @@ function RecordPicker({
         }
       })
     return () => controller.abort()
-  }, [site, resource, search])
+  }, [site, resource, search, audience, publishing])
   return (
     <div>
+      {publishing && <label>Publishing area<select value={audience} onChange={event => { setAudience(event.target.value as 'public' | 'intranet'); onChange('') }}><option value="public">Public</option><option value="intranet">Intranet</option></select></label>}
       <input
         aria-label="Search accessible records"
         placeholder="Search accessible records"

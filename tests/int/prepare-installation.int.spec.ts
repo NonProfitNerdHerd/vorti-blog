@@ -13,7 +13,8 @@ it('installs once, preserves populated data on upgrade, and resets only into a f
       password: 'synthetic-password-only',
     })
     expect(result).toMatchObject({
-      emptyContent: true,
+      emptyContent: false,
+      emptyUserContent: true,
       builtInsVerified: true,
       credentialsVerified: true,
     })
@@ -53,7 +54,7 @@ it('installs once, preserves populated data on upgrade, and resets only into a f
         identity,
         administratorEmail: identity.email,
       }),
-    ).toMatchObject({ emptyContent: true, credentialsVerified: true })
+    ).toMatchObject({ emptyContent: false, emptyUserContent: true, credentialsVerified: true })
     expect(await administratorIdentity(replacement.db, identity.email)).toEqual(identity)
     expect(replacement.sqlite.prepare('SELECT count(*) n FROM vc_automations').get()?.n).toBe(0)
     expect(replacement.sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([])

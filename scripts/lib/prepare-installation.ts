@@ -1,6 +1,7 @@
 import { randomBytes, pbkdf2Sync } from 'node:crypto'
 import { migrateDatabase } from './migrate-database'
 import { bootstrapTenant, activateTenantAuthority } from './bootstrap-tenant'
+import { seedPublishingPortals } from '../../src/publishing/portal-seed'
 
 export type InstallationMode = 'install' | 'upgrade' | 'development-reset'
 type Identity = {
@@ -133,13 +134,16 @@ export async function prepareInstallation(
   const retained = await administratorIdentity(database, email!)
   if (retained.hash !== identity.hash || retained.salt !== identity.salt)
     throw Error('Administrator credential continuity failed.')
+  const portal = await seedPublishingPortals(database, { actor: bootstrap.administrator, release: crypto.randomUUID() })
   // No credential bytes leave this function through its result or receipt.
   return {
     mode: input.mode,
     ...migration,
     tenant: bootstrap.tenant,
     administrator: bootstrap.administrator,
-    emptyContent: true,
+    emptyContent: false,
+    emptyUserContent: true,
+    portal,
     builtInsVerified: true,
     credentialsVerified: true,
   }

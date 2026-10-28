@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 /** Fast real SQLite queries/transactions for repository cases; Worker integration additionally runs on workerd D1. */
-export function localD1() {
-  const sqlite = new DatabaseSync(':memory:')
+export function localD1(filename = ':memory:') {
+  const sqlite = new DatabaseSync(filename)
   sqlite.exec('PRAGMA foreign_keys=ON')
   class Statement {
     constructor(

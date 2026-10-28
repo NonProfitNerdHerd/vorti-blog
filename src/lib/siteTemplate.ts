@@ -3,6 +3,8 @@ import { resolveDocumentBlocks } from './content-layout'
 import { cache } from 'react'
 import { getPayload } from 'payload'
 import config from '@/payload.config'
+import type { Payload } from 'payload'
+import type { RenderScope } from './render-scope'
 import type { Navigation, SiteSetting, SiteTemplate } from '@/payload-types'
 import { fallbackPublicSiteData, getPublicSiteDataSafe } from '@/lib/publicContent'
 import {
@@ -84,6 +86,10 @@ export const resolvePublicSiteShell = cache(async (): Promise<ResolvedSiteShell>
     })
     return result.docs[0] ?? null
   })
+  return hydrateSiteShell(payload, shell)
+})
+
+export async function hydrateSiteShell(payload: Payload, shell: ResolvedSiteShell, context: RenderScope = {}): Promise<ResolvedSiteShell> {
   if (shell.kind === 'template') {
     const hydrate = async (nodes: SiteShellNode[]): Promise<SiteShellNode[]> => {
       const normalize = (items: SiteShellNode[]): ContentNode[] =>
@@ -111,8 +117,9 @@ export const resolvePublicSiteShell = cache(async (): Promise<ResolvedSiteShell>
         )
       const resolved = await resolveDocumentBlocks(payload, {
         ...shell.template,
+        audience: context.audience || 'public',
         contentLayout: { version: 1, nodes: normalize(nodes) },
-      })
+      }, context)
       const active = new Map(walkContent(resolved ?? []).map((node) => [node.id, node]))
       const restore = (items: SiteShellNode[]): SiteShellNode[] =>
         items
@@ -140,4 +147,4 @@ export const resolvePublicSiteShell = cache(async (): Promise<ResolvedSiteShell>
     shell.footer = await hydrate(shell.footer)
   }
   return shell
-})
+}

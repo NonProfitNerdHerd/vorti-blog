@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useCategoriesEnabled } from '@design-system/payload-design-core/admin'
-import { type ComponentProps, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useState, type ComponentProps, type MouseEvent, type ReactNode } from 'react'
 import type { DefaultNavClient } from '@payloadcms/next/client'
 import {
   useAuth,
@@ -109,6 +109,7 @@ export function PolicyNav({
   const { breakpoints } = useWindowInfo()
   const pathname = usePathname()
   const params = useSearchParams()
+  const internalArea = params.get('audience') === 'intranet'
   const { i18n } = useTranslation()
   const taskURL = `${admin}/collections/review-tasks`
   const tasks = groups.some((group) =>
@@ -136,13 +137,15 @@ export function PolicyNav({
   const inWorkflows =
     matchesAdminPath(pathname, `${admin}/workflows`) ||
     matchesAdminPath(pathname, `${admin}/automations`)
-  const active = inWorkflows
+  const active = matchesAdminPath(pathname, `${admin}/intranet/groups`) ? 'Intranet' : inWorkflows
     ? 'Workflows'
     : inCRM
       ? 'CRM'
       : inTasks
         ? 'Tasks'
-        : visible.find((group) =>
+        : internalArea && /\/collections\/(posts|pages|media|categories|tags|saved-views)(\/|$)/.test(pathname)
+          ? 'Intranet'
+          : visible.find((group) =>
             group.entities.some((entity) => matchesAdminPath(pathname, entityURL(entity))),
           )?.label ||
           (matchesAdminPath(pathname, `${admin}/sites`) &&
@@ -153,6 +156,19 @@ export function PolicyNav({
   const route = `${pathname}?${params.toString()}|${active || ''}`
   const { open, toggle } = useNavigationExpansion(identity, route, active)
   const site = params.get('site') || binding?.site.id
+  const assignments = fine?.includes('administration:assignments') === true
+  const [groupManagement, setGroupManagement] = useState<{ site: string; actor: string; allowed: boolean } | null>(null)
+  useEffect(() => {
+    if (!site || !assignments) return
+    const abort = new AbortController()
+    void fetch(`${config.routes.api}/publishing/groups?site=${encodeURIComponent(site)}&capability=1`, { cache: 'no-store', signal: abort.signal })
+      .then(async response => {
+        if (!response.ok) throw Error('Group capability unavailable.')
+        const result = await response.json() as { canManage?: boolean }
+        if (!abort.signal.aborted) setGroupManagement({ site, actor: identity, allowed: result.canManage === true })
+      }).catch(() => { if (!abort.signal.aborted) setGroupManagement({ site, actor: identity, allowed: false }) })
+    return () => abort.abort()
+  }, [config.routes.api, site, identity, assignments])
   const onNavigate = (event: MouseEvent<HTMLAnchorElement>, crm = false) => {
     if (
       event.defaultPrevented ||
@@ -185,8 +201,9 @@ export function PolicyNav({
       onNavigate={onNavigate}
     >
       {group.entities.map((entity) => {
-        const href = entityURL(entity),
-          selected = matchesAdminPath(pathname, href)
+        const base = entityURL(entity),
+          href = group.label === 'Content' ? `${base}?site=${encodeURIComponent(site || 'default')}&audience=public` : base,
+          selected = matchesAdminPath(pathname, base) && (group.label !== 'Content' || !internalArea)
         return (
           <PayloadLink
             key={entity.slug}
@@ -219,8 +236,8 @@ export function PolicyNav({
   return (
     <>
       <DashboardNavLink admin={admin} />
-      {(['wiki','intranet'] as const).filter(kind => fine?.some(permission => permission.startsWith(`${kind}:read`))).map(kind =>
-        <a key={kind} className="nav__link" href={`/${kind}?site=${encodeURIComponent(site || 'default')}&manage=1`} onClick={onNavigate}>{kind==='wiki'?'Wiki':'Intranet'}</a>
+      {(['wiki'] as const).filter(kind => fine?.some(permission => permission.startsWith(`${kind}:read`))).map(kind =>
+        <a key={kind} className="nav__link" href={`/${kind}?site=${encodeURIComponent(site || 'default')}&manage=1`} onClick={onNavigate}>Wiki</a>
       )}
       {tasks && (
         <NavigationGroup
@@ -257,6 +274,27 @@ export function PolicyNav({
         />
       )}
       {primary.filter((group) => group.label === 'Content').map(renderNativeGroup)}
+      {fine?.some(permission => permission.startsWith('intranet:read')) && <NavigationGroup
+        label="Intranet" href={`${site && site !== 'default' ? `/sites/${encodeURIComponent(binding?.site.route_key || site)}` : ''}/intranet`}
+        open={Boolean(open.Intranet)} toggle={() => toggle('Intranet')} navOpen={navOpen} onNavigate={onNavigate}
+      >
+        {([['posts', 'Posts'], ['pages', 'Pages'], ['media', 'Media'], ['categories', 'Categories'], ['tags', 'Tags'], ['saved-views', 'Saved Views']] as const)
+          .filter(([slug]) => slug !== 'categories' || enabled).map(([slug, label]) => {
+            const base = `${admin}/collections/${slug}`
+            const selected = internalArea && matchesAdminPath(pathname, base)
+            return <PayloadLink key={slug} id={`nav-intranet-${slug}`} className="nav__link"
+              href={`${base}?site=${encodeURIComponent(site || 'default')}&audience=intranet`} prefetch={false}
+              aria-current={selected ? 'page' : undefined} tabIndex={navOpen ? undefined : -1} onClick={onNavigate}>
+              {selected && <div className="nav__link-indicator" />}<span className="nav__link-label">{label}</span>
+            </PayloadLink>
+          })}
+          {groupManagement?.allowed && groupManagement.site === site && groupManagement.actor === identity && assignments && <PayloadLink
+            id="nav-intranet-groups" className="nav__link" href={`${admin}/intranet/groups?site=${encodeURIComponent(site || 'default')}&audience=intranet`}
+            prefetch={false} aria-current={matchesAdminPath(pathname, `${admin}/intranet/groups`) ? 'page' : undefined}
+            tabIndex={navOpen ? undefined : -1} onClick={onNavigate}>
+            <span className="nav__link-label">Sharing Groups</span>
+          </PayloadLink>}
+        </NavigationGroup>}
       {(!fine || fine.includes('crm:read')) && <NavigationGroup
         label="CRM"
         href={crmURL(admin, 'overview', site)}

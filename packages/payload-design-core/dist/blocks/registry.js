@@ -47,6 +47,7 @@ const queryFields = [
         '-updatedAt',
     ]),
     field('ids', 'Selected document IDs (comma separated)'),
+    field('excludeIDs', 'Excluded document IDs (comma separated)'),
     field('categories', 'Category IDs (comma separated)'),
     ...['image', 'title', 'excerpt', 'taxonomy', 'date', 'link'].map((key) => field(`show${key[0].toUpperCase()}${key.slice(1)}`, `Show ${key}`, 'toggle', true)),
 ];

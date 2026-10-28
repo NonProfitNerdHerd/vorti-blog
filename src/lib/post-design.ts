@@ -25,7 +25,7 @@ type TemplatedDocumentExtras = {
 }
 
 export async function resolveContentDesign(source: Post | Page, context: RenderScope = {}): Promise<PostDesignSection[]> {
-  context={...context,site:source.platformSite || context.site}
+  context={...context,site:source.platformSite || context.site,audience:source.audience === 'intranet' ? 'intranet' : 'public'}
   const renderPayload=await getPayload({config})
   const req=await rendererRequest(renderPayload,context)
   const categoriesEnabled = await readCategoriesEnabled(await getPayload({ config }))
