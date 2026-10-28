@@ -90,12 +90,10 @@ it('retains a conflicting draft and blocks navigation when changes are unsaved',
   expect(confirm).toHaveBeenCalledWith('Discard unsaved page changes?')
 })
 it('searches the authorized list and keeps history flags out of reading requests', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      json: async () => ({ docs: [] as typeof props.initial.docs, next: null as string | null }),
-    })
+  const fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ docs: [] as typeof props.initial.docs, next: null as string | null }),
+  })
   vi.stubGlobal('fetch', fetch)
   render(<KnowledgeWorkspace {...props} initialDoc={null} />)
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Needle' } })
@@ -104,4 +102,27 @@ it('searches the authorized list and keeps history flags out of reading requests
   expect(fetch.mock.calls[0][0]).toContain('search=Needle')
   expect(fetch.mock.calls[0][0]).not.toContain('draft=1')
   await waitFor(() => expect(screen.getByText('No pages available.')).toBeTruthy())
+})
+it('keeps save feedback visible after refreshing the page hierarchy', async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ revision: 3 }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ docs: [] as typeof props.initial.docs, next: null as string | null }),
+    })
+  vi.stubGlobal('fetch', fetch)
+  render(
+    <KnowledgeWorkspace
+      {...props}
+      view="edit"
+      manage
+      permissions={['wiki:read-history', 'wiki:edit']}
+    />,
+  )
+  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Saved title' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+  await waitFor(() => expect(screen.getByText('No pages available.')).toBeTruthy())
+  expect(screen.getByRole('status').textContent).toBe('Page saved.')
 })

@@ -119,7 +119,7 @@ export function KnowledgeWorkspace({
       document.removeEventListener('click', leave, true)
     }
   }, [])
-  const list = async (after = '') => {
+  const list = async (after = '', clearMessage = true) => {
     setBusy(true)
     try {
       const value = await read(
@@ -127,7 +127,7 @@ export function KnowledgeWorkspace({
       )
       setDocs(after ? [...docs, ...value.docs] : value.docs)
       setNext(value.next)
-      setMessage('')
+      if (clearMessage) setMessage('')
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Search failed.')
     } finally {
@@ -171,7 +171,7 @@ export function KnowledgeWorkspace({
           `${prefix}/${kind}/${doc.id}/${encodeURIComponent(doc.slug)}?${new URLSearchParams({ site, view: 'edit' })}`,
         )
       setMessage(action === 'delete' ? 'Page deleted.' : 'Page saved.')
-      await list()
+      await list('', false)
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Save failed.')
     } finally {
