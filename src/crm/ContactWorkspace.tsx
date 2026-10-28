@@ -1,4 +1,5 @@
 'use client'
+/* eslint-disable react-hooks/set-state-in-effect -- Keep the full-page editor in sync with CRM URL changes. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Gutter, useConfig } from '@payloadcms/ui'
 import { constituentRoles, type ContactProfile } from './contact-model'
@@ -6,7 +7,7 @@ import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
 import { ContactRelationships } from './ContactRelationships'
-import { ContactFollowUps } from './ContactFollowUps'
+import { ContactActivities } from './ContactActivities'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
 import { OpportunityWorkspace } from './OpportunityWorkspace'
@@ -14,7 +15,8 @@ import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { AttachmentWorkspace } from './AttachmentWorkspace'
 import { ContactTimeline } from './ContactTimeline'
-import { ConstituentSummary } from './ConstituentSummary'
+import { ContactComments } from './ContactComments'
+import { RecordTasks } from './RecordTasks'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
@@ -42,8 +44,21 @@ const contactTabs = [
   'correspondence',
   'attachments',
   'timeline',
+  'comments',
+  'tasks',
 ] as const
 type ContactTab = (typeof contactTabs)[number]
+const informationTabs = ['profile', 'chapter', 'communications', 'relationships', 'corrections', 'attachments'] as const
+const isInformation = (value: ContactTab) => (informationTabs as readonly string[]).includes(value)
+function resolvedTab(value: string | null, info: string | null): ContactTab {
+  if (value === 'activity') return 'timeline'
+  if (value === 'information') return (informationTabs as readonly string[]).includes(info || '') ? info as ContactTab : 'profile'
+  if (value === 'pledges') return 'giving'
+  return contactTabs.includes(value as ContactTab) ? value as ContactTab : 'timeline'
+}
+function tabURL(value: ContactTab) {
+  return value === 'timeline' ? 'activity' : isInformation(value) ? 'information' : value === 'giving' ? 'pledges' : value
+}
 const empty = (): ContactProfile => ({
   kind: 'person',
   firstName: '',
@@ -63,7 +78,9 @@ export function ContactWorkspace() {
   const params = useSearchParams()
   const requestedContact = params.get('contact')
   const requestedTab = params.get('contactTab')
+  const requestedNew = params.get('newContact') === '1'
   const openedLocation = useRef('')
+  const lastLocation = useRef('')
   const {
     config: {
       routes: { api, admin },
@@ -84,13 +101,13 @@ export function ContactWorkspace() {
   const [editor, setEditor] = useState<Detail | 'new' | null>(null),
     [profile, setProfile] = useState<ContactProfile>(empty),
     [roles, setRoles] = useState<string[]>(['contact'])
+  const [followUp, setFollowUp] = useState<{ id: string; subject: string } | null>(null)
   const [dirty, setDirty] = useState(false),
     [saving, setSaving] = useState(false),
     [saveError, setSaveError] = useState(''),
     [confirmed, setConfirmed] = useState(false),
     [correction, setCorrection] = useState('')
-  const dialog = useRef<HTMLDialogElement>(null),
-    operation = useRef<string | null>(null),
+  const operation = useRef<string | null>(null),
     requestSequence = useRef(0)
   const accessGeneration = useRef(0)
   const pinnedSite = useRef<string | null>(null)
@@ -98,7 +115,6 @@ export function ContactWorkspace() {
   const loseAccess = useCallback((): void => {
     accessGeneration.current++
     requestSequence.current++
-    dialog.current?.close()
     setEditor(null)
     setProfile(empty())
     setSite(null)
@@ -125,7 +141,9 @@ export function ContactWorkspace() {
       | 'correspondence'
       | 'attachments'
       | 'timeline'
-    >('profile'),
+      | 'comments'
+      | 'tasks'
+    >('timeline'),
     [tagInput, setTagInput] = useState('')
   const read = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...init, cache: 'no-store' }),
@@ -188,9 +206,6 @@ export function ContactWorkspace() {
     window.addEventListener('focus', focus)
     return () => window.removeEventListener('focus', focus)
   }, [refresh])
-  useEffect((): void => {
-    if (editor && !dialog.current?.open) dialog.current?.showModal()
-  }, [editor])
   useEffect((): (() => void) | undefined => {
     if (!notice) return
     const timer = setTimeout(() => setNotice(''), 5000)
@@ -206,6 +221,18 @@ export function ContactWorkspace() {
     window.addEventListener('beforeunload', before)
     return () => window.removeEventListener('beforeunload', before)
   }, [dirty])
+  useEffect(() => { lastLocation.current = window.location.href })
+  useEffect(() => {
+    const back = () => {
+      if (saving || (dirty && !window.confirm('Discard the unsaved contact changes?'))) {
+        window.history.pushState(null, '', lastLocation.current)
+        return
+      }
+      lastLocation.current = window.location.href
+    }
+    window.addEventListener('popstate', back)
+    return () => window.removeEventListener('popstate', back)
+  }, [dirty, saving])
   useEffect(() => {
     const navigate = (event: MouseEvent): void => {
       if (event.target instanceof Element && event.target.closest('[data-vc-crm-navigation]'))
@@ -235,31 +262,28 @@ export function ContactWorkspace() {
   }
   const close = () => {
     if (saving || (dirty && !window.confirm('Discard the unsaved contact changes?'))) return
-    dialog.current?.close()
     setEditor(null)
     setDirty(false)
     operation.current = null
     const location = new URL(window.location.href)
     location.searchParams.delete('contact')
     location.searchParams.delete('contactTab')
+    location.searchParams.delete('infoSection')
+    location.searchParams.delete('newContact')
     location.searchParams.delete('receiptGift')
     location.searchParams.delete('renewalMembership')
-    window.history.replaceState(null, '', location)
+    window.history.pushState(null, '', location)
     openedLocation.current = ''
   }
   const open = useCallback(
-    async (id?: string) => {
+    async (id?: string, fromURL = false) => {
       if (!site) return
       setSaveError('')
       const requested = new URL(window.location.href)
-      const requestedTab = requested.searchParams.get('contactTab')
-      const nextTab: ContactTab =
-        id &&
-        requested.searchParams.get('contact') === id &&
-        requested.searchParams.get('site') === site.id &&
-        contactTabs.includes(requestedTab as ContactTab)
-          ? (requestedTab as ContactTab)
-          : 'profile'
+      const nextTab: ContactTab = id && requested.searchParams.get('contact') === id &&
+        requested.searchParams.get('site') === site.id
+        ? resolvedTab(requested.searchParams.get('contactTab'), requested.searchParams.get('infoSection'))
+        : 'timeline'
       setTab(nextTab)
       setTagInput('')
       setConfirmed(false)
@@ -267,9 +291,23 @@ export function ContactWorkspace() {
       setDirty(false)
       operation.current = null
       if (!id) {
+        if (!canCreate) {
+          setError('You do not have permission to create a contact in this chapter.')
+          return
+        }
+        setTab('profile')
         setProfile(empty())
         setRoles(['contact'])
         setEditor('new')
+        if (!fromURL) {
+          const location = new URL(window.location.href)
+          location.searchParams.set('view', 'contacts')
+          location.searchParams.set('site', site.id)
+          location.searchParams.set('newContact', '1')
+          location.searchParams.delete('contact')
+          location.searchParams.delete('contactTab')
+          window.history.pushState(null, '', location)
+        }
         return
       }
       try {
@@ -287,12 +325,14 @@ export function ContactWorkspace() {
         location.searchParams.set('view', 'contacts')
         location.searchParams.set('site', site.id)
         location.searchParams.set('contact', id)
-        location.searchParams.set('contactTab', nextTab)
+        location.searchParams.delete('newContact')
+        location.searchParams.set('contactTab', tabURL(nextTab))
+        if (isInformation(nextTab)) location.searchParams.set('infoSection', nextTab)
         if (requested.searchParams.get('contact') !== id) {
           location.searchParams.delete('receiptGift')
           location.searchParams.delete('renewalMembership')
         }
-        window.history.replaceState(null, '', location)
+        if (!fromURL) window.history.pushState(null, '', location)
       } catch (cause) {
         if (
           cause &&
@@ -306,20 +346,31 @@ export function ContactWorkspace() {
         setError(cause instanceof Error ? cause.message : 'Unable to open contact.')
       }
     },
-    [site, api, read, loseAccess],
+    [site, api, read, loseAccess, canCreate],
   )
   useEffect(() => {
-    if (!site || !requestedContact) return
+    if (!site) return
+    if (requestedNew && !requestedContact) {
+      if (editor !== 'new') void open(undefined, true)
+      return
+    }
+    if (!requestedContact) {
+      if (editor) {
+        setEditor(null)
+        setDirty(false)
+        openedLocation.current = ''
+      }
+      return
+    }
     if (openedLocation.current === `${site.id}:${requestedContact}`) {
-      if (params.get('site') === site.id && contactTabs.includes(requestedTab as ContactTab)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize an external Next URL change, including same-contact receipt links.
-        setTab(requestedTab as ContactTab)
+      if (params.get('site') === site.id) {
+        setTab(resolvedTab(requestedTab, params.get('infoSection')))
       }
       return
     }
     openedLocation.current = `${site.id}:${requestedContact}`
-    void open(requestedContact)
-  }, [site, requestedContact, requestedTab, params, open])
+    void open(requestedContact, true)
+  }, [site, requestedContact, requestedTab, requestedNew, params, open, editor])
   const editable =
     editor === 'new' || !!(tab === 'chapter' ? editor?.canEditChapter : editor?.canEditProfile)
   const switchTab = (
@@ -336,7 +387,9 @@ export function ContactWorkspace() {
       | 'volunteers'
       | 'correspondence'
       | 'attachments'
-      | 'timeline',
+      | 'timeline'
+      | 'comments'
+      | 'tasks',
   ) => {
     if (
       saving ||
@@ -351,9 +404,12 @@ export function ContactWorkspace() {
     setTagInput(editor.tags.join(', '))
     setDirty(false)
     setSaveError('')
+    if (nextTab === 'tasks') setFollowUp(null)
     setTab(nextTab)
     const location = new URL(window.location.href)
-    location.searchParams.set('contactTab', nextTab)
+    location.searchParams.set('contactTab', tabURL(nextTab))
+    if (isInformation(nextTab)) location.searchParams.set('infoSection', nextTab)
+    else location.searchParams.delete('infoSection')
     window.history.replaceState(null, '', location)
     operation.current = null
   }
@@ -373,6 +429,8 @@ export function ContactWorkspace() {
       tab === 'correspondence' ||
       tab === 'attachments' ||
       tab === 'timeline'
+      || tab === 'comments'
+      || tab === 'tasks'
     )
       return
     setSaving(true)
@@ -380,7 +438,7 @@ export function ContactWorkspace() {
     operation.current ||= crypto.randomUUID()
     const creating = editor === 'new'
     try {
-      await read(api + '/crm/contacts', {
+      const saved = await read<{ doc: { id: string } }>(api + '/crm/contacts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -410,16 +468,25 @@ export function ContactWorkspace() {
         }),
       })
       setDirty(false)
-      dialog.current?.close()
-      setEditor(null)
       operation.current = null
-      openedLocation.current = ''
-      const location = new URL(window.location.href)
-      location.searchParams.delete('contact')
-      location.searchParams.delete('contactTab')
-      location.searchParams.delete('receiptGift')
-      location.searchParams.delete('renewalMembership')
-      window.history.replaceState(null, '', location)
+      setConfirmed(false)
+      const id = saved.doc.id || (editor !== 'new' ? editor.id : '')
+      if (id) {
+        const detail = await read<{ doc: Detail }>(api + '/crm/contacts?' + new URLSearchParams({ site: site.id, id }))
+        setEditor(detail.doc)
+        setProfile(detail.doc.profile)
+        setRoles(detail.doc.roles)
+        setTagInput(detail.doc.tags.join(', '))
+        if (creating) {
+          setTab('timeline')
+          openedLocation.current = `${site.id}:${id}`
+          const location = new URL(window.location.href)
+          location.searchParams.delete('newContact')
+          location.searchParams.set('contact', id)
+          location.searchParams.set('contactTab', 'activity')
+          window.history.replaceState(null, '', location)
+        }
+      }
       setNotice(
         editable
           ? creating
@@ -447,8 +514,10 @@ export function ContactWorkspace() {
       setSaving(false)
     }
   }
+  const showDetail = Boolean(editor || requestedContact || requestedNew)
   return (
-    <Gutter className="vc-crm">
+    <Gutter className="vc-crm" data-detail-open={showDetail}>
+      <div hidden={showDetail}>
       <header className="vc-crm-heading">
         <div>
           <h1>CRM</h1>
@@ -587,147 +656,60 @@ export function ContactWorkspace() {
           </tbody>
         </table>
       </div>
-      <dialog
-        className="vc-crm-dialog"
-        ref={dialog}
-        aria-labelledby="vc-contact-heading"
-        onCancel={(event) => {
-          event.preventDefault()
-          close()
-        }}
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void save()
-          }}
-        >
-          <header>
-            <h2 id="vc-contact-heading">{editor === 'new' ? 'New contact' : editor?.label}</h2>
-            <button type="button" onClick={close} disabled={saving} aria-label="Close contact">
-              ×
-            </button>
+      </div>
+      {showDetail && <section className="vc-crm-detail" aria-labelledby="vc-contact-heading">
+        {editor ? <form onSubmit={(event) => { event.preventDefault(); void save() }}>
+          <header className="vc-crm-detail-header">
+            <button type="button" className="vc-crm-back" onClick={close} disabled={saving}>← Contacts</button>
+            <h1 id="vc-contact-heading">{editor === 'new' ? 'New contact' : editor.label}</h1>
+            {editor !== 'new' && <p className="vc-crm-contact-methods">
+              {(() => {
+                const phone = profile.methods.find(method => method.kind === 'phone' && method.primary)?.value ||
+                  profile.methods.find(method => method.kind === 'phone')?.value
+                const email = profile.methods.find(method => method.kind === 'email' && method.primary)?.value ||
+                  profile.methods.find(method => method.kind === 'email')?.value
+                return <>{phone && <a href={`tel:${phone}`}>{phone}</a>}{email && <a href={`mailto:${email}`}>{email}</a>}</>
+              })()}
+            </p>}
           </header>
-          {editor && editor !== 'new' && (
-            <ConstituentSummary
-              api={api}
-              site={site?.id || ''}
-              contact={editor.id}
-              roles={editor.roles}
-              onOpen={switchTab}
-              onUnavailable={loseAccess}
-            />
-          )}
-          {editor && editor !== 'new' && (
-            <div className="vc-crm-toolbar" role="tablist" aria-label="Contact details">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'profile'}
-                onClick={() => switchTab('profile')}
-              >
-                Shared profile
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'chapter'}
-                onClick={() => switchTab('chapter')}
-              >
-                Chapter details
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'corrections'}
-                disabled={saving}
-                onClick={() => switchTab('corrections')}
-              >
-                Corrections
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'gifts'}
-                onClick={() => switchTab('gifts')}
-              >
-                Gifts
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'relationships'}
-                onClick={() => switchTab('relationships')}
-              >
-                Relationships
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'communications'}
-                onClick={() => switchTab('communications')}
-              >
-                Communications
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'giving'}
-                onClick={() => switchTab('giving')}
-              >
-                Pledges and recurring
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'memberships'}
-                onClick={() => switchTab('memberships')}
-              >
-                Memberships
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'opportunities'}
-                onClick={() => switchTab('opportunities')}
-              >
-                Opportunities
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'volunteers'}
-                onClick={() => switchTab('volunteers')}
-              >
-                Volunteers
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'correspondence'}
-                onClick={() => switchTab('correspondence')}
-              >
-                Receipts and correspondence
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'attachments'}
-                onClick={() => switchTab('attachments')}
-              >
-                Private attachments
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'timeline'}
-                onClick={() => switchTab('timeline')}
-              >
-                Timeline
-              </button>
-            </div>
-          )}
-          <div className="vc-crm-dialog-body">
+          {notice && <p className="vc-crm-success" role="status">{notice}</p>}
+          {editor !== 'new' && <div className="vc-crm-detail-tabs" role="tablist" aria-label="Constituent details">
+            {([
+              ['timeline', 'Activity'], ['profile', 'Information'], ['comments', 'Comments'],
+              ['tasks', 'Tasks'], ['gifts', 'Gifts'], ['giving', 'Pledges and recurring'],
+              ['memberships', 'Memberships'], ['opportunities', 'Opportunities'],
+              ['volunteers', 'Volunteers'], ['correspondence', 'Receipts and Correspondence'],
+            ] as const).map(([value, label]) => <button key={value} type="button" role="tab"
+              aria-selected={tabURL(tab) === tabURL(value)} tabIndex={tabURL(tab) === tabURL(value) ? 0 : -1}
+              aria-controls="vc-crm-tabpanel"
+              onKeyDown={(event) => {
+                if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return
+                const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || [])
+                const index = tabs.indexOf(event.currentTarget)
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 :
+                  (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length
+                event.preventDefault()
+                tabs[next]?.focus()
+                tabs[next]?.click()
+              }} onClick={() => switchTab(value)}>{label}</button>)}
+          </div>}
+          {editor === 'new' && <p>Save this contact to open activity, comments, tasks, and giving records.</p>}
+          {isInformation(tab) && editor !== 'new' && <nav className="vc-crm-information-nav" aria-label="Information sections">
+            {([
+              ['profile', 'Shared profile'], ['chapter', 'Chapter details'],
+              ['communications', 'Communications'], ['relationships', 'Relationships'],
+              ['corrections', 'Corrections'], ['attachments', 'Private attachments'],
+            ] as const).map(([value, label]) => <button key={value} type="button"
+              aria-current={tab === value ? 'page' : undefined} onClick={() => switchTab(value)}>{label}</button>)}
+          </nav>}
+          <div className="vc-crm-dialog-body" id={editor === 'new' ? undefined : 'vc-crm-tabpanel'}
+            role={editor === 'new' ? undefined : 'tabpanel'}>
+            {tab === 'comments' && editor && editor !== 'new' && site && <ContactComments
+              api={api} site={site.id} contact={editor.id} onDirty={setDirty} onSaving={setSaving} onDenied={loseAccess} />}
+            {tab === 'tasks' && editor && editor !== 'new' && site && <RecordTasks
+              api={api} admin={admin} site={site.id} link={{ type: 'contact', id: editor.id }}
+              activity={followUp?.id} defaultTitle={followUp?.subject}
+              onDirty={setDirty} onSaving={setSaving} />}
             {tab === 'gifts' && editor && editor !== 'new' && site && (
               <ContactGifts
                 api={api}
@@ -748,14 +730,21 @@ export function ContactWorkspace() {
               />
             )}
             {tab === 'communications' && editor && editor !== 'new' && site && (
-              <ContactFollowUps
+              <ContactActivities
                 key={`${site.id}:${editor.id}`}
                 api={api}
-                admin={admin}
                 site={site.id}
                 contact={editor.id}
                 onDirty={setDirty}
                 onSaving={setSaving}
+                onFollowUp={(activity) => {
+                  setFollowUp(activity)
+                  setTab('tasks')
+                  const location = new URL(window.location.href)
+                  location.searchParams.set('contactTab', 'tasks')
+                  location.searchParams.delete('infoSection')
+                  window.history.replaceState(null, '', location)
+                }}
               />
             )}
             {tab === 'giving' && editor && editor !== 'new' && site && (
@@ -1156,7 +1145,9 @@ export function ContactWorkspace() {
               tab !== 'volunteers' &&
               tab !== 'correspondence' &&
               tab !== 'attachments' &&
-              tab !== 'timeline' && (
+              tab !== 'timeline' &&
+              tab !== 'comments' &&
+              tab !== 'tasks' && (
                 <button
                   className="vc-crm-primary"
                   type="submit"
@@ -1176,8 +1167,9 @@ export function ContactWorkspace() {
                 </button>
               )}
           </footer>
-        </form>
-      </dialog>
+        </form> : <div><button type="button" onClick={close}>← Contacts</button>
+          <p role={error ? 'alert' : 'status'}>{error || 'Loading constituent…'}</p></div>}
+      </section>}
     </Gutter>
   )
 }

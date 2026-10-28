@@ -27,8 +27,9 @@ test('private contact attachments upload, resume, persist, download and archive 
   await page.goto('/admin/crm?view=contacts&site=default', { waitUntil: 'domcontentloaded' })
   await page.getByRole('searchbox').fill(name)
   await page.getByRole('button', { name, exact: true }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByRole('tab', { name: 'Private attachments', exact: true }).click()
+  const dialog = page.locator('.vc-crm-detail')
+  await dialog.getByRole('tab', { name: 'Information', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Private attachments', exact: true }).click()
   await expect(dialog.getByRole('button', { name: 'Save contact', exact: true })).toHaveCount(0)
   const files = dialog.getByRole('region', { name: 'Private CRM attachments' })
   await files
@@ -46,11 +47,12 @@ test('private contact attachments upload, resume, persist, download and archive 
   expect(response.headers()['content-type']).toBe('application/octet-stream')
   expect(response.headers()['cache-control']).toBe('private, no-store')
   expect(await response.body()).toEqual(contents)
-  await dialog.getByRole('button', { name: 'Close contact', exact: true }).click()
+  await dialog.getByRole('button', { name: '← Contacts', exact: true }).click()
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByRole('searchbox').fill(name)
   await page.getByRole('button', { name, exact: true }).click()
-  await dialog.getByRole('tab', { name: 'Private attachments', exact: true }).click()
+  await dialog.getByRole('tab', { name: 'Information', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Private attachments', exact: true }).click()
   await expect(download).toBeVisible()
   const resumed = Buffer.from('Fictional interrupted upload to resume.')
   const stage = await page.request.post('/api/crm/attachments', {
@@ -88,5 +90,5 @@ test('private contact attachments upload, resume, persist, download and archive 
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
-  await dialog.getByRole('button', { name: 'Close contact', exact: true }).click()
+  await dialog.getByRole('button', { name: '← Contacts', exact: true }).click()
 })

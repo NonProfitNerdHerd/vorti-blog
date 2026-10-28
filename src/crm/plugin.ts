@@ -7,6 +7,7 @@ import { financeEndpoints } from './finance-endpoints'
 import { householdEndpoints } from './household-endpoints'
 import { fundraisingEndpoints } from './fundraising-endpoints'
 import { activityEndpoints } from './activity-endpoints'
+import { commentEndpoints } from './comment-endpoints'
 import { commitmentEndpoints } from './commitment-endpoints'
 import { membershipEndpoints } from './membership-endpoints'
 import { opportunityEndpoints } from './opportunity-endpoints'
@@ -216,6 +217,7 @@ export const crmModule =
         ...householdEndpoints(platform.db, errorResponse),
         ...fundraisingEndpoints(platform.db, errorResponse),
         ...activityEndpoints(platform.db, errorResponse),
+        ...commentEndpoints(platform.db, errorResponse),
         ...commitmentEndpoints(platform.db, errorResponse),
         ...membershipEndpoints(platform.db, errorResponse),
         ...opportunityEndpoints(platform.db, errorResponse),

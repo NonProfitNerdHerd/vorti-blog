@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { DefaultListView, useConfig, useListQuery } from '@payloadcms/ui'
+import { useConfig, useListQuery } from '@payloadcms/ui'
+import { PublishingAreaList } from '../publishing/PublishingAreaList'
 import { CalendarDays, ChartNoAxesGantt, ChevronLeft, ChevronRight, List } from './ContentIcons'
 import type { ListViewClientProps, Where } from 'payload'
 import {
@@ -67,7 +68,7 @@ export function PublicationList(props: ListViewClientProps) {
   )
   return (
     <div className="publication-workspace" data-content-view={view}>
-      <DefaultListView
+      <PublishingAreaList
         {...props}
         BeforeListTable={
           <>

@@ -9,6 +9,7 @@ import { membershipSchemaV1 } from '../../src/crm/membership-schema-v1'
 import { opportunitySchemaV1 } from '../../src/crm/opportunity-schema-v1'
 import { volunteerSchemaV1 } from '../../src/crm/volunteer-schema-v1'
 import { activitySchemaV1 } from '../../src/crm/activity-schema-v1'
+import { commentSchemaV1 } from '../../src/crm/comment-schema-v1'
 import { crmJobSchemaV1 } from '../../src/crm/job-schema-v1'
 import { correspondenceSchemaV1 } from '../../src/crm/correspondence-schema-v1'
 import { emailSchemaV1 } from '../../src/crm/email-schema-v1'
@@ -28,6 +29,7 @@ export const crmTimelineSchema = [
   ...opportunitySchemaV1,
   ...volunteerSchemaV1,
   ...activitySchemaV1,
+  ...commentSchemaV1,
   ...crmJobSchemaV1,
   ...correspondenceSchemaV1,
   ...emailSchemaV1,

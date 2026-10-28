@@ -77,7 +77,7 @@ test('staff issue and correct retained receipts with private PDF generation and 
   await expect(
     page.getByRole('region', { name: 'Prepare correspondence', exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole('dialog').getByRole('heading', { name, exact: true })).toBeVisible()
+  await expect(page.locator('.vc-crm-detail').getByRole('heading', { name, exact: true })).toBeVisible()
   await page
     .getByRole('combobox', { name: 'Document template', exact: true })
     .selectOption({ label: `Receipt ${token} · gift-receipt · version 1` })

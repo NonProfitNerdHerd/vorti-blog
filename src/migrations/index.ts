@@ -243,7 +243,9 @@ export const migrations = [
   { up: migration_20261027_000000_tenant_authority.up, down: migration_20261027_000000_tenant_authority.down, name: '20261027_000000_tenant_authority' },
   { up: migration_20261027_230000_publishing_audience_compatibility.up, down: migration_20261027_230000_publishing_audience_compatibility.down, name: '20261027_230000_publishing_audience_compatibility' },
   { up: migration_20261028_000000_unified_publishing.up, down: migration_20261028_000000_unified_publishing.down, name: '20261028_000000_unified_publishing' },
+  { up: migration_20261028_010000_crm_comments.up, down: migration_20261028_010000_crm_comments.down, name: '20261028_010000_crm_comments' },
 ];
 import * as migration_20261027_000000_tenant_authority from './20261027_000000_tenant_authority'
 import * as migration_20261027_230000_publishing_audience_compatibility from './20261027_230000_publishing_audience_compatibility'
 import * as migration_20261028_000000_unified_publishing from './20261028_000000_unified_publishing'
+import * as migration_20261028_010000_crm_comments from './20261028_010000_crm_comments'

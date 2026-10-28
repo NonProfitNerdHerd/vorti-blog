@@ -236,9 +236,6 @@ export function PolicyNav({
   return (
     <>
       <DashboardNavLink admin={admin} />
-      {(['wiki'] as const).filter(kind => fine?.some(permission => permission.startsWith(`${kind}:read`))).map(kind =>
-        <a key={kind} className="nav__link" href={`/${kind}?site=${encodeURIComponent(site || 'default')}&manage=1`} onClick={onNavigate}>Wiki</a>
-      )}
       {tasks && (
         <NavigationGroup
           label="Tasks"
@@ -320,6 +317,20 @@ export function PolicyNav({
           </Link>
         ))}
       </NavigationGroup>}
+      {fine?.some(permission => permission.startsWith('wiki:read')) && (
+        <div id="nav-group-Wiki" className="nav-group">
+          <div className="task-nav-heading">
+            <a
+              className="vorti-nav-parent-link"
+              href={`/wiki?site=${encodeURIComponent(site || 'default')}&manage=1`}
+              tabIndex={navOpen ? undefined : -1}
+              onClick={onNavigate}
+            >
+              Wiki
+            </a>
+          </div>
+        </div>
+      )}
       {primary.filter((group) => group.label !== 'Content' && group.label !== 'Site Design').map(renderNativeGroup)}
       {(!fine || fine.includes('workflows:read')) && <NavigationGroup
         label="Workflows"

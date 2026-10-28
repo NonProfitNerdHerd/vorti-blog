@@ -38,7 +38,6 @@ import { TransferPanel as TransferPanel_5e1fed69dcb1396b34fe55aceec8ef25 } from 
 import { PrivateHistoryPanel as PrivateHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2 } from '../../../publishing/LegacyHistoryPanel'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
-import { AreaBanner as AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3 } from '../../../publishing/AreaBanner'
 import { EditorTitleSlot as EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { EditorPreviewSlot as EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { DocumentPreviewActions as DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11 } from '../../../components/DocumentPreviewActions'
@@ -46,7 +45,9 @@ import { TaskDocument as TaskDocument_91330414dfe35b91fc3cf4e3b382220c } from '.
 import { EditorHistorySlot as EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
 import { PublicationList as PublicationList_1b7267da200a8f3d15161411e3aad0c6 } from '../../../components/PublicationList'
 import { LegacyHistoryPanel as LegacyHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2 } from '../../../publishing/LegacyHistoryPanel'
+import { PublishingAreaList as PublishingAreaList_35b939bdbf015d8cef64d5338049a168 } from '../../../publishing/PublishingAreaList'
 import { SiteTemplateBuilder as SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37 } from '@design-system/payload-design-core/admin'
+import { AreaBanner as AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3 } from '../../../publishing/AreaBanner'
 import { AttributionPreference as AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc } from '../../../components/AttributionPreference'
 import { TaskList as TaskList_880cb1fd621ab88238746b65153e74cb } from '../../../review/TaskList'
 import { ViewBuilder as ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677 } from '../../../content-framework/ViewBuilder'
@@ -139,7 +140,6 @@ export const importMap = {
   "./publishing/LegacyHistoryPanel#PrivateHistoryPanel": PrivateHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
-  "./publishing/AreaBanner#AreaBanner": AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3,
   "@design-system/payload-design-core/admin#EditorTitleSlot": EditorTitleSlot_df906c3c971d30a9067b2148b7fc0a37,
   "@design-system/payload-design-core/admin#EditorPreviewSlot": EditorPreviewSlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/DocumentPreviewActions#DocumentPreviewActions": DocumentPreviewActions_759a1176b765f8cdee5f37e28dacdf11,
@@ -147,7 +147,9 @@ export const importMap = {
   "@design-system/payload-design-core/admin#EditorHistorySlot": EditorHistorySlot_df906c3c971d30a9067b2148b7fc0a37,
   "./components/PublicationList#PublicationList": PublicationList_1b7267da200a8f3d15161411e3aad0c6,
   "./publishing/LegacyHistoryPanel#LegacyHistoryPanel": LegacyHistoryPanel_f882e0a03778195a9f2ec0a44c9e2fe2,
+  "./publishing/PublishingAreaList#PublishingAreaList": PublishingAreaList_35b939bdbf015d8cef64d5338049a168,
   "@design-system/payload-design-core/admin#SiteTemplateBuilder": SiteTemplateBuilder_df906c3c971d30a9067b2148b7fc0a37,
+  "./publishing/AreaBanner#AreaBanner": AreaBanner_4b39b99e3e1a02791d10d02e63bebdd3,
   "./components/AttributionPreference#AttributionPreference": AttributionPreference_bca1cdac3226b3b44f7d7c515aeec0fc,
   "./review/TaskList#TaskList": TaskList_880cb1fd621ab88238746b65153e74cb,
   "./content-framework/ViewBuilder#ViewBuilder": ViewBuilder_ba0ce27ba8710e202b84ecf4f6599677,

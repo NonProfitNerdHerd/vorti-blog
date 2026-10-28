@@ -171,6 +171,27 @@
   max-height: 90dvh;
   padding: 0;
 }
+.vc-crm-detail { min-width: 0; max-width: 1200px; margin: 0 auto; }
+.vc-crm-detail > form { min-width: 0; }
+.vc-crm-detail-header { display: grid; gap: 6px; padding: 8px 0 20px; border-bottom: 1px solid var(--theme-elevation-150); }
+.vc-crm-detail-header h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.35rem); line-height: 1.15; }
+.vc-crm-back { justify-self: start; margin-bottom: 8px; }
+.vc-crm-contact-methods { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; font-size: .95rem; color: var(--theme-elevation-600); }
+.vc-crm-contact-methods a { color: inherit; overflow-wrap: anywhere; }
+.vc-crm-detail-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--theme-elevation-200); margin-top: 14px; padding-bottom: 1px; }
+.vc-crm-detail-tabs button { flex: 0 0 auto; white-space: nowrap; border: 0; border-radius: 7px 7px 0 0; background: transparent; padding: 12px 15px; }
+.vc-crm-detail-tabs button[aria-selected='true'] { background: var(--theme-elevation-50); box-shadow: inset 0 -3px 0 var(--theme-text); font-weight: 700; }
+.vc-crm-information-nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 24px 0; }
+.vc-crm-information-nav button[aria-current='page'] { background: var(--theme-elevation-150); font-weight: 700; }
+.vc-crm-detail .vc-crm-dialog-body { padding: 22px 24px; overflow: visible; }
+.vc-crm-detail footer { display: flex; justify-content: flex-end; gap: 10px; padding: 20px 24px; border-top: 1px solid var(--theme-elevation-150); }
+.vc-crm-comments { list-style: none; margin: 20px 0; padding: 0; display: grid; gap: 12px; }
+.vc-crm-comments li article { border: 1px solid var(--theme-elevation-200); border-radius: 10px; padding: 16px; background: var(--theme-elevation-0); }
+.vc-crm-comments header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+.vc-crm-comments time, .vc-crm-comments small { color: var(--theme-elevation-600); font-size: .85rem; }
+.vc-crm-comments p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.vc-crm-comment-composer { display: grid; gap: 10px; }
+.vc-crm-comment-composer > div { display: flex; gap: 8px; }
 .vc-crm-dialog::backdrop {
   background: #11182780;
   backdrop-filter: blur(3px);
@@ -227,6 +248,8 @@
   min-height: 100px;
 }
 @media (max-width: 600px) {
+  .vc-crm-detail .vc-crm-dialog-body, .vc-crm-detail footer { padding-inline: 4px; }
+  .vc-crm-information-nav { padding-inline: 4px; }
   .vc-crm-heading {
     align-items: flex-start;
     flex-direction: column;

@@ -204,7 +204,7 @@ test('typed record files persist in their pinned tab while the original househol
   await (await crmNavigation(page)).getByRole('link', { name: 'Constituents', exact: true }).click()
   await page.getByRole('searchbox').fill(`Fictional file donor ${token}`)
   await page.getByRole('button', { name: `Fictional file donor ${token}`, exact: true }).click()
-  const dialog = page.getByRole('dialog')
+  const dialog = page.locator('.vc-crm-detail')
   await dialog.getByRole('tab', { name: 'Gifts', exact: true }).click()
   await dialog.getByRole('button', { name: '2026-10-24', exact: true }).click()
   const [giftFiles] = await Promise.all([
@@ -218,7 +218,7 @@ test('typed record files persist in their pinned tab while the original househol
     giftFiles.getByRole('link', { name: 'Download Fictional-gift.txt', exact: true }),
   ).toBeVisible()
   await giftFiles.close()
-  await dialog.getByRole('tab', { name: 'Timeline', exact: true }).click()
+  await dialog.getByRole('tab', { name: 'Activity', exact: true }).click()
   const timeline = dialog.getByRole('region', { name: 'Authorized contact timeline' })
   await timeline.getByLabel('Timeline area').selectOption('attachments')
   await expect(timeline.getByText('14 authorized events. Showing 14 on this page.')).toBeVisible()
@@ -248,5 +248,5 @@ test('typed record files persist in their pinned tab while the original househol
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     .toBe(true)
-  await dialog.getByRole('button', { name: 'Close contact', exact: true }).click()
+  await dialog.getByRole('button', { name: '← Contacts', exact: true }).click()
 })

@@ -70,6 +70,7 @@ export const unifiedPublishing = (config: Config): Config => ({
       }, ...(collection.hooks?.beforeOperation || [])] } }
     const mapping = audienceTablesV1.find(([slug]) => slug === collection.slug)
     if (!mapping) return collection
+    const areaHeading = ['posts', 'pages', 'media', 'categories', 'tags', 'saved-views'].includes(collection.slug)
     const access = { ...collection.access }
     for (const operation of ['create', 'read', 'readVersions', 'update', 'delete'] as const) {
       if (operation === 'readVersions' && !collection.versions) continue
@@ -109,7 +110,12 @@ export const unifiedPublishing = (config: Config): Config => ({
         return result
       } }),
       admin: { ...collection.admin, components: { ...collection.admin?.components,
-        beforeList: [...(collection.admin?.components?.beforeList || []), './publishing/AreaBanner#AreaBanner'] },
+        beforeList: [...(collection.admin?.components?.beforeList || []), ...(areaHeading ? [] : ['./publishing/AreaBanner#AreaBanner'])],
+        ...(areaHeading && !['posts', 'pages'].includes(collection.slug) ? {
+          views: { ...collection.admin?.components?.views,
+            list: { ...collection.admin?.components?.views?.list, Component: './publishing/PublishingAreaList#PublishingAreaList' } },
+        } : {}),
+      },
         ...(collection.slug === 'site-templates' ? { defaultColumns: ['name', 'publishingTemplateRole', 'slug', '_status', 'updatedAt'] } : {}) },
       fields: [...collection.fields, ...fields, ...(['posts', 'pages'].includes(collection.slug) ? [{ name: 'publishingTransfer', type: 'ui' as const, admin: { position: 'sidebar' as const, components: { Field: './publishing/TransferPanel#TransferPanel' } } },
         { name: 'publishingPrivateHistory', type: 'ui' as const, admin: { position: 'sidebar' as const, components: { Field: './publishing/LegacyHistoryPanel#PrivateHistoryPanel' } } }] : []), ...(collection.slug === 'site-templates' ? [{ name: 'publishingTemplateRole', label: 'Site purpose', type: 'text' as const, virtual: true, admin: { readOnly: true, position: 'sidebar' as const }, access: { create: () => false, update: () => false } }] : []), ...(collection.slug === 'pages' ? [{ name: 'publishingArchived', type: 'checkbox' as const, defaultValue: false, admin: { hidden: true }, access: { create: () => false, update: () => false } },

@@ -38,18 +38,6 @@ afterEach(() => {
 it('restores the authorized constituent tab, retains changes across remount, and clears selection on close', async () => {
   const fixture = await crmTimelineFixture()
   try {
-    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-      configurable: true,
-      value: function (this: HTMLDialogElement) {
-        this.setAttribute('open', '')
-      },
-    })
-    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
-      configurable: true,
-      value: function (this: HTMLDialogElement) {
-        this.removeAttribute('open')
-      },
-    })
     window.history.replaceState(
       null,
       '',
@@ -62,15 +50,28 @@ it('restores the authorized constituent tab, retains changes across remount, and
       if (parsed.pathname.endsWith('/context'))
         return Response.json({ site: { id: 'default', name: 'Local chapter' }, canCreate: true })
       const id = parsed.searchParams.get('id')
-      return Response.json(
-        id ? { doc: await contacts.get('default', id) } : await contacts.list({ site: 'default' }),
-      )
+      if (id) {
+        const doc = await contacts.get('default', id)
+        return Response.json({ doc: { ...doc, profile: { ...doc.profile, methods: [
+          { kind: 'phone', value: '555-0100', label: 'Other', primary: false },
+          { kind: 'phone', value: '555-0101', label: 'Primary', primary: true },
+          { kind: 'email', value: 'first@example.invalid', label: 'Other', primary: false },
+          { kind: 'email', value: 'primary@example.invalid', label: 'Primary', primary: true },
+        ] } } })
+      }
+      return Response.json(await contacts.list({ site: 'default' }))
     })
     let mounted = render(<ContactWorkspace />)
     await screen.findByText('Selected constituent relationships')
-    expect(
-      (await screen.findByRole('tab', { name: 'Relationships' })).getAttribute('aria-selected'),
-    ).toBe('true')
+    expect(screen.getByRole('heading', { name: 'Fictional timeline donor' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: '555-0101' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'primary@example.invalid' })).toBeTruthy()
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+      'Activity', 'Information', 'Comments', 'Tasks', 'Gifts', 'Pledges and recurring',
+      'Memberships', 'Opportunities', 'Volunteers', 'Receipts and Correspondence',
+    ])
+    expect(screen.getByRole('tab', { name: 'Information' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Relationships' }).getAttribute('aria-current')).toBe('page')
     fireEvent.click(screen.getByRole('tab', { name: 'Gifts' }))
     expect(new URLSearchParams(window.location.search).get('contactTab')).toBe('gifts')
     mounted.unmount()
@@ -84,10 +85,13 @@ it('restores the authorized constituent tab, retains changes across remount, and
     )
     mounted.rerender(<ContactWorkspace />)
     await screen.findByText('Receipt source: selected-gift')
-    fireEvent.click(screen.getByRole('button', { name: 'Close contact' }))
+    fireEvent.click(screen.getByRole('button', { name: '← Contacts' }))
     expect(new URLSearchParams(window.location.search).has('contact')).toBe(false)
     expect(new URLSearchParams(window.location.search).has('contactTab')).toBe(false)
     expect(new URLSearchParams(window.location.search).has('receiptGift')).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Fictional timeline donor' }))
+    expect((await screen.findByRole('tab', { name: 'Activity' })).getAttribute('aria-selected')).toBe('true')
+    expect(new URLSearchParams(window.location.search).get('contactTab')).toBe('activity')
     mounted.unmount()
   } finally {
     fixture.close()

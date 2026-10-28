@@ -24,6 +24,8 @@ export type TimelineDestination =
   | 'volunteers'
   | 'correspondence'
   | 'attachments'
+  | 'comments'
+  | 'tasks'
 type Props = {
   api: string
   site: string
@@ -35,7 +37,7 @@ type Props = {
 type Page = Awaited<ReturnType<TimelineService['list']>>
 const destination = (row: TimelineEvent): TimelineDestination =>
   row.group === 'tasks'
-    ? 'communications'
+    ? 'tasks'
     : row.group === 'giving'
       ? row.targetType === 'gift'
         ? 'gifts'

@@ -75,8 +75,9 @@ test('household, relationship, communication and fundraising editors persist in 
   await household.getByRole('button', { name: 'Close household' }).click()
   await (await crmNavigation(page)).getByRole('link', { name: 'Constituents', exact: true }).click()
   await page.getByRole('button', { name: contactName, exact: true }).click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByRole('tab', { name: 'Relationships', exact: true }).click()
+  const dialog = page.locator('.vc-crm-detail')
+  await dialog.getByRole('tab', { name: 'Information', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Relationships', exact: true }).click()
   await dialog.getByText('Manage relationship types', { exact: true }).click()
   await dialog.getByLabel('Forward label').fill(`Employer ${token}`)
   await dialog.getByLabel('Reciprocal label').fill(`Employee ${token}`)
@@ -92,7 +93,7 @@ test('household, relationship, communication and fundraising editors persist in 
   await dialog.getByLabel('From', { exact: true }).fill('2026-01-01')
   await dialog.getByRole('button', { name: 'Save relationship', exact: true }).click()
   await expect(dialog.getByRole('cell', { name: `Related ${token}`, exact: true })).toBeVisible()
-  await dialog.getByRole('tab', { name: 'Communications', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Communications', exact: true }).click()
   await dialog.getByRole('button', { name: 'Record communication' }).click()
   await dialog.getByLabel('Subject', { exact: true }).fill('Fictional follow-up')
   await dialog.getByLabel('Occurred on').fill('2026-10-24')
@@ -101,7 +102,7 @@ test('household, relationship, communication and fundraising editors persist in 
   await expect(
     dialog.getByRole('button', { name: 'Fictional follow-up', exact: true }),
   ).toBeVisible()
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await dialog.getByRole('button', { name: '← Contacts', exact: true }).click()
   await (
     await crmNavigation(page)
   )

@@ -60,6 +60,15 @@ export function timelineSources(read: Set<InformationCategory>, withTasks = fals
       "coalesce(json_extract(p.after_value,'$.subject'),r.subject)",
       "json_extract(p.after_value,'$.occurredOn')",
     )
+  if (read.has('communications'))
+    add('comments', `SELECT 'audit:'||p.id,p.created_at,'comments',
+      CASE p.action WHEN 'comment.created' THEN 'Comment added' ELSE 'Comment edited' END,
+      r.author_label,json_extract(p.after_value,'$.body'),NULL,'contact-comment',r.id,
+      NULL,NULL,NULL,NULL
+      FROM vc_platform_audit p JOIN vc_crm_comments r ON r.id=p.record_id CROSS JOIN chosen q
+      WHERE p.site_id=q.site_id AND p.record_type='contact-comment'
+      AND p.action IN('comment.created','comment.updated')
+      AND r.site_id=q.site_id AND r.constituent_id=q.contact_id`)
   if (read.has('affiliations')) {
     audit(
       'relationships',
