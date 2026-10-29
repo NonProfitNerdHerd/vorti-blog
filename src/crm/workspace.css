@@ -18,6 +18,7 @@
 @media (max-width: 600px) {
   .vc-crm-overview-cards, .vc-crm-overview-columns { grid-template-columns: minmax(0,1fr); }
 }
+
 .vc-crm-domain .vc-crm-toolbar { flex-wrap: wrap; }
 .vc-crm-domain { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .vc-crm.vc-crm-domain table,
@@ -289,4 +290,219 @@
   .vc-crm-dialog-body {
     flex: 1;
   }
+}
+
+/* Contact detail workspace. Keep these rules away from the CRM lists and both admin menus. */
+.vc-crm[data-detail-open='true'] {
+  --vc-detail-border: var(--theme-elevation-150);
+  --vc-detail-muted: var(--theme-elevation-650);
+  --vc-detail-accent: #6542e8;
+  width: 100%;
+  max-width: none;
+  padding: 20px clamp(18px, 2.8vw, 46px) 56px;
+}
+.vc-crm[data-detail-open='true'] .vc-crm-detail {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.vc-crm-detail > form { width: 100%; }
+.vc-crm-detail-header {
+  gap: 8px;
+  padding: 4px 0 22px;
+}
+.vc-crm-detail-header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 30px;
+}
+.vc-crm-detail .vc-crm-eyebrow {
+  margin: 0 0 8px;
+  color: var(--vc-detail-muted);
+  font-size: .78rem;
+  font-weight: 650;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+.vc-crm-detail-header h1 {
+  font-size: clamp(1.65rem, 2.35vw, 2.4rem);
+  line-height: 1.15;
+}
+.vc-crm-detail-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vc-crm-detail .vc-crm-contact-methods {
+  gap: 5px 18px;
+  color: var(--vc-detail-muted);
+  font-size: .9rem;
+}
+.vc-crm-detail .vc-crm-contact-methods a { text-decoration-color: var(--theme-elevation-400); text-underline-offset: 3px; }
+.vc-crm-detail button,
+.vc-crm-detail .vc-crm-more-actions summary {
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 6px;
+  font-size: .875rem;
+  font-weight: 550;
+  line-height: 1.3;
+}
+.vc-crm-detail button:not(.vc-crm-primary):not(.vc-crm-title):not(.vc-crm-read-more):not([role='tab']):not(.vc-crm-tab-scroll) {
+  background: var(--theme-elevation-0);
+}
+.vc-crm-detail button:not(.vc-crm-primary):not(.vc-crm-title):not(.vc-crm-read-more):hover,
+.vc-crm-detail .vc-crm-more-actions summary:hover { background: var(--theme-elevation-100); }
+.vc-crm-detail .vc-crm-more-actions { position: relative; }
+.vc-crm-detail .vc-crm-more-actions summary {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--theme-elevation-200);
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+  cursor: pointer;
+  list-style: none;
+}
+.vc-crm-detail .vc-crm-more-actions summary::-webkit-details-marker { display: none; }
+.vc-crm-detail .vc-crm-more-actions[open] > div {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  min-width: 185px;
+  margin-top: 5px;
+  padding: 5px;
+  border: 1px solid var(--vc-detail-border);
+  border-radius: 8px;
+  background: var(--theme-elevation-0);
+  box-shadow: 0 12px 28px #19112c22;
+}
+.vc-crm-detail .vc-crm-more-actions[open] button { width: 100%; text-align: left; border: 0; background: transparent; }
+.vc-crm-tabs-shell {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 26px;
+  align-items: stretch;
+  border-bottom: 1px solid var(--vc-detail-border);
+}
+.vc-crm-detail .vc-crm-tab-scroll {
+  position: relative;
+  z-index: 1;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--theme-elevation-0);
+  font-size: 1.25rem;
+}
+.vc-crm-detail .vc-crm-tab-scroll:disabled { visibility: hidden; }
+.vc-crm-detail-tabs {
+  min-width: 0;
+  gap: 4px;
+  border: 0;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+.vc-crm-detail .vc-crm-detail-tabs button {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--vc-detail-muted);
+  font-size: .85rem;
+  font-weight: 550;
+}
+.vc-crm-detail .vc-crm-detail-tabs button:hover { color: var(--theme-text); background: var(--theme-elevation-50); }
+.vc-crm-detail .vc-crm-detail-tabs button[aria-selected='true'] {
+  box-shadow: inset 0 -3px 0 var(--vc-detail-accent);
+  color: var(--theme-text);
+  font-weight: 700;
+}
+.vc-crm-detail .vc-crm-dialog-body {
+  display: block;
+  padding: 18px 0 36px;
+}
+.vc-crm-detail .vc-crm-domain { max-width: none; }
+.vc-crm-detail .vc-crm-domain > h2,
+.vc-crm-detail .vc-crm-domain .vc-crm-toolbar > h3 { margin: 0; font-size: 1.15rem; }
+.vc-crm-detail .vc-crm-domain > p { color: var(--vc-detail-muted); }
+.vc-crm-detail .vc-crm-domain .vc-crm-toolbar { gap: 8px; margin-bottom: 14px; }
+.vc-crm-detail .vc-crm-domain .vc-crm-table-wrap,
+.vc-crm-detail .vc-crm-domain .vc-crm-table { border-color: var(--vc-detail-border); border-radius: 8px; }
+.vc-crm-detail .vc-crm-domain th,
+.vc-crm-detail .vc-crm-domain td { padding: 10px 13px; }
+.vc-crm-detail .vc-crm-info-index {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--vc-detail-border);
+}
+.vc-crm-detail .vc-crm-info-index button {
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--vc-detail-muted);
+}
+.vc-crm-detail .vc-crm-info-index button[aria-current] {
+  border-color: var(--theme-elevation-200);
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+  font-weight: 700;
+}
+.vc-crm-detail .vc-crm-info-section { padding: 24px 0; }
+.vc-crm-detail .vc-crm-info-section > h2,
+.vc-crm-detail .vc-crm-inline-heading > h2 {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  font-size: 1.2rem;
+}
+.vc-crm-detail .vc-crm-inline-group { padding: 13px 0; border-top: 1px solid var(--vc-detail-border); }
+.vc-crm-detail .vc-crm-inline-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.vc-crm-detail .vc-crm-inline-heading h3 { margin: 0 0 10px; font-size: .96rem; font-weight: 650; }
+.vc-crm-detail .vc-crm-inline-heading button { border: 0; background: transparent; color: var(--vc-detail-accent); }
+.vc-crm-detail .vc-crm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px 28px;
+  margin: 0;
+}
+.vc-crm-detail .vc-crm-facts dt { margin-bottom: 3px; color: var(--vc-detail-muted); font-size: .77rem; font-weight: 600; }
+.vc-crm-detail .vc-crm-facts dd { margin: 0; overflow-wrap: anywhere; font-size: .92rem; }
+.vc-crm-detail .vc-crm-empty { margin: 0; color: var(--vc-detail-muted); font-size: .88rem; }
+.vc-crm-detail .vc-crm-address-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px 24px; }
+.vc-crm-detail .vc-crm-address-list address { display: grid; gap: 4px; font-size: .88rem; font-style: normal; }
+.vc-crm-detail .vc-crm-address-list span { color: var(--vc-detail-muted); overflow-wrap: anywhere; }
+.vc-crm-detail .vc-crm-inline-editor {
+  max-width: 1100px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--vc-detail-border);
+}
+.vc-crm-detail .vc-crm-inline-editor > h3 { margin: 0; font-size: 1rem; }
+.vc-crm-detail .vc-crm-fields { gap: 12px 18px; }
+.vc-crm-detail .vc-crm-inline-actions { max-width: 1100px; }
+.vc-crm-detail .vc-crm-inline-error,
+.vc-crm-detail .vc-crm-domain [role='alert'] {
+  padding: 9px 12px;
+  border-left: 3px solid var(--theme-error-600, #b42318);
+  background: var(--theme-error-50, #fff3f1);
+  color: var(--theme-error-700, #8f2117);
+}
+.vc-crm-detail .vc-crm-domain [role='status'] { color: var(--vc-detail-muted); }
+.vc-crm-detail .vc-crm-confirm { margin-top: 14px; color: var(--vc-detail-muted); font-size: .84rem; }
+.vc-crm-detail .vc-crm-section-actions { gap: 8px; padding-top: 12px; }
+.vc-crm-detail :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--vc-detail-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  .vc-crm[data-detail-open='true'] { padding-inline: 16px; }
+  .vc-crm-detail-header-main { display: grid; }
+  .vc-crm-detail-header-actions { width: 100%; }
+  .vc-crm-detail .vc-crm-dialog-body { padding-top: 12px; }
+  .vc-crm-detail .vc-crm-facts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+  .vc-crm-detail .vc-crm-inline-heading { align-items: flex-start; }
 }

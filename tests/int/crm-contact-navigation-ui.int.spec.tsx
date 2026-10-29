@@ -1,9 +1,10 @@
 // DOM environment is selected by the dom Vitest project.
 import { afterEach, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContactWorkspace } from '../../src/crm/ContactWorkspace'
 import { ContactRepository } from '../../src/crm/contacts'
 import { crmTimelineFixture } from '../helpers/crm-timeline-fixture'
+import type { ContactProfile } from '../../src/crm/contact-model'
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
@@ -23,6 +24,9 @@ vi.mock('../../src/crm/ContactRelationships', () => ({
 vi.mock('../../src/crm/ContactGifts', () => ({
   ContactGifts: () => <p>Selected constituent gifts</p>,
 }))
+vi.mock('../../src/crm/ContactCorrections', () => ({ ContactCorrections: (): null => null }))
+vi.mock('../../src/crm/ContactActivities', () => ({ ContactActivities: (): null => null }))
+vi.mock('../../src/crm/AttachmentWorkspace', () => ({ AttachmentWorkspace: (): null => null }))
 vi.mock('../../src/crm/CorrespondenceWorkspace', () => ({
   CorrespondenceWorkspace: ({ initialGift }: { initialGift?: string }) => (
     <p>Receipt source: {initialGift}</p>
@@ -33,6 +37,50 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+})
+
+it('cancels and saves inline profile edits through the existing shared update action', async () => {
+  const fixture = await crmTimelineFixture()
+  try {
+    window.history.replaceState(null, '',
+      `/?view=contacts&site=default&contact=${fixture.contact}&contactTab=information`)
+    const contacts = new ContactRepository(fixture.db, 1)
+    let current = await contacts.get('default', fixture.contact)
+    let writes = 0
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      const parsed = new URL(url, window.location.href)
+      if (parsed.pathname.endsWith('/context'))
+        return Response.json({ site: { id: 'default', name: 'Local chapter' }, canCreate: true })
+      if (init?.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { action: string; profile: ContactProfile; confirmedSharedUpdate: boolean }
+        expect(body.action).toBe('update-profile')
+        expect(body.confirmedSharedUpdate).toBe(true)
+        current = { ...current, profile: body.profile }
+        writes++
+        return Response.json({ doc: { id: fixture.contact } })
+      }
+      if (parsed.searchParams.get('view') === 'corrections')
+        return Response.json({ docs: [], total: 0, next: null, canResolve: false })
+      if (parsed.searchParams.get('id'))
+        return Response.json({ doc: { ...current, canEditProfile: true, canEditChapter: true } })
+      return Response.json(await contacts.list({ site: 'default' }))
+    })
+    render(<ContactWorkspace />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit identity' }))
+    fireEvent.change(screen.getByLabelText('Preferred name'), { target: { value: 'Discard me' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByDisplayValue('Discard me')).toBeNull())
+    expect(writes).toBe(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit identity' }))
+    fireEvent.change(screen.getByLabelText('Preferred name'), { target: { value: 'Pat' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Confirm this update to the shared contact profile/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(writes).toBe(1))
+    await waitFor(() => expect(screen.getByText('Pat')).toBeTruthy())
+  } finally {
+    fixture.close()
+  }
 })
 
 it('restores the authorized constituent tab, retains changes across remount, and clears selection on close', async () => {

@@ -21,21 +21,55 @@ test('CRM contact creation, validation and persisted shared-profile editing', as
   await dialog.getByRole('button', { name: 'Save contact' }).click()
   await expect(dialog.getByRole('heading', { name: browserContact, exact: true })).toBeVisible()
   await dialog.getByRole('tab', { name: 'Information', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Edit identity' }).click()
   await dialog.getByLabel('Preferred name').fill('Browser review')
-  await expect(dialog.getByRole('button', { name: 'Save contact' })).toBeDisabled()
-  await dialog.getByRole('checkbox', { name: /updates the shared contact profile/ }).check()
-  await dialog.getByRole('button', { name: 'Save contact' }).click()
+  await expect(dialog.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+  await dialog.getByRole('checkbox', { name: /Confirm this update to the shared contact profile/ }).check()
+  await dialog.getByRole('button', { name: 'Save changes' }).click()
   await page.reload()
+  await dialog.getByRole('button', { name: 'Edit identity' }).click()
   await expect(dialog.getByLabel('Preferred name')).toHaveValue('Browser review')
-  await dialog.getByRole('button', { name: 'Chapter details', exact: true }).click()
+  await dialog.getByRole('button', { name: 'Edit chapter details' }).click()
   await dialog.getByLabel('Tags, separated by commas').fill('Local supporter, Browser review')
   await dialog.getByRole('button', { name: 'Save chapter details', exact: true }).click()
-  await expect(dialog.getByLabel('Tags, separated by commas')).toHaveValue(
-    'Local supporter, Browser review',
-  )
-  await dialog.getByRole('button', { name: '← Contacts', exact: true }).click()
+  await expect(dialog.getByText('Local supporter, Browser review')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Back to contacts' }).click()
   await page.getByRole('searchbox').fill('No contact matches this search')
   await expect(page.getByText('No contacts match this view.')).toBeVisible()
+})
+
+test('contact tabs remain usable across desktop and narrower workspace widths', async ({ page }) => {
+  const login = await page.request.post('/api/users/login', {
+    data: { email: 'dev@payloadcms.com', password: 'test' },
+  })
+  expect(login.ok()).toBe(true)
+  await page.goto('/admin/crm?view=contacts&site=default')
+  await page.getByRole('button', { name: browserContact, exact: true }).click()
+  const detail = page.locator('.vc-crm-detail')
+  const tabs = [
+    ['Activity', 'Contact timeline'], ['Information', 'Shared profile'], ['Comments', 'Comments'],
+    ['Tasks', 'Follow-up tasks'], ['Gifts', 'Chapter gifts'],
+    ['Pledges and recurring', 'Pledges and recurring giving'], ['Memberships', 'Memberships'],
+    ['Opportunities', 'Opportunities'], ['Volunteers', 'Volunteers'],
+    ['Receipts and Correspondence', 'Receipts and correspondence'],
+  ] as const
+  for (const width of [1440, 820]) {
+    await page.setViewportSize({ width, height: 900 })
+    const primaryWidth = await page.locator('.nav').evaluate(element => element.getBoundingClientRect().width)
+    const secondary = page.locator('.vorti-secondary')
+    const secondaryWidth = await secondary.count()
+      ? await secondary.evaluate(element => element.getBoundingClientRect().width) : null
+    for (const [label, heading] of tabs) {
+      const tab = detail.getByRole('tab', { name: label, exact: true })
+      await tab.click()
+      await expect(tab).toHaveAttribute('aria-selected', 'true')
+      await expect(detail.getByRole('tabpanel').getByRole('heading', { name: heading, exact: true }).first()).toBeVisible()
+      await expect.poll(() => page.locator('.nav').evaluate(element => element.getBoundingClientRect().width)).toBe(primaryWidth)
+      if (secondaryWidth !== null)
+        await expect.poll(() => secondary.evaluate(element => element.getBoundingClientRect().width)).toBe(secondaryWidth)
+    }
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
 })
 
 test('a reader requests a correction without editing shared identity', async ({ page }) => {
@@ -49,7 +83,7 @@ test('a reader requests a correction without editing shared identity', async ({ 
   await page.getByRole('button', { name: browserContact, exact: true }).click()
   const dialog = page.locator('.vc-crm-detail')
   await dialog.getByRole('tab', { name: 'Information', exact: true }).click()
-  await expect(dialog.getByLabel('First name', { exact: true })).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: 'Edit identity' })).toHaveCount(0)
   await dialog
     .getByLabel('Request a correction')
     .fill('Fictional correction request from browser test.')
@@ -84,8 +118,8 @@ test('an authorized reviewer resolves a correction without rewriting the profile
     .fill('Verified fictional contact details in local review.')
   await dialog.getByRole('button', { name: 'Save review', exact: true }).click()
   await expect(row.getByRole('cell', { name: 'resolved', exact: true })).toBeVisible()
-  await dialog.getByRole('button', { name: 'Shared profile', exact: true }).click()
-  await expect(dialog.getByLabel('Preferred name')).toHaveValue('Browser review')
+  await dialog.getByRole('button', { name: 'Profile', exact: true }).click()
+  await expect(dialog.getByText('Browser review', { exact: true })).toBeVisible()
   await page.route('**/api/crm/context*', (route) =>
     route.fulfill({
       status: 403,
