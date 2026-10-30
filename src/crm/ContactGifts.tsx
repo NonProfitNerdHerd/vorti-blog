@@ -618,7 +618,7 @@ export function ContactGifts({
           </thead>
           <tbody>
             {result?.docs.map((gift) => (
-              <tr key={gift.id}>
+              <tr key={gift.id} data-selected={detail?.id === gift.id ? 'true' : undefined}>
                 {!contact && (
                   <td>
                     <Link

@@ -585,7 +585,7 @@ export function OpportunityWorkspace({
           </thead>
           <tbody>
             {docs.map((d) => (
-              <tr key={d.id}>
+              <tr key={d.id} data-selected={editor && editor !== 'new' && editor.id === d.id ? 'true' : undefined}>
                 <td>
                   <button type="button" disabled={busy} onClick={() => void open(d)}>
                     {d.name}

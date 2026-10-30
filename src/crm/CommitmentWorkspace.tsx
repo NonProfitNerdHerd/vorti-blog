@@ -410,7 +410,7 @@ export function CommitmentWorkspace({
           </thead>
           <tbody>
             {docs.map((d) => (
-              <tr key={d.id}>
+              <tr key={d.id} data-selected={detail?.doc.id === d.id ? 'true' : undefined}>
                 <td>
                   <button type="button" disabled={busy} onClick={() => void open(d.id)}>
                     {d.name}

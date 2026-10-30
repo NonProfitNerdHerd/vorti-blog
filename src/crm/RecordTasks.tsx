@@ -44,6 +44,8 @@ export function RecordTasks({
     [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false),
     [saving, setSaving] = useState(false),
+    [taskSearch, setTaskSearch] = useState(''),
+    [selectedId, setSelectedId] = useState<number | null>(null),
     [title, setTitle] = useState(defaultTitle),
     [description, setDescription] = useState(''),
     [assignee, setAssignee] = useState(''),
@@ -79,6 +81,8 @@ export function RecordTasks({
     setPeopleAfter(0)
     setQuery('')
     setPage(1)
+    setSelectedId(null)
+    setTaskSearch('')
     operation.current = null
     callbacks.current.onDirty(false)
     // A changed suggested title alone must not overwrite a staff draft.
@@ -258,10 +262,16 @@ export function RecordTasks({
       busy(false)
     }
   }
+  const visibleTasks = (result?.docs || []).filter(task =>
+    `${task.title} ${task.description || ''} ${task.assigneePerson?.label || task.assigneeLabel || ''}`
+      .toLocaleLowerCase().includes(taskSearch.trim().toLocaleLowerCase()),
+  )
+  const selectedTask = result?.docs.find(task => task.id === selectedId) || result?.docs[0]
   return (
-    <section className="vc-crm-domain" aria-label="CRM follow-up tasks">
+    <section className="vc-crm-domain vc-crm-record-layout" aria-label="CRM follow-up tasks">
+      <div className="vc-crm-record-main">
       <div className="vc-crm-toolbar">
-        <h3>Follow-up tasks</h3>
+        <h3>Tasks</h3>
         <button type="button" disabled={saving} onClick={() => setRefresh((value) => value + 1)}>
           Refresh tasks
         </button>
@@ -281,10 +291,7 @@ export function RecordTasks({
           </button>
         )}
       </div>
-      <p>
-        Tasks stay in the existing Tasks workspace. Access also requires permission to the linked
-        CRM record.
-      </p>
+      <p>Follow-up work linked to this contact. Open a task to manage it in the Tasks workspace.</p>
       {error && <p role="alert">{error}</p>}
       {creating && (
         <fieldset disabled={saving}>
@@ -384,8 +391,8 @@ export function RecordTasks({
           </div>
         </fieldset>
       )}
-      <label>
-        Task status
+      <div className="vc-crm-record-filters"><label>
+        Status
         <select
           value={state}
           disabled={saving || creating}
@@ -398,7 +405,9 @@ export function RecordTasks({
           <option value="completed">Completed</option>
           <option value="all">All</option>
         </select>
-      </label>
+      </label><label>Search tasks
+        <input type="search" value={taskSearch} onChange={event => setTaskSearch(event.target.value)} placeholder="Search tasks" />
+      </label></div>
       <div className="vc-crm-table-wrap">
         <table>
           <thead>
@@ -411,8 +420,8 @@ export function RecordTasks({
             </tr>
           </thead>
           <tbody>
-            {result?.docs.map((task) => (
-              <tr key={task.id}>
+            {visibleTasks.map((task) => (
+              <tr key={task.id} data-selected={selectedTask?.id === task.id ? 'true' : undefined}>
                 <td>
                   <Link
                     target="_blank"
@@ -430,6 +439,8 @@ export function RecordTasks({
                 </td>
                 <td>{task.dueDate?.slice(0, 10) || '—'}</td>
                 <td>
+                  <button type="button" disabled={saving || creating} onClick={() => setSelectedId(task.id)}
+                    aria-label={`View details for ${task.title}`}>Details</button>{' '}
                   {task.canEdit && task.status !== 'done' && (
                     <button
                       type="button"
@@ -442,10 +453,10 @@ export function RecordTasks({
                 </td>
               </tr>
             ))}
-            {!result?.docs.length && (
+            {!visibleTasks.length && (
               <tr>
                 <td colSpan={5}>
-                  {loading ? 'Loading linked tasks…' : 'No authorized tasks match this view.'}
+                  {loading ? 'Loading linked tasks…' : 'No tasks match this view.'}
                 </td>
               </tr>
             )}
@@ -471,6 +482,21 @@ export function RecordTasks({
           Next tasks
         </button>
       </div>
+      </div>
+      <aside className="vc-crm-record-aside" aria-label="Task details">
+        <h3>Task details</h3>
+        {selectedTask ? <>
+          <h4>{selectedTask.title}</h4>
+          <dl>
+            <div><dt>Status</dt><dd>{statuses[selectedTask.status as keyof typeof statuses] || selectedTask.status}</dd></div>
+            <div><dt>Assigned to</dt><dd>{selectedTask.assigneePerson?.label || selectedTask.assigneeLabel || 'Unassigned'}</dd></div>
+            <div><dt>Due date</dt><dd>{selectedTask.dueDate?.slice(0, 10) || 'Not set'}</dd></div>
+            <div><dt>Priority</dt><dd>{selectedTask.priority || 'Not set'}</dd></div>
+          </dl>
+          {selectedTask.description && <div className="vc-crm-record-note"><strong>Description</strong><p>{selectedTask.description}</p></div>}
+          <Link href={`${admin}/collections/review-tasks?${new URLSearchParams({ site, task: String(selectedTask.id) })}`}>Open in Tasks</Link>
+        </> : <p>Select a task to see its details.</p>}
+      </aside>
     </section>
   )
 }

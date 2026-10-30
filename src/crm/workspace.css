@@ -710,3 +710,159 @@
   .vc-crm-detail .vc-crm-event-date { grid-column: 2; grid-row: auto; white-space: normal; }
   .vc-crm-detail .vc-crm-timeline-list .vc-crm-read-more { grid-column: 2; }
 }
+
+/* Contact editing floats above the selected information panel. */
+.vc-crm-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #10253fb8;
+  backdrop-filter: blur(3px);
+}
+.vc-crm-detail .vc-crm-info-section[data-editing] {
+  position: fixed;
+  z-index: 1001;
+  top: 50%;
+  left: 50%;
+  display: block !important;
+  width: min(660px, calc(100vw - 32px));
+  box-sizing: border-box;
+  max-height: min(780px, calc(100dvh - 32px));
+  margin: 0;
+  padding: 24px;
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  border-radius: 13px;
+  border: 1px solid #c6d8e5;
+  box-shadow: 0 28px 90px #071b3d55;
+}
+.vc-crm-detail .vc-crm-info-section[data-editing] > h2 {
+  margin: 0 0 17px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--vc-detail-border);
+  font-size: 1.3rem;
+}
+.vc-crm-detail #vc-crm-info-profile[data-editing] > * { grid-column: auto; }
+.vc-crm-detail #vc-crm-info-profile[data-editing] > .vc-crm-inline-group {
+  padding: 0;
+  border: 0;
+}
+.vc-crm-detail #vc-crm-info-profile[data-editing] .vc-crm-inline-heading { display: none; }
+.vc-crm-detail #vc-crm-info-profile[data-editing] > .vc-crm-inline-editor,
+.vc-crm-detail #vc-crm-info-chapter[data-editing] > .vc-crm-inline-editor {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.vc-crm-detail #vc-crm-info-profile[data-editing] > .vc-crm-inline-editor > h3 { display: none; }
+.vc-crm-detail #vc-crm-info-profile[data-editing='identity'] > [data-modal-part]:not([data-modal-part='identity']),
+.vc-crm-detail #vc-crm-info-profile[data-editing='methods'] > [data-modal-part]:not([data-modal-part='methods']),
+.vc-crm-detail #vc-crm-info-profile[data-editing='addresses'] > [data-modal-part]:not([data-modal-part='addresses']),
+.vc-crm-detail #vc-crm-info-profile[data-editing='preferences'] > [data-modal-part]:not([data-modal-part='preferences']) { display: none; }
+.vc-crm-detail .vc-crm-info-section[data-editing] .vc-crm-section-actions {
+  position: sticky;
+  bottom: -24px;
+  justify-content: flex-end;
+  margin: 18px -24px -24px;
+  padding: 14px 24px;
+  background: #fff;
+  border-top: 1px solid var(--vc-detail-border);
+}
+@media (max-width: 700px) {
+  .vc-crm-detail .vc-crm-info-section[data-editing] {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 18px;
+  }
+}
+
+/* Reuse one visual language across the existing contact record tools. */
+.vc-crm-detail .vc-crm-record-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(260px, .82fr);
+  gap: 14px;
+  align-items: start;
+}
+.vc-crm-detail .vc-crm-record-main,
+.vc-crm-detail .vc-crm-record-aside,
+.vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships'], [aria-label='Opportunities']) {
+  min-width: 0;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--vc-detail-border);
+  border-radius: 9px;
+  box-shadow: 0 2px 8px #173a5d0b;
+}
+.vc-crm-detail .vc-crm-record-aside { position: sticky; top: 12px; }
+.vc-crm-detail .vc-crm-record-aside h3 { margin: 0 0 13px; padding-bottom: 11px; border-bottom: 1px solid var(--vc-detail-border); font-size: 1.15rem; }
+.vc-crm-detail .vc-crm-record-aside h4 { margin: 0 0 17px; font-size: 1.03rem; }
+.vc-crm-detail .vc-crm-record-aside dl { display: grid; gap: 10px; margin: 0; }
+.vc-crm-detail .vc-crm-record-aside dl > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 8px; }
+.vc-crm-detail .vc-crm-record-aside dt { color: var(--vc-detail-muted); }
+.vc-crm-detail .vc-crm-record-aside dd { margin: 0; overflow-wrap: anywhere; }
+.vc-crm-detail .vc-crm-record-aside a { display: inline-block; margin-top: 16px; }
+.vc-crm-detail .vc-crm-record-note { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--vc-detail-border); }
+.vc-crm-detail .vc-crm-record-note p { white-space: pre-wrap; }
+.vc-crm-detail .vc-crm-record-filters { display: flex; gap: 10px; align-items: end; margin: 13px 0; }
+.vc-crm-detail .vc-crm-record-filters label { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.vc-crm-detail .vc-crm-record-filters label:first-child { flex: 0 0 150px; }
+.vc-crm-detail .vc-crm-domain :is(.vc-crm-table-wrap, table) th { background: #f3f7fa; color: #526b86; font-weight: 700; }
+.vc-crm-detail .vc-crm-domain tbody tr[data-selected='true'] { background: #e7f6f8; }
+.vc-crm-detail .vc-crm-domain tbody tr:hover { background: #f2f9fb; }
+.vc-crm-detail .vc-crm-domain .vc-crm-toolbar > :is(h2, h3) { margin-right: auto; font-size: 1.3rem; }
+.vc-crm-detail .vc-crm-domain .vc-crm-toolbar > button:first-of-type:not(:disabled) { border-color: var(--vc-detail-accent); }
+.vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships'], [aria-label='Opportunities']) > h2,
+.vc-crm-detail [aria-label='Chapter gifts'] .vc-crm-toolbar > h3 { font-size: 1.3rem; }
+.vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships']) > section[aria-label] {
+  padding: 16px;
+  border: 1px solid var(--vc-detail-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+.vc-crm-detail [aria-label='Opportunities'] > section[aria-label='Opportunity editor'] {
+  padding: 16px;
+  border: 1px solid var(--vc-detail-border);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+@media (min-width: 1051px) {
+  .vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships']):has(> section[aria-label]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(260px, .82fr);
+    gap: 8px 16px;
+    align-items: start;
+  }
+  .vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships']):has(> section[aria-label]) > * { grid-column: 1; min-width: 0; }
+  .vc-crm-detail :is([aria-label='Chapter gifts'], [aria-label='Pledges and recurring giving'], [aria-label='Memberships']):has(> section[aria-label]) > section[aria-label] {
+    grid-column: 2;
+    grid-row: 1 / span 20;
+    margin: 0;
+    position: sticky;
+    top: 12px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+  .vc-crm-detail [aria-label='Opportunities']:has(> section[aria-label='Opportunity editor']) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(330px, .82fr);
+    gap: 8px 16px;
+    align-items: start;
+  }
+  .vc-crm-detail [aria-label='Opportunities']:has(> section[aria-label='Opportunity editor']) > * { grid-column: 1; min-width: 0; }
+  .vc-crm-detail [aria-label='Opportunities'] > section[aria-label='Opportunity editor'] {
+    grid-column: 2 !important;
+    grid-row: 1 / span 20;
+    position: sticky;
+    top: 12px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 1050px) {
+  .vc-crm-detail .vc-crm-record-layout { grid-template-columns: minmax(0, 1fr); }
+  .vc-crm-detail .vc-crm-record-aside { position: static; }
+}
+@media (max-width: 700px) {
+  .vc-crm-detail .vc-crm-record-filters { flex-wrap: wrap; }
+  .vc-crm-detail .vc-crm-record-filters label:first-child { flex: 1 1 100%; }
+}

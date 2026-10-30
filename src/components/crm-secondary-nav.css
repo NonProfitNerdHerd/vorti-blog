@@ -30,6 +30,44 @@
   .vorti-secondary-backdrop { position: fixed; inset: 0; z-index: 28; border: 0; background: #15102066; }
 }
 .vorti-secondary-toggle { display: none; }
+
+/* The VortiCause palette belongs to the CRM module only. */
+.vorti-secondary[data-module='CRM'] {
+  background: linear-gradient(162deg, #112c4c 0%, #102a49 55%, #0b213d 100%);
+  border-right-color: #21425e;
+  color: #eaf4fc;
+  box-shadow: 8px 0 25px #071b3533;
+  padding: 22px 10px;
+}
+.vorti-secondary[data-module='CRM'] .vorti-secondary__head { padding: 2px 12px 23px; }
+.vorti-secondary[data-module='CRM'] .vorti-secondary__head strong {
+  color: #fff;
+  font-size: 19px;
+  letter-spacing: -.025em;
+}
+.vorti-secondary[data-module='CRM'] .vorti-secondary__head button { color: #d8ecf8; }
+.vorti-secondary[data-module='CRM'] nav { gap: 4px; }
+.vorti-secondary[data-module='CRM'] nav a {
+  justify-content: flex-start;
+  gap: 13px;
+  min-height: 43px;
+  padding: 10px 13px;
+  border-radius: 6px;
+  color: #dceaf5;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.vorti-secondary[data-module='CRM'] nav a:hover,
+.vorti-secondary[data-module='CRM'] nav a:focus-visible { background: #1a4663; color: #fff; }
+.vorti-secondary[data-module='CRM'] nav a[aria-current='page'] {
+  background: #13516b;
+  box-shadow: inset 3px 0 0 #23c8d9;
+  color: #fff;
+  font-weight: 700;
+}
+.vorti-secondary[data-module='CRM'] .vorti-secondary__icon { flex: 0 0 20px; width: 20px; height: 20px; }
+.vorti-secondary[data-module='CRM'] :is(a,button):focus-visible { outline-color: #59dfec; }
 @media (max-width: 1024px) {
   .vorti-secondary-toggle { display: inline-flex; margin-left: 12px; padding: 7px 11px; border: 1px solid #d8d1ea; border-radius: 7px; background: #f7f6fb; color: #362081; cursor: pointer; }
 }
