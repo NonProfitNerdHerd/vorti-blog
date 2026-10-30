@@ -7,6 +7,7 @@ export function ContactActivities({
   api,
   site,
   contact,
+  autoCreate = false,
   onDirty,
   onSaving,
   onFollowUp,
@@ -14,6 +15,7 @@ export function ContactActivities({
   api: string
   site: string
   contact: string
+  autoCreate?: boolean
   onDirty: (dirty: boolean) => void
   onSaving: (busy: boolean) => void
   onFollowUp?: (activity: { id: string; subject: string }) => void
@@ -80,6 +82,14 @@ export function ContactActivities({
     onDirty(false)
     operation.current = null
   }
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoCreate || !canEdit || autoStarted.current) return
+    autoStarted.current = true
+    open('new')
+  // The intent is consumed once when the authorization response arrives.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, canEdit])
   const save = async (followUp = false) => {
     if (!editor || busy) return
     const version = generation.current,

@@ -31,6 +31,7 @@ export function crmTaskEndpoints(
                   link,
                   Number(params.get('page') || 1),
                   params.get('state') || 'open',
+                  params.get('view') || 'list',
                 )
           return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
         } catch (error) {

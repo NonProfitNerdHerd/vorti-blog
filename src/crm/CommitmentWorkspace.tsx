@@ -37,6 +37,7 @@ export function CommitmentWorkspace({
   site,
   contact,
   focusID,
+  autoCreate,
   onDirty,
   onSaving,
 }: {
@@ -44,10 +45,11 @@ export function CommitmentWorkspace({
   site: string
   contact?: string
   focusID?: string
+  autoCreate?: 'pledge' | 'recurring'
   onDirty?: (dirty: boolean) => void
   onSaving?: (saving: boolean) => void
 }) {
-  const [kind, setKind] = useState<'pledge' | 'recurring'>('pledge'),
+  const [kind, setKind] = useState<'pledge' | 'recurring'>(autoCreate || 'pledge'),
     [docs, setDocs] = useState<GivingCommitment[]>([]),
     [next, setNext] = useState<string | null>(null),
     [after, setAfter] = useState('')
@@ -78,6 +80,15 @@ export function CommitmentWorkspace({
   const sourceRequest = useRef(0)
   const generation = useRef(0),
     operation = useRef<{ fingerprint: string; key: string } | null>(null)
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoCreate || !canEdit || autoStarted.current) return
+    autoStarted.current = true
+    setCreating(true)
+    setDetail(null)
+    setDraft(empty(contact))
+    setInstallments([])
+  }, [autoCreate, canEdit, contact])
   const mark = (value: boolean) => {
     setDirty(value)
     onDirty?.(value)

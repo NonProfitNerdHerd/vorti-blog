@@ -34,12 +34,14 @@ export function ContactGifts({
   api,
   site,
   contact,
+  autoCreate = false,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact: string
+  autoCreate?: boolean
   onDirty: (value: boolean) => void
   onSaving: (value: boolean) => void
 }) {
@@ -120,6 +122,15 @@ export function ContactGifts({
     setFunds((previous) => (after ? [...previous, ...response.docs] : response.docs))
     setFundNext(response.next)
   }
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoCreate || !result?.canEdit || autoStarted.current) return
+    autoStarted.current = true
+    setCreating(true)
+    void loadFunds().catch((cause) => setError(cause.message))
+  // The create intent is consumed once after the authorized list resolves.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, result?.canEdit])
   useEffect(() => {
     let current = true
     setLoading(true)

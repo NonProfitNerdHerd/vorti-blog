@@ -8,16 +8,18 @@ export function VolunteerWorkspace({
   api,
   site,
   contact,
+  initialView,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
+  initialView?: 'hours'
   onDirty?: (v: boolean) => void
   onSaving?: (v: boolean) => void
 }) {
-  const [view, setView] = useState<'profiles' | 'activities' | 'hours'>('profiles'),
+  const [view, setView] = useState<'profiles' | 'activities' | 'hours'>(initialView || 'profiles'),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false)
   const discard = useVolunteerGuard(dirty, busy, onDirty, onSaving)

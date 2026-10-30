@@ -15,6 +15,7 @@ import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
 import { AttachmentWorkspace } from './AttachmentWorkspace'
 import { ContactTimeline } from './ContactTimeline'
+import type { ActivityCreate } from './ContactActivityOverview'
 import { ContactComments } from './ContactComments'
 import { RecordTasks } from './RecordTasks'
 import { ContactButton, ContactEditAction, ContactFacts, ContactIcon, ContactSectionHeading, ContactStatus, ContactTab } from './ContactUI'
@@ -105,6 +106,7 @@ export function ContactWorkspace() {
     [profile, setProfile] = useState<ContactProfile>(empty),
     [roles, setRoles] = useState<string[]>(['contact'])
   const [followUp, setFollowUp] = useState<{ id: string; subject: string } | null>(null)
+  const [createIntent, setCreateIntent] = useState<ActivityCreate | null>(null)
   const [inlineEditor, setInlineEditor] = useState<InlineEditor>(null)
   const contactFormRef = useRef<HTMLFormElement>(null)
   const tabListRef = useRef<HTMLDivElement>(null)
@@ -380,6 +382,10 @@ export function ContactWorkspace() {
   useEffect(() => {
     if (!site) return
     if (requestedNew && !requestedContact) {
+      // The URL update after creation can precede the router search-param update.
+      // Keep the newly opened contact instead of reopening the stale new form.
+      const live = new URL(window.location.href).searchParams
+      if (live.get('contact') && live.get('newContact') !== '1') return
       if (editor !== 'new') void open(undefined, true)
       return
     }
@@ -487,7 +493,7 @@ export function ContactWorkspace() {
     activity?: { id: string; subject: string },
   ) => {
     if (inlineEditor && tab !== nextTab && isInformation(tab) && isInformation(nextTab)) {
-      if ((profileDirty || chapterDirty) && !window.confirm('Discard unsaved contact changes?')) return
+      if ((profileDirty || chapterDirty) && !window.confirm('Discard unsaved contact changes?')) return false
       cancelInline()
     }
     if (
@@ -498,7 +504,7 @@ export function ContactWorkspace() {
       (dirty && !confirmedNavigation && !(isInformation(tab) && isInformation(nextTab)) &&
         !window.confirm('Discard unsaved changes before changing tabs?'))
     )
-      return
+      return false
     if (!(isInformation(tab) && isInformation(nextTab))) {
       setInlineEditor(null)
       setProfile(editor.profile)
@@ -508,6 +514,7 @@ export function ContactWorkspace() {
       setSaveError('')
     }
     if (nextTab === 'tasks') setFollowUp(activity || null)
+    setCreateIntent(null)
     setTab(nextTab)
     if (nextTab === 'profile' && isInformation(tab) && tab !== 'profile')
       requestAnimationFrame(() => document.getElementById('vc-crm-info-profile')?.scrollIntoView({ block: 'start' }))
@@ -517,6 +524,13 @@ export function ContactWorkspace() {
     else location.searchParams.delete('infoSection')
     window.history.replaceState(null, '', location)
     operation.current = null
+    return true
+  }
+  const createActivity = (kind: ActivityCreate) => {
+    const target: ContactTab = kind === 'gift' ? 'gifts' : kind === 'pledge' || kind === 'recurring' ? 'giving'
+      : kind === 'membership' ? 'memberships' : kind === 'task' ? 'tasks'
+        : kind === 'volunteer' ? 'volunteers' : 'communications'
+    if (switchTab(target)) setCreateIntent(kind)
   }
   const save = async (section: 'profile' | 'chapter' = 'profile') => {
     if (
@@ -854,6 +868,7 @@ export function ContactWorkspace() {
               api={api} site={site.id} contact={editor.id} onDirty={markChildDirty('comments')} onSaving={markChildSaving('comments')} onDenied={loseAccess} />}
             {tab === 'tasks' && editor && editor !== 'new' && site && <RecordTasks
               api={api} admin={admin} site={site.id} link={{ type: 'contact', id: editor.id }}
+              autoCreate={createIntent === 'task'}
               activity={followUp?.id} defaultTitle={followUp?.subject}
               onDirty={markChildDirty('tasks')} onSaving={markChildSaving('tasks')} />}
             {tab === 'gifts' && editor && editor !== 'new' && site && (
@@ -861,6 +876,7 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
+                autoCreate={createIntent === 'gift'}
                 onDirty={markChildDirty('gifts')}
                 onSaving={markChildSaving('gifts')}
               />
@@ -871,6 +887,7 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
+                autoCreate={createIntent === 'pledge' || createIntent === 'recurring' ? createIntent : undefined}
                 onDirty={markChildDirty('giving')}
                 onSaving={markChildSaving('giving')}
               />
@@ -881,6 +898,7 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
+                autoCreate={createIntent === 'membership'}
                 onDirty={markChildDirty('memberships')}
                 onSaving={markChildSaving('memberships')}
               />
@@ -901,6 +919,7 @@ export function ContactWorkspace() {
                 api={api}
                 site={site.id}
                 contact={editor.id}
+                initialView={createIntent === 'volunteer' ? 'hours' : undefined}
                 onDirty={markChildDirty('volunteers')}
                 onSaving={markChildSaving('volunteers')}
               />
@@ -931,7 +950,7 @@ export function ContactWorkspace() {
                 site={site.id}
                 contact={editor.id}
                 onOpen={switchTab}
-                onSaving={markChildSaving('timeline')}
+                onCreate={createActivity}
                 onDenied={loseAccess}
               />
             )}
@@ -1278,6 +1297,7 @@ export function ContactWorkspace() {
             {isInformation(tab) && editor !== 'new' && site && <section id="vc-crm-info-communications" className="vc-crm-info-section" aria-labelledby="vc-crm-communications-heading">
               <h2 id="vc-crm-communications-heading">Communications</h2>
               <ContactActivities key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id}
+                autoCreate={createIntent === 'communication' && tab === 'communications'}
                 onDirty={markChildDirty('communications')} onSaving={markChildSaving('communications')}
                 onFollowUp={(activity) => {
                   if (saving || (dirty && !window.confirm('Discard unsaved changes before changing tabs?'))) return

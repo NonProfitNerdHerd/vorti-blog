@@ -1,6 +1,6 @@
 'use client'
 /* eslint-disable react-hooks/set-state-in-effect -- Read the explicitly selected authorized timeline page. */
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import type { ContactTimeline as TimelineService } from './timeline'
 import { RecordAttachmentLink } from './RecordAttachmentLink'
@@ -12,6 +12,8 @@ import {
   type TimelineGroup,
   type TimelineCursor,
 } from './timeline-model'
+import { ContactActivityOverview, type ActivityCreate } from './ContactActivityOverview'
+import { ContactIcon } from './ContactUI'
 
 export type TimelineDestination =
   | 'profile'
@@ -32,7 +34,7 @@ type Props = {
   site: string
   contact: string
   onOpen?: (tab: TimelineDestination) => void
-  onSaving?: (busy: boolean) => void
+  onCreate?: (kind: ActivityCreate) => void
   onDenied?: (message: string) => void
 }
 type Page = Awaited<ReturnType<TimelineService['list']>>
@@ -54,7 +56,7 @@ const amountLabels = {
 export function ContactTimeline(props: Props) {
   return <Timeline key={`${props.api}:${props.site}:${props.contact}`} {...props} />
 }
-function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
+function Timeline({ api, site, contact, onOpen, onCreate, onDenied }: Props) {
   const [page, setPage] = useState<Page | null>(null),
     [group, setGroup] = useState<TimelineGroup | ''>(''),
     [before, setBefore] = useState<TimelineCursor | null>(null),
@@ -76,9 +78,6 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
   useEffect(() => {
     denied.current = onDenied
   }, [onDenied])
-  useEffect(() => {
-    onSaving?.(loading)
-  }, [loading, onSaving])
   useEffect(() => {
     const controller = new AbortController(),
       query = new URLSearchParams({ site, contact, group })
@@ -128,8 +127,11 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
   }, [])
   return (
     <section className="vc-crm-domain vc-crm-timeline" aria-label="Authorized contact timeline">
-      <h2>Contact timeline</h2>
-      <p>History from records you can access in this chapter.</p>
+      <div className="vc-crm-activity-heading"><h2>Contact timeline</h2>
+        <p>History from records you can access in this chapter.</p></div>
+      {onCreate && onOpen && <ContactActivityOverview api={api} site={site} contact={contact}
+        onCreate={onCreate} onOpen={onOpen} />}
+      <div className="vc-crm-activity-main">
       {error && <p role="alert">{error}</p>}
       {loading && <p role="status">Loading authorized history…</p>}
       <label>
@@ -160,17 +162,33 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
             {page.total.toLocaleString()} authorized events. Showing {page.docs.length} on this
             page.
           </p>
-          <ol style={{ listStyle: 'none', padding: 0, display: 'grid', gap: '1rem' }}>
-            {page.docs.map((row) => (
-              <li key={row.id}>
+          <ol className="vc-crm-timeline-list">
+            {page.docs.map((row, index) => {
+              const date = row.at ? new Date(row.at) : null
+              const current = new Date()
+              const groupLabel = !date || Number.isNaN(date.valueOf()) ? 'DATE UNAVAILABLE'
+                : date.toDateString() === current.toDateString() ? 'TODAY'
+                  : date.getMonth() === current.getMonth() && date.getFullYear() === current.getFullYear() ? 'THIS MONTH'
+                    : date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase()
+              const previous = page.docs[index - 1]?.at
+              const previousDate = previous ? new Date(previous) : null
+              const previousLabel = previousDate && !Number.isNaN(previousDate.valueOf())
+                ? previousDate.toDateString() === current.toDateString() ? 'TODAY'
+                  : previousDate.getMonth() === current.getMonth() && previousDate.getFullYear() === current.getFullYear() ? 'THIS MONTH'
+                    : previousDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase()
+                : 'DATE UNAVAILABLE'
+              return <Fragment key={row.id}>
+              {(index === 0 || groupLabel !== previousLabel) && <li className="vc-crm-timeline-group">{groupLabel}</li>}
+              <li className="vc-crm-timeline-item">
                 <article aria-label={row.title}>
-                  <h3>{row.title}</h3>
-                  <p>Related record: {row.label}</p>
-                  <p>
+                  <span className={`vc-crm-event-icon vc-crm-event-icon--${row.group}`}><ContactIcon name={row.group === 'giving' ? 'gift' : row.group === 'tasks' ? 'task' : row.group === 'comments' ? 'comment' : 'activity'} /></span>
+                  <div className="vc-crm-event-copy"><h3>{row.title}</h3>
+                  <p>Related record: {row.label}{row.detail ? ` · ${row.detail}` : ''}</p></div>
+                  <p className="vc-crm-event-date">
                     {row.at ? (
-                      <time dateTime={row.at}>Recorded {new Date(row.at).toLocaleString()}</time>
+                      <time dateTime={row.at}>{new Date(row.at).toLocaleString()}</time>
                     ) : (
-                      'Recorded date unavailable'
+                      'Date unavailable'
                     )}
                     {row.effectiveOn && <> · Effective date: {row.effectiveOn}</>}
                   </p>
@@ -179,8 +197,8 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
                     Read more
                   </button>
                 </article>
-              </li>
-            ))}
+              </li></Fragment>
+            })}
           </ol>
           {!page.docs.length && <p>No authorized events match this selection.</p>}
         </>
@@ -206,6 +224,7 @@ function Timeline({ api, site, contact, onOpen, onSaving, onDenied }: Props) {
         >
           Refresh timeline
         </button>
+      </div>
       </div>
       {selected && <dialog ref={dialog} className="vc-crm-event-dialog"
         aria-labelledby="vc-crm-event-title" onClose={() => { setSelected(null); requestAnimationFrame(() => trigger.current?.focus()) }}>

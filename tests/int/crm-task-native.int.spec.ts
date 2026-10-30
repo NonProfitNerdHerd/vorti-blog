@@ -159,6 +159,15 @@ describe.skipIf(!process.env.E2E_TEST_PERSIST_PATH?.includes('crm-task-native-br
           (item) => item.id === board.id,
         )?.counts.all,
       ).toBe(1)
+      const taskScope = await service.list('default', link)
+      await service.create({ ...intent, expectedRevision: taskScope.record.revision,
+        expectedAuthorityRevision: taskScope.authorityRevision, operationKey: crypto.randomUUID(),
+        title: 'Later due follow-up', dueOn: '2027-01-20' })
+      await service.create({ ...intent, expectedRevision: taskScope.record.revision,
+        expectedAuthorityRevision: taskScope.authorityRevision, operationKey: crypto.randomUUID(),
+        title: 'Sooner due follow-up', dueOn: '2026-11-01' })
+      expect((await service.list('default', link, 1, 'open', 'upcoming')).docs.map(task => task.title))
+        .toEqual(['Sooner due follow-up', 'Later due follow-up'])
       await db
         .prepare(
           'UPDATE vc_crm_affiliations SET archived=1,revision=revision+1 WHERE constituent_id=?',

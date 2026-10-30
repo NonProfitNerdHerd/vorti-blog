@@ -123,7 +123,8 @@ function DocumentHistory({
     }
   }
   return (
-    <section className="vc-crm-domain" aria-label="Issued correspondence history">
+    <section className="vc-crm-domain vc-crm-documents-layout" aria-label="Issued correspondence history">
+      <div className="vc-crm-documents-main">
       <h2>Issued correspondence</h2>
       <p>
         Documents retain the recipient, template version and recorded balances used at issuance.
@@ -211,6 +212,8 @@ function DocumentHistory({
           Older documents
         </button>
       </div>
+      </div>
+      <aside className="vc-crm-document-preview" aria-label="Document preview">
       {detail && (
         <section aria-label="Issued document">
           <h3>{detail.subject}</h3>
@@ -267,6 +270,8 @@ function DocumentHistory({
           </button>
         </section>
       )}
+      {!detail && <p>Select an issued document to preview its details.</p>}
+      </aside>
     </section>
   )
 }

@@ -25,12 +25,14 @@ export function MembershipWorkspace({
   api,
   site,
   contact,
+  autoCreate = false,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
+  autoCreate?: boolean
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
@@ -65,6 +67,7 @@ export function MembershipWorkspace({
     [dirty, setDirty] = useState(false)
   const generation = useRef(0),
     operation = useRef<{ fingerprint: string; key: string } | null>(null)
+  const autoStarted = useRef(false)
   const mark = (value: boolean) => {
     setDirty(value)
     onDirty?.(value)
@@ -250,6 +253,13 @@ export function MembershipWorkspace({
     mark(false)
     void loadHouseholds()
   }
+  useEffect(() => {
+    if (!autoCreate || !canEdit || autoStarted.current) return
+    autoStarted.current = true
+    begin()
+  // Consume the intent only after the authorized membership list loads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate, canEdit])
   const selected = types.find((t) => t.id === typeID)
   const enroll = () => {
     if (!selected) return

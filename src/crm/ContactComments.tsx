@@ -10,6 +10,7 @@ export function ContactComments({ api, site, contact, onDirty, onSaving, onDenie
   onSaving: (value: boolean) => void; onDenied: () => void
 }) {
   const [page, setPage] = useState<Page | null>(null)
+  const [recent, setRecent] = useState<ContactComment | null>(null)
   const [before, setBefore] = useState<Page['next']>(null)
   const [body, setBody] = useState('')
   const [editing, setEditing] = useState<ContactComment | null>(null)
@@ -21,13 +22,13 @@ export function ContactComments({ api, site, contact, onDirty, onSaving, onDenie
     const query = new URLSearchParams({ site, contact })
     if (before) { query.set('beforeDate', before.date); query.set('beforeID', before.id) }
     const result = await crmRead<Page>(`${api}/crm/comments?${query}`, { signal })
-    if (!signal.aborted) { setPage(result); setError('') }
+    if (!signal.aborted) { setPage(result); if (!before) setRecent(result.docs[0] || null); setError('') }
   }, [api, site, contact, before])
   useEffect(() => {
     const controller = new AbortController()
     void load(controller.signal).catch((cause: Error & { status?: number }) => {
       if (!controller.signal.aborted) {
-        setPage(null); setError(cause.message)
+        setPage(null); setRecent(null); setError(cause.message)
         if ([401, 403].includes(Number(cause.status))) onDenied()
       }
     })
@@ -47,7 +48,8 @@ export function ContactComments({ api, site, contact, onDirty, onSaving, onDenie
     } catch (cause) { setError((cause as Error).message) }
     finally { setBusy(false); onSaving(false) }
   }
-  return <section className="vc-crm-domain" aria-label="Constituent comments">
+  return <section className="vc-crm-domain vc-crm-comments-layout" aria-label="Constituent comments">
+    <div className="vc-crm-comments-main">
     <h2>Comments</h2>
     {error && <p role="alert">{error}</p>}
     {page?.canPost && <div className="vc-crm-comment-composer">
@@ -58,13 +60,24 @@ export function ContactComments({ api, site, contact, onDirty, onSaving, onDenie
     </div>}
     {page ? <ol className="vc-crm-comments">
       {page.docs.map(comment => <li key={comment.id}><article>
+        <span className="vc-crm-comment-avatar" aria-hidden="true">{comment.author_label.split(/\s+/).map(part => part[0]).slice(0, 2).join('').toUpperCase()}</span>
+        <div className="vc-crm-comment-content">
         <header><strong>{comment.author_label}</strong><time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString()}</time>
           {comment.revision > 1 && <small>Edited</small>}</header>
         <p>{comment.body}</p>
         {comment.canEdit && <button type="button" disabled={busy} onClick={() => { setEditing(comment); change(comment.body) }}>Edit</button>}
+        </div>
       </article></li>)}
       {!page.docs.length && <li>No comments yet.</li>}
     </ol> : <p role="status">Loading comments…</p>}
     {page?.next && <button type="button" onClick={() => setBefore(page.next)}>Older comments</button>}
+    </div>
+    <aside className="vc-crm-context-card vc-crm-comments-aside" aria-label="Recent comment">
+      <h3>Recent comment</h3>
+      {error ? <p role="alert">Unable to load recent comment.</p> : !page ? <p role="status">Loading comments…</p> : recent ? <>
+        <p>{recent.body}</p>
+        <small>{recent.author_label} · {new Date(recent.created_at).toLocaleDateString()}</small>
+      </> : <p>No comments yet.</p>}
+    </aside>
   </section>
 }

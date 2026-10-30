@@ -64,7 +64,7 @@ export class CRMTasks {
     if ((await this.scope(site, link)).site.authorityRevision !== epoch) throw new SiteAccessError()
   }
 
-  async list(site: string, raw: CRMRecordLink, page = 1, state = 'open') {
+  async list(site: string, raw: CRMRecordLink, page = 1, state = 'open', view = 'list') {
     const link = crmRecordLink(raw.type, raw.id),
       scope = await this.scope(site, link),
       req = await this.req(site)
@@ -72,7 +72,7 @@ export class CRMTasks {
       !Number.isSafeInteger(page) ||
       page < 1 ||
       page > 10000 ||
-      !['all', 'open', 'completed'].includes(state)
+      !['all', 'open', 'completed'].includes(state) || !['list', 'upcoming'].includes(view)
     )
       throw new Error('Choose a valid task page and status.')
     const where: Where = {
@@ -85,6 +85,7 @@ export class CRMTasks {
         ...(state === 'all'
           ? []
           : [{ status: state === 'completed' ? { equals: 'done' } : { not_equals: 'done' } }]),
+        ...(view === 'upcoming' ? [{ dueDate: { exists: true } }] : []),
         { archived: { not_equals: true } },
       ],
     }
@@ -94,9 +95,9 @@ export class CRMTasks {
       overrideAccess: false,
       depth: 0,
       where,
-      limit: 20,
-      page,
-      sort: '-createdAt',
+      limit: view === 'upcoming' ? 3 : 20,
+      page: view === 'upcoming' ? 1 : page,
+      sort: view === 'upcoming' ? 'dueDate' : '-createdAt',
     })
     let canCreate = false
     try {

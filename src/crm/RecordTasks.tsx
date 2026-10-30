@@ -22,6 +22,7 @@ export function RecordTasks({
   link,
   activity,
   defaultTitle = '',
+  autoCreate = false,
   onDirty,
   onSaving,
 }: {
@@ -31,6 +32,7 @@ export function RecordTasks({
   link: CRMRecordLink
   activity?: string
   defaultTitle?: string
+  autoCreate?: boolean
   onDirty: (value: boolean) => void
   onSaving: (value: boolean) => void
 }) {
@@ -46,6 +48,12 @@ export function RecordTasks({
     [description, setDescription] = useState(''),
     [assignee, setAssignee] = useState(''),
     [dueOn, setDueOn] = useState('')
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!autoCreate || !result?.canCreate || autoStarted.current) return
+    autoStarted.current = true
+    setCreating(true)
+  }, [autoCreate, result?.canCreate])
   const [query, setQuery] = useState(''),
     [people, setPeople] = useState<PeoplePage>({ docs: [], next: null }),
     [peopleAfter, setPeopleAfter] = useState(0),
