@@ -1,0 +1,14 @@
+/* The constituent workspace opts into Tailwind without resetting Payload or other admin pages. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme) prefix(tw);
+@import 'tailwindcss/utilities.css' layer(utilities) prefix(tw) source(none);
+@source './ContactUI.tsx';
+@source './ContactWorkspace.tsx';
+
+@theme inline {
+  --color-contact-surface: var(--theme-elevation-0);
+  --color-contact-text: var(--theme-text);
+  --color-contact-muted: var(--theme-elevation-650);
+  --color-contact-border: var(--theme-elevation-200);
+  --color-contact-accent: #6542e8;
+}

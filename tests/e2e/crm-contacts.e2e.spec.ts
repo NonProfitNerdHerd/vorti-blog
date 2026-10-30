@@ -55,6 +55,10 @@ test('contact tabs remain usable across desktop and narrower workspace widths', 
   ] as const
   for (const width of [1440, 820]) {
     await page.setViewportSize({ width, height: 900 })
+    await expect(page.locator('.vc-crm.vc-crm-detail-open')).toHaveCount(1)
+    const contentWidth = await page.locator('.vc-crm-main').evaluate(element => element.getBoundingClientRect().width)
+    const detailWidth = await detail.evaluate(element => element.getBoundingClientRect().width)
+    expect(detailWidth).toBeGreaterThan(contentWidth - 100)
     const primaryWidth = await page.locator('.nav').evaluate(element => element.getBoundingClientRect().width)
     const secondary = page.locator('.vorti-secondary')
     const secondaryWidth = await secondary.count()
@@ -63,6 +67,12 @@ test('contact tabs remain usable across desktop and narrower workspace widths', 
       const tab = detail.getByRole('tab', { name: label, exact: true })
       await tab.click()
       await expect(tab).toHaveAttribute('aria-selected', 'true')
+      const selectedStyle = await tab.evaluate(element => {
+        const style = getComputedStyle(element)
+        return { shadow: style.boxShadow, background: style.backgroundColor }
+      })
+      expect(selectedStyle.shadow).not.toBe('none')
+      expect(selectedStyle.background).not.toBe('rgba(0, 0, 0, 0)')
       await expect(detail.getByRole('tabpanel').getByRole('heading', { name: heading, exact: true }).first()).toBeVisible()
       await expect.poll(() => page.locator('.nav').evaluate(element => element.getBoundingClientRect().width)).toBe(primaryWidth)
       if (secondaryWidth !== null)

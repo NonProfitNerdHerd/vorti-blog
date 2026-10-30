@@ -17,9 +17,11 @@ import { AttachmentWorkspace } from './AttachmentWorkspace'
 import { ContactTimeline } from './ContactTimeline'
 import { ContactComments } from './ContactComments'
 import { RecordTasks } from './RecordTasks'
+import { ContactButton, ContactEditAction, ContactFacts, ContactIcon, ContactSectionHeading, ContactStatus, ContactTab } from './ContactUI'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
+import './contact-ui.css'
 import './workspace.css'
 
 type Detail = ContactSummary & {
@@ -631,15 +633,15 @@ export function ContactWorkspace() {
         Confirm this update to the shared contact profile used by authorized chapters.
       </label>
       <div className="vc-crm-section-actions">
-        <button type="button" disabled={saving} onClick={cancelInline}>Cancel</button>
-        <button className="vc-crm-primary" type="button" disabled={saving || !profileDirty || !confirmed}
-          onClick={() => void save('profile')}>{parentSaving ? 'Saving…' : 'Save changes'}</button>
+        <ContactButton type="button" disabled={saving} onClick={cancelInline}>Cancel</ContactButton>
+        <ContactButton variant="primary" type="button" disabled={saving || !profileDirty || !confirmed}
+          onClick={() => void save('profile')}>{parentSaving ? 'Saving…' : 'Save changes'}</ContactButton>
       </div>
       {saveError && <p className="vc-crm-inline-error" role="alert">{saveError}</p>}
     </div>
   const showDetail = Boolean(editor || requestedContact || requestedNew)
   return (
-    <Gutter className="vc-crm" data-detail-open={showDetail}>
+    <Gutter className={showDetail ? 'vc-crm vc-crm-detail-open' : 'vc-crm'}>
       <div hidden={showDetail}>
       <header className="vc-crm-heading">
         <div>
@@ -791,13 +793,13 @@ export function ContactWorkspace() {
                 <h1 id="vc-contact-heading">{editor === 'new' ? 'New contact' : editor.label}</h1>
               </div>
               {editor !== 'new' && <div className="vc-crm-detail-header-actions">
-                <button type="button" onClick={close} disabled={saving}>Back to contacts</button>
-                {profileEditable && !inlineEditor && <button className="vc-crm-primary" type="button"
+                <ContactButton type="button" onClick={close} disabled={saving}>Back to contacts</ContactButton>
+                {profileEditable && !inlineEditor && <ContactButton variant="primary" type="button"
                   disabled={saving || dirty} onClick={() => { switchTab('profile'); beginInline('identity') }}>
                   Edit details
-                </button>}
+                </ContactButton>}
                 <details className="vc-crm-more-actions">
-                  <summary>More actions</summary>
+                  <summary>More actions <ContactIcon name="chevron-down" /></summary>
                   <div><button type="button" onClick={() => {
                     void navigator.clipboard.writeText(window.location.href)
                       .then(() => setNotice('Contact link copied.'))
@@ -816,7 +818,7 @@ export function ContactWorkspace() {
               })()}
             </p>}
           </header>
-          {notice && <p className="vc-crm-success" role="status">{notice}</p>}
+          {notice && <ContactStatus>{notice}</ContactStatus>}
           {editor !== 'new' && <div className="vc-crm-tabs-shell" data-can-scroll-left={tabEdges.left} data-can-scroll-right={tabEdges.right}>
             <button className="vc-crm-tab-scroll" type="button" aria-label="Scroll contact tabs left"
               disabled={!tabEdges.left} onClick={() => tabListRef.current?.scrollBy?.({ left: -280, behavior: 'smooth' })}>‹</button>
@@ -826,9 +828,10 @@ export function ContactWorkspace() {
               ['tasks', 'Tasks'], ['gifts', 'Gifts'], ['giving', 'Pledges and recurring'],
               ['memberships', 'Memberships'], ['opportunities', 'Opportunities'],
               ['volunteers', 'Volunteers'], ['correspondence', 'Receipts and Correspondence'],
-            ] as const).map(([value, label]) => <button key={value} type="button" role="tab"
+            ] as const).map(([value, label]) => <ContactTab key={value} type="button"
+              selected={tabURL(tab) === tabURL(value)}
               id={`vc-crm-tab-${tabURL(value)}`}
-              aria-selected={tabURL(tab) === tabURL(value)} tabIndex={tabURL(tab) === tabURL(value) ? 0 : -1}
+              tabIndex={tabURL(tab) === tabURL(value) ? 0 : -1}
               aria-controls="vc-crm-tabpanel"
               onKeyDown={(event) => {
                 if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return
@@ -839,7 +842,7 @@ export function ContactWorkspace() {
                 event.preventDefault()
                 tabs[next]?.focus()
                 tabs[next]?.click()
-              }} onClick={() => switchTab(value)}>{label}</button>)}
+              }} onClick={() => switchTab(value)}>{label}</ContactTab>)}
             </div>
             <button className="vc-crm-tab-scroll" type="button" aria-label="Scroll contact tabs right"
               disabled={!tabEdges.right} onClick={() => tabListRef.current?.scrollBy?.({ left: 280, behavior: 'smooth' })}>›</button>
@@ -936,23 +939,22 @@ export function ContactWorkspace() {
               {([
                 ['profile', 'Profile'], ['chapter', 'Chapter'], ['communications', 'Communications'],
                 ['relationships', 'Relationships'], ['corrections', 'Corrections'], ['attachments', 'Attachments'],
-              ] as const).map(([value, label]) => <button key={value} type="button"
-                aria-current={tab === value ? 'location' : undefined} onClick={() => switchTab(value)}>{label}</button>)}
+              ] as const).map(([value, label]) => <ContactButton key={value} variant="quiet" type="button"
+                aria-current={tab === value ? 'location' : undefined} onClick={() => switchTab(value)}>{label}</ContactButton>)}
             </nav>}
             {(isInformation(tab) || editor === 'new') && <section id="vc-crm-info-profile" className="vc-crm-info-section" aria-labelledby="vc-crm-profile-heading">
               <h2 id="vc-crm-profile-heading">Shared profile</h2>
               {editor !== 'new' && <div className="vc-crm-inline-group">
-                <div className="vc-crm-inline-heading"><h3>Identity</h3>
-                  {profileEditable && inlineEditor !== 'identity' && <button type="button" data-inline-edit="identity" disabled={saving || !!inlineEditor}
-                    onClick={() => beginInline('identity')}>Edit identity</button>}</div>
-                {inlineEditor !== 'identity' && <dl className="vc-crm-facts">
+                <ContactSectionHeading action={profileEditable && inlineEditor !== 'identity' && <ContactEditAction type="button" data-inline-edit="identity" disabled={saving || !!inlineEditor}
+                  onClick={() => beginInline('identity')}>Edit identity</ContactEditAction>}><h3>Identity</h3></ContactSectionHeading>
+                {inlineEditor !== 'identity' && <ContactFacts>
                   <div><dt>Contact type</dt><dd>{profile.kind === 'person' ? 'Person' : 'Organization'}</dd></div>
                   {profile.kind === 'organization'
                     ? <div><dt>Organization name</dt><dd>{profile.organizationName || 'Not provided'}</dd></div>
                     : <><div><dt>First name</dt><dd>{profile.firstName || 'Not provided'}</dd></div>
                       <div><dt>Last name</dt><dd>{profile.lastName || 'Not provided'}</dd></div>
                       <div><dt>Preferred name</dt><dd>{profile.preferredName || 'Not provided'}</dd></div></>}
-                </dl>}
+                </ContactFacts>}
               </div>}
               {(editor === 'new' || inlineEditor === 'identity') && <fieldset disabled={!profileEditable || saving} className="vc-crm-inline-editor">
                 <label>
@@ -992,12 +994,11 @@ export function ContactWorkspace() {
               </fieldset>}
               {inlineActions('identity')}
               {editor !== 'new' && <div className="vc-crm-inline-group">
-                <div className="vc-crm-inline-heading"><h3>Contact methods</h3>
-                  {profileEditable && inlineEditor !== 'methods' && <button type="button" data-inline-edit="methods" disabled={saving || !!inlineEditor}
-                    onClick={() => beginInline('methods')}>Edit methods</button>}</div>
-                {inlineEditor !== 'methods' && (profile.methods.length ? <dl className="vc-crm-facts">
+                <ContactSectionHeading action={profileEditable && inlineEditor !== 'methods' && <ContactEditAction type="button" data-inline-edit="methods" disabled={saving || !!inlineEditor}
+                  onClick={() => beginInline('methods')}>{profile.methods.length ? 'Edit methods' : 'Add contact method'}</ContactEditAction>}><h3>Contact methods</h3></ContactSectionHeading>
+                {inlineEditor !== 'methods' && (profile.methods.length ? <ContactFacts>
                   {profile.methods.map((method, index) => <div key={index}><dt>{method.label || (method.kind === 'email' ? 'Email' : 'Phone')}{method.primary ? ' · Primary' : ''}</dt><dd>{method.value}</dd></div>)}
-                </dl> : <p className="vc-crm-empty">No contact methods added.</p>)}
+                </ContactFacts> : <p className="vc-crm-empty">No contact methods added.</p>)}
               </div>}
               {(editor === 'new' || inlineEditor === 'methods') && <fieldset disabled={!profileEditable || saving} className="vc-crm-inline-editor">
                 <h3>Contact methods</h3>
@@ -1094,9 +1095,8 @@ export function ContactWorkspace() {
               </fieldset>}
               {inlineActions('methods')}
               {editor !== 'new' && <div className="vc-crm-inline-group">
-                <div className="vc-crm-inline-heading"><h3>Addresses</h3>
-                  {profileEditable && inlineEditor !== 'addresses' && <button type="button" data-inline-edit="addresses" disabled={saving || !!inlineEditor}
-                    onClick={() => beginInline('addresses')}>Edit addresses</button>}</div>
+                <ContactSectionHeading action={profileEditable && inlineEditor !== 'addresses' && <ContactEditAction type="button" data-inline-edit="addresses" disabled={saving || !!inlineEditor}
+                  onClick={() => beginInline('addresses')}>{profile.addresses.length ? 'Edit addresses' : 'Add address'}</ContactEditAction>}><h3>Addresses</h3></ContactSectionHeading>
                 {inlineEditor !== 'addresses' && (profile.addresses.length ? <div className="vc-crm-address-list">
                   {profile.addresses.map((address, index) => <address key={index}>
                     <strong>{address.label || `Address ${index + 1}`}</strong>
@@ -1177,15 +1177,14 @@ export function ContactWorkspace() {
               </fieldset>}
               {inlineActions('addresses')}
               {editor !== 'new' && <div className="vc-crm-inline-group">
-                <div className="vc-crm-inline-heading"><h3>Communication preferences</h3>
-                  {profileEditable && inlineEditor !== 'preferences' && <button type="button" data-inline-edit="preferences" disabled={saving || !!inlineEditor}
-                    onClick={() => beginInline('preferences')}>Edit preferences</button>}</div>
-                {inlineEditor !== 'preferences' && <dl className="vc-crm-facts vc-crm-preferences">
+                <ContactSectionHeading action={profileEditable && inlineEditor !== 'preferences' && <ContactEditAction type="button" data-inline-edit="preferences" disabled={saving || !!inlineEditor}
+                  onClick={() => beginInline('preferences')}>Edit preferences</ContactEditAction>}><h3>Communication preferences</h3></ContactSectionHeading>
+                {inlineEditor !== 'preferences' && <ContactFacts className="vc-crm-preferences">
                   {([
                     ['emailAllowed', 'Email'], ['phoneAllowed', 'Phone'], ['mailAllowed', 'Mail'],
                     ['volunteerAllowed', 'Volunteer outreach'],
                   ] as const).map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{profile.communication[key] ? 'Allowed' : 'Not allowed'}</dd></div>)}
-                </dl>}
+                </ContactFacts>}
               </div>}
               {(editor === 'new' || inlineEditor === 'preferences') && <fieldset disabled={!profileEditable || saving} className="vc-crm-inline-editor">
                 <h3>Communication preferences</h3>
@@ -1230,13 +1229,12 @@ export function ContactWorkspace() {
                 disabled={saving || !correction.trim()} onClick={() => void save('profile')}>{parentSaving ? 'Saving…' : 'Request correction'}</button></div>}
             </section>}
             {(editor === 'new' || isInformation(tab)) && <section id="vc-crm-info-chapter" className="vc-crm-info-section" aria-labelledby="vc-crm-chapter-heading">
-              <div className="vc-crm-inline-heading"><h2 id="vc-crm-chapter-heading">Chapter details</h2>
-                {editor !== 'new' && chapterEditable && inlineEditor !== 'chapter' && <button type="button" data-inline-edit="chapter" disabled={saving || !!inlineEditor}
-                  onClick={() => beginInline('chapter')}>Edit chapter details</button>}</div>
-              {editor !== 'new' && inlineEditor !== 'chapter' && <dl className="vc-crm-facts">
+              <ContactSectionHeading action={editor !== 'new' && chapterEditable && inlineEditor !== 'chapter' && <ContactEditAction type="button" data-inline-edit="chapter" disabled={saving || !!inlineEditor}
+                onClick={() => beginInline('chapter')}>Edit chapter details</ContactEditAction>}><h2 id="vc-crm-chapter-heading">Chapter details</h2></ContactSectionHeading>
+              {editor !== 'new' && inlineEditor !== 'chapter' && <ContactFacts>
                 <div><dt>Roles</dt><dd>{roles.join(', ') || 'None assigned'}</dd></div>
                 <div><dt>Tags</dt><dd>{editor.tags.join(', ') || 'No tags'}</dd></div>
-              </dl>}
+              </ContactFacts>}
               {(editor === 'new' || inlineEditor === 'chapter') && <fieldset disabled={saving || !chapterEditable} className="vc-crm-inline-editor">
                 <div className="vc-crm-fields">
                   {constituentRoles.map((item) => (
@@ -1271,9 +1269,9 @@ export function ContactWorkspace() {
                 </label>
               </fieldset>}
               {editor !== 'new' && inlineEditor === 'chapter' && <div className="vc-crm-section-actions">
-                <button type="button" disabled={saving} onClick={cancelInline}>Cancel</button>
-                <button className="vc-crm-primary" type="button" disabled={saving || !chapterDirty}
-                  onClick={() => void save('chapter')}>{parentSaving ? 'Saving…' : 'Save chapter details'}</button>
+                <ContactButton type="button" disabled={saving} onClick={cancelInline}>Cancel</ContactButton>
+                <ContactButton variant="primary" type="button" disabled={saving || !chapterDirty}
+                  onClick={() => void save('chapter')}>{parentSaving ? 'Saving…' : 'Save chapter details'}</ContactButton>
               </div>}
               {inlineEditor === 'chapter' && saveError && <p className="vc-crm-inline-error" role="alert">{saveError}</p>}
             </section>}
