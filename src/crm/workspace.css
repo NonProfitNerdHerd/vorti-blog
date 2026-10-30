@@ -597,6 +597,8 @@
 .vc-crm-detail .vc-crm-facts { gap: 8px 14px; }
 .vc-crm-detail .vc-crm-facts dt { color: #687c95; font-size: .76rem; }
 .vc-crm-detail .vc-crm-facts dd { color: #172d4b; font-size: .88rem; }
+.vc-crm-detail #vc-crm-info-profile .vc-crm-facts > div { display: grid; grid-template-columns: minmax(105px, 36%) minmax(0, 1fr); align-items: baseline; gap: 8px; }
+.vc-crm-detail #vc-crm-info-profile .vc-crm-facts dt { margin: 0; }
 .vc-crm-detail .vc-crm-inline-editor { max-width: none; }
 
 .vc-crm-detail .vc-crm-timeline {
@@ -663,6 +665,7 @@
 .vc-crm-detail .vc-crm-comment-composer textarea { min-height: 75px; }
 .vc-crm-detail .vc-crm-comment-composer > div { justify-content: flex-end; }
 .vc-crm-detail .vc-crm-comment-composer > div button:first-child { color: #fff; background: var(--vc-detail-accent); border-color: var(--vc-detail-accent); }
+.vc-crm-detail .vc-crm-comment-composer > div button:first-child:disabled { color: #60758e; background: #f2f6f8; border-color: #cbd9e4; }
 .vc-crm-detail .vc-crm-comments { margin: 8px 0; gap: 0; }
 .vc-crm-detail .vc-crm-comments li article { display: flex; gap: 10px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--vc-detail-border); border-radius: 0; }
 .vc-crm-detail .vc-crm-comment-avatar { flex: 0 0 34px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #1e4b75; background: #dceeff; font-size: .75rem; font-weight: 700; }
