@@ -120,4 +120,40 @@ describe('durable release coordination', () => {
     expect(() => sqlite.exec('DELETE FROM release_events')).toThrow('append-only')
     expect(sqlite.prepare('SELECT count(*) AS n FROM release_events').get()?.n).toBe(11)
   })
+  it('records an explicitly superseded preview release without claiming health passed', async () => {
+    const { db, sqlite } = fixture()
+    let lease = await acquireRelease(db, { ...input(), mode: 'upgrade' })
+    lease = await advanceRelease(db, lease, 'prepared', { validationPassed: true })
+    lease = await advanceRelease(db, lease, 'frozen', {})
+    lease = await advanceRelease(db, lease, 'cutover', {
+      writesStopped: true, recoveryVerified: true, queuesStopped: true,
+    })
+    lease = await advanceRelease(db, lease, 'verifying', {})
+    lease = await advanceRelease(db, lease, 'observing', { livePassed: true, loginVerified: true })
+    const evidence = {
+      outcome: 'superseded-preview',
+      userAuthorizedIncompleteRelease: true,
+      maintenanceInactive: true,
+      databaseWriteFenceAbsent: true,
+      operationalWriteGuardsAbsent: true,
+      queueConsumerActive: true,
+      blockedExternalEffectsAbsent: true,
+      migrationLedgerCurrent: true,
+      resourcesUnchanged: true,
+      currentSource: 'b88ef0f8c558b38bee233a7f8114d9e5c8b9febb',
+      currentDeployment: '3477278a-7a26-48e0-b5b8-5430c1d29f57',
+      currentVersion: '69fa64d2-1948-44ba-b01a-25329d4f1d21',
+      reason: 'The user chose focused preview validation while development continues.',
+    }
+    await expect(advanceRelease(db, lease, 'aborted', { ...evidence, queueConsumerActive: false }))
+      .rejects.toThrow('Superseding')
+    await expect(acquireRelease(db, input())).rejects.toThrow('UNIQUE')
+    lease = await advanceRelease(db, lease, 'aborted', evidence)
+    expect(lease.phase).toBe('aborted')
+    expect(sqlite.prepare('SELECT phase FROM release_runs WHERE id=?').get(lease.id)?.phase).toBe('aborted')
+    const final = sqlite.prepare('SELECT evidence FROM release_events WHERE run_id=? AND revision=?')
+      .get(lease.id, lease.revision) as { evidence: string }
+    expect(JSON.parse(final.evidence)).toMatchObject(evidence)
+    await expect(acquireRelease(db, input())).resolves.toMatchObject({ phase: 'preparing' })
+  })
 })

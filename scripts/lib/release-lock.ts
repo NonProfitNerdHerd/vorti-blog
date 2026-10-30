@@ -38,7 +38,7 @@ const transitions: Record<ReleasePhase, ReleasePhase[]> = {
   frozen: ['cutover', 'recovering'],
   cutover: ['verifying', 'recovering'],
   verifying: ['observing', 'recovering'],
-  observing: ['complete', 'recovering', 'frozen'],
+  observing: ['complete', 'recovering', 'frozen', 'aborted'],
   recovering: ['aborted'],
   complete: [],
   aborted: [],
@@ -127,6 +127,25 @@ export async function advanceRelease(
     throw Error('Release verification is incomplete.')
   if (lease.phase === 'recovering' && phase === 'aborted' && evidence.recoveryVerified !== true)
     throw Error('Recovery must be verified before maintenance protection is removed.')
+  if (
+    lease.phase === 'observing' &&
+    phase === 'aborted' &&
+    (evidence.outcome !== 'superseded-preview' ||
+      evidence.userAuthorizedIncompleteRelease !== true ||
+      evidence.maintenanceInactive !== true ||
+      evidence.databaseWriteFenceAbsent !== true ||
+      evidence.operationalWriteGuardsAbsent !== true ||
+      evidence.queueConsumerActive !== true ||
+      evidence.blockedExternalEffectsAbsent !== true ||
+      evidence.migrationLedgerCurrent !== true ||
+      evidence.resourcesUnchanged !== true ||
+      !/^[a-f0-9]{40}$/.test(String(evidence.currentSource || '')) ||
+      !/^[a-f0-9-]{36}$/.test(String(evidence.currentDeployment || '')) ||
+      !/^[a-f0-9-]{36}$/.test(String(evidence.currentVersion || '')) ||
+      typeof evidence.reason !== 'string' ||
+      !evidence.reason.trim())
+  )
+    throw Error('Superseding an observed preview release requires current deployment, data, queue, and operator evidence.')
   const guard = crypto.randomUUID(),
     now = new Date().toISOString()
   await db.batch([
