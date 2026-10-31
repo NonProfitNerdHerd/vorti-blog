@@ -25,6 +25,8 @@ import { crmTaskCollections } from './task-plugin'
 import { crmTaskEndpoints } from './task-endpoints'
 import { importEndpoints } from './import-endpoints'
 import { importMappingEndpoints } from './import-mapping-endpoints'
+import { crmSearchEndpoints } from './search-endpoints'
+import { organizationContactEndpoints } from './organization-contact-endpoints'
 import { wakeCRMJob, type CRMJobWake } from './job-dispatch'
 
 export interface CRMPlatform {
@@ -96,6 +98,7 @@ export const crmModule =
             site,
             search: url.searchParams.get('search') || '',
             role: (url.searchParams.get('role') || undefined) as ConstituentRole | undefined,
+            kind: (url.searchParams.get('kind') || undefined) as 'person' | 'organization' | undefined,
             limit: Number(url.searchParams.get('limit') || 50),
             after: afterID && afterLabel !== null ? { id: afterID, label: afterLabel } : undefined,
           })
@@ -208,6 +211,8 @@ export const crmModule =
         context,
         ...financeEndpoints(platform.db, errorResponse),
         ...overviewEndpoints(platform.db, errorResponse),
+        ...crmSearchEndpoints(platform.db, errorResponse),
+        ...organizationContactEndpoints(platform.db, errorResponse),
         ...crmTaskEndpoints(platform.db, errorResponse),
         ...importEndpoints(
           { ...platform, wake: (job) => wakeCRMJob(platform.queue, job) },

@@ -123,6 +123,10 @@
 }
 .vorti-primary-waffle:hover, .vorti-primary-waffle[aria-expanded='true'] { background: #dff3f7; }
 .vorti-primary-waffle:focus-visible { outline: 3px solid #0a8197; outline-offset: 2px; }
+body:has(.vc-crm-shell) .vorti-primary-waffle { border-color: transparent; background: transparent; color: #fff; box-shadow: none; }
+body:has(.vc-crm-shell) .vorti-primary-waffle:hover,
+body:has(.vc-crm-shell) .vorti-primary-waffle[aria-expanded='true'] { background: #ffffff24; }
+body:has(.vc-crm-shell) .vorti-primary-waffle:focus-visible { outline-color: #fff; }
 .vorti-primary-waffle__dots {
   width: 21px;
   height: 21px;

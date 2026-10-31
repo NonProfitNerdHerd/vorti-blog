@@ -34,12 +34,16 @@ export function VolunteerActivities({
   api,
   site,
   contact,
+  initialRecord,
+  initialType,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
+  initialRecord?: string
+  initialType?: string
   onDirty: (v: boolean) => void
   onSaving: (v: boolean) => void
 }) {
@@ -105,7 +109,7 @@ export function VolunteerActivities({
     setParticipant(null)
     setPartDirty(false)
     setChildDirty(false)
-    setPanel('participants')
+    setPanel(initialType === 'invitation' ? 'invitations' : 'participants')
     io.setError('')
     if (row === 'new') {
       setEditor('new')
@@ -129,6 +133,14 @@ export function VolunteerActivities({
       }
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialRecord && openedSearchResult.current !== initialRecord) {
+      openedSearchResult.current = initialRecord
+      void open({ id: initialRecord } as VolunteerActivity)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected activity.
+  }, [initialRecord])
   const refreshDetail = async (id: string, after = '') => {
     const version = selection.current
     const data = await crmRead<Detail>(io.query({ view: 'activity', id, after }))

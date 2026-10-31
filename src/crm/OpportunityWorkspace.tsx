@@ -54,12 +54,14 @@ export function OpportunityWorkspace({
   api,
   site,
   contact,
+  initialRecord,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
+  initialRecord?: string
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
@@ -291,6 +293,14 @@ export function OpportunityWorkspace({
       }
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialRecord && pipeline && pipelines.length && openedSearchResult.current !== initialRecord) {
+      openedSearchResult.current = initialRecord
+      void open({ id: initialRecord } as Opportunity)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected record.
+  }, [initialRecord, pipeline, pipelines.length])
   const mutate = async (body: Record<string, unknown>, keepDetail = false) => {
     if (busy || childBusy) return
     if (keepDetail && (dirty || childDirty)) {

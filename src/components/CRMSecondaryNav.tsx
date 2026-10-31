@@ -18,6 +18,7 @@ type Props = Pick<ComponentProps<typeof DefaultNavClient>, 'groups'>
 const crmIcons: Record<string, string> = {
   overview: 'M3 10.5 12 3l9 7.5M5 9v12h14V9M9 21v-7h6v7',
   contacts: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m14-13a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm6 13v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  organizations: 'M3 21V7l9-4 9 4v14M7 21v-6h10v6M7 10h2m6 0h2',
   donations: 'M12 3v18m5-14H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6',
   households: 'M3 10 12 3l9 7v11H3V10Zm6 11v-7h6v7',
   fundraising: 'M3 11h18M5 11V5h14v6M6 11v10m12-10v10M9 6h6',

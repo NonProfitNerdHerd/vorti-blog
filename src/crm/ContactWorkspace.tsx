@@ -7,6 +7,7 @@ import type { ContactSummary } from './contacts'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
 import { ContactRelationships } from './ContactRelationships'
+import { OrganizationContactPeople } from './OrganizationContactPeople'
 import { ContactActivities } from './ContactActivities'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { MembershipWorkspace } from './MembershipWorkspace'
@@ -19,9 +20,7 @@ import type { ActivityCreate } from './ContactActivityOverview'
 import { ContactComments } from './ContactComments'
 import { RecordTasks } from './RecordTasks'
 import { ContactButton, ContactEditAction, ContactFacts, ContactIcon, ContactSectionHeading, ContactStatus, ContactTab } from './ContactUI'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { redirectToLogin } from '../components/auth-return'
 import './contact-ui.css'
 import './workspace.css'
@@ -79,7 +78,9 @@ const empty = (): ContactProfile => ({
     volunteerAllowed: true,
   },
 })
-export function ContactWorkspace() {
+export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organization' }) {
+  const sectionView = kind === 'organization' ? 'organizations' : 'contacts'
+  const sectionLabel = kind === 'organization' ? 'Organizations' : 'Contacts'
   const params = useSearchParams()
   const requestedContact = params.get('contact')
   const requestedTab = params.get('contactTab')
@@ -126,7 +127,7 @@ export function ContactWorkspace() {
   const clearSaving = useCallback(() => { setParentSaving(false); setChildSaving({}) }, [])
   const sections = useMemo(() => [
     'comments', 'tasks', 'gifts', 'giving', 'memberships', 'opportunities', 'volunteers',
-    'correspondence', 'timeline', 'communications', 'relationships', 'corrections', 'attachments',
+    'correspondence', 'timeline', 'communications', 'relationships', 'organization-people', 'corrections', 'attachments',
   ], [])
   const dirtyCallbacks = useMemo(() => Object.fromEntries(sections.map(section => [section,
     (value: boolean) => setChildDirty(current => ({ ...current, [section]: value })),
@@ -140,7 +141,6 @@ export function ContactWorkspace() {
     requestSequence = useRef(0)
   const accessGeneration = useRef(0)
   const pinnedSite = useRef<string | null>(null)
-  const { binding } = useAdminSite()
   const loseAccess = useCallback((): void => {
     accessGeneration.current++
     requestSequence.current++
@@ -196,7 +196,7 @@ export function ContactWorkspace() {
       )
       if (sequence !== requestSequence.current) return
       pinnedSite.current = context.site.id
-      const query = new URLSearchParams({ site: context.site.id, search, role, limit: '50' })
+      const query = new URLSearchParams({ site: context.site.id, search, role, kind, limit: '50' })
       if (cursor) {
         query.set('afterID', cursor.id)
         query.set('afterLabel', cursor.label)
@@ -225,7 +225,7 @@ export function ContactWorkspace() {
     } finally {
       if (sequence === requestSequence.current) setLoading(false)
     }
-  }, [api, cursor, read, role, search, loseAccess])
+  }, [api, cursor, read, role, search, kind, loseAccess])
   useEffect(() => {
     const timer = setTimeout(() => void refresh(), 200)
     return () => clearTimeout(timer)
@@ -329,12 +329,12 @@ export function ContactWorkspace() {
           return
         }
         setTab('profile')
-        setProfile(empty())
+        setProfile({ ...empty(), kind })
         setRoles(['contact'])
         setEditor('new')
         if (!fromURL) {
           const location = new URL(window.location.href)
-          location.searchParams.set('view', 'contacts')
+          location.searchParams.set('view', sectionView)
           location.searchParams.set('site', site.id)
           location.searchParams.set('newContact', '1')
           location.searchParams.delete('contact')
@@ -355,7 +355,7 @@ export function ContactWorkspace() {
         setEditor(data.doc)
         openedLocation.current = `${site.id}:${id}`
         const location = new URL(window.location.href)
-        location.searchParams.set('view', 'contacts')
+        location.searchParams.set('view', sectionView)
         location.searchParams.set('site', site.id)
         location.searchParams.set('contact', id)
         location.searchParams.delete('newContact')
@@ -379,7 +379,7 @@ export function ContactWorkspace() {
         setError(cause instanceof Error ? cause.message : 'Unable to open contact.')
       }
     },
-    [site, api, read, loseAccess, canCreate, clearDirty],
+    [site, api, read, loseAccess, canCreate, clearDirty, kind, sectionView],
   )
   useEffect(() => {
     if (!site) return
@@ -677,7 +677,7 @@ export function ContactWorkspace() {
       <div className="vc-crm-collection" hidden={showDetail}>
       <header className="vc-crm-heading">
         <div>
-          <h1>Contacts <small>{total}</small></h1>
+          <h1>{sectionLabel} <small>{total}</small></h1>
         </div>
         <div>
           <button type="button" disabled={loading} onClick={() => void refresh()}>
@@ -690,7 +690,7 @@ export function ContactWorkspace() {
               disabled={saving}
               onClick={() => void open()}
             >
-              New contact
+              New {kind === 'organization' ? 'organization' : 'contact'}
             </button>
           )}
         </div>
@@ -795,7 +795,7 @@ export function ContactWorkspace() {
             {!docs.length && (
               <tr>
                 <td colSpan={4}>
-                  {loading ? 'Loading contacts…' : 'No contacts match this view.'}
+                  {loading ? `Loading ${sectionLabel.toLowerCase()}…` : `No ${sectionLabel.toLowerCase()} match this view.`}
                 </td>
               </tr>
             )}
@@ -810,11 +810,11 @@ export function ContactWorkspace() {
           <header className="vc-crm-detail-header">
             <div className="vc-crm-detail-header-main">
               <div>
-                <p className="vc-crm-eyebrow">Contacts{site ? ` / ${site.name}` : ''}</p>
-                <h1 id="vc-contact-heading">{editor === 'new' ? 'New contact' : editor.label}</h1>
+                <p className="vc-crm-eyebrow">{sectionLabel}{site ? ` / ${site.name}` : ''}</p>
+                <h1 id="vc-contact-heading">{editor === 'new' ? `New ${kind === 'organization' ? 'organization' : 'contact'}` : editor.label}</h1>
               </div>
               {editor !== 'new' && <div className="vc-crm-detail-header-actions">
-                <ContactButton type="button" onClick={close} disabled={saving}>Back to contacts</ContactButton>
+                <ContactButton type="button" onClick={close} disabled={saving}>Back to {sectionLabel.toLowerCase()}</ContactButton>
                 {profileEditable && !inlineEditor && <ContactButton variant="primary" type="button"
                   disabled={saving || dirty} onClick={() => { switchTab('profile'); beginInline('identity') }}>
                   Edit details
@@ -1000,13 +1000,12 @@ export function ContactWorkspace() {
                   Contact type
                   <select
                     value={profile.kind}
-                    disabled={editor !== 'new'}
+                    disabled
                     onChange={(event) =>
                       change({ kind: event.target.value as ContactProfile['kind'] })
                     }
                   >
-                    <option value="person">Person</option>
-                    <option value="organization">Organization</option>
+                    <option value={profile.kind}>{profile.kind === 'person' ? 'Person' : 'Organization'}</option>
                   </select>
                 </label>
                 <div className="vc-crm-fields">
@@ -1330,6 +1329,8 @@ export function ContactWorkspace() {
               <h2 id="vc-crm-relationships-heading">Relationships</h2>
               <ContactRelationships key={`${site.id}:${editor.id}`} api={api} site={site.id} contact={editor.id}
                 onDirty={markChildDirty('relationships')} onSaving={markChildSaving('relationships')} />
+              <OrganizationContactPeople api={api} admin={admin} site={site.id} contact={editor.id} kind={editor.kind as 'person' | 'organization'}
+                onDirty={markChildDirty('organization-people')} onSaving={markChildSaving('organization-people')} />
             </section>}
             {tab === 'corrections' && editor !== 'new' && site && <section id="vc-crm-info-corrections" className="vc-crm-info-section" aria-labelledby="vc-crm-corrections-heading">
               <h2 id="vc-crm-corrections-heading">Corrections</h2>

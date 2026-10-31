@@ -133,7 +133,7 @@ export const publishingConfig = (publishing: typeof unifiedPublishing = unifiedP
       },
     },
     components: {
-      actions: ['./organizations/AdminSiteProvider#AdminSiteSwitcher'],
+      actions: ['./crm/CRMHeaderSearch#CRMHeaderSearch', './organizations/AdminSiteProvider#AdminSiteSwitcher'],
       graphics: {
         Icon: './components/VortiCauseBrand#VortiPressIcon',
         Logo: './components/VortiCauseBrand#VortiPressLogo',

@@ -38,6 +38,8 @@ export function CommitmentWorkspace({
   site,
   contact,
   focusID,
+  initialRecord,
+  initialKind,
   autoCreate,
   onDirty,
   onSaving,
@@ -46,11 +48,13 @@ export function CommitmentWorkspace({
   site: string
   contact?: string
   focusID?: string
+  initialRecord?: string
+  initialKind?: 'pledge' | 'recurring'
   autoCreate?: 'pledge' | 'recurring'
   onDirty?: (dirty: boolean) => void
   onSaving?: (saving: boolean) => void
 }) {
-  const [kind, setKind] = useState<'pledge' | 'recurring'>(autoCreate || 'pledge'),
+  const [kind, setKind] = useState<'pledge' | 'recurring'>(initialKind || autoCreate || 'pledge'),
     [docs, setDocs] = useState<GivingCommitment[]>([]),
     [next, setNext] = useState<string | null>(null),
     [after, setAfter] = useState('')
@@ -184,6 +188,14 @@ export function CommitmentWorkspace({
       }
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialRecord && openedSearchResult.current !== initialRecord) {
+      openedSearchResult.current = initialRecord
+      void open(initialRecord)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected record.
+  }, [initialRecord])
   const mutate = async (body: Record<string, unknown>) => {
     if (busy) return
     const version = generation.current,

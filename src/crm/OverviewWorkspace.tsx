@@ -45,9 +45,9 @@ export function OverviewWorkspace({
   const cards = data
     ? [
         {
-          label: 'Constituents',
+          label: 'Contacts',
           value: data.contacts.total,
-          description: 'People and organizations in this chapter',
+          description: 'People in this chapter',
           view: 'contacts',
         },
         {

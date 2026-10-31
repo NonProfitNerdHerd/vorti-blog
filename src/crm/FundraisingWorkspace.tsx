@@ -7,6 +7,7 @@ import { crmRead, formatMinor } from './HouseholdWorkspace'
 import type { Classification, ClassificationKind } from './fundraising'
 import { parseMoney } from './money'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useSearchParams } from 'next/navigation'
 type Values = {
   name: string
   description: string
@@ -38,11 +39,14 @@ type Gift = {
   received_on: string
 }
 export function FundraisingWorkspace() {
+  const params = useSearchParams()
+  const initialKind = params.get('resultType')
+  const initialRecord = params.get('result')
   const { config } = useConfig(),
     { binding } = useAdminSite(),
     api = config.routes.api,
     site = binding?.site.id || ''
-  const [kind, setKind] = useState<ClassificationKind>('campaigns'),
+  const [kind, setKind] = useState<ClassificationKind>(initialKind === 'funds' || initialKind === 'appeals' ? initialKind : 'campaigns'),
     [docs, setDocs] = useState<Classification[]>([]),
     [next, setNext] = useState<string | null>(null),
     [after, setAfter] = useState('')
@@ -125,6 +129,14 @@ export function FundraisingWorkspace() {
           },
     )
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (!initialRecord || openedSearchResult.current === initialRecord || !site) return
+    openedSearchResult.current = initialRecord
+    void crmRead<{ doc: Classification }>(`${api}/crm/fundraising?${new URLSearchParams({ site, kind, record: initialRecord })}`)
+      .then(result => open(result.doc)).catch(cause => setError((cause as Error).message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected classification.
+  }, [initialRecord, site])
   const save = async () => {
     if (!editor || busy) return
     let goalMinor = ''

@@ -22,7 +22,7 @@
 .vc-crm-domain .vc-crm-toolbar { flex-wrap: wrap; }
 .vc-crm-domain { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .vc-crm.vc-crm-domain table,
-.vc-crm .vc-crm-domain table { display: block; overflow-x: auto; min-width: 0; max-width: 100%; }
+.vc-crm .vc-crm-domain table { display: table; width: 100%; min-width: 100%; }
 .vc-crm-domain th, .vc-crm-domain td { min-width: 90px; }
 .vc-crm-domain fieldset { min-width: 0; display: grid; gap: 12px; margin-block: 16px; padding: 16px; border: 1px solid var(--theme-elevation-200); }
 .vc-crm-imports fieldset { grid-template-columns: minmax(0, 1fr); }

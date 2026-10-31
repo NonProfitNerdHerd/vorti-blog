@@ -209,6 +209,7 @@ export class ContactRepository {
     site: string
     search?: string
     role?: ConstituentRole
+    kind?: 'person' | 'organization'
     limit?: number
     after?: { label: string; id: string }
   }): Promise<{
@@ -222,6 +223,8 @@ export class ContactRepository {
       throw new Error('Search must be at most 40 UTF-8 bytes.')
     if (input.role && validateRoles([input.role]).length !== 1)
       throw new Error('Choose a valid role.')
+    if (input.kind && input.kind !== 'person' && input.kind !== 'organization')
+      throw new Error('Choose a valid contact type.')
     const limit = input.limit ?? 50
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new Error('Choose between 1 and 100 rows.')
@@ -237,13 +240,14 @@ export class ContactRepository {
     if (new TextEncoder().encode(pattern).length > 50)
       throw new Error('Search contains too many wildcard characters.')
     const where = `a.site_id=? AND c.organization_id=? AND a.archived=0 AND c.archived=0
-      AND (c.label LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(c.profile,'$.methods') method WHERE json_extract(method.value,'$.kind')='email' AND json_extract(method.value,'$.value') LIKE ? ESCAPE '\\')) ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''}`
+      AND (c.label LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM json_each(c.profile,'$.methods') method WHERE json_extract(method.value,'$.kind')='email' AND json_extract(method.value,'$.value') LIKE ? ESCAPE '\\')) ${input.role ? 'AND EXISTS(SELECT 1 FROM json_each(a.roles) r WHERE r.value=?)' : ''} ${input.kind ? 'AND c.kind=?' : ''}`
     const parameters: Array<string | number> = [
       site.id,
       site.organization_id,
       pattern,
       pattern,
       ...(input.role ? [input.role] : []),
+      ...(input.kind ? [input.kind] : []),
     ]
     const total = await this.db
       .prepare(

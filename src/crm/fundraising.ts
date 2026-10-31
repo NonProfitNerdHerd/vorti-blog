@@ -63,6 +63,17 @@ export class FundraisingRepository {
       canEdit,
     }
   }
+  async get(siteID: string, kind: ClassificationKind, id: string) {
+    classificationKind(kind)
+    const site = await this.authority.require(siteID, 'finances', 'read')
+    const columns = kind === 'funds'
+      ? 'id,name,description,starts_on,ends_on,NULL AS currency,NULL AS exponent,NULL AS goal_minor,archived,revision'
+      : '*'
+    const doc = await this.db.prepare(`SELECT ${columns} FROM vc_crm_${kind} WHERE site_id=? AND id=?`).bind(siteID, id).first<Classification>()
+    if (!doc) throw new SiteAccessError()
+    await this.fence(site.organization_id, site.authorityRevision)
+    return { doc }
+  }
   async save(input: {
     site: string
     kind: ClassificationKind

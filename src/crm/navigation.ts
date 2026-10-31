@@ -1,7 +1,8 @@
 /** Shared by the staff sidebar and CRM workspace router. */
 export const crmSections = [
   ['overview', 'Overview'],
-  ['contacts', 'Constituents'],
+  ['contacts', 'Contacts'],
+  ['organizations', 'Organizations'],
   ['donations', 'Donations'],
   ['households', 'Households'],
   ['fundraising', 'Campaigns, funds and appeals'],
@@ -15,7 +16,7 @@ export const crmSections = [
 
 export function crmView(value: string | null): string {
   if (value === 'attachments' || value === 'record-tasks') return value
-  return crmSections.some(([id]) => id === value) ? value! : 'overview'
+  return value === 'search' || crmSections.some(([id]) => id === value) ? value! : 'overview'
 }
 
 export function crmURL(admin: string, view: string, site?: string | null): string {

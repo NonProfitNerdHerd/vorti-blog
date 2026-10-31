@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { ContactGifts } from './ContactGifts'
+import { useSearchParams } from 'next/navigation'
 export function DonationWorkspace({ api, site }: { api: string; site: string }) {
+  const params = useSearchParams()
   const [dirty, setDirty] = useState(false),
     [saving, setSaving] = useState(false)
   useEffect(() => {
@@ -34,7 +36,7 @@ export function DonationWorkspace({ api, site }: { api: string; site: string }) 
     <section className="vc-crm-domain vc-crm-collection" aria-label="Donations">
       <h1>Donations</h1>
       <p>Record and reconcile support from every constituent in this chapter.</p>
-      <ContactGifts api={api} site={site} contact="" onDirty={setDirty} onSaving={setSaving} />
+      <ContactGifts api={api} site={site} contact="" initialGift={params.get('result') || undefined} onDirty={setDirty} onSaving={setSaving} />
     </section>
   )
 }

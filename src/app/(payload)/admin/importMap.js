@@ -88,6 +88,7 @@ import { SiteDesignNav as SiteDesignNav_146389be3746eb1a45b524567d6e0718 } from 
 import { VortiPressIcon as VortiPressIcon_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
 import { VortiPressLogo as VortiPressLogo_1d8591b2262f4b853f28e425d5019b65 } from '../../../components/VortiCauseBrand'
 import { AdminSiteSwitcher as AdminSiteSwitcher_5ee053d92bcf2bec5c9c536f7ff74dbf } from '../../../organizations/AdminSiteProvider'
+import { CRMHeaderSearch as CRMHeaderSearch_4af56d19d09649c19b50e48ef6f54731 } from '../../../crm/CRMHeaderSearch'
 import { AdminPolicy as AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6 } from '../../../components/AdminPolicy'
 import { ImportExportProvider as ImportExportProvider_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { R2ClientUploadHandler as R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d } from '@payloadcms/storage-r2/client'
@@ -190,6 +191,7 @@ export const importMap = {
   "./components/VortiCauseBrand#VortiPressIcon": VortiPressIcon_1d8591b2262f4b853f28e425d5019b65,
   "./components/VortiCauseBrand#VortiPressLogo": VortiPressLogo_1d8591b2262f4b853f28e425d5019b65,
   "./organizations/AdminSiteProvider#AdminSiteSwitcher": AdminSiteSwitcher_5ee053d92bcf2bec5c9c536f7ff74dbf,
+  "./crm/CRMHeaderSearch#CRMHeaderSearch": CRMHeaderSearch_4af56d19d09649c19b50e48ef6f54731,
   "./components/AdminPolicy#AdminPolicy": AdminPolicy_6cffd7a96ce186a3fec61b3d09eb4af6,
   "@payloadcms/plugin-import-export/rsc#ImportExportProvider": ImportExportProvider_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/storage-r2/client#R2ClientUploadHandler": R2ClientUploadHandler_85cc02ed84006fcc91d3aff39dda669d,

@@ -14,6 +14,7 @@ import { useSearchParams } from 'next/navigation'
 import { OverviewWorkspace } from './OverviewWorkspace'
 import { DonationWorkspace } from './DonationWorkspace'
 import { ImportWorkspace } from './ImportWorkspace'
+import { CRMSearchWorkspace } from './CRMSearchWorkspace'
 import './workspace.css'
 import { RecordAttachmentPage } from './RecordAttachmentPage'
 import { RecordTaskPage } from './RecordTaskPage'
@@ -54,7 +55,9 @@ export function CRMWorkspace() {
   return (
     <div className="vc-crm-shell">
       <div className="vc-crm-main" key={`${binding?.site.id}:${view}`}>
-        {view === 'overview' ? (
+        {view === 'search' ? (
+          <Gutter className="vc-crm"><CRMSearchWorkspace api={config.routes.api} admin={config.routes.admin} site={binding?.site.id || ''} /></Gutter>
+        ) : view === 'overview' ? (
           <Gutter className="vc-crm">
             <OverviewWorkspace api={config.routes.api} site={binding?.site.id || ''} href={href} />
           </Gutter>
@@ -66,8 +69,8 @@ export function CRMWorkspace() {
           <Gutter className="vc-crm">
             <ImportWorkspace api={config.routes.api} site={binding?.site.id || ''} />
           </Gutter>
-        ) : view === 'contacts' ? (
-          <ContactWorkspace />
+        ) : view === 'contacts' || view === 'organizations' ? (
+          <ContactWorkspace kind={view === 'organizations' ? 'organization' : 'person'} />
         ) : view === 'households' ? (
           <HouseholdWorkspace key={binding?.site.id} />
         ) : view === 'fundraising' ? (
@@ -78,6 +81,8 @@ export function CRMWorkspace() {
               key={binding?.site.id}
               api={config.routes.api}
               site={binding?.site.id || ''}
+              initialRecord={params.get('result') || undefined}
+              initialKind={params.get('resultType') === 'recurring' ? 'recurring' : 'pledge'}
             />
           </Gutter>
         ) : view === 'opportunities' ? (
@@ -86,6 +91,7 @@ export function CRMWorkspace() {
               key={binding?.site.id}
               api={config.routes.api}
               site={binding?.site.id || ''}
+              initialRecord={params.get('result') || undefined}
             />
           </Gutter>
         ) : view === 'correspondence' ? (
@@ -102,6 +108,9 @@ export function CRMWorkspace() {
               key={binding?.site.id}
               api={config.routes.api}
               site={binding?.site.id || ''}
+              initialView={params.get('volunteerView') === 'hours' ? 'hours' : params.get('volunteerView') === 'activities' ? 'activities' : 'profiles'}
+              initialRecord={params.get('result') || undefined}
+              initialType={params.get('resultType') || undefined}
             />
           </Gutter>
         ) : (
@@ -110,6 +119,7 @@ export function CRMWorkspace() {
               key={binding?.site.id}
               api={config.routes.api}
               site={binding?.site.id || ''}
+              initialRecord={params.get('result') || undefined}
             />
           </Gutter>
         )}

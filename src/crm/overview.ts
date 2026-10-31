@@ -51,7 +51,7 @@ export async function crmOverview(
     memberships = await allowed('memberships')
   const contacts = await db
     .prepare(
-      `SELECT count(*) AS total,
+      `SELECT coalesce(sum(c.kind='person'),0) AS total,
     coalesce(sum(EXISTS(SELECT 1 FROM json_each(a.roles) WHERE value='donor')),0) AS donors,
     coalesce(sum(EXISTS(SELECT 1 FROM json_each(a.roles) WHERE value='volunteer')),0) AS volunteers,
     coalesce(sum(EXISTS(SELECT 1 FROM json_each(a.roles) WHERE value='donor') AND EXISTS(SELECT 1 FROM json_each(a.roles) WHERE value='volunteer')),0) AS donorVolunteers

@@ -19,12 +19,14 @@ export function VolunteerProfiles({
   api,
   site,
   contact,
+  initialRecord,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
+  initialRecord?: string
   onDirty: (value: boolean) => void
   onSaving: (value: boolean) => void
 }) {
@@ -114,6 +116,14 @@ export function VolunteerProfiles({
       }
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialRecord && openedSearchResult.current !== initialRecord) {
+      openedSearchResult.current = initialRecord
+      void open({ constituent_id: initialRecord } as VolunteerProfile)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected profile.
+  }, [initialRecord])
   const change = <K extends keyof typeof draft>(field: K, value: (typeof draft)[K]) => {
     setDraft((old) => ({ ...old, [field]: value }))
     setDirty(true)

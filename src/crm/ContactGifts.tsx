@@ -36,6 +36,7 @@ export function ContactGifts({
   site,
   contact,
   autoCreate = false,
+  initialGift,
   onDirty,
   onSaving,
 }: {
@@ -43,6 +44,7 @@ export function ContactGifts({
   site: string
   contact: string
   autoCreate?: boolean
+  initialGift?: string
   onDirty: (value: boolean) => void
   onSaving: (value: boolean) => void
 }) {
@@ -230,6 +232,14 @@ export function ContactGifts({
       setError(cause instanceof Error ? cause.message : 'Unable to load the gift.')
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialGift && openedSearchResult.current !== initialGift) {
+      openedSearchResult.current = initialGift
+      void open(initialGift)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected gift.
+  }, [initialGift])
   const create = async (): Promise<void> => {
     try {
       const money = parseMoney(amount, { code: currency, exponent })

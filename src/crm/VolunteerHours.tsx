@@ -14,6 +14,7 @@ export function VolunteerHours({
   site,
   activity,
   contact,
+  initialRecord,
   participants = [],
   onDirty,
   onSaving,
@@ -22,6 +23,7 @@ export function VolunteerHours({
   site: string
   activity?: string
   contact?: string
+  initialRecord?: string
   participants?: VolunteerParticipation[]
   onDirty: (v: boolean) => void
   onSaving: (v: boolean) => void
@@ -45,7 +47,7 @@ export function VolunteerHours({
   useEffect(() => {
     const controller = new AbortController()
     void crmRead<Awaited<ReturnType<VolunteerRepository['hours']>>>(
-      `${api}/crm/volunteers?${new URLSearchParams({ site, view: 'hours', activity: activity || '', contact: contact || '', state, after })}`,
+      `${api}/crm/volunteers?${new URLSearchParams({ site, view: 'hours', activity: activity || '', contact: contact || '', state, after, ...(initialRecord ? { id: initialRecord } : {}) })}`,
       { signal: controller.signal },
     )
       .then((page) => {
@@ -71,7 +73,7 @@ export function VolunteerHours({
       })
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- io.refresh is a successful mutation signal.
-  }, [api, site, activity, contact, state, after, io.refresh])
+  }, [api, site, activity, contact, state, after, initialRecord, io.refresh])
   const submit = async () => {
     const result = await io.post({
       action: 'submit-hours',
@@ -174,7 +176,7 @@ export function VolunteerHours({
         </thead>
         <tbody>
           {docs.map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} data-selected={initialRecord === d.id ? 'true' : undefined}>
               <td>{d.label}</td>
               <td>{d.activity_name}</td>
               <td>{d.occurred_on}</td>

@@ -27,6 +27,7 @@ export function MembershipWorkspace({
   site,
   contact,
   autoCreate = false,
+  initialRecord,
   onDirty,
   onSaving,
 }: {
@@ -34,6 +35,7 @@ export function MembershipWorkspace({
   site: string
   contact?: string
   autoCreate?: boolean
+  initialRecord?: string
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
@@ -158,6 +160,14 @@ export function MembershipWorkspace({
       }
     }
   }
+  const openedSearchResult = useRef('')
+  useEffect(() => {
+    if (initialRecord && openedSearchResult.current !== initialRecord) {
+      openedSearchResult.current = initialRecord
+      void open(initialRecord)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Open once for the URL-selected record.
+  }, [initialRecord])
   const mutate = async (body: Record<string, unknown>) => {
     if (busy) return
     const version = generation.current,

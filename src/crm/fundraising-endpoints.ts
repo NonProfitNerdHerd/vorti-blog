@@ -19,7 +19,9 @@ export function fundraisingEndpoints(
           const kind = classificationKind(url.searchParams.get('kind') || ''),
             id = url.searchParams.get('id'),
             after = url.searchParams.get('after') || ''
-          const result = url.searchParams.get('gift')
+          const result = url.searchParams.get('record')
+            ? await repo.get(site, kind, url.searchParams.get('record')!)
+            : url.searchParams.get('gift')
             ? await repo.attribution(site, url.searchParams.get('gift')!)
             : id
               ? await repo.linkedGifts(site, kind, id, after)

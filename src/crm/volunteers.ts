@@ -581,7 +581,7 @@ export class VolunteerRepository {
         .bind(response, date, notes, input.id, input.expectedRevision!),
     )
   }
-  async hours(siteID: string, activity = '', contact = '', after = '', state = 'all') {
+  async hours(siteID: string, activity = '', contact = '', after = '', state = 'all', id = '') {
     const site = await this.scope(siteID, 'volunteer-hours', 'read')
     await this.authority.require(siteID, 'restricted-activity', 'read')
     if (!['all', 'submitted', 'approved', 'rejected'].includes(state))
@@ -599,6 +599,10 @@ export class VolunteerRepository {
     if (state !== 'all') {
       clauses.push('v.state=?')
       params.push(state)
+    }
+    if (id) {
+      clauses.push('v.id=?')
+      params.push(id)
     }
     const where = clauses.join(' AND '),
       rows = await this.db

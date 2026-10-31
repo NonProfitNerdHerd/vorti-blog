@@ -9,13 +9,17 @@ export function VolunteerWorkspace({
   site,
   contact,
   initialView,
+  initialRecord,
+  initialType,
   onDirty,
   onSaving,
 }: {
   api: string
   site: string
   contact?: string
-  initialView?: 'hours'
+  initialView?: 'profiles' | 'activities' | 'hours'
+  initialRecord?: string
+  initialType?: string
   onDirty?: (v: boolean) => void
   onSaving?: (v: boolean) => void
 }) {
@@ -65,6 +69,7 @@ export function VolunteerWorkspace({
           api={api}
           site={site}
           contact={contact}
+          initialRecord={initialView === 'profiles' ? initialRecord : undefined}
           onDirty={setDirty}
           onSaving={setBusy}
         />
@@ -74,6 +79,8 @@ export function VolunteerWorkspace({
           api={api}
           site={site}
           contact={contact}
+          initialRecord={initialView === 'activities' ? initialRecord : undefined}
+          initialType={initialType}
           onDirty={setDirty}
           onSaving={setBusy}
         />
@@ -83,6 +90,7 @@ export function VolunteerWorkspace({
           api={api}
           site={site}
           contact={contact}
+          initialRecord={initialView === 'hours' ? initialRecord : undefined}
           onDirty={setDirty}
           onSaving={setBusy}
         />
