@@ -7,7 +7,7 @@ export function wikiView(value: unknown, manage?: unknown): WikiView {
       : 'read'
 }
 export function wikiLoginURL(destination: string) {
-  let safe = '/wiki'
+  let safe = '/admin'
   try {
     const decoded = decodeURIComponent(destination)
     if (
@@ -17,7 +17,7 @@ export function wikiLoginURL(destination: string) {
     )
       safe = destination
   } catch {
-    /* Malformed return paths use the Wiki home. */
+    /* Malformed return paths use the admin dashboard. */
   }
   return `/admin/login?${new URLSearchParams({ redirect: safe })}`
 }

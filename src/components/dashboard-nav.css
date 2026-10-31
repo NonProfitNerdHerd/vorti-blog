@@ -105,3 +105,29 @@
 .nav .nav__link[aria-current='page'] {
   font-weight: 600;
 }
+.template-default__nav-toggler-wrapper { display: none; }
+.vorti-primary-waffle {
+  position: fixed;
+  inset: 12px auto auto 12px;
+  z-index: 42;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #b8d8e3;
+  border-radius: 9px;
+  background: #fff;
+  color: #0d4260;
+  box-shadow: 0 2px 12px #102a4929;
+  cursor: pointer;
+}
+.vorti-primary-waffle:hover, .vorti-primary-waffle[aria-expanded='true'] { background: #dff3f7; }
+.vorti-primary-waffle:focus-visible { outline: 3px solid #0a8197; outline-offset: 2px; }
+.vorti-primary-waffle__dots {
+  width: 21px;
+  height: 21px;
+  background-image: radial-gradient(circle, currentColor 2px, transparent 2.5px);
+  background-size: 7px 7px;
+  background-position: center;
+}
+.nav__wrap { padding-top: 56px; }

@@ -11,32 +11,14 @@ export async function AdminPolicy({
   user,
   children,
 }: ServerProps & { children: ReactNode }) {
-  const [categoriesEnabled, preference, site] = await Promise.all([
+  const [categoriesEnabled, site] = await Promise.all([
     readCategoriesEnabled(payload, user),
-    user
-      ? payload.find({
-          collection: 'payload-preferences',
-          depth: 0,
-          limit: 1,
-          user,
-          overrideAccess: false,
-          where: {
-            and: [
-              { key: { equals: 'vorti-dashboard-sidebar' } },
-              { 'user.relationTo': { equals: user.collection } },
-              { 'user.value': { equals: user.id } },
-            ],
-          },
-        })
-      : null,
     payload.findGlobal({ slug: 'site-settings', depth: 0, overrideAccess: false, user }),
   ])
-  const value = preference?.docs[0]?.value as { open?: boolean } | undefined
   return (
     <SiteFormatProvider value={{ timezone: site.timezone, dateFormat: site.dateFormat, timeFormat: site.timeFormat }}><AdminPolicyClient
       key={user ? `${user.collection}:${user.id}` : 'anonymous'}
       initialCategoriesEnabled={categoriesEnabled}
-      initialDashboardOpen={value?.open !== false}
     >
       <AdminSiteProvider>{children}</AdminSiteProvider>
       <WorkspaceDialogs/>

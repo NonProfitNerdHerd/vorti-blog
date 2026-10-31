@@ -1,6 +1,7 @@
-import { NavHamburger, NavWrapper } from '@payloadcms/next/client'
+import { NavWrapper } from '@payloadcms/next/client'
 import { PolicyNav } from './DashboardNavLink'
-import { CRMSecondaryNav, CRMSecondaryToggle } from './CRMSecondaryNav'
+import { CRMSecondaryNav } from './CRMSecondaryNav'
+import { PrimaryMenuToggle } from './PrimaryMenuToggle'
 import { Logout } from '@payloadcms/ui'
 import { EntityType, groupNavItems } from '@payloadcms/ui/shared'
 import type { ServerProps } from 'payload'
@@ -37,18 +38,12 @@ export async function SiteDesignNav({ payload, permissions, i18n, visibleEntitie
   }
   return (
     <><NavWrapper baseClass="nav">
-      <nav className="nav__wrap">
+      <nav className="nav__wrap" id="vorti-primary-navigation" aria-label="Primary modules">
         <PolicyNav admin={payload.config.routes.admin} groups={groups} />
         <div className="nav__controls">
           <Logout />
         </div>
       </nav>
-      <div className="nav__header">
-        <div className="nav__header-content">
-          <NavHamburger baseClass="nav" />
-          <CRMSecondaryToggle groups={groups} />
-        </div>
-      </div>
-    </NavWrapper><CRMSecondaryNav groups={groups} /></>
+    </NavWrapper><PrimaryMenuToggle /><CRMSecondaryNav groups={groups} /></>
   )
 }

@@ -43,7 +43,14 @@ export async function KnowledgePage({
   const repo = new KnowledgeRepository(cmsDatabase(req), user ? Number(user.id) : null),
     id = route.path?.[0] || ''
   const prefix = requestHeaders.get(PUBLIC_PREFIX_HEADER) || ''
-  const destination = `${prefix}/${kind}${route.path?.length ? '/' + route.path.map(encodeURIComponent).join('/') : ''}?${new URLSearchParams({ site, view, ...(query.new === '1' ? { new: '1' } : {}) })}`
+  const destinationQuery = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (Array.isArray(value)) value.forEach(item => destinationQuery.append(key, item))
+    else if (typeof value === 'string') destinationQuery.set(key, value)
+  }
+  destinationQuery.set('site', site)
+  if (!destinationQuery.has('view')) destinationQuery.set('view', view)
+  const destination = `${prefix}/${kind}${route.path?.length ? '/' + route.path.map(encodeURIComponent).join('/') : ''}?${destinationQuery}`
   if (manage && !user) redirect(wikiLoginURL(destination))
   if (
     manage &&

@@ -1,7 +1,7 @@
 import { crmSections, crmURL, crmView } from '../crm/navigation'
 import { siteURL } from '../organizations/admin-site'
 import { matchesAdminPath } from './navigation-state'
-import type { SecondaryModule } from './CRMSecondaryProvider'
+import type { SecondaryModule } from './secondary-modules'
 
 export type NavEntity = { slug: string; type: string; label: string | Record<string, string> }
 export type NavGroup = { label: string; entities: NavEntity[] }

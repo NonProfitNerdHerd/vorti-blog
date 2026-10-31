@@ -3,31 +3,30 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useCategoriesEnabled } from '@design-system/payload-design-core/admin'
-import { useAuth, useConfig, useNav, useTranslation, useWindowInfo, BrowseByFolderButton } from '@payloadcms/ui'
+import { useAuth, useConfig, useNav, useTranslation, BrowseByFolderButton } from '@payloadcms/ui'
 import type { DefaultNavClient } from '@payloadcms/next/client'
 import type { ComponentProps, MouseEvent } from 'react'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { hasUnsavedSiteChanges } from '../organizations/admin-site'
 import { currentModule, moduleLinks, type NavGroup } from './admin-module-links'
 import { matchesAdminPath } from './navigation-state'
-import { useCRMSecondary, type SecondaryModule } from './CRMSecondaryProvider'
+import type { SecondaryModule } from './secondary-modules'
 import './dashboard-nav.css'
 
-export function DashboardNavLink({ admin }: { admin: string }) {
+export function DashboardNavLink({ admin, onNavigate }: { admin: string; onNavigate: (event: MouseEvent<HTMLAnchorElement>) => void }) {
   const pathname = usePathname()
   return <Link href={admin} className="vorti-dashboard-link"
+    onClick={onNavigate}
     aria-current={pathname.replace(/\/$/, '') === admin.replace(/\/$/, '') ? 'page' : undefined}>Dashboard</Link>
 }
 
 export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultNavClient>, 'groups'> & { admin: string }) {
   const enabled = useCategoriesEnabled()
   const { navOpen, setNavOpen } = useNav()
-  const secondary = useCRMSecondary()
   const { user } = useAuth()
   const fine = Array.isArray(user?.platformPermissions) ? user.platformPermissions as string[] : null
   const { config } = useConfig()
   const { binding } = useAdminSite()
-  const { breakpoints } = useWindowInfo()
   const { i18n } = useTranslation()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -51,7 +50,7 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
       event.preventDefault()
       return
     }
-    if (breakpoints.l !== false) setNavOpen(false)
+    setNavOpen(false)
   }
   const renderModule = (module: SecondaryModule) => {
     if (!allowed(module)) return null
@@ -60,21 +59,17 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
       categoriesEnabled: enabled, groupManagement: false,
     })[0]
     if (!first) return null
-    return <div key={module} id={`nav-group-${module}`} className="nav-group"
-      onMouseEnter={() => secondary.showPreview(module)}
-      onMouseLeave={(event) => { if (!event.currentTarget.contains(document.activeElement)) secondary.hidePreview(module) }}
-      onFocus={() => secondary.showPreview(module)}
-      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) secondary.hidePreview(module) }}>
+    return <div key={module} id={`nav-group-${module}`} className="nav-group">
       <div className="task-nav-heading"><Link className="vorti-nav-parent-link" href={first.href}
         id={module === 'Tasks' ? 'nav-review-tasks' : undefined}
         data-vc-crm-navigation prefetch={false} aria-current={active === module ? 'page' : undefined}
         tabIndex={navOpen ? undefined : -1}
-        onClick={event => { onNavigate(event); if (normalClick(event)) secondary.pin(module) }}>{module}</Link></div>
+        onClick={onNavigate}>{module}</Link></div>
     </div>
   }
 
   return <>
-    <DashboardNavLink admin={admin} />
+    <DashboardNavLink admin={admin} onNavigate={onNavigate} />
     {renderModule('Tasks')}
     {config.folders && config.folders.browseByFolder && <BrowseByFolderButton
       active={matchesAdminPath(pathname, `${admin}${config.admin.routes.browseByFolder}`)} />}

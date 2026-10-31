@@ -22,6 +22,7 @@ import { ContactButton, ContactEditAction, ContactFacts, ContactIcon, ContactSec
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
+import { redirectToLogin } from '../components/auth-return'
 import './contact-ui.css'
 import './workspace.css'
 
@@ -177,12 +178,13 @@ export function ContactWorkspace() {
   const read = useCallback(async <T,>(url: string, init?: RequestInit): Promise<T> => {
     const response = await fetch(url, { ...init, cache: 'no-store' }),
       data = (await response.json()) as T & { message?: string }
+    if (response.status === 401) redirectToLogin(admin, '/login')
     if (!response.ok)
       throw Object.assign(new Error(data.message || 'Unable to load CRM. Try again.'), {
         status: response.status,
       })
     return data
-  }, [])
+  }, [admin])
   const refresh = useCallback(async () => {
     const sequence = ++requestSequence.current
     setLoading(true)

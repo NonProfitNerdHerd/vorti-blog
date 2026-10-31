@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState, type ComponentProps } from 'react'
+import { useEffect, useState, type ComponentProps } from 'react'
 import type { DefaultNavClient } from '@payloadcms/next/client'
-import { useAuth, useConfig, useNav, useTranslation, useWindowInfo } from '@payloadcms/ui'
+import { useAuth, useConfig, useNav, useTranslation } from '@payloadcms/ui'
 import { useCategoriesEnabled } from '@design-system/payload-design-core/admin'
 import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { hasUnsavedSiteChanges } from '../organizations/admin-site'
 import { InboxBadge } from '../review/WorkspaceInbox'
 import { currentModule, moduleLinks, type NavGroup } from './admin-module-links'
-import { useCRMSecondary, type SecondaryModule } from './CRMSecondaryProvider'
+import type { SecondaryModule } from './secondary-modules'
 import './crm-secondary-nav.css'
 
 type Props = Pick<ComponentProps<typeof DefaultNavClient>, 'groups'>
@@ -29,7 +29,7 @@ const crmIcons: Record<string, string> = {
   imports: 'M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4',
 }
 
-function useModuleState(groups: Props['groups'], checkCapability = true) {
+function useModuleState(groups: Props['groups']) {
   const { config } = useConfig()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -44,7 +44,7 @@ function useModuleState(groups: Props['groups'], checkCapability = true) {
   const active = currentModule(pathname, params, config.routes.admin, available)
   const site = params.get('site') || binding?.site.id || 'default'
   const [groupCapability, setGroupCapability] = useState<{ site: string; allowed: boolean } | null>(null)
-  const canCheckGroups = checkCapability && fine?.includes('administration:assignments') === true
+  const canCheckGroups = fine?.includes('administration:assignments') === true
   useEffect(() => {
     if (!canCheckGroups) return
     const abort = new AbortController()
@@ -73,56 +73,25 @@ function useModuleState(groups: Props['groups'], checkCapability = true) {
 
 export function CRMSecondaryNav({ groups }: Props) {
   const { active, allowed, links, api } = useModuleState(groups)
-  const { breakpoints } = useWindowInfo()
-  const { setNavOpen } = useNav()
-  const secondary = useCRMSecondary()
-  const closeButton = useRef<HTMLButtonElement>(null)
-  const mobile = breakpoints.l !== false
-  const selectedModule = secondary.preview || active
-  useEffect(() => { if (mobile && secondary.preview) closeButton.current?.focus() }, [mobile, secondary.preview])
-  if (!selectedModule || !allowed(selectedModule) || (mobile ? !secondary.preview : !(secondary.preview || secondary.pinned(selectedModule)))) return null
-  const items = links(selectedModule)
+  const { navOpen } = useNav()
+  if (navOpen || !active || !allowed(active)) return null
+  const items = links(active)
   if (!items.length) return null
-  const pinned = !mobile && !!active && secondary.pinned(active)
-  const title = selectedModule === 'CRM' ? 'VortiCause' : selectedModule === 'Tasks' ? 'VortiTasks' : selectedModule
-  const dismiss = () => {
-    secondary.close(selectedModule)
-    requestAnimationFrame(() => {
-      if (mobile) document.querySelector<HTMLButtonElement>('.vorti-secondary-toggle')?.focus()
-      else document.querySelector<HTMLAnchorElement>('.vorti-dashboard-link')?.focus()
-    })
-  }
-  return <>{mobile && <button type="button" className="vorti-secondary-backdrop" tabIndex={-1}
-    aria-label={`Dismiss ${selectedModule} menu`} onClick={dismiss} />}
-    <aside className="vorti-secondary" data-module={selectedModule} data-pinned={pinned ? 'true' : 'false'}
-    aria-label={`${selectedModule} navigation`} onMouseEnter={() => secondary.showPreview(selectedModule)}
-    onKeyDown={event => { if (event.key === 'Escape') dismiss() }}
-    onMouseLeave={event => { if (!event.currentTarget.contains(document.activeElement)) secondary.hidePreview(selectedModule) }}
-    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) secondary.hidePreview(selectedModule) }}>
+  const title = active === 'CRM' ? 'VortiCause' : active === 'Tasks' ? 'VortiTasks' : active
+  return <aside className="vorti-secondary" data-module={active} aria-label={`${active} navigation`}>
     <div className="vorti-secondary__head"><strong>{title}</strong>
-      <button ref={closeButton} type="button" aria-label={`Close ${selectedModule} sidebar`} onClick={dismiss}>Close</button>
     </div>
-    <nav aria-label={`${selectedModule} sections`}>
+    <nav aria-label={`${active} sections`}>
       {items.map(item => <Link key={item.id} href={item.href} prefetch={false}
-        data-vc-crm-navigation aria-current={selectedModule === active && item.active ? 'page' : undefined}
+        data-vc-crm-navigation aria-current={item.active ? 'page' : undefined}
         onClick={event => {
           if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
           if (hasUnsavedSiteChanges() && !window.confirm('Discard unsaved changes before changing sections?')) {
             event.preventDefault()
             return
           }
-          secondary.hidePreview(selectedModule)
-          if (mobile) setNavOpen(false)
-        }}>{selectedModule === 'CRM' && <svg className="vorti-secondary__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={crmIcons[item.id] || crmIcons.overview} /></svg>}
-          <span>{item.label}</span>{selectedModule === 'Tasks' && item.id === 'inbox' && <InboxBadge api={api} showZero />}</Link>)}
+        }}>{active === 'CRM' && <svg className="vorti-secondary__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={crmIcons[item.id] || crmIcons.overview} /></svg>}
+          <span>{item.label}</span>{active === 'Tasks' && item.id === 'inbox' && <InboxBadge api={api} showZero />}</Link>)}
     </nav>
-  </aside></>
-}
-
-export function CRMSecondaryToggle({ groups }: Props) {
-  const { active, allowed } = useModuleState(groups, false)
-  const secondary = useCRMSecondary()
-  if (!active || !allowed(active)) return null
-  return <button type="button" className="vorti-secondary-toggle" aria-expanded={secondary.preview === active}
-    onClick={() => secondary.showPreview(active)}>{active} menu</button>
+  </aside>
 }

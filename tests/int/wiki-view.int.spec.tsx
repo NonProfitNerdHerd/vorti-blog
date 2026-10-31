@@ -57,5 +57,5 @@ it('uses only the shared login with a validated Wiki return path', () => {
   ])
     expect(
       new URL(wikiLoginURL(path), 'https://example.invalid').searchParams.get('redirect'),
-    ).toBe('/wiki')
+    ).toBe('/admin')
 })

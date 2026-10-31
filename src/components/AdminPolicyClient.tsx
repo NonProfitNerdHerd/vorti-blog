@@ -1,66 +1,61 @@
 'use client'
 import { WorkspaceFeedback } from '@/review/WorkspaceFeedback'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { NavContext, useNav, useConfig, toast, useWindowInfo, useAuth } from '@payloadcms/ui'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { NavContext, useNav, useConfig, useAuth } from '@payloadcms/ui'
 import { CategoriesEnabledProvider } from '@design-system/payload-design-core/admin'
-import { saveDashboardSidebar } from './sidebar-preferences'
 import { NavigationExpansionProvider } from './NavigationExpansionProvider'
-import { CRMSecondaryProvider } from './CRMSecondaryProvider'
+import { redirectToLogin, rememberReturnPath, restoreInactivityReturn } from './auth-return'
 
 export function AdminPolicyClient({
   children,
   initialCategoriesEnabled,
-  initialDashboardOpen,
 }: {
   children: ReactNode
   initialCategoriesEnabled: boolean
-  initialDashboardOpen: boolean
 }) {
   const nav = useNav()
   const syncNav = nav.setNavOpen
   const nativeOpen = nav.navOpen
   const { config } = useConfig()
-  const preferenceWrites = useRef(Promise.resolve())
-  const { breakpoints } = useWindowInfo()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user, refreshPermissions } = useAuth()
-  const dashboard = pathname.replace(/\/$/, '') === config.routes.admin.replace(/\/$/, '')
-  const mobile = breakpoints.l !== false
-  const [dashboardOpen, setDashboardOpen] = useState(initialDashboardOpen)
-  const [local, setLocal] = useState<{ path: string; open: boolean; mobile: boolean } | null>(null)
-  if (local && (local.path !== pathname || local.mobile !== mobile)) setLocal(null)
+  const [primary, setPrimary] = useState<{ path: string; open: boolean } | null>(null)
   const [categoriesEnabled, setCategoriesEnabled] = useState(initialCategoriesEnabled)
   const denied =
-    (!categoriesEnabled && pathname.startsWith(`${config.routes.admin}/collections/categories`)) ||
-    (user?.role !== 'administrator' &&
+    (user && !categoriesEnabled && pathname.startsWith(`${config.routes.admin}/collections/categories`)) ||
+    (user && user.role !== 'administrator' &&
       pathname.startsWith(`${config.routes.admin}/globals/system-settings`))
-  const navOpen =
-    local?.path === pathname && local.mobile === mobile
-      ? local.open
-      : !mobile && (dashboard ? dashboardOpen : true)
+  const navOpen = primary?.path === pathname && primary.open
   const setNavOpen = useCallback(
     (open: boolean) => {
-      setLocal({ path: pathname, open, mobile })
-      if (dashboard && !mobile) {
-        setDashboardOpen(open)
-        preferenceWrites.current = preferenceWrites.current
-          .then(() => saveDashboardSidebar(config.routes.api, open))
-          .catch(() => {
-            toast.error('Could not remember the sidebar state. Please try again.')
-          })
-      }
+      setPrimary({ path: pathname, open })
     },
-    [pathname, mobile, dashboard, config.routes.api],
+    [pathname],
   )
-  // Keep Payload's scroll handling synchronized; route defaults never write preferences.
+  // Keep Payload's scroll handling synchronized with the one visible menu.
   useEffect(() => {
     syncNav(navOpen)
   }, [syncNav, navOpen, nativeOpen])
   useEffect(() => {
     if (denied) router.replace(config.routes.admin)
   }, [denied, router, config.routes.admin])
+  useEffect(() => {
+    if (!user && (pathname === config.routes.admin || pathname.startsWith(`${config.routes.admin}/`)) &&
+      !/^\/(login|logout|logout-inactivity|forgot-password|reset-password|verify)(\/|$)/.test(pathname.slice(config.routes.admin.length)))
+      redirectToLogin(config.routes.admin, config.admin.routes.login)
+  }, [user, pathname, config.routes.admin, config.admin.routes.login])
+  useEffect(() => {
+    const admin = config.routes.admin
+    const authRoute = /^\/(login|logout|logout-inactivity|forgot-password|reset-password|verify)(\/|$)/.test(pathname.slice(admin.length))
+    if (authRoute) {
+      if (pathname.endsWith('/login') || pathname.endsWith('/logout-inactivity')) restoreInactivityReturn(admin)
+    } else if (user && (pathname === admin || pathname.startsWith(`${admin}/`))) {
+      rememberReturnPath(admin, `${window.location.pathname}${window.location.search}${window.location.hash}`)
+    }
+  }, [user, pathname, searchParams, config.routes.admin])
   useEffect(() => {
     const refresh = () => {
       void refreshPermissions().catch(() => {})
@@ -87,7 +82,6 @@ export function AdminPolicyClient({
   }, [config.routes.api, router, refreshPermissions])
   return (
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
-      <CRMSecondaryProvider identity={user ? `${user.collection}:${user.id}` : 'anonymous'}>
       <NavigationExpansionProvider key={user ? `${user.collection}:${user.id}` : 'anonymous'}>
         <CategoriesEnabledProvider value={categoriesEnabled}>
           <WorkspaceFeedback />
@@ -105,7 +99,6 @@ export function AdminPolicyClient({
           )}
         </CategoriesEnabledProvider>
       </NavigationExpansionProvider>
-      </CRMSecondaryProvider>
     </NavContext.Provider>
   )
 }
