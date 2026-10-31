@@ -118,8 +118,8 @@ function Imports({ api, site }: Props) {
   }
   if (!site) return <p>Select a chapter to manage imports.</p>
   return (
-    <section aria-label="CRM imports" className="vc-crm-domain vc-crm-imports">
-      <h2>Import records</h2>
+    <section aria-label="CRM imports" className="vc-crm-domain vc-crm-imports vc-crm-collection">
+      <h2>Imports</h2>
       <p>
         Bring records from another platform into this chapter. Source uploads are private to the
         staff member who created the import.
@@ -155,14 +155,14 @@ function Imports({ api, site }: Props) {
           {available && !selected && !creating && (
             <>
               {page?.canCreate && (
-                <button type="button" onClick={() => setCreating(true)}>
+                <button type="button" className="vc-crm-primary" onClick={() => setCreating(true)}>
                   Start an import
                 </button>
               )}
               {page && (
                 <>
                   <p>{page.total} imports in this section</p>
-                  <div style={{ overflowX: 'auto' }}>
+                  <div className="vc-crm-table-wrap">
                     <table>
                       <caption>Your imports</caption>
                       <thead>

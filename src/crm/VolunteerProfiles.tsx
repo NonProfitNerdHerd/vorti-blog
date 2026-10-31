@@ -5,6 +5,7 @@ import { ContactActivities } from './ContactActivities'
 import { useVolunteerGuard, useVolunteerIO } from './useVolunteerIO'
 import type { VolunteerProfile } from './volunteer-model'
 import type { VolunteerRepository } from './volunteers'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type Detail = Awaited<ReturnType<VolunteerRepository['getProfile']>>
 const blank = (contact = '') => ({
   constituent: contact,
@@ -36,6 +37,7 @@ export function VolunteerProfiles({
     [eligible, setEligible] = useState(false),
     [canEdit, setCanEdit] = useState(false)
   const [editor, setEditor] = useState<Detail | 'new' | null>(null),
+    [editing, setEditing] = useState(false),
     [draft, setDraft] = useState(() => blank(contact)),
     [dirty, setDirty] = useState(false),
     [notesOpen, setNotesOpen] = useState(false),
@@ -86,6 +88,7 @@ export function VolunteerProfiles({
     io.setError('')
     if (row === 'new') {
       setEditor('new')
+      setEditing(true)
       setDraft(blank(contact))
       setDirty(false)
       return
@@ -94,6 +97,7 @@ export function VolunteerProfiles({
       const data = await crmRead<Detail>(io.query({ view: 'profile', id: row.constituent_id }))
       if (version !== selection.current) return
       setEditor(data)
+      setEditing(false)
       setDraft({
         constituent: data.doc.constituent_id,
         skills: data.doc.skills.join(', '),
@@ -135,6 +139,7 @@ export function VolunteerProfiles({
     if (result) {
       setDirty(false)
       setEditor(null)
+      setEditing(false)
       setNotesOpen(false)
       setNotesDirty(false)
     }
@@ -190,7 +195,7 @@ export function VolunteerProfiles({
         </label>
       </fieldset>
       {canEdit && (
-        <button type="button" disabled={io.busy || notesBusy} onClick={() => void open('new')}>
+        <button type="button" className="vc-crm-primary" disabled={io.busy || notesBusy} onClick={() => void open('new')}>
           Create volunteer profile
         </button>
       )}
@@ -208,7 +213,7 @@ export function VolunteerProfiles({
       >
         Next volunteers
       </button>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Volunteer</th>
@@ -220,7 +225,7 @@ export function VolunteerProfiles({
         </thead>
         <tbody>
           {docs.map((d) => (
-            <tr key={d.constituent_id}>
+            <tr key={d.constituent_id} data-selected={editor !== 'new' && editor?.doc.constituent_id === d.constituent_id ? 'true' : undefined}>
               <td>
                 <button type="button" disabled={io.busy || notesBusy} onClick={() => void open(d)}>
                   {d.label}
@@ -233,12 +238,26 @@ export function VolunteerProfiles({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching volunteer profiles.</p>}
       {editor && (
         <section aria-label="Volunteer profile editor">
           <h4>{editor === 'new' ? 'New volunteer profile' : editor.doc.label}</h4>
-          <fieldset disabled={io.busy || notesBusy || notesDirty || !canEdit}>
+          {editor !== 'new' && canEdit && !editing && <button type="button" onClick={() => setEditing(true)}>Edit volunteer profile</button>}
+          {editing && <CRMEditorDialog title={editor === 'new' ? 'New volunteer profile' : `Edit ${editor.doc.label}`} onDismiss={() => {
+            if (!discard()) return
+            setEditing(false)
+            if (editor === 'new') setEditor(null)
+            else setDraft({
+              constituent: editor.doc.constituent_id,
+              skills: editor.doc.skills.join(', '),
+              interests: editor.doc.interests.join(', '),
+              availability: editor.doc.availability,
+              doNotContact: !!editor.doc.do_not_contact,
+              archived: !!editor.doc.archived,
+            })
+            setDirty(false)
+          }}><fieldset disabled={io.busy || notesBusy || notesDirty || !canEdit}>
             {editor === 'new' && !contact ? (
               <ContactPicker
                 api={api}
@@ -295,7 +314,7 @@ export function VolunteerProfiles({
             <button type="button" disabled={!draft.constituent} onClick={() => void save()}>
               Save volunteer profile
             </button>
-          </fieldset>
+          </fieldset></CRMEditorDialog>}
           {editor !== 'new' && editor.canNotes && (
             <>
               <button

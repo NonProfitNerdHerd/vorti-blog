@@ -9,6 +9,7 @@ import { GiftAttribution } from './GiftAttribution'
 import { ContactPicker } from './HouseholdWorkspace'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { CRMEditorDialog } from './CRMEditorDialog'
 
 type Page = { docs: GiftSummary[]; total: number; canEdit: boolean; canConfigure: boolean }
 type Detail = GiftSummary & {
@@ -298,6 +299,7 @@ export function ContactGifts({
         {result?.canEdit && (
           <button
             type="button"
+            className="vc-crm-primary"
             disabled={saving || creating || !!detail}
             onClick={() => {
               setCreating(true)
@@ -326,7 +328,18 @@ export function ContactGifts({
           </button>
         </p>
       )}
-      {creating && (
+      {creating && <CRMEditorDialog title="Record gift" onDismiss={() => {
+        if (window.confirm('Discard this gift entry?')) {
+          setCreating(false)
+          setAmount('')
+          setNotes('')
+          setReference('')
+          setReceivedOn('')
+          setNewFund('')
+          onDirty(false)
+          operation.current = null
+        }
+      }}>
         <fieldset disabled={saving} className="vc-crm-fields">
           <legend>Record a gift</legend>
           {!contact && (
@@ -603,7 +616,7 @@ export function ContactGifts({
             </button>
           </div>
         </fieldset>
-      )}
+      </CRMEditorDialog>}
       <div className="vc-crm-table-wrap">
         <table>
           <thead>

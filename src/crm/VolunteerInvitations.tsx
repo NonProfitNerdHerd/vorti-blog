@@ -172,7 +172,7 @@ export function VolunteerInvitations({
           >
             Next invitations
           </button>
-          <table>
+          <div className="vc-crm-table-wrap"><table>
             <thead>
               <tr>
                 <th>Volunteer</th>
@@ -219,7 +219,7 @@ export function VolunteerInvitations({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {!docs.length && <p>No recorded outreach invitations.</p>}
         </>
       )}

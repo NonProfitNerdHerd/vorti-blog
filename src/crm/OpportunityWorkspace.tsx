@@ -6,6 +6,7 @@ import { ContactPicker, crmRead, formatMinor } from './HouseholdWorkspace'
 import { ClassificationPicker } from './ClassificationPicker'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { parseMoney } from './money'
+import { CRMEditorDialog } from './CRMEditorDialog'
 import {
   opportunityOutcomes,
   type Opportunity,
@@ -76,6 +77,7 @@ export function OpportunityWorkspace({
     [canEdit, setCanEdit] = useState(false),
     [canConfigure, setCanConfigure] = useState(false)
   const [editor, setEditor] = useState<Opportunity | 'new' | null>(null),
+    [editing, setEditing] = useState(false),
     [draft, setDraft] = useState<Draft>(() => empty(contact)),
     [detail, setDetail] = useState<Detail | null>(null),
     [configEditor, setConfigEditor] = useState<{
@@ -231,8 +233,8 @@ export function OpportunityWorkspace({
       setError((cause as Error).message)
     }
   }
-  const open = async (row: Opportunity | 'new') => {
-    if (!discard()) return
+  const open = async (row: Opportunity | 'new', reset = false) => {
+    if (!reset && !discard()) return
     if (row === 'new' && !stages.some((s) => s.pipeline_id === pipeline && !s.archived)) return
     setError('')
     setNotice('')
@@ -249,6 +251,7 @@ export function OpportunityWorkspace({
         record = data?.doc
       if (version !== generation.current) return
       setEditor(record || 'new')
+      setEditing(row === 'new')
       setDetail(data)
       setDraft(
         record
@@ -308,6 +311,7 @@ export function OpportunityWorkspace({
       })
       if (version !== generation.current) return
       setDirty(false)
+      setEditing(false)
       operation.current = null
       setConfigEditor(null)
       setNotice('Saved.')
@@ -444,7 +448,7 @@ export function OpportunityWorkspace({
   }
   const visibleStages = stages.filter((s) => !s.archived || docs.some((d) => d.stage_id === s.id))
   return (
-    <section className="vc-crm-domain" aria-label="Opportunities">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Opportunities">
       <h2>Opportunities</h2>
       <p>
         Estimates, stages and follow-ups are planning records. Moving to Committed or Received
@@ -535,7 +539,7 @@ export function OpportunityWorkspace({
             Pipeline view
           </button>
           {canEdit && pipeline && stages.some((s) => s.pipeline_id === pipeline && !s.archived) && (
-            <button type="button" onClick={() => void open('new')}>
+            <button type="button" className="vc-crm-primary" onClick={() => void open('new')}>
               Create opportunity
             </button>
           )}
@@ -573,7 +577,7 @@ export function OpportunityWorkspace({
         </button>
       </div>
       {mode === 'list' ? (
-        <table>
+        <div className="vc-crm-table-wrap"><table>
           <thead>
             <tr>
               <th>Opportunity</th>
@@ -604,7 +608,7 @@ export function OpportunityWorkspace({
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       ) : (
         <div className="vc-crm-pipeline">
           {visibleStages.map((s) => (
@@ -660,7 +664,9 @@ export function OpportunityWorkspace({
           </button>
         </details>
       )}
-      {configEditor && (
+      {configEditor && <CRMEditorDialog title={configEditor.kind === 'pipeline' ? 'Pipeline configuration' : 'Stage configuration'} onDismiss={() => {
+        if (discard()) { setConfigEditor(null); mark(false) }
+      }}>
         <fieldset disabled={busy} aria-label="Pipeline configuration">
           <legend>{configEditor.kind === 'pipeline' ? 'Pipeline' : 'Stage'} editor</legend>
           <label>
@@ -742,12 +748,18 @@ export function OpportunityWorkspace({
             Close configuration
           </button>
         </fieldset>
-      )}
+      </CRMEditorDialog>}
       {editor && (
         <section aria-label="Opportunity editor">
           <h3>{editor === 'new' ? 'New opportunity' : editor.name}</h3>
           {editor !== 'new' && <RecordActions site={site} link={{ type: 'opportunity', id: editor.id }} />}
-          <fieldset disabled={busy || childBusy || childDirty || financialDirty || !canEdit}>
+          {editor !== 'new' && canEdit && !editing && <button type="button" onClick={() => setEditing(true)}>Edit opportunity</button>}
+          {editing && <CRMEditorDialog title={editor === 'new' ? 'New opportunity' : `Edit ${editor.name}`} onDismiss={() => {
+            if (!discard()) return
+            setEditing(false)
+            if (editor === 'new') { setEditor(null); setDetail(null) }
+            else void open(editor, true)
+          }}><fieldset disabled={busy || childBusy || childDirty || financialDirty || !canEdit}>
             <label>
               Opportunity name
               <input
@@ -891,11 +903,11 @@ export function OpportunityWorkspace({
             >
               Save opportunity
             </button>
-          </fieldset>
+          </fieldset></CRMEditorDialog>}
           {detail && (
             <>
               <h4>Stage history</h4>
-              <table>
+              <div className="vc-crm-table-wrap"><table>
                 <thead>
                   <tr>
                     <th>Changed</th>
@@ -914,7 +926,7 @@ export function OpportunityWorkspace({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
               <button type="button" disabled={busy} onClick={() => void historyPage('history', '')}>
                 First history
               </button>

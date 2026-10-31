@@ -31,7 +31,7 @@ export function DonationWorkspace({ api, site }: { api: string; site: string }) 
     }
   }, [dirty, saving])
   return (
-    <section className="vc-crm-domain" aria-label="Donations">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Donations">
       <h1>Donations</h1>
       <p>Record and reconcile support from every constituent in this chapter.</p>
       <ContactGifts api={api} site={site} contact="" onDirty={setDirty} onSaving={setSaving} />

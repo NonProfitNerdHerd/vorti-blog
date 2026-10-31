@@ -10,6 +10,7 @@ import {
   type CorrespondenceTemplate,
 } from './correspondence-model'
 import type { TemplateRow } from './correspondence'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type TemplateProps = {
   api: string
   site: string
@@ -194,7 +195,7 @@ function TemplateEditor({ api, site, onDirty, onSaving }: TemplateProps) {
           </button>
         )}
       </div>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Name</th>
@@ -217,7 +218,7 @@ function TemplateEditor({ api, site, onDirty, onSaving }: TemplateProps) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching correspondence templates.</p>}
       <div className="vc-crm-toolbar">
         <button
@@ -249,7 +250,9 @@ function TemplateEditor({ api, site, onDirty, onSaving }: TemplateProps) {
           Next templates
         </button>
       </div>
-      {editor && (
+      {editor && <CRMEditorDialog title={editor === 'new' ? 'New correspondence template' : `Edit ${editor.name}`} onDismiss={() => {
+        if (discard()) { setEditor(null); setDirty(false); setPreview(null) }
+      }}>
         <section aria-label="Correspondence template editor">
           <h3>{editor === 'new' ? 'New template' : `Template version ${editor.revision}`}</h3>
           <fieldset disabled={busy || !canEdit}>
@@ -322,7 +325,7 @@ function TemplateEditor({ api, site, onDirty, onSaving }: TemplateProps) {
             Close template
           </button>
         </section>
-      )}
+      </CRMEditorDialog>}
       {preview && (
         <section aria-label="Template preview">
           <h3>{preview.subject}</h3>

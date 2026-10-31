@@ -9,6 +9,7 @@ import { equalInstallments, givingFrequencies, type GivingFrequency } from './co
 import { parseMoney } from './money'
 import type { GivingCommitment, CommitmentRepository } from './commitments'
 import type { GiftSummary } from './finance'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type Detail = Awaited<ReturnType<CommitmentRepository['get']>>
 type Draft = {
   name: string
@@ -331,7 +332,7 @@ export function CommitmentWorkspace({
     }
   }
   return (
-    <section className="vc-crm-domain" aria-label="Pledges and recurring giving">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Pledges and recurring giving">
       <h2>Pledges and recurring giving</h2>
       {focusID && (
         <button type="button" disabled={busy} onClick={() => void open(focusID)}>
@@ -377,6 +378,7 @@ export function CommitmentWorkspace({
           {canEdit && (
             <button
               type="button"
+              className="vc-crm-primary"
               disabled={busy}
               onClick={() => {
                 if (discard()) {
@@ -399,7 +401,7 @@ export function CommitmentWorkspace({
             Next page
           </button>
         </div>
-        <table>
+        <div className="vc-crm-table-wrap"><table>
           <thead>
             <tr>
               <th>Name</th>
@@ -425,9 +427,11 @@ export function CommitmentWorkspace({
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         {!docs.length && <p>No matching giving records.</p>}
-        {creating && (
+        {creating && <CRMEditorDialog title={kind === 'pledge' ? 'New pledge' : 'New recurring schedule'} onDismiss={() => {
+          if (discard()) { setCreating(false); mark(false) }
+        }}>
           <fieldset disabled={busy}>
             <legend>New {kind}</legend>
             <label>
@@ -627,7 +631,7 @@ export function CommitmentWorkspace({
               Cancel creation
             </button>
           </fieldset>
-        )}
+        </CRMEditorDialog>}
       </div>
       {detail && (
         <section aria-label="Giving record details">
@@ -671,7 +675,7 @@ export function CommitmentWorkspace({
             Credit reflects refunds and voids. Excess credit on one installment does not pay another
             automatically: reverse and reapply it explicitly.
           </p>
-          <table>
+          <div className="vc-crm-table-wrap"><table>
             <thead>
               <tr>
                 <th>Period</th>
@@ -698,7 +702,7 @@ export function CommitmentWorkspace({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <button
             type="button"
             disabled={!offset || busy}
@@ -714,7 +718,7 @@ export function CommitmentWorkspace({
             Next periods
           </button>
           <h4>Payment history</h4>
-          <table>
+          <div className="vc-crm-table-wrap"><table>
             <thead>
               <tr>
                 <th>Date</th>
@@ -770,7 +774,7 @@ export function CommitmentWorkspace({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <GivingHistory api={api} site={site} id={detail.doc.id} revision={detail.doc.revision} />
           {detail.canEdit && (
             <fieldset disabled={busy}>

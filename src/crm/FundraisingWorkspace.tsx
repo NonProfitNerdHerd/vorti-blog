@@ -6,6 +6,7 @@ import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { crmRead, formatMinor } from './HouseholdWorkspace'
 import type { Classification, ClassificationKind } from './fundraising'
 import { parseMoney } from './money'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type Values = {
   name: string
   description: string
@@ -47,6 +48,7 @@ export function FundraisingWorkspace() {
     [after, setAfter] = useState('')
   const [canEdit, setCanEdit] = useState(false),
     [editor, setEditor] = useState<Classification | 'new' | null>(null),
+    [editing, setEditing] = useState(false),
     [values, setValues] = useState<Values>(empty)
   const [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
@@ -102,6 +104,7 @@ export function FundraisingWorkspace() {
   const open = (row: Classification | 'new') => {
     if (busy || (dirty && !window.confirm('Discard unsaved fundraising changes?'))) return
     setEditor(row)
+    setEditing(row === 'new')
     setGifts(null)
     setGiftNext(null)
     setNotice('')
@@ -159,6 +162,7 @@ export function FundraisingWorkspace() {
       operation.current = null
       setDirty(false)
       setEditor(null)
+      setEditing(false)
       setNotice('Saved.')
       await load()
     } catch (cause) {
@@ -193,8 +197,8 @@ export function FundraisingWorkspace() {
     }
   }
   return (
-    <Gutter className="vc-crm vc-crm-domain">
-      <h2>Fundraising</h2>
+    <Gutter className="vc-crm vc-crm-domain vc-crm-collection">
+      <h2>Campaigns, funds and appeals</h2>
       <nav aria-label="Fundraising sections" className="vc-crm-toolbar">
         {(['campaigns', 'funds', 'appeals'] as const).map((k) => (
           <button
@@ -220,7 +224,7 @@ export function FundraisingWorkspace() {
       {notice && <p role="status">{notice}</p>}
       <div className="vc-crm-toolbar">
         {canEdit && (
-          <button type="button" disabled={busy} onClick={() => open('new')}>
+          <button type="button" className="vc-crm-primary" disabled={busy} onClick={() => open('new')}>
             Create {kind === 'campaigns' ? 'campaign' : kind === 'funds' ? 'fund' : 'appeal'}
           </button>
         )}
@@ -231,7 +235,7 @@ export function FundraisingWorkspace() {
           Next page
         </button>
       </div>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Name</th>
@@ -242,7 +246,7 @@ export function FundraisingWorkspace() {
         </thead>
         <tbody>
           {docs.map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} data-selected={editor !== 'new' && editor?.id === d.id ? 'true' : undefined}>
               <td>
                 <button type="button" disabled={busy} onClick={() => open(d)}>
                   {d.name}
@@ -258,12 +262,19 @@ export function FundraisingWorkspace() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No {kind} yet.</p>}
       {editor && (
         <section aria-label="Fundraising editor">
           <h3>{editor === 'new' ? 'New record' : editor.name}</h3>
-          <form
+          {editor !== 'new' && canEdit && <button type="button" onClick={() => { open(editor); setEditing(true) }}>Edit {kind.slice(0, -1)}</button>}
+          {editing && <CRMEditorDialog title={editor === 'new' ? `New ${kind.slice(0, -1)}` : `Edit ${editor.name}`}
+            onDismiss={() => {
+              if (dirty && !window.confirm('Discard unsaved fundraising changes?')) return
+              if (editor === 'new') setEditor(null)
+              setEditing(false)
+              setDirty(false)
+            }}><form
             onSubmit={(e) => {
               e.preventDefault()
               void save()
@@ -348,7 +359,7 @@ export function FundraisingWorkspace() {
               </label>
               <button type="submit">Save</button>
             </fieldset>
-          </form>
+          </form></CRMEditorDialog>}
           {editor !== 'new' && (
             <>
               <button type="button" onClick={() => void loadGifts()}>

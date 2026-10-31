@@ -132,7 +132,7 @@ function DocumentHistory({
       </p>
       {error && <p role="alert">{error}</p>}
       {loading && <p role="status">Loading authorized documents…</p>}
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Recipient</th>
@@ -184,7 +184,7 @@ function DocumentHistory({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!loading && !docs.length && <p>No authorized issued documents match this selection.</p>}
       <div className="vc-crm-toolbar">
         <button

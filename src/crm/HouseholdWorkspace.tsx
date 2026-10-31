@@ -9,6 +9,7 @@ import type { ContactSummary } from './contacts'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import './workspace.css'
+import { CRMEditorDialog } from './CRMEditorDialog'
 
 export async function crmRead<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { ...init, cache: 'no-store' })
@@ -164,6 +165,7 @@ export function HouseholdWorkspace() {
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
   const [creating, setCreating] = useState(false),
+    [editing, setEditing] = useState(false),
     [name, setName] = useState(''),
     [address, setAddress] = useState(''),
     [primary, setPrimary] = useState(''),
@@ -241,6 +243,7 @@ export function HouseholdWorkspace() {
         if (generation !== sequence.current) return
         setDetail(data)
         setCreating(false)
+        setEditing(false)
         setName(data.doc.name)
         setAddress(data.doc.address)
         setPrimary(data.doc.primary_contact || '')
@@ -343,7 +346,7 @@ export function HouseholdWorkspace() {
     }
   }
   return (
-    <Gutter className="vc-crm vc-crm-domain">
+    <Gutter className="vc-crm vc-crm-domain vc-crm-collection">
       <h2>Households</h2>
       {error && <p role="alert">{error}</p>}
       <div className="vc-crm-toolbar">
@@ -361,6 +364,7 @@ export function HouseholdWorkspace() {
         {canEdit && (
           <button
             type="button"
+            className="vc-crm-primary"
             disabled={busy}
             onClick={() => {
               if (dirty && !window.confirm('Discard unsaved household changes?')) return
@@ -370,6 +374,7 @@ export function HouseholdWorkspace() {
               window.history.replaceState(window.history.state, '', url)
               openedLocation.current = ''
               setCreating(true)
+              setEditing(true)
               setDetail(null)
               setName('')
               setAddress('')
@@ -388,7 +393,7 @@ export function HouseholdWorkspace() {
           Next page
         </button>
       </div>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Name</th>
@@ -398,7 +403,7 @@ export function HouseholdWorkspace() {
         </thead>
         <tbody>
           {docs.map((doc) => (
-            <tr key={doc.id}>
+            <tr key={doc.id} data-selected={detail?.doc.id === doc.id ? 'true' : undefined}>
               <td>
                 <button type="button" disabled={busy} onClick={() => void open(doc.id)}>
                   {doc.name}
@@ -409,7 +414,7 @@ export function HouseholdWorkspace() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching households.</p>}
       {(creating || detail) && (
         <section aria-label="Household editor" onChange={() => setDirty(true)}>
@@ -417,7 +422,21 @@ export function HouseholdWorkspace() {
           {detail && (
             <RecordActions site={site} link={{ type: 'household', id: detail.doc.id }} />
           )}
-          <form
+          {detail && <p><strong>Mailing address:</strong> {detail.doc.address || 'Not provided'}</p>}
+          {detail?.canEdit && !editing && <button type="button" onClick={() => setEditing(true)}>Edit household</button>}
+          {editing && <CRMEditorDialog title={creating ? 'New household' : `Edit ${detail?.doc.name || 'household'}`}
+            onDismiss={() => {
+              if (dirty && !window.confirm('Discard unsaved household changes?')) return
+              if (creating) setCreating(false)
+              setEditing(false)
+              if (detail) {
+                setName(detail.doc.name)
+                setAddress(detail.doc.address)
+                setPrimary(detail.doc.primary_contact || '')
+                setArchived(!!detail.doc.archived)
+              }
+              setDirty(false)
+            }}><form
             onSubmit={(e) => {
               e.preventDefault()
               void mutate(creating ? 'create-household' : 'update-household', {
@@ -473,7 +492,7 @@ export function HouseholdWorkspace() {
               )}
               <button type="submit">Save household</button>
             </fieldset>
-          </form>
+          </form></CRMEditorDialog>}
           {detail && (
             <>
               <h3>Member history</h3>

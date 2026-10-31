@@ -4,6 +4,7 @@ import { crmRead } from './HouseholdWorkspace'
 import { useVolunteerGuard, useVolunteerIO } from './useVolunteerIO'
 import type { VolunteerHours as Hours, VolunteerParticipation } from './volunteer-model'
 import type { VolunteerRepository } from './volunteers'
+import { CRMEditorDialog } from './CRMEditorDialog'
 export function volunteerDuration(minutes: string | number) {
   const n = BigInt(minutes)
   return `${n / 60n} h ${n % 60n} min`
@@ -160,7 +161,7 @@ export function VolunteerHours({
       >
         Next hours
       </button>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Volunteer</th>
@@ -204,9 +205,11 @@ export function VolunteerHours({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching volunteer hours.</p>}
-      {submitting && (
+      {submitting && <CRMEditorDialog title="Record volunteer hours" onDismiss={() => {
+        if (discard()) { setSubmitting(false); setDirty(false) }
+      }}>
         <fieldset disabled={io.busy} aria-label="Volunteer hours submission">
           <legend>Submit dated hours</legend>
           <label>
@@ -276,8 +279,10 @@ export function VolunteerHours({
             Cancel hours submission
           </button>
         </fieldset>
-      )}
-      {review && (
+      </CRMEditorDialog>}
+      {review && <CRMEditorDialog title="Review volunteer hours" onDismiss={() => {
+        if (discard()) { setReview(null); setDirty(false) }
+      }}>
         <fieldset disabled={io.busy} aria-label="Volunteer hours review">
           <legend>Review recorded time</legend>
           <p>
@@ -326,7 +331,7 @@ export function VolunteerHours({
             Close hours review
           </button>
         </fieldset>
-      )}
+      </CRMEditorDialog>}
     </section>
   )
 }

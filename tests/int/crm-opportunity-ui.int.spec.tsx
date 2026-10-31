@@ -181,6 +181,7 @@ it('waits for the selected pipeline stages before opening a new opportunity', as
 })
 it('creates, reloads and moves an opportunity with stage history and no implicit revenue', async () => {
   await createOpportunity()
+  fireEvent.click(screen.getByRole('button', { name: 'Edit opportunity' }))
   expect((screen.getByLabelText('Expected amount (optional)') as HTMLInputElement).value).toBe(
     '123.45',
   )
@@ -212,12 +213,10 @@ it('links an existing gift explicitly, preserves dirty-link guards and retains u
     target: { value: (within(chooser).getAllByRole('option')[1] as HTMLOptionElement).value },
   })
   fill('Financial link reason', 'Existing received gift')
-  expect(screen.getByLabelText('Opportunity name').matches(':disabled')).toBe(true)
+  expect(screen.queryByRole('dialog')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Link recorded record' }))
   await screen.findByText(/Existing received gift/)
-  await waitFor(() =>
-    expect(screen.getByLabelText('Opportunity name').matches(':disabled')).toBe(false),
-  )
+  expect(screen.queryByRole('dialog')).toBeNull()
   fill('Financial link reason', 'Remove wrong attribution')
   fireEvent.click(screen.getByRole('button', { name: 'Remove financial link' }))
   await screen.findByText(/removed: Existing received gift/)

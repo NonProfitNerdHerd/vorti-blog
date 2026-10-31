@@ -674,18 +674,10 @@ export function ContactWorkspace() {
   const showDetail = Boolean(editor || requestedContact || requestedNew)
   return (
     <Gutter className={showDetail ? 'vc-crm vc-crm-detail-open' : 'vc-crm'}>
-      <div hidden={showDetail}>
+      <div className="vc-crm-collection" hidden={showDetail}>
       <header className="vc-crm-heading">
         <div>
-          <h1>VortiCause</h1>
-          <p>{site?.name || 'Constituent workspace'}</p>
-          {binding && (
-            <Link
-              href={`${admin}/globals/site-settings?tab=SubSites&site=${encodeURIComponent(binding.site.id)}`}
-            >
-              Sites and permissions
-            </Link>
-          )}
+          <h1>Contacts <small>{total}</small></h1>
         </div>
         <div>
           <button type="button" disabled={loading} onClick={() => void refresh()}>
@@ -711,9 +703,6 @@ export function ContactWorkspace() {
           </button>
         </div>
       )}
-      <h2>
-        Contacts <small>{total}</small>
-      </h2>
       <div className="vc-crm-toolbar">
         <label>
           Search

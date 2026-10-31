@@ -44,7 +44,7 @@ it('opens a chapter-pinned household on reload and clears its address when close
   vi.stubGlobal('fetch', fetcher)
   const mounted = render(<HouseholdWorkspace />)
   await screen.findByRole('heading', { name: 'River household' })
-  expect(screen.getByDisplayValue('100 River Road')).toBeTruthy()
+  expect(screen.getByText(/100 River Road/)).toBeTruthy()
   mounted.unmount()
   render(<HouseholdWorkspace />)
   await screen.findByRole('heading', { name: 'River household' })

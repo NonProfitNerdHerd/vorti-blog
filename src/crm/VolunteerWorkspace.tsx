@@ -31,7 +31,7 @@ export function VolunteerWorkspace({
     }
   }
   return (
-    <section className="vc-crm-domain" aria-label="Volunteers">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Volunteers">
       <h2>Volunteers</h2>
       <nav className="vc-crm-toolbar" aria-label="Volunteer sections">
         <button

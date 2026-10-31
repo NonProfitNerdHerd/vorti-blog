@@ -10,6 +10,7 @@ import type { Household, HouseholdMember } from './households'
 import { parseMoney } from './money'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type Detail = Awaited<ReturnType<MembershipRepository['get']>>
 type Row = Awaited<ReturnType<MembershipRepository['list']>>['docs'][number]
 const emptyType = () => ({
@@ -298,7 +299,7 @@ export function MembershipWorkspace({
     }
   }
   return (
-    <section className="vc-crm-domain" aria-label="Memberships">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Memberships">
       <h2>Memberships</h2>
       {error && (
         <p role="alert">
@@ -337,7 +338,7 @@ export function MembershipWorkspace({
           </select>
         </label>
         {canEdit && (
-          <button type="button" disabled={busy} onClick={() => begin()}>
+          <button type="button" className="vc-crm-primary" disabled={busy} onClick={() => begin()}>
             Enroll membership
           </button>
         )}
@@ -352,7 +353,7 @@ export function MembershipWorkspace({
         Expiring shows current terms ending within 30 days. Membership status follows term dates;
         expected dues do not mark payments as received.
       </p>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Member</th>
@@ -377,7 +378,7 @@ export function MembershipWorkspace({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching membership terms.</p>}
       <details>
         <summary>Membership types</summary>
@@ -432,7 +433,9 @@ export function MembershipWorkspace({
           </button>
         )}
       </details>
-      {typeEditor && (
+      {typeEditor && <CRMEditorDialog title={typeEditor === 'new' ? 'Create membership type' : 'Edit membership type'} onDismiss={() => {
+        if (discard()) { setTypeEditor(null); mark(false) }
+      }}>
         <fieldset disabled={busy}>
           <legend>Membership type</legend>
           <label>
@@ -541,8 +544,10 @@ export function MembershipWorkspace({
             coverage.
           </p>
         </fieldset>
-      )}
-      {creating && (
+      </CRMEditorDialog>}
+      {creating && <CRMEditorDialog title={renewal ? 'Renew membership' : 'Enroll membership'} onDismiss={() => {
+        if (discard()) { setCreating(false); mark(false) }
+      }}>
         <fieldset disabled={busy}>
           <legend>{renewal ? 'Renew membership' : 'Enroll membership'}</legend>
           <label>
@@ -705,7 +710,7 @@ export function MembershipWorkspace({
             Cancel enrollment
           </button>
         </fieldset>
-      )}
+      </CRMEditorDialog>}
       {detail && (
         <section aria-label="Membership term details">
           <h3>

@@ -8,6 +8,7 @@ import { useVolunteerGuard, useVolunteerIO } from './useVolunteerIO'
 import type { VolunteerActivity, VolunteerParticipation } from './volunteer-model'
 import { volunteerParticipationStates } from './volunteer-model'
 import type { VolunteerRepository } from './volunteers'
+import { CRMEditorDialog } from './CRMEditorDialog'
 type Detail = Awaited<ReturnType<VolunteerRepository['getActivity']>>
 const blank = () => ({
   name: '',
@@ -50,6 +51,7 @@ export function VolunteerActivities({
     [linkedOnly, setLinkedOnly] = useState(!!contact),
     [canEdit, setCanEdit] = useState(false),
     [editor, setEditor] = useState<Detail | 'new' | null>(null),
+    [editing, setEditing] = useState(false),
     [draft, setDraft] = useState(blank),
     [dirty, setDirty] = useState(false),
     [participant, setParticipant] = useState<VolunteerParticipation | 'new' | null>(null),
@@ -107,6 +109,7 @@ export function VolunteerActivities({
     io.setError('')
     if (row === 'new') {
       setEditor('new')
+      setEditing(true)
       setDraft(blank())
       setDirty(false)
       return
@@ -115,6 +118,7 @@ export function VolunteerActivities({
       const data = await crmRead<Detail>(io.query({ view: 'activity', id: row.id }))
       if (version === selection.current) {
         setEditor(data)
+        setEditing(false)
         setDraft(draftOf(data.doc))
         setDirty(false)
       }
@@ -146,6 +150,7 @@ export function VolunteerActivities({
     })
     if (result) {
       setDirty(false)
+      setEditing(false)
       try {
         await refreshDetail(result.id)
       } catch (cause) {
@@ -255,7 +260,7 @@ export function VolunteerActivities({
       >
         Next activities
       </button>
-      <table>
+      <div className="vc-crm-table-wrap"><table>
         <thead>
           <tr>
             <th>Activity</th>
@@ -266,7 +271,7 @@ export function VolunteerActivities({
         </thead>
         <tbody>
           {docs.map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} data-selected={editor !== 'new' && editor?.doc.id === d.id ? 'true' : undefined}>
               <td>
                 <button type="button" disabled={io.busy || childBusy} onClick={() => void open(d)}>
                   {d.name}
@@ -280,13 +285,20 @@ export function VolunteerActivities({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {!docs.length && <p>No matching volunteer activities.</p>}
       {editor && (
         <section aria-label="Volunteer activity editor">
           <h4>{editor === 'new' ? 'New volunteer activity' : editor.doc.name}</h4>
           {editor !== 'new' && <RecordActions site={site} link={{ type: 'volunteer-activity', id: editor.doc.id }} />}
-          <fieldset disabled={io.busy || childBusy || partDirty || childDirty || !canEdit}>
+          {editor !== 'new' && canEdit && !editing && <button type="button" onClick={() => setEditing(true)}>Edit activity</button>}
+          {editing && <CRMEditorDialog title={editor === 'new' ? 'New volunteer activity' : `Edit ${editor.doc.name}`} onDismiss={() => {
+            if (!discard()) return
+            setEditing(false)
+            if (editor === 'new') setEditor(null)
+            else setDraft(draftOf(editor.doc))
+            setDirty(false)
+          }}><fieldset disabled={io.busy || childBusy || partDirty || childDirty || !canEdit}>
             <label>
               Activity name
               <input
@@ -354,7 +366,7 @@ export function VolunteerActivities({
             >
               Save volunteer activity
             </button>
-          </fieldset>
+          </fieldset></CRMEditorDialog>}
           {editor !== 'new' && (
             <>
               <nav className="vc-crm-toolbar" aria-label="Volunteer activity sections">
@@ -426,7 +438,7 @@ export function VolunteerActivities({
                   >
                     Next participants
                   </button>
-                  <table>
+                  <div className="vc-crm-table-wrap"><table>
                     <thead>
                       <tr>
                         <th>Volunteer</th>
@@ -455,9 +467,11 @@ export function VolunteerActivities({
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></div>
                   {!editor.participants.length && <p>No recorded participants.</p>}
-                  {participant && (
+                  {participant && <CRMEditorDialog title={participant === 'new' ? 'Register volunteer' : 'Edit volunteer participation'} onDismiss={() => {
+                    if (discard()) { setParticipant(null); setPartDirty(false) }
+                  }}>
                     <fieldset
                       disabled={io.busy || dirty || childDirty}
                       aria-label="Volunteer participation editor"
@@ -521,7 +535,7 @@ export function VolunteerActivities({
                         Cancel participation editor
                       </button>
                     </fieldset>
-                  )}
+                  </CRMEditorDialog>}
                 </section>
               )}
               {panel === 'invitations' && (

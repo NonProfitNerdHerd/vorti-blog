@@ -57,7 +57,7 @@ function Workspace({
     setCorrection(null)
   }
   return (
-    <section className="vc-crm-domain" aria-label="Receipts and correspondence">
+    <section className="vc-crm-domain vc-crm-collection" aria-label="Receipts and correspondence">
       <h2>Receipts and correspondence</h2>
       <nav className="vc-crm-toolbar" aria-label="Correspondence sections">
         {(

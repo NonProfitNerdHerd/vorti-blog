@@ -22,7 +22,6 @@ export function CRMWorkspace() {
   const { binding } = useAdminSite()
   const params = useSearchParams()
   const view = crmView(params.get('view'))
-  const constituentOpen = view === 'contacts' && Boolean(params.get('contact') || params.get('newContact') === '1')
   const href = (next: string) => crmURL(config.routes.admin, next, binding?.site.id)
   if (params.get('view') === 'attachments' || params.get('view') === 'record-tasks') {
     const requested = params.get('site')
@@ -54,13 +53,6 @@ export function CRMWorkspace() {
     )
   return (
     <div className="vc-crm-shell">
-      {!constituentOpen && <Gutter className="vc-crm-heading">
-        <header aria-label="VortiCause">
-          <strong>VortiCause</strong>
-          <p>{binding?.site.name || 'Chapter workspace'}</p>
-        </header>
-      </Gutter>}
-
       <div className="vc-crm-main" key={`${binding?.site.id}:${view}`}>
         {view === 'overview' ? (
           <Gutter className="vc-crm">
