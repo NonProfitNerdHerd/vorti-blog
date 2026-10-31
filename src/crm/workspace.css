@@ -25,6 +25,14 @@
 .vc-crm-campaign-track { height: 10px; border-radius: 999px; background: var(--theme-elevation-200); overflow: hidden; }
 .vc-crm-campaign-track span { display: block; height: 100%; background: #0d8190; border-radius: inherit; }
 .vc-crm-table-value { display: block; white-space: nowrap; }
+.vc-crm table.vc-crm-contacts-table { table-layout: fixed; min-width: 940px; }
+.vc-crm-contacts-table :is(th, td) { overflow-wrap: anywhere; }
+.vc-crm-contacts-table__name { width: 21%; }
+.vc-crm-contacts-table__type { width: 9%; }
+.vc-crm-contacts-table__phone { width: 18%; }
+.vc-crm-contacts-table__email { width: 26%; }
+.vc-crm-contacts-table__contributions { width: 14%; }
+.vc-crm-contacts-table__hours { width: 12%; }
 .vc-crm-overview-card h3, .vc-crm-overview-card p { margin: 0; }
 .vc-crm-overview-card small { color: var(--theme-elevation-600); }
 .vc-crm-overview-card dl > div { display: flex; justify-content: space-between; gap: 16px; }

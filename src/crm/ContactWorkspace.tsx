@@ -766,15 +766,23 @@ export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organ
         </p>
       )}
       <div className="vc-crm-table">
-        <table aria-busy={loading}>
+        <table className="vc-crm-contacts-table" aria-busy={loading}>
+          <colgroup>
+            <col className="vc-crm-contacts-table__name" />
+            <col className="vc-crm-contacts-table__type" />
+            <col className="vc-crm-contacts-table__phone" />
+            <col className="vc-crm-contacts-table__email" />
+            <col className="vc-crm-contacts-table__contributions" />
+            <col className="vc-crm-contacts-table__hours" />
+          </colgroup>
           <thead>
             <tr>
               <th>Name</th>
               <th>Type</th>
-              <th>Lifetime contributions</th>
-              <th>Lifetime volunteer hours</th>
-              <th>Primary email</th>
               <th>Primary phone</th>
+              <th>Primary email</th>
+              <th>Lifetime Contribution</th>
+              <th>Lifetime Volunteer Hours</th>
             </tr>
           </thead>
           <tbody>
@@ -791,10 +799,10 @@ export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organ
                   </button>
                 </td>
                 <td>{doc.kind}</td>
+                <td>{doc.primaryPhone ? <a href={`tel:${doc.primaryPhone}`}>{doc.primaryPhone}</a> : '—'}</td>
+                <td>{doc.primaryEmail ? <a href={`mailto:${doc.primaryEmail}`}>{doc.primaryEmail}</a> : '—'}</td>
                 <td>{doc.contributions === null ? 'Restricted' : doc.contributions?.length ? doc.contributions.map((amount) => <span key={`${amount.currency}:${amount.exponent}`} className="vc-crm-table-value">{amount.currency} {formatMinor(amount.minorUnits, amount.exponent)}</span>) : '—'}</td>
                 <td>{doc.volunteerMinutes === null ? 'Restricted' : doc.volunteerMinutes ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(Number(doc.volunteerMinutes) / 60)} h` : '—'}</td>
-                <td>{doc.primaryEmail ? <a href={`mailto:${doc.primaryEmail}`}>{doc.primaryEmail}</a> : '—'}</td>
-                <td>{doc.primaryPhone ? <a href={`tel:${doc.primaryPhone}`}>{doc.primaryPhone}</a> : '—'}</td>
               </tr>
             ))}
             {!docs.length && (
