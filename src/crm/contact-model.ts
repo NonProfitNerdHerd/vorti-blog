@@ -28,6 +28,8 @@ export interface ContactProfile {
   lastName: string
   organizationName: string
   preferredName: string
+  deceased?: boolean
+  doNotContact?: boolean
   methods: ContactMethod[]
   addresses: ContactAddress[]
   communication: {
@@ -71,6 +73,8 @@ export function validateContactProfile(input: unknown): ContactProfile {
     lastName: string(data.lastName, 120),
     organizationName: string(data.organizationName, 200),
     preferredName: string(data.preferredName, 120),
+    deceased: bool(data.deceased, false),
+    doNotContact: bool(data.doNotContact, false),
     methods: [],
     addresses: [],
     communication: {

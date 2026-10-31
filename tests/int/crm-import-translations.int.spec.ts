@@ -7,6 +7,7 @@ import { importApplyJob } from '../../src/crm/import-apply-job'
 import { CRMJobs } from '../../src/crm/jobs'
 import { ImportMappings } from '../../src/crm/import-mappings'
 import { FundraisingRepository } from '../../src/crm/fundraising'
+import { fundraisingSchemaV2 } from '../../src/crm/fundraising-schema-v2'
 
 it('reviews translated fund codes, resolves an unknown code explicitly, and applies distinct gifts without changing source identifiers', async () => {
   const fixture = await crmImportFixture(),
@@ -14,6 +15,7 @@ it('reviews translated fund codes, resolves an unknown code explicitly, and appl
     id = key(),
     now = new Date().toISOString()
   try {
+    for (const statement of fundraisingSchemaV2) fixture.sqlite.exec(statement)
     const finance = new FinanceRepository(fixture.db, 1),
       annual = String(
         (await finance.createFund({ site: 'default', name: 'Annual fund', operationKey: key() }))
@@ -44,7 +46,7 @@ it('reviews translated fund codes, resolves an unknown code explicitly, and appl
           await fundraising.save({
             site: 'default',
             kind: 'appeals',
-            values: { name: 'Independent appeal' },
+            values: { name: 'Annual appeal', campaignId: campaign },
             operationKey: key(),
           })
         ).id,

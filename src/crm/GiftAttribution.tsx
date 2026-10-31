@@ -117,7 +117,9 @@ export function GiftAttribution({
                 kind="campaigns"
                 value={campaign}
                 onChange={(value) => {
+                  if (appeal && value !== campaign && !window.confirm('Changing the campaign clears the selected appeal. Continue?')) return
                   setCampaign(value)
+                  if (appeal && value !== campaign) setAppeal('')
                   changed()
                 }}
               />
@@ -127,8 +129,15 @@ export function GiftAttribution({
                 kind="appeals"
                 value={appeal}
                 onChange={(value) => {
-                  setAppeal(value)
-                  changed()
+                  if (!value) { setAppeal(''); changed(); return }
+                  void crmRead<{ doc: { campaign_id?: string | null } }>(`${api}/crm/fundraising?${new URLSearchParams({ kind: 'appeals', site, record: value })}`)
+                    .then(result => {
+                      if (!result.doc.campaign_id) { setError('This historical appeal is not linked to a campaign yet. Link it before attributing a gift.'); return }
+                      setCampaign(result.doc.campaign_id)
+                      setAppeal(value)
+                      setError('')
+                      changed()
+                    }).catch(cause => setError((cause as Error).message))
                 }}
               />
               <label>

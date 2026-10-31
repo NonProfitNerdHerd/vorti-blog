@@ -2,7 +2,7 @@ import { OrganizationRepository, SiteAccessError } from '../organizations/reposi
 
 import { crmRecordLink, type CRMRecordLink } from './record-model'
 
-import { crmRecordRulesV1 as records } from './record-context-v1'
+import { crmRecordRulesV2 as records } from './record-context-v2'
 
 /** Resolve private references before exposing even a cached label, count or filename.
  * Contact-linked files and Tasks are private communications rather than shared identity data.

@@ -1,6 +1,7 @@
 import type { Endpoint } from 'payload'
 import { readBoundedJSON } from '../forms/security'
 import { classificationKind, FundraisingRepository } from './fundraising'
+import { FundraisingReport } from './fundraising-report'
 export function fundraisingEndpoints(
   db: D1Database,
   errorResponse: (error: unknown) => Response,
@@ -16,6 +17,15 @@ export function fundraisingEndpoints(
           const url = new URL(req.url!),
             repo = new FundraisingRepository(db, Number(req.user.id)),
             site = url.searchParams.get('site') || ''
+          if (['workspace','candidates','audience-preview'].includes(url.searchParams.get('mode') || '')) {
+            const report = new FundraisingReport(db, Number(req.user.id))
+            const result = url.searchParams.get('mode') === 'workspace'
+              ? await report.load(site)
+              : url.searchParams.get('mode') === 'candidates'
+                ? await report.candidates(site, url.searchParams.get('search') || '')
+                : await report.previewAudience(site, url.searchParams.get('appeal') || '')
+            return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
+          }
           const kind = classificationKind(url.searchParams.get('kind') || ''),
             id = url.searchParams.get('id'),
             after = url.searchParams.get('after') || ''
@@ -59,6 +69,14 @@ export function fundraisingEndpoints(
               appeal: body.appeal ? String(body.appeal) : null,
               expectedRevision: Number(body.expectedRevision),
               reason: String(body.reason || ''),
+            })
+          else if (body.action === 'record-outreach')
+            doc = await repo.recordOutreach({
+              ...common,
+              appeal: String(body.appeal || ''),
+              expectedRevision: Number(body.expectedRevision),
+              notes: String(body.notes || ''),
+              occurredAt: String(body.occurredAt || ''),
             })
           else {
             if (

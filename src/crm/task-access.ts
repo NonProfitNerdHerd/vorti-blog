@@ -2,7 +2,7 @@ import { APIError, type PayloadRequest } from 'payload'
 import { OrganizationRepository, SiteAccessError } from '../organizations/repository'
 import { CRMRecordAccess } from './record-access'
 import { crmRecordLink, type CRMRecordLink } from './record-model'
-import { crmTaskRecordExistsV1 } from './task-context-v1'
+import { crmTaskRecordExistsV2 } from './task-context-v2'
 import { workspaceDB, workspaceReq, requireTask, ids } from '../review/workspace-access'
 import { relationID } from '../review/documents'
 import type { InformationCategory } from '../organizations/policy'
@@ -53,7 +53,7 @@ export async function authorizeCRMTaskActor(
   }
   const current = await db
     .prepare(
-      `WITH link AS(SELECT ? AS site,? AS type,? AS id) SELECT 1 FROM link JOIN vc_sites s ON s.id=link.site JOIN vc_organizations o ON o.id=s.organization_id WHERE o.authority_revision=? AND (${crmTaskRecordExistsV1('link.site', 'link.type', 'link.id')})`,
+      `WITH link AS(SELECT ? AS site,? AS type,? AS id) SELECT 1 FROM link JOIN vc_sites s ON s.id=link.site JOIN vc_organizations o ON o.id=s.organization_id WHERE o.authority_revision=? AND (${crmTaskRecordExistsV2('link.site', 'link.type', 'link.id')})`,
     )
     .bind(siteID, link.type, link.id, epoch)
     .first()

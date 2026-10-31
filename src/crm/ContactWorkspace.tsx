@@ -69,6 +69,8 @@ const empty = (): ContactProfile => ({
   firstName: '',
   lastName: '',
   preferredName: '',
+  deceased: false,
+  doNotContact: false,
   organizationName: '',
   methods: [],
   addresses: [],
@@ -1235,11 +1237,15 @@ export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organ
                     ['emailAllowed', 'Email'], ['phoneAllowed', 'Phone'], ['mailAllowed', 'Mail'],
                     ['volunteerAllowed', 'Volunteer outreach'],
                   ] as const).map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{profile.communication[key] ? 'Allowed' : 'Not allowed'}</dd></div>)}
+                  <div><dt>Do not contact</dt><dd>{profile.doNotContact ? 'Yes' : 'No'}</dd></div>
+                  <div><dt>Deceased</dt><dd>{profile.deceased ? 'Yes' : 'No'}</dd></div>
                 </ContactFacts>}
               </div>}
               {(editor === 'new' || inlineEditor === 'preferences') && <fieldset data-modal-part="preferences" disabled={!profileEditable || saving} className="vc-crm-inline-editor">
                 <h3>Communication preferences</h3>
                 <div className="vc-crm-fields">
+                  <label className="vc-crm-check"><input type="checkbox" checked={!!profile.doNotContact} onChange={event => change({ doNotContact: event.target.checked })} />Do not contact</label>
+                  <label className="vc-crm-check"><input type="checkbox" checked={!!profile.deceased} onChange={event => change({ deceased: event.target.checked })} />Deceased</label>
                   {(
                     ['emailAllowed', 'phoneAllowed', 'mailAllowed', 'volunteerAllowed'] as const
                   ).map((key) => (

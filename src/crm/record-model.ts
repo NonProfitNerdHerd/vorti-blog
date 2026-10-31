@@ -7,6 +7,8 @@ export const crmRecordTypes = [
   'membership',
   'opportunity',
   'volunteer-activity',
+  'campaign',
+  'appeal',
 ] as const
 export type CRMRecordType = (typeof crmRecordTypes)[number]
 export type CRMRecordLink = { type: CRMRecordType; id: string }

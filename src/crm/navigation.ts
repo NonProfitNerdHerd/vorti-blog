@@ -5,7 +5,7 @@ export const crmSections = [
   ['organizations', 'Organizations'],
   ['donations', 'Donations'],
   ['households', 'Households'],
-  ['fundraising', 'Campaigns, funds and appeals'],
+  ['fundraising', 'Fundraising'],
   ['giving', 'Pledges and recurring'],
   ['memberships', 'Memberships'],
   ['opportunities', 'Opportunities'],

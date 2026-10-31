@@ -1,6 +1,5 @@
 import type { InformationCategory } from '../organizations/policy'
-import { crmRecordRulesV1 } from './record-context-v1'
-import type { CRMRecordType } from './record-model'
+import { crmRecordRulesV1, type CRMRecordTypeV1 } from './record-context-v1'
 
 /** Contact history may reveal a filename only when its parent is still resolvable.
  * Association is chapter-local and historical; multiple member/participation rows
@@ -16,7 +15,7 @@ export function timelineAttachmentSources(read: Set<InformationCategory>) {
     'volunteer-hours',
     'restricted-activity',
   ].filter((category) => read.has(category as InformationCategory))
-  const associations: Record<CRMRecordType, string> = {
+  const associations: Record<CRMRecordTypeV1, string> = {
     contact: 'f.record_id=q.contact_id',
     household: `EXISTS(SELECT 1 FROM vc_crm_household_members m WHERE m.household_id=f.record_id AND m.constituent_id=q.contact_id)`,
     gift: `EXISTS(SELECT 1 FROM vc_crm_gifts g WHERE g.id=f.record_id AND g.site_id=q.site_id AND g.constituent_id=q.contact_id)`,
@@ -31,7 +30,7 @@ export function timelineAttachmentSources(read: Set<InformationCategory>) {
   const sources: string[] = [],
     params: string[] = []
   for (const [rawType, association] of Object.entries(associations)) {
-    const type = rawType as CRMRecordType,
+    const type = rawType as CRMRecordTypeV1,
       rule = crmRecordRulesV1[type]
     if (!read.has(rule.category)) continue
     let binding = 0

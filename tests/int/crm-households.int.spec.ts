@@ -10,6 +10,7 @@ import { FinanceRepository } from '../../src/crm/finance'
 import { SiteConflictError } from '../../src/organizations/atomic'
 import { OrganizationRepository } from '../../src/organizations/repository'
 import { fundraisingSchemaV1 } from '../../src/crm/fundraising-schema-v1'
+import { fundraisingSchemaV2 } from '../../src/crm/fundraising-schema-v2'
 import { FundraisingRepository } from '../../src/crm/fundraising'
 import { activitySchemaV1 } from '../../src/crm/activity-schema-v1'
 import { ActivityRepository } from '../../src/crm/activities'
@@ -40,6 +41,7 @@ describe('chapter households and reciprocal relationships on actual D1', () => {
       ...financeSchemaV1,
       ...householdSchemaV1,
       ...fundraisingSchemaV1,
+      ...fundraisingSchemaV2,
       ...activitySchemaV1,
       ...crmJobSchemaV1,
     ])
@@ -280,7 +282,7 @@ describe('chapter households and reciprocal relationships on actual D1', () => {
         site: 'default',
         kind: 'appeals',
         operationKey: key(),
-        values: { name: 'Fall letter' },
+        values: { name: 'Fall letter', campaignId: campaign },
       })
     ).id as string
     const gift = await finance.createGift({

@@ -12,7 +12,7 @@ export interface CRMSearchPage {
 }
 export const searchSections = [
   ['all', 'All'], ['contacts', 'Contacts'], ['organizations', 'Organizations'],
-  ['donations', 'Donations'], ['households', 'Households'], ['fundraising', 'Campaigns, funds and appeals'],
+  ['donations', 'Donations'], ['households', 'Households'], ['fundraising', 'Fundraising'],
   ['giving', 'Pledges and recurring'], ['memberships', 'Memberships'],
   ['opportunities', 'Opportunities'], ['volunteers', 'Volunteers'],
 ] as const
