@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
   pathname: '/admin',
+  query: '',
   user: { role: 'administrator' } as { role: string } | null,
   native: vi.fn(),
   replace: vi.fn(),
@@ -15,7 +16,7 @@ const state = vi.hoisted(() => ({
 const TestNav = createContext({ navOpen: false, setNavOpen: (_open: boolean) => {} })
 vi.mock('next/navigation', () => ({
   usePathname: () => state.pathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(state.query),
   useRouter: () => ({ replace: state.replace, refresh: vi.fn() }),
 }))
 vi.mock('@payloadcms/ui', () => ({
@@ -29,9 +30,13 @@ vi.mock('@design-system/payload-design-core/admin', () => ({
 }))
 vi.mock('@/components/auth-return', () => ({ redirectToLogin: state.login, rememberReturnPath: state.remember, restoreInactivityReturn: state.restore }))
 const { AdminPolicyClient } = await import('@/components/AdminPolicyClient')
+const { usePrimaryNavigation } = await import('@/components/PrimaryNavigationContext')
 function Controls() {
   const { navOpen, setNavOpen } = useContext(TestNav)
-  return <button onClick={() => setNavOpen(!navOpen)}>{navOpen ? 'Close menu' : 'Open menu'}</button>
+  const { startNavigation } = usePrimaryNavigation()
+  return <><button onClick={() => setNavOpen(!navOpen)}>{navOpen ? 'Close menu' : 'Open menu'}</button>
+    <button onClick={() => startNavigation('/admin/collections/review-tasks?workspace=inbox')}>Go to tasks</button>
+    <button onClick={() => startNavigation('/admin/collections/posts?site=default&audience=intranet')}>Go to intranet</button></>
 }
 function Policy() {
   return <AdminPolicyClient initialCategoriesEnabled><Controls /></AdminPolicyClient>
@@ -39,6 +44,7 @@ function Policy() {
 afterEach(() => {
   cleanup()
   state.pathname = '/admin'
+  state.query = ''
   state.user = { role: 'administrator' }
   vi.clearAllMocks()
 })
@@ -52,6 +58,30 @@ describe('Admin menu and sign-in policy', () => {
     view.rerender(<Policy />)
     expect(screen.getByText('Open menu')).toBeTruthy()
     expect(state.login).not.toHaveBeenCalled()
+  })
+  it('holds the menu over the old module until a different pathname arrives', () => {
+    state.pathname = '/admin/crm'
+    const view = render(<Policy />)
+    fireEvent.click(screen.getByText('Open menu'))
+    fireEvent.click(screen.getByText('Go to tasks'))
+    expect(screen.getByText('Close menu')).toBeTruthy()
+    view.rerender(<Policy />)
+    expect(screen.getByText('Close menu')).toBeTruthy()
+    state.pathname = '/admin/collections/review-tasks'
+    state.query = 'workspace=inbox'
+    view.rerender(<Policy />)
+    expect(screen.getByText('Open menu')).toBeTruthy()
+  })
+  it('waits for query changes when modules share a pathname', () => {
+    state.pathname = '/admin/collections/posts'
+    state.query = 'site=default&audience=public'
+    const view = render(<Policy />)
+    fireEvent.click(screen.getByText('Open menu'))
+    fireEvent.click(screen.getByText('Go to intranet'))
+    expect(screen.getByText('Close menu')).toBeTruthy()
+    state.query = 'audience=intranet&site=default'
+    view.rerender(<Policy />)
+    expect(screen.getByText('Open menu')).toBeTruthy()
   })
   it('sends signed-out protected pages to login but leaves the login route alone', () => {
     state.user = null

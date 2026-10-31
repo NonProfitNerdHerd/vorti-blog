@@ -16,7 +16,11 @@ export function PrimaryMenuToggle() {
         if (restoreWaffleFocus.current) {
           restoreWaffleFocus.current = false
           button.current?.focus()
-        } else document.querySelector<HTMLAnchorElement>('.vorti-secondary nav a')?.focus()
+        } else {
+          const destination = document.querySelector<HTMLAnchorElement>('.vorti-secondary nav a')
+          if (destination) destination.focus()
+          else button.current?.focus()
+        }
       })
     wasOpen.current = navOpen
   }, [navOpen])
@@ -30,10 +34,10 @@ export function PrimaryMenuToggle() {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [navOpen, setNavOpen])
-  return <button ref={button} type="button" className="vorti-primary-waffle"
+  return <div className="vorti-primary-header"><button ref={button} type="button" className="vorti-primary-waffle"
     aria-label={navOpen ? 'Close primary menu' : 'Open primary menu'}
     aria-expanded={navOpen} aria-controls="vorti-primary-navigation"
     onClick={() => setNavOpen(!navOpen)}>
     <span className="vorti-primary-waffle__dots" aria-hidden="true" />
-  </button>
+  </button>{navOpen && <span className="vorti-primary-header__label">VortiPress</span>}</div>
 }

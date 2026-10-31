@@ -6,6 +6,16 @@ import { NavContext, useNav, useConfig, useAuth } from '@payloadcms/ui'
 import { CategoriesEnabledProvider } from '@design-system/payload-design-core/admin'
 import { NavigationExpansionProvider } from './NavigationExpansionProvider'
 import { redirectToLogin, rememberReturnPath, restoreInactivityReturn } from './auth-return'
+import { PrimaryNavigationContext } from './PrimaryNavigationContext'
+
+function sameLocation(pathname: string, search: string, href: string) {
+  const destination = new URL(href, 'https://admin.local')
+  const current = new URL(`${pathname}${search ? `?${search}` : ''}`, 'https://admin.local')
+  destination.searchParams.sort()
+  current.searchParams.sort()
+  return destination.pathname.replace(/\/$/, '') === current.pathname.replace(/\/$/, '') &&
+    destination.search === current.search
+}
 
 export function AdminPolicyClient({
   children,
@@ -23,18 +33,30 @@ export function AdminPolicyClient({
   const router = useRouter()
   const { user, refreshPermissions } = useAuth()
   const [primary, setPrimary] = useState<{ path: string; open: boolean } | null>(null)
+  const [pendingPrimaryNavigation, setPendingPrimaryNavigation] = useState<string | null>(null)
   const [categoriesEnabled, setCategoriesEnabled] = useState(initialCategoriesEnabled)
   const denied =
     (user && !categoriesEnabled && pathname.startsWith(`${config.routes.admin}/collections/categories`)) ||
     (user && user.role !== 'administrator' &&
       pathname.startsWith(`${config.routes.admin}/globals/system-settings`))
-  const navOpen = primary?.path === pathname && primary.open
+  const destinationReached = pendingPrimaryNavigation !== null &&
+    sameLocation(pathname, searchParams.toString(), pendingPrimaryNavigation)
+  const navOpen = primary?.path === pathname && primary.open && !destinationReached
   const setNavOpen = useCallback(
     (open: boolean) => {
+      setPendingPrimaryNavigation(null)
       setPrimary({ path: pathname, open })
     },
     [pathname],
   )
+  const startNavigation = useCallback((href: string) => {
+    setPendingPrimaryNavigation(href)
+  }, [])
+  useEffect(() => {
+    if (!pendingPrimaryNavigation || !destinationReached && primary?.path === pathname) return
+    setPrimary({ path: pathname, open: false })
+    setPendingPrimaryNavigation(null)
+  }, [pendingPrimaryNavigation, destinationReached, pathname, primary?.path])
   // Keep Payload's scroll handling synchronized with the one visible menu.
   useEffect(() => {
     syncNav(navOpen)
@@ -81,6 +103,7 @@ export function AdminPolicyClient({
     }
   }, [config.routes.api, router, refreshPermissions])
   return (
+    <PrimaryNavigationContext.Provider value={{ startNavigation }}>
     <NavContext.Provider value={{ ...nav, navOpen, setNavOpen }}>
       <NavigationExpansionProvider key={user ? `${user.collection}:${user.id}` : 'anonymous'}>
         <CategoriesEnabledProvider value={categoriesEnabled}>
@@ -100,5 +123,6 @@ export function AdminPolicyClient({
         </CategoriesEnabledProvider>
       </NavigationExpansionProvider>
     </NavContext.Provider>
+    </PrimaryNavigationContext.Provider>
   )
 }

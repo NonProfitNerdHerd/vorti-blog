@@ -10,6 +10,7 @@ import { useAdminSite } from '../organizations/AdminSiteProvider'
 import { hasUnsavedSiteChanges } from '../organizations/admin-site'
 import { currentModule, moduleLinks, type NavGroup } from './admin-module-links'
 import { matchesAdminPath } from './navigation-state'
+import { usePrimaryNavigation } from './PrimaryNavigationContext'
 import type { SecondaryModule } from './secondary-modules'
 import './dashboard-nav.css'
 
@@ -23,6 +24,7 @@ export function DashboardNavLink({ admin, onNavigate }: { admin: string; onNavig
 export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultNavClient>, 'groups'> & { admin: string }) {
   const enabled = useCategoriesEnabled()
   const { navOpen, setNavOpen } = useNav()
+  const { startNavigation } = usePrimaryNavigation()
   const { user } = useAuth()
   const fine = Array.isArray(user?.platformPermissions) ? user.platformPermissions as string[] : null
   const { config } = useConfig()
@@ -50,7 +52,14 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
       event.preventDefault()
       return
     }
-    setNavOpen(false)
+    const destination = event.currentTarget.href
+    const current = new URL(`${pathname}?${params.toString()}`, window.location.origin)
+    const next = new URL(destination, current)
+    current.searchParams.sort()
+    next.searchParams.sort()
+    if (next.pathname.replace(/\/$/, '') === current.pathname.replace(/\/$/, '') &&
+      next.search === current.search) setNavOpen(false)
+    else startNavigation(destination)
   }
   const renderModule = (module: SecondaryModule) => {
     if (!allowed(module)) return null

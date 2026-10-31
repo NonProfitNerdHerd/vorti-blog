@@ -1,5 +1,5 @@
 // DOM environment is selected by the dom Vitest project.
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ path: '/admin', query: '', user: 1, navOpen: false,
   permissions: ['crm:read', 'intranet:read', 'workflows:read'], close: vi.fn((open: boolean) => { state.navOpen = open }) }))
@@ -24,6 +24,9 @@ vi.mock('../../src/review/WorkspaceInbox', () => ({ InboxBadge: (): null => null
 import { PolicyNav } from '../../src/components/DashboardNavLink'
 import { CRMSecondaryNav } from '../../src/components/CRMSecondaryNav'
 import { PrimaryMenuToggle } from '../../src/components/PrimaryMenuToggle'
+import { PrimaryNavigationContext } from '../../src/components/PrimaryNavigationContext'
+
+const startNavigation = vi.fn()
 
 const groups = [
   { label: 'Tasks', entities: [{ slug: 'review-tasks', type: 'collections', label: 'Tasks' }] },
@@ -33,9 +36,9 @@ const groups = [
   { label: 'Admin', entities: [{ slug: 'site-settings', type: 'globals', label: 'Site Settings' }] },
 ]
 function Menu() {
-  return <><PolicyNav admin="/admin" groups={groups as never} />
+  return <PrimaryNavigationContext.Provider value={{ startNavigation }}><PolicyNav admin="/admin" groups={groups as never} />
     <PrimaryMenuToggle />
-    <CRMSecondaryNav groups={groups as never} /></>
+    <CRMSecondaryNav groups={groups as never} /></PrimaryNavigationContext.Provider>
 }
 afterEach(() => {
   cleanup()
@@ -45,6 +48,7 @@ afterEach(() => {
   state.navOpen = false
   state.permissions = ['crm:read', 'intranet:read', 'workflows:read']
   state.close.mockClear()
+  startNavigation.mockClear()
   vi.restoreAllMocks()
 })
 describe('waffle module navigation', () => {
@@ -57,12 +61,13 @@ describe('waffle module navigation', () => {
     view.rerender(<Menu />)
     expect(screen.queryByRole('navigation', { name: 'CRM sections' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Close primary menu' }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('VortiPress')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'CRM' }).getAttribute('href')).toContain('site=chapter-a')
     fireEvent.keyDown(document, { key: 'Escape' })
     view.rerender(<Menu />)
     expect(screen.getByRole('navigation', { name: 'CRM sections' })).toBeTruthy()
   })
-  it('selects Tasks from primary, closes it, and shows the Tasks sections on the new route', () => {
+  it('selects Tasks from primary and keeps it open until the route changes', () => {
     state.path = '/admin/crm'
     const view = render(<Menu />)
     fireEvent.click(screen.getByRole('button', { name: 'Open primary menu' }))
@@ -70,12 +75,28 @@ describe('waffle module navigation', () => {
     const tasks = screen.getByRole('link', { name: 'Tasks' })
     expect(tasks.getAttribute('href')).toContain('workspace=inbox')
     fireEvent.click(tasks)
-    expect(state.close).toHaveBeenLastCalledWith(false)
+    expect(startNavigation).toHaveBeenCalledWith(expect.stringContaining('/admin/collections/review-tasks'))
+    expect(state.close).not.toHaveBeenCalledWith(false)
+    expect(screen.queryByRole('navigation', { name: 'CRM sections' })).toBeNull()
     state.path = '/admin/collections/review-tasks'
     state.query = 'workspace=inbox'
+    state.navOpen = false
     view.rerender(<Menu />)
     const secondary = screen.getByRole('navigation', { name: 'Tasks sections' })
     expect(within(secondary).getByRole('link', { name: 'Inbox' }).getAttribute('aria-current')).toBe('page')
+  })
+  it('closes immediately for Dashboard when already there and holds for Wiki until unload', () => {
+    state.permissions = [...state.permissions, 'wiki:read']
+    const view = render(<Menu />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open primary menu' }))
+    view.rerender(<Menu />)
+    fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
+    expect(state.close).toHaveBeenLastCalledWith(false)
+    state.navOpen = true
+    view.rerender(<Menu />)
+    fireEvent.click(screen.getByRole('link', { name: 'Wiki' }))
+    expect(startNavigation).toHaveBeenCalledWith(expect.stringContaining('/wiki?'))
+    expect(state.navOpen).toBe(true)
   })
   it('shows no secondary menu on Dashboard and filters unauthorized modules', () => {
     state.permissions = []
@@ -98,5 +119,37 @@ describe('waffle module navigation', () => {
       fireEvent.click(screen.getByRole('link', { name: 'Donations' }), { ctrlKey: true })
       expect(confirm).toHaveBeenCalledOnce()
     } finally { window.removeEventListener('beforeunload', guard) }
+  })
+  it('keeps the primary menu open when unsaved changes block navigation', () => {
+    state.path = '/admin/crm'
+    const guard = (event: Event) => event.preventDefault()
+    window.addEventListener('beforeunload', guard)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    try {
+      const view = render(<Menu />)
+      fireEvent.click(screen.getByRole('button', { name: 'Open primary menu' }))
+      view.rerender(<Menu />)
+      fireEvent.click(screen.getByRole('link', { name: 'Tasks' }))
+      expect(confirm).toHaveBeenCalledOnce()
+      expect(startNavigation).not.toHaveBeenCalled()
+      expect(screen.getByText('VortiPress')).toBeTruthy()
+    } finally { window.removeEventListener('beforeunload', guard) }
+  })
+  it('returns focus to the waffle on Escape and moves it into the destination menu on arrival', async () => {
+    state.path = '/admin/crm'
+    const view = render(<Menu />)
+    const waffle = screen.getByRole('button', { name: 'Open primary menu' })
+    fireEvent.click(waffle)
+    view.rerender(<Menu />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    view.rerender(<Menu />)
+    await waitFor(() => expect(document.activeElement).toBe(waffle))
+    fireEvent.click(waffle)
+    view.rerender(<Menu />)
+    state.path = '/admin/collections/review-tasks'
+    state.query = 'workspace=inbox'
+    state.navOpen = false
+    view.rerender(<Menu />)
+    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole('navigation', { name: 'Tasks sections' })).getByRole('link', { name: 'Inbox' })))
   })
 })

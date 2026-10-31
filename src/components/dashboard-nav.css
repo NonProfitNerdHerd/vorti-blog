@@ -106,10 +106,21 @@
   font-weight: 600;
 }
 .template-default__nav-toggler-wrapper { display: none; }
-.vorti-primary-waffle {
+.vorti-primary-header {
   position: fixed;
   inset: 12px auto auto 12px;
   z-index: 42;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.vorti-primary-header__label {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.vorti-primary-waffle {
   display: grid;
   place-items: center;
   width: 40px;
@@ -134,4 +145,4 @@ body:has(.vc-crm-shell) .vorti-primary-waffle:focus-visible { outline-color: #ff
   background-size: 7px 7px;
   background-position: center;
 }
-.nav__wrap { padding-top: 56px; }
+.nav__wrap { padding-top: 0; }
