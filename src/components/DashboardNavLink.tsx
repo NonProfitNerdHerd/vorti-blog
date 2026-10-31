@@ -37,12 +37,13 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
   })).filter(group => group.entities.length)
   const active = currentModule(pathname, params, admin, available)
   const site = params.get('site') || binding?.site.id || 'default'
-  const hasGroup = (label: SecondaryModule) => available.some(group => group.label === label)
+  const hasGroup = (label: string) => available.some(group => group.label === label)
   const allowed = (module: SecondaryModule) => module === 'Tasks'
     ? (groups as NavGroup[]).some(group => group.entities.some(entity => entity.slug === 'review-tasks'))
     : module === 'CRM' ? !fine || fine.includes('crm:read')
     : module === 'Intranet' ? fine?.some(permission => permission.startsWith('intranet:read')) === true
     : module === 'Workflows' ? !fine || fine.includes('workflows:read')
+    : module === 'Content' ? hasGroup('Content') || hasGroup('Site Design')
     : hasGroup(module)
   const normalClick = (event: MouseEvent<HTMLAnchorElement>) => !event.defaultPrevented && event.button === 0 &&
     !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
@@ -73,7 +74,7 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
         id={module === 'Tasks' ? 'nav-review-tasks' : undefined}
         data-vc-crm-navigation prefetch={false} aria-current={active === module ? 'page' : undefined}
         tabIndex={navOpen ? undefined : -1}
-        onClick={onNavigate}>{module}</Link></div>
+        onClick={onNavigate}>{module === 'Content' ? 'Extranet' : module}</Link></div>
     </div>
   }
 
@@ -92,7 +93,6 @@ export function PolicyNav({ admin, groups }: Pick<ComponentProps<typeof DefaultN
       </div></div>}
     {renderModule('Forms')}
     {renderModule('Workflows')}
-    {renderModule('Site Design')}
     {renderModule('Admin')}
   </>
 }

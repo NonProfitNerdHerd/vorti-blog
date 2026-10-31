@@ -17,7 +17,8 @@ export function currentModule(pathname: string, params: URLSearchParams, admin: 
   if (new RegExp(`^${admin}/collections/(posts|pages|media|categories|tags|saved-views)(/|$)`).test(pathname)) return audience
   for (const group of groups) {
     if (!['Content', 'Forms', 'Site Design', 'Admin'].includes(group.label)) continue
-    if (group.entities.some(entity => matchesAdminPath(pathname, entityURL(admin, entity)))) return group.label as SecondaryModule
+    if (group.entities.some(entity => matchesAdminPath(pathname, entityURL(admin, entity))))
+      return group.label === 'Site Design' ? audience : group.label as SecondaryModule
   }
   return null
 }
@@ -37,6 +38,16 @@ export function moduleLinks(module: SecondaryModule, args: {
   groupManagement: boolean
 }): ModuleLink[] {
   const { admin, site, pathname, params, groups, language, categoriesEnabled, groupManagement } = args
+  const designLinks = (audience: 'public' | 'intranet'): ModuleLink[] =>
+    (groups.find(group => group.label === 'Site Design')?.entities || []).map(entity => {
+      const base = entityURL(admin, entity)
+      const label = typeof entity.label === 'string' ? entity.label : entity.label[language] || Object.values(entity.label)[0] || entity.slug
+      return {
+        id: entity.slug, label,
+        href: `${base}?site=${encodeURIComponent(site)}&audience=${audience}`,
+        active: matchesAdminPath(pathname, base) && (params.get('audience') === 'intranet' ? 'intranet' : 'public') === audience,
+      }
+    })
   if (module === 'CRM') return crmSections.map(([id, label]) => ({
     id, label, href: crmURL(admin, id, site),
     active: matchesAdminPath(pathname, `${admin}/crm`) && crmView(params.get('view')) === id,
@@ -61,11 +72,10 @@ export function moduleLinks(module: SecondaryModule, args: {
     if (groupManagement) links.push({ id: 'groups', label: 'Sharing Groups',
       href: `${admin}/intranet/groups?site=${encodeURIComponent(site)}&audience=intranet`,
       active: matchesAdminPath(pathname, `${admin}/intranet/groups`) })
-    return links
+    return [...links, ...designLinks('intranet')]
   }
   const group = groups.find(value => value.label === module)
-  if (!group) return []
-  return group.entities.filter(entity => categoriesEnabled || entity.slug !== 'categories').map(entity => {
+  const links = (group?.entities || []).filter(entity => categoriesEnabled || entity.slug !== 'categories').map(entity => {
     const base = entityURL(admin, entity)
     const label = typeof entity.label === 'string' ? entity.label : entity.label[language] || Object.values(entity.label)[0] || entity.slug
     const href = module === 'Content' ? `${base}?site=${encodeURIComponent(site)}&audience=public`
@@ -73,4 +83,5 @@ export function moduleLinks(module: SecondaryModule, args: {
     return { id: entity.slug, label, href,
       active: matchesAdminPath(pathname, base) && (module !== 'Content' || params.get('audience') !== 'intranet') }
   })
+  return module === 'Content' ? [...links, ...designLinks('public')] : links
 }

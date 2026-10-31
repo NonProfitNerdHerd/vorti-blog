@@ -63,6 +63,7 @@ function useModuleState(groups: Props['groups']) {
     : module === 'CRM' ? !fine || fine.includes('crm:read')
     : module === 'Intranet' ? fine?.some(permission => permission.startsWith('intranet:read')) === true
     : module === 'Workflows' ? !fine || fine.includes('workflows:read')
+    : module === 'Content' ? available.some(group => group.label === 'Content' || group.label === 'Site Design')
     : available.some(group => group.label === module)
   const links = (module: SecondaryModule) => moduleLinks(module, {
     admin: config.routes.admin, site, pathname, params, groups: available,
@@ -78,11 +79,12 @@ export function CRMSecondaryNav({ groups }: Props) {
   if (navOpen || !active || !allowed(active)) return null
   const items = links(active)
   if (!items.length) return null
-  const title = active === 'CRM' ? 'VortiCause' : active === 'Tasks' ? 'VortiTasks' : active
-  return <aside className="vorti-secondary" data-module={active} aria-label={`${active} navigation`}>
+  const title = active === 'CRM' ? 'VortiCause' : active === 'Tasks' ? 'VortiTasks' : active === 'Content' ? 'Extranet' : active
+  const navName = active === 'Content' ? 'Extranet' : active
+  return <aside className="vorti-secondary" data-module={active} aria-label={`${navName} navigation`}>
     <div className="vorti-secondary__head"><strong>{title}</strong>
     </div>
-    <nav aria-label={`${active} sections`}>
+    <nav aria-label={`${navName} sections`}>
       {items.map(item => <Link key={item.id} href={item.href} prefetch={false}
         data-vc-crm-navigation aria-current={item.active ? 'page' : undefined}
         onClick={event => {
