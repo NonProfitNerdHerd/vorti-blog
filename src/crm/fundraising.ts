@@ -3,6 +3,7 @@ import { SiteConflictError } from '../organizations/atomic'
 import { calendarDate } from './finance'
 import { assertMoney } from './money'
 import { commitCRM, replayCRM } from './mutations'
+import { requireCRMAction } from './tenant-actions'
 
 export type ClassificationKind = 'campaigns' | 'funds' | 'appeals'
 export interface Classification {
@@ -41,6 +42,32 @@ export function appealEligibility(rawProfile: string, channel: string): string {
   if (profile.communication?.[`${channel}Allowed`] === false) return 'Communication preference'
   const method = channel === 'mail' ? profile.addresses?.some(a => a.lines.trim()) : profile.methods?.some(m => m.kind === channel && m.primary)
   return method ? '' : channel === 'mail' ? 'No postal address' : 'No primary contact method'
+}
+type DeleteCheck = { label: string; sql: string; args: Array<string> }
+function deletionChecks(kind: ClassificationKind, site: string, id: string): DeleteCheck[] {
+  const taskType = kind === 'campaigns' ? 'campaign' : kind === 'appeals' ? 'appeal' : 'fund'
+  const checks: DeleteCheck[] = [
+    { label: 'VortiTasks tasks', sql: 'SELECT 1 FROM review_tasks WHERE crm_site=? AND crm_type=? AND crm_i_d=? LIMIT 1', args: [site, taskType, id] },
+  ]
+  if (kind === 'campaigns') checks.push(
+    { label: 'appeals', sql: 'SELECT 1 FROM vc_crm_appeals WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
+    { label: 'linked funds', sql: 'SELECT 1 FROM vc_crm_campaign_funds WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
+    { label: 'attributed gifts', sql: 'SELECT 1 FROM vc_crm_gift_attribution a JOIN vc_crm_gifts g ON g.id=a.gift_id WHERE g.site_id=? AND a.campaign_id=? LIMIT 1', args: [site, id] },
+    { label: 'pledges or recurring commitments', sql: 'SELECT 1 FROM vc_crm_commitments WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
+    { label: 'opportunities', sql: 'SELECT 1 FROM vc_crm_opportunities WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
+  )
+  if (kind === 'appeals') checks.push(
+    { label: 'attributed gifts', sql: 'SELECT 1 FROM vc_crm_gift_attribution a JOIN vc_crm_gifts g ON g.id=a.gift_id WHERE g.site_id=? AND a.appeal_id=? LIMIT 1', args: [site, id] },
+    { label: 'saved recipient snapshots', sql: 'SELECT 1 FROM vc_crm_appeal_audiences WHERE site_id=? AND appeal_id=? LIMIT 1', args: [site, id] },
+    { label: 'outreach history', sql: 'SELECT 1 FROM vc_crm_appeal_outreach WHERE site_id=? AND appeal_id=? LIMIT 1', args: [site, id] },
+  )
+  if (kind === 'funds') checks.push(
+    { label: 'linked campaigns', sql: 'SELECT 1 FROM vc_crm_campaign_funds WHERE site_id=? AND fund_id=? LIMIT 1', args: [site, id] },
+    { label: 'appeal defaults', sql: 'SELECT 1 FROM vc_crm_appeals WHERE site_id=? AND default_fund_id=? LIMIT 1', args: [site, id] },
+    { label: 'gift designations', sql: `SELECT 1 FROM vc_crm_gifts g, json_each(g.allocations) allocation WHERE g.site_id=? AND json_extract(allocation.value,'$.fund')=? LIMIT 1`, args: [site, id] },
+    { label: 'net gift designations', sql: `SELECT 1 FROM vc_crm_gifts g, json_each(g.net_allocations) allocation WHERE g.site_id=? AND json_extract(allocation.value,'$.fund')=? LIMIT 1`, args: [site, id] },
+  )
+  return checks
 }
 export class FundraisingRepository {
   private authority: OrganizationRepository
@@ -89,6 +116,40 @@ export class FundraisingRepository {
     await this.fence(site.organization_id, site.authorityRevision)
     return { doc }
   }
+  async deletionPreview(siteID: string, kind: ClassificationKind, id: string) {
+    classificationKind(kind)
+    const site = await this.authority.require(siteID, 'finances', 'edit')
+    await requireCRMAction(this.db, this.actor, siteID, 'crm:delete', site.authorityRevision)
+    const record = await this.db.prepare(`SELECT name,revision FROM vc_crm_${kind} WHERE site_id=? AND id=?`).bind(siteID, id).first<{ name: string; revision: number }>()
+    if (!record) throw new SiteAccessError()
+    const blockers: string[] = []
+    for (const check of deletionChecks(kind, siteID, id))
+      if (await this.db.prepare(check.sql).bind(...check.args).first()) blockers.push(check.label)
+    await this.fence(site.organization_id, site.authorityRevision)
+    return { ...record, blockers }
+  }
+  async delete(input: { site: string; kind: ClassificationKind; id: string; expectedRevision: number; confirmation: string; operationKey: string }) {
+    classificationKind(input.kind)
+    const site = await this.authority.require(input.site, 'finances', 'edit')
+    const intent = { kind: input.kind, id: input.id, expectedRevision: input.expectedRevision, confirmation: input.confirmation }
+    const action = 'classification.deleted'
+    const replay = await replayCRM(this.db, this.actor, input.operationKey, { site: input.site, action, type: input.kind, intent })
+    if (replay) return replay
+    const before = await this.db.prepare(`SELECT * FROM vc_crm_${input.kind} WHERE site_id=? AND id=?`).bind(input.site, input.id).first<Classification>()
+    if (!before || before.revision !== input.expectedRevision || input.confirmation !== `Delete ${before.name}`) throw new SiteConflictError()
+    const checks = deletionChecks(input.kind, input.site, input.id)
+    const blockers: string[] = []
+    for (const check of checks)
+      if (await this.db.prepare(check.sql).bind(...check.args).first()) blockers.push(check.label)
+    if (blockers.length) throw new Error(`Cannot delete this ${input.kind.slice(0, -1)} because it has ${blockers.join(', ')}. Mark it Inactive instead.`)
+    const guard = checks.map(check => ` AND NOT EXISTS(${check.sql})`).join('')
+    const write = this.db.prepare(`DELETE FROM vc_crm_${input.kind} WHERE site_id=? AND id=? AND name=? AND revision=?${guard}`)
+      .bind(input.site, input.id, before.name, input.expectedRevision, ...checks.flatMap(check => check.args))
+    return commitCRM({ db: this.db, actor: this.actor, key: input.operationKey, site: input.site,
+      organization: site.organization_id, authorityRevision: site.authorityRevision,
+      action, type: input.kind, id: input.id, before, after: { deleted: true }, intent, write,
+      result: { id: input.id, deleted: true } })
+  }
   async save(input: {
     site: string
     kind: ClassificationKind
@@ -100,6 +161,8 @@ export class FundraisingRepository {
     classificationKind(input.kind)
     const site = await this.authority.require(input.site, 'finances', 'edit'),
       v = input.values
+    const existing = input.id ? await this.db.prepare(`SELECT * FROM vc_crm_${input.kind} WHERE site_id=? AND id=?`).bind(input.site, input.id).first<Classification>() : null
+    if (input.id && !existing) throw new SiteAccessError()
     const name = text(v.name, 180, true),
       description = text(v.description ?? '', 4000)
     const start = v.startsOn ? calendarDate(v.startsOn) : null,
@@ -117,9 +180,9 @@ export class FundraisingRepository {
       if (!['draft', 'planned', 'in_progress', 'completed', 'cancelled'].includes(status || '') || !['email', 'phone', 'mail'].includes(channel || ''))
         throw new Error('Choose a valid appeal status and channel.')
       if (!campaignID && !input.id) throw new Error('Select a campaign for the new appeal.')
-      if (campaignID && !(await this.db.prepare('SELECT id FROM vc_crm_campaigns WHERE site_id=? AND id=? AND archived=0').bind(input.site, campaignID).first()))
+      if (campaignID && campaignID !== existing?.campaign_id && !(await this.db.prepare('SELECT id FROM vc_crm_campaigns WHERE site_id=? AND id=? AND archived=0').bind(input.site, campaignID).first()))
         throw new SiteAccessError()
-      if (defaultFundID && !(await this.db.prepare('SELECT id FROM vc_crm_funds WHERE site_id=? AND id=? AND archived=0').bind(input.site, defaultFundID).first()))
+      if (defaultFundID && defaultFundID !== existing?.default_fund_id && !(await this.db.prepare('SELECT id FROM vc_crm_funds WHERE site_id=? AND id=? AND archived=0').bind(input.site, defaultFundID).first()))
         throw new SiteAccessError()
       const outreach = input.id ? await this.db.prepare('SELECT 1 FROM vc_crm_appeal_outreach WHERE site_id=? AND appeal_id=? LIMIT 1').bind(input.site, input.id).first() : null
       if ((status === 'in_progress' || status === 'completed') && !outreach)
@@ -131,12 +194,12 @@ export class FundraisingRepository {
     if (fundIDs && (fundIDs.length > 100 || fundIDs.some(id => typeof id !== 'string' || id.length > 128)))
       throw new Error('Choose valid linked funds.')
     for (const fundID of fundIDs || [])
-      if (!(await this.db.prepare('SELECT id FROM vc_crm_funds WHERE site_id=? AND id=? AND archived=0').bind(input.site, fundID).first())) throw new SiteAccessError()
+      if (!(await this.db.prepare(`SELECT id FROM vc_crm_funds WHERE site_id=? AND id=? AND (archived=0 OR EXISTS(SELECT 1 FROM vc_crm_campaign_funds WHERE site_id=? AND campaign_id=? AND fund_id=?))`).bind(input.site, fundID, input.site, input.id || '', fundID).first())) throw new SiteAccessError()
     const recipientIDs = input.kind === 'appeals' && Array.isArray(v.recipientIds) ? [...new Set(v.recipientIds)] : null
     if (recipientIDs && (recipientIDs.length > 500 || recipientIDs.some(id => typeof id !== 'string' || id.length > 128)))
       throw new Error('Choose up to 500 manual recipients.')
     const eligible: Array<{ id: string; eligible: number; reason: string }> = []
-    if (recipientIDs) {
+    if (recipientIDs && (input.id || recipientIDs.length > 0)) {
       await this.authority.require(input.site, 'communications', 'read')
       if (input.id) {
         const existing = await this.db.prepare('SELECT status FROM vc_crm_appeals WHERE id=? AND site_id=?').bind(input.id, input.site).first<{ status: string }>()
@@ -235,7 +298,7 @@ export class FundraisingRepository {
       dependent.push(this.db.prepare('DELETE FROM vc_crm_campaign_funds WHERE site_id=? AND campaign_id=?').bind(input.site, id))
       for (const fundID of fundIDs) dependent.push(this.db.prepare('INSERT INTO vc_crm_campaign_funds(site_id,campaign_id,fund_id,created_at) VALUES(?,?,?,?)').bind(input.site, id, fundID, now))
     }
-    if (recipientIDs) {
+    if (recipientIDs && (input.id || recipientIDs.length > 0)) {
       const audienceID = crypto.randomUUID()
       dependent.push(this.db.prepare('UPDATE vc_crm_appeals SET audience_version=audience_version+1 WHERE site_id=? AND id=?').bind(input.site, id))
       dependent.push(this.db.prepare('INSERT INTO vc_crm_appeal_audiences(id,site_id,appeal_id,version,source,source_report,created_by,created_at) SELECT ?,?,?,audience_version,\'manual\',NULL,?,? FROM vc_crm_appeals WHERE id=? AND site_id=?').bind(audienceID, input.site, id, this.actor, now, id, input.site))

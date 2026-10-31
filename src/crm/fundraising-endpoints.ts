@@ -29,6 +29,10 @@ export function fundraisingEndpoints(
           const kind = classificationKind(url.searchParams.get('kind') || ''),
             id = url.searchParams.get('id'),
             after = url.searchParams.get('after') || ''
+          if (url.searchParams.get('mode') === 'delete-preview') {
+            if (!id) throw new Error('Choose a fundraising record.')
+            return Response.json(await repo.deletionPreview(site, kind, id), { headers: { 'Cache-Control': 'private, no-store' } })
+          }
           const result = url.searchParams.get('record')
             ? await repo.get(site, kind, url.searchParams.get('record')!)
             : url.searchParams.get('gift')
@@ -77,6 +81,14 @@ export function fundraisingEndpoints(
               expectedRevision: Number(body.expectedRevision),
               notes: String(body.notes || ''),
               occurredAt: String(body.occurredAt || ''),
+            })
+          else if (body.action === 'delete')
+            doc = await repo.delete({
+              ...common,
+              kind: classificationKind(String(body.kind)),
+              id: String(body.id || ''),
+              expectedRevision: Number(body.expectedRevision),
+              confirmation: String(body.confirmation || ''),
             })
           else {
             if (

@@ -1,5 +1,6 @@
 import { OrganizationRepository, SiteAccessError } from '../organizations/repository'
 import { appealEligibility, type Classification } from './fundraising'
+import { requireCRMAction } from './tenant-actions'
 
 type MoneyTotal = { currency: string; exponent: number; minor: string }
 type GiftRow = { id: string; constituent_id: string; label: string; currency: string; exponent: number; net_minor: string; net_allocations: string; received_on: string; campaign_id: string | null; appeal_id: string | null }
@@ -24,6 +25,7 @@ export class FundraisingReport {
     const site = await this.scope(siteID)
     const authority = new OrganizationRepository(this.db, this.actor)
     const canEdit = (await authority.authority(siteID, 'finances', 'edit')).allowed
+    const canDelete = canEdit && await requireCRMAction(this.db, this.actor, siteID, 'crm:delete', site.authorityRevision).then(() => true, () => false)
     const canRecordOutreach = canEdit && (await authority.authority(siteID, 'communications', 'edit')).allowed
     const canSeeNames = (await authority.authority(siteID, 'identity', 'read')).allowed
     const canSeeAudience = (await authority.authority(siteID, 'communications', 'read')).allowed
@@ -74,7 +76,7 @@ export class FundraisingReport {
     const current = canSeeAudience ? await this.db.prepare(`SELECT recipient.audience_id,recipient.constituent_id,recipient.eligible,recipient.exclusion,audience.appeal_id,c.label FROM vc_crm_appeal_recipients recipient JOIN vc_crm_appeal_audiences audience ON audience.id=recipient.audience_id JOIN vc_crm_appeals appeal ON appeal.id=audience.appeal_id AND appeal.audience_version=audience.version JOIN vc_crm_constituents c ON c.id=recipient.constituent_id WHERE audience.site_id=?`).bind(siteID).all<{ constituent_id: string; eligible: number; exclusion: string; appeal_id: string; label: string }>() : { results: [] as Array<{ constituent_id: string; eligible: number; exclusion: string; appeal_id: string; label: string }> }
     const revision = await this.db.prepare('SELECT authority_revision FROM vc_organizations WHERE id=?').bind(site.organization_id).first<{ authority_revision: number }>()
     if (revision?.authority_revision !== site.authorityRevision) throw new SiteAccessError()
-    return { campaigns: campaignDocs, appeals: appealDocs, funds: fundDocs, links: links.results, gifts, totals: totals(overall), recipients: current.results.map(r => ({ ...r, label: canSeeNames ? r.label : 'Recipient' })), outreach: canSeeAudience ? outreach.results : [], activity: activity.results, canEdit, canRecordOutreach, canSeeNames, canSeeAudience, asOf: new Date().toISOString().slice(0, 10) }
+    return { campaigns: campaignDocs, appeals: appealDocs, funds: fundDocs, links: links.results, gifts, totals: totals(overall), recipients: current.results.map(r => ({ ...r, label: canSeeNames ? r.label : 'Recipient' })), outreach: canSeeAudience ? outreach.results : [], activity: activity.results, canEdit, canDelete, canRecordOutreach, canSeeNames, canSeeAudience, asOf: new Date().toISOString().slice(0, 10) }
   }
   async candidates(siteID: string, search: string) {
     const authority = new OrganizationRepository(this.db, this.actor)

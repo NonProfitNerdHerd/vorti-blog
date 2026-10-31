@@ -43,3 +43,43 @@ it('links shared funds, snapshots eligible recipients, and reports net attribute
     expect(after.funds.find(row => row.id === fund)?.received[0].minor).toBe('7500')
   } finally { fixture.close() }
 })
+
+it('deletes unused fundraising records and blocks operational references and stale confirmations', async () => {
+  const fixture = await crmTimelineFixture()
+  const key = () => crypto.randomUUID()
+  try {
+    for (const statement of fundraisingSchemaV2) fixture.sqlite.exec(statement)
+    fixture.sqlite.exec('CREATE TABLE review_tasks(id INTEGER PRIMARY KEY,crm_site TEXT,crm_type TEXT,crm_i_d TEXT)')
+    const fundraising = new FundraisingRepository(fixture.db, 1)
+    const fund = String((await fundraising.save({ site: 'default', kind: 'funds', operationKey: key(), values: { name: 'Unused fund' } })).id)
+    const preview = await fundraising.deletionPreview('default', 'funds', fund)
+    expect(preview.blockers).toEqual([])
+    await expect(fundraising.delete({ site: 'default', kind: 'funds', id: fund, expectedRevision: preview.revision, confirmation: 'Delete wrong name', operationKey: key() })).rejects.toThrow()
+    await fundraising.delete({ site: 'default', kind: 'funds', id: fund, expectedRevision: preview.revision, confirmation: 'Delete Unused fund', operationKey: key() })
+    await expect(fundraising.get('default', 'funds', fund)).rejects.toThrow()
+
+    const linkedFund = String((await fundraising.save({ site: 'default', kind: 'funds', operationKey: key(), values: { name: 'Linked fund' } })).id)
+    const campaign = String((await fundraising.save({ site: 'default', kind: 'campaigns', operationKey: key(), values: { name: 'Linked campaign', fundIds: [linkedFund] } })).id)
+    await fundraising.save({ site: 'default', kind: 'funds', id: linkedFund, expectedRevision: 1, operationKey: key(), values: { name: 'Linked fund', archived: true } })
+    await fundraising.save({ site: 'default', kind: 'campaigns', id: campaign, expectedRevision: 1, operationKey: key(), values: { name: 'Linked campaign', fundIds: [linkedFund] } })
+    expect((await fundraising.deletionPreview('default', 'funds', linkedFund)).blockers).toContain('linked campaigns')
+    expect((await fundraising.deletionPreview('default', 'campaigns', campaign)).blockers).toContain('linked funds')
+    await expect(fundraising.delete({ site: 'default', kind: 'funds', id: linkedFund, expectedRevision: 2, confirmation: 'Delete Linked fund', operationKey: key() })).rejects.toThrow('linked campaigns')
+
+    const appeal = String((await fundraising.save({ site: 'default', kind: 'appeals', operationKey: key(), values: { name: 'Draft appeal', campaignId: campaign, recipientIds: [fixture.contact] } })).id)
+    expect((await fundraising.deletionPreview('default', 'appeals', appeal)).blockers).toContain('saved recipient snapshots')
+    expect((await fundraising.deletionPreview('default', 'campaigns', campaign)).blockers).toContain('appeals')
+    fixture.sqlite.exec(`INSERT INTO review_tasks(id,crm_site,crm_type,crm_i_d) VALUES(1,'default','campaign','${campaign}')`)
+    expect((await fundraising.deletionPreview('default', 'campaigns', campaign)).blockers).toContain('VortiTasks tasks')
+
+    const fresh = String((await fundraising.save({ site: 'default', kind: 'campaigns', operationKey: key(), values: { name: 'Original' } })).id)
+    const emptyAppeal = String((await fundraising.save({ site: 'default', kind: 'appeals', operationKey: key(), values: { name: 'Empty appeal', campaignId: fresh, recipientIds: [] } })).id)
+    expect((await fundraising.deletionPreview('default', 'appeals', emptyAppeal)).blockers).toEqual([])
+    await fundraising.delete({ site: 'default', kind: 'appeals', id: emptyAppeal, expectedRevision: 1, confirmation: 'Delete Empty appeal', operationKey: key() })
+    const stale = await fundraising.deletionPreview('default', 'campaigns', fresh)
+    await fundraising.save({ site: 'default', kind: 'campaigns', id: fresh, expectedRevision: stale.revision, operationKey: key(), values: { name: 'Renamed' } })
+    await expect(fundraising.delete({ site: 'default', kind: 'campaigns', id: fresh, expectedRevision: stale.revision, confirmation: 'Delete Original', operationKey: key() })).rejects.toThrow()
+    const current = await fundraising.deletionPreview('default', 'campaigns', fresh)
+    await fundraising.delete({ site: 'default', kind: 'campaigns', id: fresh, expectedRevision: current.revision, confirmation: 'Delete Renamed', operationKey: key() })
+  } finally { fixture.close() }
+})
