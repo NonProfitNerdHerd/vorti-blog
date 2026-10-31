@@ -39,6 +39,7 @@ export function opportunityEndpoints(
                         contact: p.get('contact') || undefined,
                         after: p.get('after') || undefined,
                         dueThrough: p.get('dueThrough') || undefined,
+                        openOnly: p.get('openOnly') === 'true',
                         owner: p.has('owner') ? Number(p.get('owner')) : undefined,
                         archived: p.get('archived') === 'true',
                       })

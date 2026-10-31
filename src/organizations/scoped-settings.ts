@@ -22,7 +22,7 @@ export const siteSettingDefaults = Object.freeze({
   intranetPrimaryMenu: null,
   intranetFooterMenu: null,
 })
-export const tenantSettingDefaults = Object.freeze({ workspaceEmbedOrigins: [] as string[] })
+export const tenantSettingDefaults: { readonly workspaceEmbedOrigins: string[]; readonly fiscalYearStart: string } = Object.freeze({ workspaceEmbedOrigins: [] as string[], fiscalYearStart: '01-01' })
 type Settings = Record<string, unknown>
 const siteKeys = new Set<string>([
   ...Object.values(websiteSettingSections).flat(),
@@ -85,7 +85,7 @@ export function validateSiteSettingsPatch(input: unknown): Settings {
 export function validateTenantSettings(input: unknown): typeof tenantSettingDefaults {
   const value = object(input)
   if (
-    Object.keys(value).some((key) => key !== 'workspaceEmbedOrigins') ||
+    Object.keys(value).some((key) => !['workspaceEmbedOrigins', 'fiscalYearStart'].includes(key)) ||
     !Array.isArray(value.workspaceEmbedOrigins) ||
     value.workspaceEmbedOrigins.length > 30
   )
@@ -102,7 +102,12 @@ export function validateTenantSettings(input: unknown): typeof tenantSettingDefa
       throw Error('Use exact HTTPS origins without paths or credentials.')
     return origin
   })
-  return { workspaceEmbedOrigins: [...new Set(origins)] }
+  const fiscalYearStart = value.fiscalYearStart ?? '01-01'
+  if (typeof fiscalYearStart !== 'string' || !/^\d{2}-\d{2}$/.test(fiscalYearStart) ||
+    Number.isNaN(Date.parse(`2025-${fiscalYearStart}T00:00:00Z`)) ||
+    new Date(`2025-${fiscalYearStart}T00:00:00Z`).toISOString().slice(5, 10) !== fiscalYearStart)
+    throw Error('Choose a valid fiscal-year start month and day.')
+  return { workspaceEmbedOrigins: [...new Set(origins)], fiscalYearStart }
 }
 
 /** The same loader is used by authenticated administration and public rendering. */

@@ -7,6 +7,11 @@ export interface CurrencyDefinition {
   code: string
   exponent: number
 }
+export function formatMinor(value: string, exponent: number): string {
+  const negative = value.startsWith('-'),
+    digits = (negative ? value.slice(1) : value).padStart(exponent + 1, '0')
+  return `${negative ? '-' : ''}${exponent ? digits.slice(0, -exponent) + '.' + digits.slice(-exponent) : digits}`
+}
 const minorPattern = /^-?(0|[1-9][0-9]*)$/
 export function assertMoney(value: Money): void {
   if (

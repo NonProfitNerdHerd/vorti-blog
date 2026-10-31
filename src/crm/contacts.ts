@@ -34,6 +34,10 @@ export interface ContactSummary {
   affiliationRevision: number
   roles: ConstituentRole[]
   tags: string[]
+  primaryEmail?: string | null
+  primaryPhone?: string | null
+  contributions?: null | Array<{ currency: string; exponent: number; minorUnits: string }>
+  volunteerMinutes?: string | null
 }
 export interface ContactCorrection {
   id: string
@@ -44,6 +48,7 @@ export interface ContactCorrection {
   actorLabel: string
 }
 function summary(row: ContactRow): ContactSummary {
+  const profile = JSON.parse(row.profile) as ContactProfile
   return {
     id: row.id,
     label: row.label,
@@ -52,6 +57,8 @@ function summary(row: ContactRow): ContactSummary {
     affiliationRevision: row.affiliation_revision,
     roles: JSON.parse(row.roles),
     tags: JSON.parse(row.tags),
+    primaryEmail: profile.methods?.find((method) => method.kind === 'email' && method.primary)?.value || null,
+    primaryPhone: profile.methods?.find((method) => method.kind === 'phone' && method.primary)?.value || null,
   }
 }
 async function digest(value: unknown): Promise<string> {
@@ -270,9 +277,34 @@ export class ContactRepository {
       .all<ContactRow>()
     const page = rows.results.slice(0, limit),
       last = page.at(-1)
+    const summaries = page.map(summary)
+    const ids = page.map((row) => row.id)
+    const finance = (await this.authority.authority(site.id, 'finances', 'read')).allowed
+    const hours = (await this.authority.authority(site.id, 'volunteer-hours', 'read')).allowed &&
+      (await this.authority.authority(site.id, 'restricted-activity', 'read')).allowed
+    for (const doc of summaries) { doc.contributions = finance ? [] : null; doc.volunteerMinutes = hours ? '0' : null }
+    if (ids.length && finance) {
+      const money = await this.db.prepare(`WITH RECURSIVE positions(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM positions WHERE n<31) SELECT g.constituent_id,g.currency,g.exponent,n,CAST(sum(CAST(substr(g.net_minor,-n,1) AS INTEGER)) AS TEXT) AS digits FROM vc_crm_gifts g JOIN positions ON n<=length(g.net_minor) WHERE g.site_id=? AND g.constituent_id IN (${ids.map(() => '?').join(',')}) AND g.state='posted' AND g.kind<>'in-kind' GROUP BY g.constituent_id,g.currency,g.exponent,n`)
+        .bind(site.id, ...ids).all<{ constituent_id: string; currency: string; exponent: number; n: number; digits: string }>()
+      const byID = new Map(summaries.map((doc) => [doc.id, doc]))
+      for (const row of money.results) {
+        const list = byID.get(row.constituent_id)?.contributions
+        if (!list) continue
+        let amount = list.find((item) => item.currency === row.currency && item.exponent === row.exponent)
+        if (!amount) { amount = { currency: row.currency, exponent: row.exponent, minorUnits: '0' }; list.push(amount) }
+        amount.minorUnits = (BigInt(amount.minorUnits) + BigInt(row.digits) * 10n ** BigInt(row.n - 1)).toString()
+      }
+      for (const doc of summaries) doc.contributions?.sort((a, b) => a.currency.localeCompare(b.currency))
+    }
+    if (ids.length && hours) {
+      const recorded = await this.db.prepare(`SELECT h.constituent_id,CAST(sum(h.minutes) AS TEXT) AS minutes FROM vc_crm_volunteer_hours h JOIN vc_crm_volunteer_activities a ON a.id=h.activity_id WHERE a.site_id=? AND h.state='approved' AND h.constituent_id IN (${ids.map(() => '?').join(',')}) GROUP BY h.constituent_id`)
+        .bind(site.id, ...ids).all<{ constituent_id: string; minutes: string }>()
+      const byID = new Map(summaries.map((doc) => [doc.id, doc]))
+      for (const row of recorded.results) byID.get(row.constituent_id)!.volunteerMinutes = row.minutes
+    }
     await this.confirmRead(site.organization_id, site.authorityRevision)
     return {
-      docs: page.map(summary),
+      docs: summaries,
       total: total?.total || 0,
       next: rows.results.length > limit && last ? { label: last.label, id: last.id } : null,
     }

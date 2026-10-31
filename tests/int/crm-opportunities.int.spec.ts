@@ -269,6 +269,8 @@ it('uses complete counts and follows paginated matching records and due dates', 
   expect(next.docs).toHaveLength(3)
   expect(next.total).toBe(53)
   expect((await repo.list({ site: 'default', dueThrough: '2026-12-01' })).total).toBe(26)
+  await repo.save({ site: 'default', operationKey: key(), values: { ...values(), name: 'Already received', stage: stages[5].id, nextOn: '2026-11-01' } })
+  expect((await repo.list({ site: 'default', dueThrough: '2026-12-01', openOnly: true })).total).toBe(26)
   const stale = first.docs[0]
   // Simulate a separately archived chapter affiliation; shared identity remains intact.
   fixture.sqlite

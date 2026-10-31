@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { Gutter, useConfig } from '@payloadcms/ui'
 import { constituentRoles, type ContactProfile } from './contact-model'
 import type { ContactSummary } from './contacts'
+import { formatMinor } from './money'
 import { ContactCorrections } from './ContactCorrections'
 import { ContactGifts } from './ContactGifts'
 import { ContactRelationships } from './ContactRelationships'
@@ -770,8 +771,10 @@ export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organ
             <tr>
               <th>Name</th>
               <th>Type</th>
-              <th>Roles</th>
-              <th>Tags</th>
+              <th>Lifetime contributions</th>
+              <th>Lifetime volunteer hours</th>
+              <th>Primary email</th>
+              <th>Primary phone</th>
             </tr>
           </thead>
           <tbody>
@@ -788,13 +791,15 @@ export function ContactWorkspace({ kind = 'person' }: { kind?: 'person' | 'organ
                   </button>
                 </td>
                 <td>{doc.kind}</td>
-                <td>{doc.roles.join(', ') || '—'}</td>
-                <td>{doc.tags.join(', ') || '—'}</td>
+                <td>{doc.contributions === null ? 'Restricted' : doc.contributions?.length ? doc.contributions.map((amount) => <span key={`${amount.currency}:${amount.exponent}`} className="vc-crm-table-value">{amount.currency} {formatMinor(amount.minorUnits, amount.exponent)}</span>) : '—'}</td>
+                <td>{doc.volunteerMinutes === null ? 'Restricted' : doc.volunteerMinutes ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(Number(doc.volunteerMinutes) / 60)} h` : '—'}</td>
+                <td>{doc.primaryEmail ? <a href={`mailto:${doc.primaryEmail}`}>{doc.primaryEmail}</a> : '—'}</td>
+                <td>{doc.primaryPhone ? <a href={`tel:${doc.primaryPhone}`}>{doc.primaryPhone}</a> : '—'}</td>
               </tr>
             ))}
             {!docs.length && (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={6}>
                   {loading ? `Loading ${sectionLabel.toLowerCase()}…` : `No ${sectionLabel.toLowerCase()} match this view.`}
                 </td>
               </tr>

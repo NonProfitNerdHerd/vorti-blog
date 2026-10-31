@@ -12,11 +12,27 @@
 .vc-crm-overview-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .vc-crm-overview-card { display: grid; align-content: start; gap: 8px; padding: 20px; border: 1px solid var(--theme-elevation-200); border-radius: 8px; text-decoration: none; }
 .vc-crm-overview-card strong { font-size: 32px; }
+.vc-crm-overview-card.vc-crm-campaigns { margin-top: 16px; }
+.vc-crm-due-tile { display: flex; align-items: center; gap: 18px; padding: 18px; border-radius: 10px; background: #a8323c; color: #fff; text-decoration: none; }
+.vc-crm-due-tile:hover, .vc-crm-due-tile:focus-visible { background: #87252e; color: #fff; }
+.vc-crm-due-tile strong { font-size: 48px; line-height: 1; color: #fff; }
+.vc-crm-due-tile span { font-weight: 700; color: #fff; }
+.vc-crm-campaigns-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.vc-crm-campaigns-heading div { display: grid; gap: 4px; }
+.vc-crm-campaign-bars { display: grid; gap: 12px; margin-top: 8px; }
+.vc-crm-campaign-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(100px, 3fr) 55px minmax(115px, 1fr); gap: 14px; align-items: center; }
+.vc-crm-campaign-row strong { font-size: inherit; }
+.vc-crm-campaign-track { height: 10px; border-radius: 999px; background: var(--theme-elevation-200); overflow: hidden; }
+.vc-crm-campaign-track span { display: block; height: 100%; background: #0d8190; border-radius: inherit; }
+.vc-crm-table-value { display: block; white-space: nowrap; }
 .vc-crm-overview-card h3, .vc-crm-overview-card p { margin: 0; }
 .vc-crm-overview-card small { color: var(--theme-elevation-600); }
 .vc-crm-overview-card dl > div { display: flex; justify-content: space-between; gap: 16px; }
 @media (max-width: 600px) {
   .vc-crm-overview-cards, .vc-crm-overview-columns { grid-template-columns: minmax(0,1fr); }
+  .vc-crm-campaign-row { grid-template-columns: minmax(110px,1fr) 55px; }
+  .vc-crm-campaign-track { grid-column: 1 / -1; grid-row: 2; }
+  .vc-crm-campaign-row > span:last-child { grid-column: 1 / -1; }
 }
 
 .vc-crm-domain .vc-crm-toolbar { flex-wrap: wrap; }

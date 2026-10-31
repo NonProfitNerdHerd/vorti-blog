@@ -9,7 +9,7 @@ import { MembershipWorkspace } from './MembershipWorkspace'
 import { OpportunityWorkspace } from './OpportunityWorkspace'
 import { VolunteerWorkspace } from './VolunteerWorkspace'
 import { CorrespondenceWorkspace } from './CorrespondenceWorkspace'
-import { Gutter, useConfig } from '@payloadcms/ui'
+import { Gutter, useAuth, useConfig } from '@payloadcms/ui'
 import { useSearchParams } from 'next/navigation'
 import { OverviewWorkspace } from './OverviewWorkspace'
 import { DonationWorkspace } from './DonationWorkspace'
@@ -20,6 +20,7 @@ import { RecordAttachmentPage } from './RecordAttachmentPage'
 import { RecordTaskPage } from './RecordTaskPage'
 export function CRMWorkspace() {
   const { config } = useConfig()
+  const { user } = useAuth()
   const { binding } = useAdminSite()
   const params = useSearchParams()
   const view = crmView(params.get('view'))
@@ -59,7 +60,7 @@ export function CRMWorkspace() {
           <Gutter className="vc-crm"><CRMSearchWorkspace api={config.routes.api} admin={config.routes.admin} site={binding?.site.id || ''} /></Gutter>
         ) : view === 'overview' ? (
           <Gutter className="vc-crm">
-            <OverviewWorkspace api={config.routes.api} site={binding?.site.id || ''} href={href} />
+            <OverviewWorkspace api={config.routes.api} site={binding?.site.id || ''} href={href} actor={String(user?.id || '')} />
           </Gutter>
         ) : view === 'donations' ? (
           <Gutter className="vc-crm">

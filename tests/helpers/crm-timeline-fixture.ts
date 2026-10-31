@@ -20,6 +20,7 @@ import { ContactRepository } from '../../src/crm/contacts'
 export const crmTimelineSchema = [
   ...organizationSchema,
   ...defaultOrganizationSeed,
+  `CREATE TABLE IF NOT EXISTS vc_scoped_settings (tenant_id TEXT NOT NULL REFERENCES vc_organizations(id),scope TEXT NOT NULL,site_id TEXT,value TEXT NOT NULL CHECK(json_valid(value)),revision INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(tenant_id,scope))`,
   ...contactSchemaV1,
   ...financeSchemaV1,
   ...fundraisingSchemaV1,

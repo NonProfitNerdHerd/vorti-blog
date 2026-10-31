@@ -5,12 +5,18 @@ import { FinanceRepository } from '../../src/crm/finance'
 import { OrganizationRepository } from '../../src/organizations/repository'
 import { ContactRepository } from '../../src/crm/contacts'
 import { MembershipRepository } from '../../src/crm/memberships'
+import { validateTenantSettings } from '../../src/organizations/scoped-settings'
 let fixture: Awaited<ReturnType<typeof crmTimelineFixture>>
 const key = () => crypto.randomUUID()
 beforeEach(async () => {
   fixture = await crmTimelineFixture()
 })
 afterEach(() => fixture.close())
+it('defaults tenant fiscal reporting to January and validates the chosen start', () => {
+  expect(validateTenantSettings({ workspaceEmbedOrigins: [] }).fiscalYearStart).toBe('01-01')
+  expect(validateTenantSettings({ workspaceEmbedOrigins: [], fiscalYearStart: '07-01' }).fiscalYearStart).toBe('07-01')
+  expect(() => validateTenantSettings({ workspaceEmbedOrigins: [], fiscalYearStart: '02-30' })).toThrow()
+})
 it("keeps a shared constituent's chapter roles and giving separate between chapter summaries", async () => {
   fixture.sqlite
     .prepare("UPDATE vc_site_websites SET subsites_enabled=1 WHERE site_id='default'")
@@ -237,4 +243,76 @@ it('omits unauthorized financial and follow-up totals and rejects unrelated site
   expect(overview.received).toBeNull()
   expect(overview.followups).toEqual({ opportunities: null, membershipRenewals: null })
   await expect(crmOverview(fixture.db, 2, 'missing-site')).rejects.toThrow()
+})
+
+it('reports tenant fiscal campaign giving and distinct donors from received gifts', async () => {
+  const tenant = String(fixture.sqlite.prepare("SELECT organization_id FROM vc_sites WHERE id='default'").get()!.organization_id)
+  fixture.sqlite.prepare("INSERT INTO vc_scoped_settings(tenant_id,scope,value) VALUES(?,'tenant',?)")
+    .run(tenant, JSON.stringify({ workspaceEmbedOrigins: [], fiscalYearStart: '07-01' }))
+  fixture.sqlite.prepare('UPDATE vc_crm_constituents SET created_at=? WHERE id=?').run('2026-10-02T12:00:00Z', fixture.contact)
+  const finance = new FinanceRepository(fixture.db, 1)
+  const fund = String((await finance.createFund({ site: 'default', name: 'Fiscal test fund', operationKey: key() })).id)
+  const campaign = key()
+  fixture.sqlite.prepare("INSERT INTO vc_crm_campaigns(id,site_id,name,created_at,updated_at) VALUES(?,'default','Fall Campaign',?,?)")
+    .run(campaign, '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z')
+  const gift = async (person: string, minorUnits: string, receivedOn: string, campaignID?: string) => {
+    const result = await finance.createGift({ site: 'default', constituent: person, amount: { currency: 'USD', minorUnits }, exponent: 2, kind: 'cash', receivedOn, allocations: [{ fund, currency: 'USD', minorUnits }], operationKey: key() })
+    if (campaignID) fixture.sqlite.prepare('INSERT INTO vc_crm_gift_attribution(gift_id,campaign_id) VALUES(?,?)').run(String(result.id), campaignID)
+    return result
+  }
+  await gift(fixture.contact, '1000', '2026-06-30', campaign)
+  const recurringGift = await gift(fixture.contact, '2000', '2026-07-02', campaign)
+  await gift(fixture.contact, '500', '2026-10-03')
+  const organization = String((await new ContactRepository(fixture.db, 1).create({ site: 'default', profile: { kind: 'organization', organizationName: 'Fictional partner' }, roles: [], operationKey: key() })).id)
+  const organizationGift = await gift(organization, '3000', '2026-10-10', campaign)
+  const schedule = key()
+  fixture.sqlite.prepare("INSERT INTO vc_crm_commitments(id,site_id,constituent_id,kind,name,currency,exponent,amount_minor,starts_on,frequency,created_by,created_at,updated_at) VALUES(?,'default',?,'recurring','Monthly support','USD',2,'2000','2026-07-01','monthly',1,?,?)")
+    .run(schedule, fixture.contact, '2026-07-01T00:00:00Z', '2026-07-01T00:00:00Z')
+  fixture.sqlite.prepare("INSERT INTO vc_crm_giving_applications(id,commitment_id,installment_key,gift_id,amount_minor,reason,created_at) VALUES(?,?,'2026-07',?,'2000','Payment','2026-07-02T00:00:00Z')")
+    .run(key(), schedule, String(recurringGift.id))
+  const report = await crmOverview(fixture.db, 1, 'default', '2026-10-25')
+  expect(report.acquisition.newContactsThisMonth).toBe(1)
+  expect(report.donorMetrics).toEqual({ total: 2, newThisMonth: 1, newPast12Months: 2, activeRecurring: 1, recurringHistory: 1 })
+  expect(report.campaigns?.fiscalStart).toBe('2026-07-01')
+  expect(report.campaigns?.currencies[0].rows).toEqual([
+    { id: campaign, name: 'Fall Campaign', minorUnits: '5000' },
+    { id: null, name: 'Other', minorUnits: '500' },
+  ])
+  await finance.adjust({ site: 'default', id: String(organizationGift.id), expectedRevision: 1, action: 'refund', deltaMinor: '-3000', reason: 'Full refund', operationKey: key() })
+  const refunded = await crmOverview(fixture.db, 1, 'default', '2026-10-25')
+  expect(refunded.donorMetrics?.total).toBe(1)
+  expect(refunded.donorMetrics?.newThisMonth).toBe(0)
+  expect(refunded.campaigns?.currencies[0].rows[0].minorUnits).toBe('2000')
+})
+
+it('lists primary contact methods, net lifetime giving and approved volunteer hours', async () => {
+  const row = fixture.sqlite.prepare('SELECT profile FROM vc_crm_constituents WHERE id=?').get(fixture.contact)!
+  const profile = JSON.parse(String(row.profile))
+  profile.methods = [
+    { kind: 'email', value: 'primary@example.org', label: 'Work', primary: true },
+    { kind: 'phone', value: '+15551234567', label: 'Mobile', primary: true },
+  ]
+  fixture.sqlite.prepare('UPDATE vc_crm_constituents SET profile=? WHERE id=?').run(JSON.stringify(profile), fixture.contact)
+  const finance = new FinanceRepository(fixture.db, 1)
+  const fund = String((await finance.createFund({ site: 'default', name: 'Contacts list fund', operationKey: key() })).id)
+  const gift = await finance.createGift({ site: 'default', constituent: fixture.contact, amount: { currency: 'USD', minorUnits: '12500' }, exponent: 2, kind: 'cash', receivedOn: '2026-10-20', allocations: [{ fund, currency: 'USD', minorUnits: '12500' }], operationKey: key() })
+  await finance.adjust({ site: 'default', id: String(gift.id), expectedRevision: 1, action: 'refund', deltaMinor: '-2500', reason: 'Partial refund', operationKey: key() })
+  const activity = key()
+  fixture.sqlite.prepare("INSERT INTO vc_crm_volunteer_activities(id,site_id,name,starts_on,ends_on) VALUES(?,'default','Food drive','2026-10-20','2026-10-20')").run(activity)
+  fixture.sqlite.prepare("INSERT INTO vc_crm_volunteer_participation(id,activity_id,constituent_id,state) VALUES(?,?,?,'attended')").run(key(), activity, fixture.contact)
+  fixture.sqlite.prepare("INSERT INTO vc_crm_volunteer_hours(id,activity_id,constituent_id,occurred_on,minutes,state,created_by,created_at) VALUES(?,?,?,'2026-10-20',90,'approved',1,'2026-10-20T00:00:00Z')").run(key(), activity, fixture.contact)
+  fixture.sqlite.prepare("INSERT INTO vc_crm_volunteer_hours(id,activity_id,constituent_id,occurred_on,minutes,state,created_by,created_at) VALUES(?,?,?,'2026-10-20',45,'submitted',1,'2026-10-20T00:00:00Z')").run(key(), activity, fixture.contact)
+  const item = (await new ContactRepository(fixture.db, 1).list({ site: 'default', kind: 'person' })).docs[0]
+  expect(item.primaryEmail).toBe('primary@example.org')
+  expect(item.primaryPhone).toBe('+15551234567')
+  expect(item.contributions).toEqual([{ currency: 'USD', exponent: 2, minorUnits: '10000' }])
+  expect(item.volunteerMinutes).toBe('90')
+  const authority = new OrganizationRepository(fixture.db, 1)
+  const revision = () => Number(fixture.sqlite.prepare("SELECT revision FROM vc_sites WHERE id='default'").get()!.revision)
+  await authority.setMembership({ site: 'default', user: 2, role: 'reader', active: true, expectedRevision: revision(), operationKey: key() })
+  await authority.setRestrictions({ site: 'default', user: 2, denied: [{ category: 'finances', operation: 'read' }, { category: 'volunteer-hours', operation: 'read' }], expectedRevision: revision(), operationKey: key() })
+  const restricted = (await new ContactRepository(fixture.db, 2).list({ site: 'default', kind: 'person' })).docs[0]
+  expect(restricted.primaryEmail).toBe('primary@example.org')
+  expect(restricted.contributions).toBeNull()
+  expect(restricted.volunteerMinutes).toBeNull()
 })

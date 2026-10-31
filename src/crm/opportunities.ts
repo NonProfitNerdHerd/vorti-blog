@@ -271,6 +271,7 @@ export class OpportunityRepository {
     contact?: string
     after?: string
     dueThrough?: string
+    openOnly?: boolean
     owner?: number
     archived?: boolean
   }) {
@@ -296,6 +297,7 @@ export class OpportunityRepository {
       clauses.push('o.next_on<=?')
       params.push(givingDate(input.dueThrough))
     }
+    if (input.openOnly) clauses.push("EXISTS(SELECT 1 FROM vc_crm_opportunity_stages due_stage WHERE due_stage.id=o.stage_id AND due_stage.outcome='open')")
     const where = clauses.join(' AND ')
     const rows = await this.db
       .prepare(

@@ -66,13 +66,15 @@ export function TenantSettingsHub({
     [message, setMessage] = useState('')
   const [origins, setOrigins] = useState(''),
     [savedOrigins, setSavedOrigins] = useState(''),
+    [fiscalYearStart, setFiscalYearStart] = useState('01-01'),
+    [savedFiscalYearStart, setSavedFiscalYearStart] = useState('01-01'),
     [tenantRevision, setTenantRevision] = useState<number | null>(null)
   const [websiteDirty, setWebsiteDirty] = useState(false)
   const dirty =
     websiteDirty ||
     JSON.stringify(form) !== baseline ||
     (!!role && JSON.stringify(role) !== roleBaseline) ||
-    origins !== savedOrigins
+    origins !== savedOrigins || fiscalYearStart !== savedFiscalYearStart
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
   useEffect(() => {
@@ -90,6 +92,9 @@ export function TenantSettingsHub({
         const text = (value.settings.workspaceEmbedOrigins as string[]).join('\n')
         setOrigins(text)
         setSavedOrigins(text)
+        const fiscal = String(value.settings.fiscalYearStart || '01-01')
+        setFiscalYearStart(fiscal)
+        setSavedFiscalYearStart(fiscal)
         setTenantRevision(value.revision)
       })
       .catch((cause) => {
@@ -383,6 +388,7 @@ export function TenantSettingsHub({
                       .split(/\r?\n/)
                       .map((value) => value.trim())
                       .filter(Boolean),
+                    fiscalYearStart,
                   },
                   expectedRevision: tenantRevision,
                 })
@@ -390,8 +396,11 @@ export function TenantSettingsHub({
                   const value = (result.settings.workspaceEmbedOrigins as string[]).join('\n')
                   setOrigins(value)
                   setSavedOrigins(value)
+                  const fiscal = String(result.settings.fiscalYearStart || '01-01')
+                  setFiscalYearStart(fiscal)
+                  setSavedFiscalYearStart(fiscal)
                   setTenantRevision(result.revision)
-                  setMessage('Tenant embed origins saved.')
+                  setMessage('Tenant settings saved.')
                 }
               }}
             >
@@ -406,7 +415,18 @@ export function TenantSettingsHub({
                   rows={4}
                 />
               </label>
-              <button type="submit" disabled={busy || origins === savedOrigins}>
+              <label className="settings-hub__field">
+                Fiscal year starts
+                <span>
+                  <select aria-label="Fiscal year start month" value={fiscalYearStart.slice(0, 2)} onChange={(event) => { const month = event.target.value; const day = Math.min(Number(fiscalYearStart.slice(3)), new Date(2025, Number(month), 0).getDate()); setFiscalYearStart(`${month}-${String(day).padStart(2, '0')}`) }} disabled={busy}>
+                    {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((month) => <option key={month} value={month}>{new Intl.DateTimeFormat('en-US', { month: 'long', timeZone: 'UTC' }).format(new Date(`2025-${month}-01T00:00:00Z`))}</option>)}
+                  </select>{' '}
+                  <select aria-label="Fiscal year start day" value={fiscalYearStart.slice(3)} onChange={(event) => setFiscalYearStart(`${fiscalYearStart.slice(0, 2)}-${event.target.value}`)} disabled={busy}>
+                    {Array.from({ length: new Date(2025, Number(fiscalYearStart.slice(0, 2)), 0).getDate() }, (_, index) => String(index + 1).padStart(2, '0')).map((day) => <option key={day} value={day}>{Number(day)}</option>)}
+                  </select>
+                </span>
+              </label>
+              <button type="submit" disabled={busy || (origins === savedOrigins && fiscalYearStart === savedFiscalYearStart)}>
                 Save tenant settings
               </button>
             </form>

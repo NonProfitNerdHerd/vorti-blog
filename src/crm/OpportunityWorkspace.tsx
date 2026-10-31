@@ -7,6 +7,7 @@ import { ClassificationPicker } from './ClassificationPicker'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { parseMoney } from './money'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useSearchParams } from 'next/navigation'
 import {
   opportunityOutcomes,
   type Opportunity,
@@ -65,6 +66,8 @@ export function OpportunityWorkspace({
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
+  const params = useSearchParams()
+  const fromOverview = params.get('openOnly') === 'true'
   const [pipelines, setPipelines] = useState<OpportunityPipeline[]>([]),
     [stages, setStages] = useState<OpportunityStage[]>([]),
     [pipeline, setPipeline] = useState(''),
@@ -75,7 +78,8 @@ export function OpportunityWorkspace({
     [total, setTotal] = useState(0),
     [mode, setMode] = useState<'list' | 'pipeline'>('list'),
     [archived, setArchived] = useState(false),
-    [due, setDue] = useState(''),
+    [due, setDue] = useState(fromOverview ? params.get('dueThrough') || new Date().toISOString().slice(0, 10) : ''),
+    [openOnly, setOpenOnly] = useState(fromOverview),
     [canEdit, setCanEdit] = useState(false),
     [canConfigure, setCanConfigure] = useState(false)
   const [editor, setEditor] = useState<Opportunity | 'new' | null>(null),
@@ -171,6 +175,7 @@ export function OpportunityWorkspace({
         archived: String(archived),
         ...(contact ? { contact } : {}),
         ...(due ? { dueThrough: due } : {}),
+        ...(openOnly ? { openOnly: 'true' } : {}),
       })
       const [list, stagePage] = await Promise.all([
         crmRead<Awaited<ReturnType<OpportunityRepository['list']>>>(
@@ -191,7 +196,7 @@ export function OpportunityWorkspace({
       setTotal(list.total)
       setStages(stagePage.docs)
       setError('')
-      if (!pipeline && all.length) setPipeline(all[0].id)
+      if (!pipeline && all.length && !openOnly) setPipeline(all[0].id)
     } catch (cause) {
       if (version === generation.current) {
         setDocs([])
@@ -213,7 +218,7 @@ export function OpportunityWorkspace({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload is the deliberate successful-mutation refresh signal.
-  }, [api, site, pipeline, stage, after, archived, contact, due, reload])
+  }, [api, site, pipeline, stage, after, archived, contact, due, openOnly, reload])
   useEffect(() => {
     void load()
     return () => {
@@ -523,10 +528,12 @@ export function OpportunityWorkspace({
               value={due}
               onChange={(e) => {
                 setDue(e.target.value)
+                if (!e.target.value) setOpenOnly(false)
                 setAfter('')
               }}
             />
           </label>
+          {openOnly && <button type="button" onClick={() => { setOpenOnly(false); setDue(''); setAfter('') }}>Clear due follow-ups filter</button>}
           <label>
             <input
               type="checkbox"
