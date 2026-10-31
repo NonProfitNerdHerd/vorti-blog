@@ -1,6 +1,6 @@
 import type { PayloadRequest, Where } from 'payload'
 import { authorityClaim } from '../organizations/claims'
-import { crmRecordRulesV1 } from './record-context-v1'
+import { crmRecordRulesV3 } from './record-context-v3'
 export const crmTaskInternalRead = Symbol.for('vorticause.server-crm-task-read')
 export function crmTaskInternalReadAllowed(req: PayloadRequest) {
   return (req.context as Record<PropertyKey, unknown>)[crmTaskInternalRead] === true
@@ -26,7 +26,7 @@ export function crmTaskWhere(
     claim = authorityClaim(req.user),
     operation = permission === 'read' ? 'read' : 'edit'
   const categories = [
-    ...new Set(Object.values(crmRecordRulesV1).map((rule) => rule.category)),
+    ...new Set(Object.values(crmRecordRulesV3).map((rule) => rule.category)),
   ].filter(
     (category) =>
       claim?.allowed[category]?.includes('read') && claim.allowed[category]?.includes(operation),
@@ -39,6 +39,11 @@ export function crmTaskWhere(
           and: [
             { [`${prefix}crmContext.site`]: { equals: claim.site } },
             { [`${prefix}crmContext.category`]: { in: categories } },
+            ...(!claim.allowed.finances?.includes('read') || !claim.allowed.finances?.includes(operation) ? [{ [`${prefix}crmContext.financial`]: { equals: 0 } }] : []),
+            ...(!claim.allowed.memberships?.includes('read') || !claim.allowed.memberships?.includes(operation) ? [{ [`${prefix}crmContext.membership`]: { equals: 0 } }] : []),
+            ...(!claim.allowed['restricted-activity']?.includes('read') ? [{ [`${prefix}crmContext.restricted`]: { equals: 0 } }] : []),
+            ...(!claim.allowed.communications?.includes('read') || !claim.allowed.communications?.includes(operation) ? [{ [`${prefix}crmContext.communications`]: { equals: 0 } }] : []),
+            { or: [{ [`${prefix}crmContext.owner`]: { exists: false } }, { [`${prefix}crmContext.owner`]: { equals: claim.actor } }] },
           ],
         }
       : { id: { equals: -1 } }

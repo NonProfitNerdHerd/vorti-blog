@@ -1,4 +1,5 @@
 'use client'
+import { RecordTaskLink } from './RecordTaskLink'
 /* eslint-disable react-hooks/set-state-in-effect -- Resolve explicit batch contexts and resumable processing state. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
@@ -379,6 +380,7 @@ function Batches({ api, site, onDirty, onSaving, onHistory }: Props) {
           {page && (
             <section aria-label="Correspondence batch details">
               <h4>{page.doc.name}</h4>
+              <RecordTaskLink site={site} link={{ type: 'correspondence-batch', id: page.doc.id }} label="Follow-up tasks" />
               <p>
                 Template: {page.doc.templateName} ({page.doc.config.kind.replaceAll('-', ' ')}).
                 Issue date: {page.doc.config.issuedOn}. Issuer: {page.doc.config.issuerName}.

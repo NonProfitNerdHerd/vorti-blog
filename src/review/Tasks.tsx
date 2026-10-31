@@ -23,6 +23,8 @@ import { WorkspaceProjects } from './WorkspaceProjects'
 import { WorkspaceHome } from './WorkspaceHome'
 import { taskFeedback } from './WorkspaceFeedback'
 import { useSearchParams } from 'next/navigation'
+import { useAdminSite } from '../organizations/AdminSiteProvider'
+import { CRMTaskSourcePicker, crmTaskSourceHref, crmTaskSourceLabel, type CRMTaskSource } from './CRMTaskSourcePicker'
 import './workspace.css'
 
 type Person = { id: number; label: string }
@@ -88,6 +90,7 @@ export function Tasks({
     },
   } = useConfig()
   const { user } = useAuth()
+  const { binding } = useAdminSite()
   const params = useSearchParams()
   const workspace = params.get('workspace')
   const requestedTask = params.get('task')
@@ -475,17 +478,37 @@ export function Tasks({
               busy={busy}
               api={api}
               boardID={boardID}
+              site={binding?.site.id || ''}
               initialSection={createSection}
               onDirty={(value) => {
                 taskDirty.current = value
               }}
               save={async (data) => {
-                const result = await reviewAPI<{ doc: Task }>(
-                  api,
-                  selected ? `review-tasks/${selected.id}` : 'task-workspace/create',
-                  selected ? 'PATCH' : 'POST',
-                  data,
-                )
+                const source = !selected && !parent ? (data as { crmSource?: CRMTaskSource }).crmSource : undefined
+                const result = source
+                  ? await (async () => {
+                    const created = await reviewAPI<{ doc: { id: number } }>(api, 'crm/tasks', 'POST', {
+                      action: 'create', site: source.site, type: source.type, id: source.id,
+                      expectedRevision: source.revision, expectedAuthorityRevision: source.authorityRevision,
+                      operationKey: (data as { clientRequestKey?: string }).clientRequestKey || crypto.randomUUID(),
+                      title: (data as { title: string }).title, description: (data as { description?: string }).description,
+                      assignee: (data as { assignee?: number | null }).assignee,
+                      dueOn: String((data as { dueDate?: string | null }).dueDate || '').slice(0, 10),
+                    })
+                    const linked = await reviewAPI<Task>(api, `review-tasks/${created.doc.id}?depth=0`)
+                    const fields = data as { status?: string; priority?: string; startDate?: string | null; milestone?: boolean; collaborators?: number[]; mentions?: Mention[] }
+                    return await reviewAPI<{ doc: Task }>(api, `review-tasks/${created.doc.id}`, 'PATCH', {
+                      expectedUpdatedAt: linked.updatedAt,
+                      status: fields.status || 'open', priority: fields.priority || 'normal',
+                      startDate: fields.startDate || null, milestone: !!fields.milestone,
+                      collaborators: fields.collaborators || [], mentions: fields.mentions || [],
+                    })
+                  })()
+                  : await reviewAPI<{ doc: Task }>(
+                    api,
+                    selected ? `review-tasks/${selected.id}` : 'task-workspace/create',
+                    selected ? 'PATCH' : 'POST', data,
+                  )
                 setSelected(result.doc)
                 const url = new URL(location.href)
                 url.searchParams.set('task', String(result.doc.id))
@@ -523,6 +546,8 @@ export function Tasks({
                           ? ` · ${selected.region}`
                           : ''}
                       </>
+                    ) : selected.crmType ? (
+                      <>VortiCause · {crmTaskSourceLabel(selected.crmType)} · {selected.crmSite}</>
                     ) : selected.personal ? (
                       'Personal task'
                     ) : (
@@ -538,6 +563,7 @@ export function Tasks({
                       Open document
                     </button>
                   )}
+                  {selected.crmType && selected.crmSite && selected.crmID && <a href={crmTaskSourceHref(admin, selected.crmSite, selected.crmType, selected.crmID)} target="_blank" rel="noopener noreferrer">Open in VortiCause</a>}
                   {selected.parent && (
                     <button
                       type="button"
@@ -982,6 +1008,7 @@ function TaskEditor({
   save,
   api,
   boardID,
+  site,
   onDirty,
   initialSection,
   tab,
@@ -1000,6 +1027,7 @@ function TaskEditor({
   save: (data: object) => Promise<Task>
   api: string
   boardID?: string
+  site: string
   onDirty: (dirty: boolean) => void
   initialSection?: number
   tab: string
@@ -1013,6 +1041,7 @@ function TaskEditor({
   const [title, setTitle] = useState(task?.title ?? ''),
     [description, setDescription] = useState(task?.description ?? '')
   const [mentions, setMentions] = useState<Mention[]>(task?.mentions ?? [])
+  const [crmSource, setCRMSource] = useState<CRMTaskSource | null>(null)
   const [status, setStatus] = useState(task?.status ?? 'open'),
     [priority, setPriority] = useState(task?.priority ?? 'normal')
   const [assignee, setAssignee] = useState(String(task?.assignee ?? '')),
@@ -1021,6 +1050,7 @@ function TaskEditor({
   const [startDate, setStartDate] = useState(task?.startDate?.slice(0, 10) ?? ''),
     [milestone, setMilestone] = useState(!!task?.milestone)
   const dirty =
+    !!crmSource ||
     title.trim() !== (task?.title ?? '') ||
     description !== (task?.description ?? '') ||
     JSON.stringify(mentions) !== JSON.stringify(task?.mentions ?? []) ||
@@ -1068,6 +1098,7 @@ function TaskEditor({
     dueDate: date ? `${date}T12:00:00.000Z` : null,
     startDate: startDate ? `${startDate}T12:00:00.000Z` : null,
     milestone,
+    ...(!task && !parent && crmSource ? { crmSource } : {}),
     ...(!task
       ? {
           initialBoard: !parent && boardID ? Number(boardID) : undefined,
@@ -1234,6 +1265,7 @@ function TaskEditor({
         hidden={tab !== 'default'}
         className="task-detail-fields"
       >
+        {!task && !parent && !owner && !boardID && site && <CRMTaskSourcePicker api={api} site={site} value={crmSource} onChange={setCRMSource} />}
         <label>
           Status
           <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>

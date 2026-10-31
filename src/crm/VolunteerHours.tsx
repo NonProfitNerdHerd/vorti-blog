@@ -1,4 +1,5 @@
 'use client'
+import { RecordTaskLink } from './RecordTaskLink'
 import { useEffect, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import { useVolunteerGuard, useVolunteerIO } from './useVolunteerIO'
@@ -186,6 +187,7 @@ export function VolunteerHours({
                 {d.review_reason ? `: ${d.review_reason}` : ''}
               </td>
               <td>
+                <RecordTaskLink site={site} link={{ type: 'volunteer-hours', id: d.id }} />{' '}
                 {canEdit && (
                   <button
                     type="button"

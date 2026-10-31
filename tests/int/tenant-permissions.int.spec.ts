@@ -147,8 +147,10 @@ describe('tenant permissions', () => {
       controllingScope: 'root',
       configured: 'inherit',
     })
+    expect(effectiveFeature(p, 'child', 'crm').available).toBe(false)
     p.overrides.push({ site: 'child', feature: 'tasks', value: 'enabled' })
     expect(effectiveFeature(p, 'child', 'tasks').available).toBe(true)
+    expect(effectiveFeature(p, 'child', 'crm').available).toBe(true)
     p.available.tasks = false
     expect(effectiveFeature(p, 'child', 'tasks')).toMatchObject({
       available: false,

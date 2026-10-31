@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { query, reviewAPI, statuses, type Task } from './client'
 import { taskDocumentLink } from './links'
+import { crmTaskSourceHref, crmTaskSourceLabel } from './CRMTaskSourcePicker'
 import {
   defaultTaskFilters,
   localTaskDay,
@@ -445,10 +446,10 @@ export function TaskDashboard({
                       {task.title}
                     </button>
                     <span className="task-dashboard__document">
-                      {task.documentDeleted
+                      {task.crmType ? `VortiCause · ${crmTaskSourceLabel(task.crmType)} · ${task.crmSite}` : task.documentDeleted
                         ? 'Document unavailable'
                         : task.documentTitle || task.documentID}{' '}
-                      · {documentNames[task.documentType] ?? 'Document'}
+                      {!task.crmType && <>· {documentNames[task.documentType] ?? 'Document'}</>}
                       {task.parent ? ' · Subtask' : ''}
                     </span>
                   </td>
@@ -477,7 +478,9 @@ export function TaskDashboard({
                     )}
                   </td>
                   <td>
-                    {task.documentDeleted ||
+                    {task.crmType && task.crmSite && task.crmID ? (
+                      <a className="task-dashboard__document-link" href={crmTaskSourceHref(admin, task.crmSite, task.crmType, task.crmID)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${crmTaskSourceLabel(task.crmType)} in VortiCause`} title="Open in VortiCause"><TaskIcon name="external" /></a>
+                    ) : task.documentDeleted ||
                     task.documentRestricted ||
                     !task.documentType ||
                     !task.documentID ? (

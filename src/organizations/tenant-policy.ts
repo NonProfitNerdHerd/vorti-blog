@@ -190,6 +190,8 @@ export function effectiveFeature(
   configured: FeatureOverride
   locked: boolean
 } {
+  if (feature === 'crm' && !effectiveFeature(policy, site, 'tasks').available)
+    return { available: false, controllingScope: site, configured: policy.overrides.find((entry) => entry.site === site && entry.feature === 'crm')?.value ?? 'inherit', locked: !policy.available.crm }
   const path = sitePath(policy.sites, site)
   if (path.some((node) => node.organization !== policy.tenant || node.archived))
     throw Error('Site unavailable.')

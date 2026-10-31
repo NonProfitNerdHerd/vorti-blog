@@ -1,4 +1,5 @@
 'use client'
+import { RecordActions } from './RecordActions'
 import { useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead } from './HouseholdWorkspace'
 import { ContactActivities } from './ContactActivities'
@@ -253,6 +254,7 @@ export function VolunteerProfiles({
       {editor && (
         <section aria-label="Volunteer profile editor">
           <h4>{editor === 'new' ? 'New volunteer profile' : editor.doc.label}</h4>
+          {editor !== 'new' && <RecordActions site={site} link={{ type: 'contact', id: editor.doc.constituent_id }} />}
           {editor !== 'new' && canEdit && !editing && <button type="button" onClick={() => setEditing(true)}>Edit volunteer profile</button>}
           {editing && <CRMEditorDialog title={editor === 'new' ? 'New volunteer profile' : `Edit ${editor.doc.label}`} onDismiss={() => {
             if (!discard()) return

@@ -546,6 +546,18 @@ export class TenantRepository {
       })
     )
       throw new TenantPermissionError()
+    if (input.feature === 'tasks' && (input.value === false || input.value === 'disabled')) {
+      const affects = input.site === null ? snapshot.features.available.crm : snapshot.features.sites.some((node) => {
+        let current = node
+        while (current && current.id !== input.site && current.parent) {
+          const parent = snapshot.features.sites.find((site) => site.id === current.parent)
+          if (!parent) break
+          current = parent
+        }
+        return current.id === input.site && effectiveFeature(snapshot.features, node.id, 'crm').available
+      })
+      if (affects) throw new TenantPermissionError()
+    }
     const statement =
       input.site === null
         ? this.db
@@ -560,6 +572,17 @@ export class TenantRepository {
         DO UPDATE SET value=excluded.value,revision=vc_site_features.revision+1`,
             )
             .bind(input.site, input.feature, String(input.value))
+    const enablingCRM = input.feature === 'crm' && (input.value === true || input.value === 'enabled')
+    if (enablingCRM && input.site !== null && !snapshot.features.available.tasks &&
+      !canDelegate(snapshot.policy, { site: null, descendants: false, permissions: ['administration:features'] }))
+      throw new TenantPermissionError()
+    const statements = [statement]
+    if (enablingCRM) {
+      if (input.site === null || !snapshot.features.available.tasks)
+        statements.push(this.db.prepare(`INSERT INTO vc_tenant_features(tenant_id,feature,available) VALUES(?,'tasks',1) ON CONFLICT(tenant_id,feature) DO UPDATE SET available=1,revision=vc_tenant_features.revision+1`).bind(snapshot.policy.tenant))
+      if (input.site !== null)
+        statements.push(this.db.prepare(`INSERT INTO vc_site_features(site_id,feature,value) VALUES(?,'tasks','enabled') ON CONFLICT(site_id,feature) DO UPDATE SET value='enabled',revision=vc_site_features.revision+1`).bind(input.site))
+    }
     return this.mutate({
       tenant: snapshot.policy.tenant,
       revision: snapshot.revision,
@@ -567,7 +590,7 @@ export class TenantRepository {
       action: 'feature.configured',
       record: `${input.site ?? snapshot.policy.tenant}:${input.feature}`,
       value: { configured: input.value },
-      statements: [statement],
+      statements,
     })
   }
 

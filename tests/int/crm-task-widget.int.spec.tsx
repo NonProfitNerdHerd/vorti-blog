@@ -235,7 +235,7 @@ it('retains the same submitted intent and key after a lost reply and source refr
   expect(patches).toEqual([
     { site: 'default', data: { status: 'done', expectedUpdatedAt: '2026-10-25T12:00:00.000Z' } },
   ])
-  fireEvent.change(screen.getByLabelText('Task status'), { target: { value: 'completed' } })
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'completed' } })
   await screen.findByRole('link', { name: 'Call fictional donor' })
 })
 it('clears cached Task titles, assignees and drafts after a denied mutation', async () => {

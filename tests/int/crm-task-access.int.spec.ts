@@ -187,6 +187,13 @@ it('intersects native audiences with current CRM capabilities even for operators
             and: [
               { 'task.crmContext.site': { equals: 'default' } },
               { 'task.crmContext.category': { in: ['communications'] } },
+              { 'task.crmContext.financial': { equals: 0 } },
+              { 'task.crmContext.membership': { equals: 0 } },
+              { 'task.crmContext.restricted': { equals: 0 } },
+              { or: [
+                { 'task.crmContext.owner': { exists: false } },
+                { 'task.crmContext.owner': { equals: 1 } },
+              ] },
             ],
           },
         ],

@@ -1,4 +1,5 @@
 'use client'
+import { RecordTaskLink } from './RecordTaskLink'
 import { useEffect, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import { useVolunteerGuard, useVolunteerIO } from './useVolunteerIO'
@@ -197,6 +198,7 @@ export function VolunteerInvitations({
                     {d.response_notes && <p>{d.response_notes}</p>}
                   </td>
                   <td>
+                    <RecordTaskLink site={site} link={{ type: 'volunteer-invitation', id: d.id }} />{' '}
                     {canRespond && (
                       <button
                         type="button"

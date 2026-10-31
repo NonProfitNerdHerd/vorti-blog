@@ -435,6 +435,7 @@ export function TenantSettingsHub({
             <>
               <p>
                 Disabling a feature preserves its data. Tenant availability limits site overrides.
+                {' '}VortiCause requires VortiTasks. Enabling VortiCause enables VortiTasks at the same scope.
               </p>
               <table className="system-settings-table">
                 <thead>
@@ -469,7 +470,7 @@ export function TenantSettingsHub({
                         >
                           <option value="inherit">Inherit</option>
                           <option value="enabled">Enabled</option>
-                          <option value="disabled">Disabled</option>
+                          <option value="disabled" disabled={feature.feature === 'tasks' && features.find(item => item.feature === 'crm')?.available}>Disabled</option>
                         </select>
                         {feature.locked && <p>Disabled by the tenant. A site cannot enable it.</p>}
                       </td>
@@ -484,7 +485,7 @@ export function TenantSettingsHub({
                             type="checkbox"
                             aria-label={`${feature.feature} tenant availability`}
                             checked={feature.tenantAvailable}
-                            disabled={busy}
+                            disabled={busy || (feature.feature === 'tasks' && !!features.find(item => item.feature === 'crm')?.tenantAvailable)}
                             onChange={async (event) => {
                               if (
                                 await post({

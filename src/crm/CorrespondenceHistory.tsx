@@ -1,4 +1,5 @@
 'use client'
+import { RecordTaskLink } from './RecordTaskLink'
 /* eslint-disable react-hooks/set-state-in-effect -- Fetch the explicit authorized history context. */
 import { useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
@@ -217,6 +218,7 @@ function DocumentHistory({
       {detail && (
         <section aria-label="Issued document">
           <h3>{detail.subject}</h3>
+          <RecordTaskLink site={site} link={{ type: 'correspondence-document', id: detail.id }} label="Follow-up tasks" />
           <p>
             Document {detail.id} · {detail.issued_on}
           </p>

@@ -73,12 +73,13 @@ export async function reviewAPI<T>(
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   })
-  const data = (await response.json()) as T & { errors?: { message?: string }[]; error?: string }
+  const data = (await response.json()) as T & { errors?: { message?: string }[]; error?: string; message?: string }
   if (!response.ok)
     throw Object.assign(
       new Error(
         data.errors?.[0]?.message ||
           data.error ||
+          data.message ||
           'Could not save review changes. Please try again.',
       ),
       { status: response.status },

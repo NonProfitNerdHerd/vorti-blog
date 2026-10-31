@@ -42,6 +42,7 @@ export async function featureAvailableAt(
   site: string,
   feature: ApplicationFeature,
 ): Promise<boolean> {
+  if (feature === 'crm' && !(await featureAvailableAt(db, site, 'tasks'))) return false
   if (!(await tenantAuthorityActive(db, site))) return true
   const row = await db
     .prepare(

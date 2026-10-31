@@ -2,11 +2,25 @@ import type { Endpoint } from 'payload'
 import { readBoundedJSON } from '../forms/security'
 import { crmRecordLink } from './record-model'
 import { CRMTasks } from './tasks'
+import { crmTaskRecordPicker } from './task-record-picker'
 export function crmTaskEndpoints(
   db: D1Database,
   errorResponse: (error: unknown) => Response,
 ): Endpoint[] {
   return [
+    {
+      path: '/crm/tasks/records',
+      method: 'get',
+      handler: async (req) => {
+        if (!req.user || req.user.collection !== 'users')
+          return Response.json({ message: 'Sign in to use CRM.' }, { status: 401 })
+        try {
+          const params = new URL(req.url!).searchParams
+          const result = await crmTaskRecordPicker(db, Number(req.user.id), params.get('site') || '', params.get('type'), params.get('search') || '')
+          return Response.json(result, { headers: { 'Cache-Control': 'private, no-store' } })
+        } catch (error) { return errorResponse(error) }
+      },
+    },
     {
       path: '/crm/tasks',
       method: 'get',

@@ -9,6 +9,13 @@ export const crmRecordTypes = [
   'volunteer-activity',
   'campaign',
   'appeal',
+  'fund',
+  'volunteer-invitation',
+  'volunteer-participation',
+  'volunteer-hours',
+  'correspondence-document',
+  'correspondence-batch',
+  'import-run',
 ] as const
 export type CRMRecordType = (typeof crmRecordTypes)[number]
 export type CRMRecordLink = { type: CRMRecordType; id: string }

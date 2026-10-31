@@ -271,7 +271,6 @@ export function RecordTasks({
     <section className="vc-crm-domain vc-crm-record-layout" aria-label="CRM follow-up tasks">
       <div className="vc-crm-record-main">
       <div className="vc-crm-toolbar">
-        <h3>Tasks</h3>
         <button type="button" disabled={saving} onClick={() => setRefresh((value) => value + 1)}>
           Refresh tasks
         </button>
@@ -291,7 +290,7 @@ export function RecordTasks({
           </button>
         )}
       </div>
-      <p>Follow-up work linked to this contact. Open a task to manage it in the Tasks workspace.</p>
+      <p>Follow-up work linked to {result?.record.label || 'this VortiCause record'}. Open a task to manage it in VortiTasks.</p>
       {error && <p role="alert">{error}</p>}
       {creating && (
         <fieldset disabled={saving}>

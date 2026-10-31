@@ -1,5 +1,6 @@
 'use client'
 import { RecordActions } from './RecordActions'
+import { RecordTaskLink } from './RecordTaskLink'
 import { useEffect, useRef, useState } from 'react'
 import { ContactPicker, crmRead } from './HouseholdWorkspace'
 import { VolunteerHours } from './VolunteerHours'
@@ -466,6 +467,7 @@ export function VolunteerActivities({
                           <td>{p.state}</td>
                           <td>{p.notes}</td>
                           <td>
+                            <RecordTaskLink site={site} link={{ type: 'volunteer-participation', id: p.id }} />{' '}
                             {editor.canEdit && (
                               <button
                                 type="button"

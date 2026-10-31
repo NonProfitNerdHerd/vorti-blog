@@ -33,7 +33,7 @@ function RecordFollowUps({ site, type, id }: Parameters<typeof RecordTaskPage>[0
   }
   return (
     <Gutter className="vc-crm">
-      <h1>Record follow-up tasks</h1>
+      <h1>{type === 'contact' ? 'Contact' : type?.replaceAll('-', ' ')} tasks</h1>
       <p>
         This tab is pinned to the record and chapter in its address. Your original editor remains
         open.

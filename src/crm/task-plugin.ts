@@ -19,6 +19,11 @@ const context: CollectionConfig = {
     { name: 'task', type: 'relationship', relationTo: 'review-tasks', required: true },
     { name: 'site', type: 'text' },
     { name: 'category', type: 'text' },
+    { name: 'financial', type: 'number' },
+    { name: 'membership', type: 'number' },
+    { name: 'restricted', type: 'number' },
+    { name: 'communications', type: 'number' },
+    { name: 'owner', type: 'number' },
   ],
   hooks: {
     beforeChange: [

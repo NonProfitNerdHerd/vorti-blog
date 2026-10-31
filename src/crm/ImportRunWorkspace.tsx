@@ -1,4 +1,5 @@
 'use client'
+import { RecordTaskLink } from './RecordTaskLink'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { crmRead } from './HouseholdWorkspace'
 import { ImportSourcePreview } from './ImportSourcePreview'
@@ -154,6 +155,7 @@ function RunWorkspace({ api, site, id, onDirty, onSaving, onDenied }: Props) {
   return (
     <section aria-label="Import run">
       <h2>{doc.name}</h2>
+      <RecordTaskLink site={site} link={{ type: 'import-run', id: doc.id }} label="Follow-up tasks" />
       <p>
         {doc.file_name} · {doc.source_system}
       </p>
