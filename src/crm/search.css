@@ -1,3 +1,4 @@
+.app-header:has(.vc-header-search) { --theme-bg: #ffffff; --theme-text: #172d4b; --theme-elevation-50: #f5f8fb; --theme-elevation-150: #dce5ed; background: #ffffff; color: #172d4b; }
 .app-header:has(.vc-header-search) .app-header__step-nav-wrapper { display: none; }
 .app-header:has(.vc-header-search) .app-header__actions-wrapper { margin-left: 0; flex: 1; min-width: 0; }
 .app-header:has(.vc-header-search) .app-header__actions { width: 100%; min-width: 0; }

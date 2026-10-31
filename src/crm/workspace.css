@@ -316,6 +316,13 @@
   --vc-detail-accent-soft: #e7f5f8;
   --vc-detail-text: #172d4b;
   --vc-detail-surface: #ffffff;
+  --theme-text: #172d4b;
+  --theme-elevation-0: #ffffff;
+  --theme-elevation-50: #f5f8fb;
+  --theme-elevation-100: #edf4f8;
+  --theme-elevation-150: #e3ebf2;
+  --theme-elevation-200: #dce5ed;
+  --theme-elevation-250: #cad8e4;
   width: 100%;
   max-width: none;
   padding: 20px clamp(16px, 2vw, 32px) 40px;
@@ -388,7 +395,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.vc-crm-detail .vc-contact-button:hover:not(:disabled) { background: var(--theme-elevation-50); }
+.vc-crm-detail .vc-contact-button:hover:not(:disabled) { background: #edf6f8; }
 .vc-crm-detail .vc-contact-button--primary {
   border-color: var(--vc-detail-accent);
   background: var(--vc-detail-accent);
@@ -466,7 +473,7 @@
   font-size: .85rem;
   font-weight: 550;
 }
-.vc-crm-detail .vc-crm-detail-tabs button:hover { color: var(--theme-text); background: var(--theme-elevation-50); }
+.vc-crm-detail .vc-crm-detail-tabs button:hover { color: var(--vc-detail-text); background: #edf6f8; }
 .vc-crm-detail .vc-crm-detail-tabs button[aria-selected='true'] {
   box-shadow: inset 0 -3px 0 var(--vc-detail-accent);
   background: var(--vc-detail-accent-soft);
