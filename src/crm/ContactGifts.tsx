@@ -10,6 +10,7 @@ import { ContactPicker } from './HouseholdWorkspace'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useCurrencies } from './useCurrencies'
 
 type Page = { docs: GiftSummary[]; total: number; canEdit: boolean; canConfigure: boolean }
 type Detail = GiftSummary & {
@@ -49,6 +50,7 @@ export function ContactGifts({
   onSaving: (value: boolean) => void
 }) {
   const pathname = usePathname()
+  const currencySettings = useCurrencies(api, site)
   const [donor, setDonor] = useState(contact)
   const [page, setPage] = useState(1),
     [result, setResult] = useState<Page | null>(null),
@@ -65,6 +67,12 @@ export function ContactGifts({
     [currency, setCurrency] = useState('USD'),
     [exponent, setExponent] = useState(2),
     [kind, setKind] = useState<GiftKind>('cash')
+  useEffect(() => {
+    if (creating && !currencySettings.allowedCurrencies.includes(currency)) {
+      setCurrency(currencySettings.defaultCurrency)
+      setExponent(currencySettings.exponent(currencySettings.defaultCurrency))
+    }
+  }, [creating, currency, currencySettings])
   const [campaign, setCampaign] = useState(''),
     [appeal, setAppeal] = useState('')
   const [attributionDirty, setAttributionDirty] = useState(false)
@@ -130,6 +138,8 @@ export function ContactGifts({
     if (!autoCreate || !result?.canEdit || autoStarted.current) return
     autoStarted.current = true
     setCreating(true)
+    setCurrency(currencySettings.defaultCurrency)
+    setExponent(currencySettings.exponent(currencySettings.defaultCurrency))
     void loadFunds().catch((cause) => setError(cause.message))
   // The create intent is consumed once after the authorized list resolves.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -313,6 +323,8 @@ export function ContactGifts({
             disabled={saving || creating || !!detail}
             onClick={() => {
               setCreating(true)
+              setCurrency(currencySettings.defaultCurrency)
+              setExponent(currencySettings.exponent(currencySettings.defaultCurrency))
               setError('')
               void loadFunds().catch((cause) => setError(cause.message))
             }}
@@ -395,31 +407,10 @@ export function ContactGifts({
               }}
             />
           </label>
-          <label>
-            Currency (three-letter code)
-            <input
-              maxLength={3}
-              value={currency}
-              onChange={(event) => {
-                setCurrency(event.target.value.toUpperCase())
-                changed()
-              }}
-            />
-          </label>
-          <label>
-            Currency decimal places
-            <select
-              value={exponent}
-              onChange={(event) => {
-                setExponent(Number(event.target.value))
-                changed()
-              }}
-            >
-              {[0, 1, 2, 3, 4].map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
+          <label>Currency
+            <select value={currencySettings.allowedCurrencies.includes(currency) ? currency : currencySettings.defaultCurrency}
+              onChange={event => { setCurrency(event.target.value); setExponent(currencySettings.exponent(event.target.value)); changed() }}>
+              {currencySettings.allowedCurrencies.map(code => <option key={code} value={code}>{code}</option>)}
             </select>
           </label>
           <label>

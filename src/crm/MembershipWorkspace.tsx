@@ -11,13 +11,14 @@ import { parseMoney } from './money'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useCurrencies } from './useCurrencies'
 type Detail = Awaited<ReturnType<MembershipRepository['get']>>
 type Row = Awaited<ReturnType<MembershipRepository['list']>>['docs'][number]
 const emptyType = () => ({
   name: '',
   eligibility: 'person' as 'person' | 'household',
   termMonths: 12,
-  amount: '0.00',
+  amount: '0',
   currency: 'USD',
   exponent: 2,
   archived: false,
@@ -39,6 +40,7 @@ export function MembershipWorkspace({
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
+  const currencySettings = useCurrencies(api, site)
   const pathname = usePathname()
   const [types, setTypes] = useState<MembershipType[]>([]),
     [docs, setDocs] = useState<Row[]>([]),
@@ -52,6 +54,10 @@ export function MembershipWorkspace({
     [creating, setCreating] = useState(false),
     [typeEditor, setTypeEditor] = useState<MembershipType | 'new' | null>(null),
     [typeDraft, setTypeDraft] = useState(emptyType)
+  useEffect(() => {
+    if (typeEditor === 'new' && !currencySettings.allowedCurrencies.includes(typeDraft.currency))
+      setTypeDraft(value => ({ ...value, currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) }))
+  }, [typeEditor, typeDraft.currency, currencySettings])
   const [typeID, setTypeID] = useState(''),
     [person, setPerson] = useState(contact || ''),
     [household, setHousehold] = useState(''),
@@ -432,7 +438,7 @@ export function MembershipWorkspace({
             onClick={() => {
               if (discard()) {
                 setTypeEditor('new')
-                setTypeDraft(emptyType())
+                setTypeDraft({ ...emptyType(), currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) })
                 setCreating(false)
                 setDetail(null)
                 mark(false)
@@ -501,27 +507,12 @@ export function MembershipWorkspace({
           </label>
           <label>
             Dues currency
-            <input
-              maxLength={3}
-              value={typeDraft.currency}
-              onChange={(e) => {
-                setTypeDraft((d) => ({ ...d, currency: e.target.value.toUpperCase() }))
-                mark(true)
-              }}
-            />
-          </label>
-          <label>
-            Dues decimal places
-            <select
-              value={typeDraft.exponent}
-              onChange={(e) => {
-                setTypeDraft((d) => ({ ...d, exponent: Number(e.target.value) }))
-                mark(true)
-              }}
-            >
-              {[0, 1, 2, 3, 4].map((n) => (
-                <option key={n}>{n}</option>
-              ))}
+            <select value={typeDraft.currency} onChange={e => {
+              setTypeDraft(d => ({ ...d, currency: e.target.value, exponent: currencySettings.exponent(e.target.value) }))
+              mark(true)
+            }}>
+              {[...new Set([...currencySettings.allowedCurrencies, typeDraft.currency])].map(code =>
+                <option key={code} value={code}>{code}{!currencySettings.allowedCurrencies.includes(code) ? ' (historical)' : ''}</option>)}
             </select>
           </label>
           <label>

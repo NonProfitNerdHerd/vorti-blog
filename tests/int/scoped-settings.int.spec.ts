@@ -13,7 +13,7 @@ import {
 function fixture() {
   const f = localD1()
   f.sqlite.exec(
-    "CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT); INSERT INTO users VALUES(1,'administrator'); CREATE TABLE pages(id INTEGER PRIMARY KEY,platform_site TEXT,_status TEXT,slug TEXT)",
+    "CREATE TABLE users(id INTEGER PRIMARY KEY,role TEXT); INSERT INTO users VALUES(1,'administrator'); CREATE TABLE pages(id INTEGER PRIMARY KEY,platform_site TEXT,_status TEXT,slug TEXT,audience TEXT)",
   )
   for (const sql of [...organizationSchema, ...defaultOrganizationSeed, ...tenantSchemaV1])
     f.sqlite.exec(sql)
@@ -21,7 +21,7 @@ function fixture() {
     UPDATE vc_site_websites SET initialized=1,published=1 WHERE site_id='default';
     INSERT INTO vc_tenant_roles(id,tenant_id,name,builtin) VALUES('admin','default','Tenant Administrator','tenant-administrator');
     INSERT INTO vc_tenant_assignments(id,tenant_id,user_id,role_id,descendants) VALUES('admin','default',1,'admin',1);
-    INSERT INTO pages VALUES(1,'default','published','home'),(2,'elsewhere','published','foreign'),(3,'default','draft','draft'),(4,'default','published','wiki');`)
+    INSERT INTO pages VALUES(1,'default','published','home','public'),(2,'elsewhere','published','foreign','public'),(3,'default','draft','draft','public'),(4,'default','published','wiki','public');`)
   return { ...f, settings: new ScopedSettingsRepository(f.db, 1) }
 }
 describe('authoritative scoped settings', () => {
@@ -108,11 +108,12 @@ describe('authoritative scoped settings', () => {
         scope: 'tenant',
         expectedRevision: 0,
         operationKey: 'settings_tenant_12345',
-        settings: { workspaceEmbedOrigins: ['https://example.com'] },
+        settings: { workspaceEmbedOrigins: ['https://example.com'], allowedCurrencies: ['USD', 'JPY'], defaultCurrency: 'JPY' },
       })
       expect((await f.settings.read('default', 'tenant')).settings.workspaceEmbedOrigins).toEqual([
         'https://example.com',
       ])
+      expect((await f.settings.read('default', 'tenant')).settings.defaultCurrency).toBe('JPY')
       expect(
         (await publicScopedSiteSettings(f.db, 'default'))?.settings.workspaceEmbedOrigins,
       ).toBeUndefined()

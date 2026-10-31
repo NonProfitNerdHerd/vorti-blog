@@ -77,13 +77,13 @@ it('carries a saved phone note into a follow-up assigned to another staff member
     target: { value: 'Fictional donor requested a renewal call.' },
   })
   fireEvent.click(screen.getByRole('button', { name: 'Save and assign follow-up' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'New follow-up' }))
+  fireEvent.click(await screen.findByRole('button', { name: /Add task/ }))
   expect((screen.getByLabelText('Task title') as HTMLInputElement).value).toBe(
     'Fictional donor renewal',
   )
   await screen.findByRole('option', { name: 'Fictional other staff member' })
   fireEvent.change(screen.getByLabelText('Assign to'), { target: { value: '2' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create follow-up task' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
   await waitFor(() => expect(submissions).toHaveLength(1))
   expect(submissions[0]).toMatchObject({
     action: 'create',
@@ -208,20 +208,20 @@ it('retains the same submitted intent and key after a lost reply and source refr
     })
   })
   render(<RecordTasks {...props()} />)
-  fireEvent.click(await screen.findByRole('button', { name: 'New follow-up' }))
+  fireEvent.click(await screen.findByRole('button', { name: /Add task/ }))
   fireEvent.change(screen.getByLabelText('Task title'), {
     target: { value: 'Call fictional donor' },
   })
   await screen.findByRole('option', { name: 'Fictional staff member' })
   fireEvent.change(screen.getByLabelText('Assign to'), { target: { value: '2' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create follow-up task' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
   await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('lost response'))
   revision = 2
   epoch = 9
   fireEvent.click(screen.getByRole('button', { name: 'Refresh tasks' }))
   await screen.findByRole('link', { name: 'Call fictional donor' })
-  fireEvent.click(screen.getByRole('button', { name: 'Create follow-up task' }))
-  await waitFor(() => expect(screen.queryByText('Assign a follow-up')).toBeNull())
+  fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
+  await waitFor(() => expect(screen.queryByText('Add a task')).toBeNull())
   expect(posts).toHaveLength(2)
   expect(posts[1]).toEqual(posts[0])
   expect(posts[1].expectedRevision).toBe(1)
@@ -260,12 +260,12 @@ it('clears cached Task titles, assignees and drafts after a denied mutation', as
   })
   render(<RecordTasks {...input} />)
   await screen.findByRole('link', { name: 'Fictional existing private task' })
-  fireEvent.click(screen.getByRole('button', { name: 'New follow-up' }))
+  fireEvent.click(screen.getByRole('button', { name: /Add task/ }))
   fireEvent.change(screen.getByLabelText('Task title'), {
     target: { value: 'Fictional private draft' },
   })
   await screen.findByRole('option', { name: 'Fictional private assignee' })
-  fireEvent.click(screen.getByRole('button', { name: 'Create follow-up task' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create task' }))
   await waitFor(() =>
     expect(screen.getByRole('alert').textContent).toContain('permissions changed'),
   )

@@ -23,6 +23,7 @@ import type { EmailRuntime } from './email-provider'
 import { overviewEndpoints } from './overview-endpoints'
 import { crmTaskCollections } from './task-plugin'
 import { crmTaskEndpoints } from './task-endpoints'
+import { campaignBoardEndpoints } from './campaign-board-endpoints'
 import { importEndpoints } from './import-endpoints'
 import { importMappingEndpoints } from './import-mapping-endpoints'
 import { crmSearchEndpoints } from './search-endpoints'
@@ -214,6 +215,7 @@ export const crmModule =
         ...crmSearchEndpoints(platform.db, errorResponse),
         ...organizationContactEndpoints(platform.db, errorResponse),
         ...crmTaskEndpoints(platform.db, errorResponse),
+        ...campaignBoardEndpoints(platform.db, errorResponse),
         ...importEndpoints(
           { ...platform, wake: (job) => wakeCRMJob(platform.queue, job) },
           errorResponse,

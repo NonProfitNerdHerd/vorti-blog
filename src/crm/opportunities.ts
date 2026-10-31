@@ -2,6 +2,7 @@ import { OrganizationRepository, SiteAccessError } from '../organizations/reposi
 import { SiteConflictError } from '../organizations/atomic'
 import { commitCRM, replayCRM } from './mutations'
 import { assertMoney } from './money'
+import { assertConfiguredCurrency, assertHistoricalCurrencyPrecision, currencyConfigForSite } from './currency-config'
 import { givingDate } from './commitment-model'
 import {
   defaultOpportunityStages,
@@ -382,6 +383,10 @@ export class OpportunityRepository {
       campaign = v.campaign ? text(v.campaign, 100, true) : null,
       archived = v.archived === true ? 1 : 0
     assertMoney({ currency, minorUnits: amount ?? '0' })
+    if (!before || before.currency !== currency || before.exponent !== exponent) {
+      assertConfiguredCurrency(await currencyConfigForSite(this.db, input.site), currency, exponent)
+      await assertHistoricalCurrencyPrecision(this.db, input.site, currency, exponent)
+    }
     if (
       (amount !== null && BigInt(amount) < 0n) ||
       !Number.isInteger(exponent) ||

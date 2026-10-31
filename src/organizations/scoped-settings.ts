@@ -4,6 +4,7 @@ import { canDelegate } from './tenant-policy'
 import { websiteSettingSections, websiteReferences, websiteBooleans } from './website-fields'
 import { publicWebsite } from './public-website'
 import { cmsCollections } from './cms-collections'
+import { defaultCurrencyConfig, validateCurrencyConfig } from '../crm/currency-config'
 
 export const siteSettingDefaults = Object.freeze({
   siteName: 'VortiCause',
@@ -22,7 +23,7 @@ export const siteSettingDefaults = Object.freeze({
   intranetPrimaryMenu: null,
   intranetFooterMenu: null,
 })
-export const tenantSettingDefaults: { readonly workspaceEmbedOrigins: string[]; readonly fiscalYearStart: string } = Object.freeze({ workspaceEmbedOrigins: [] as string[], fiscalYearStart: '01-01' })
+export const tenantSettingDefaults: { readonly workspaceEmbedOrigins: string[]; readonly fiscalYearStart: string; readonly allowedCurrencies: string[]; readonly defaultCurrency: string } = Object.freeze({ workspaceEmbedOrigins: [] as string[], fiscalYearStart: '01-01', ...defaultCurrencyConfig })
 type Settings = Record<string, unknown>
 const siteKeys = new Set<string>([
   ...Object.values(websiteSettingSections).flat(),
@@ -85,7 +86,7 @@ export function validateSiteSettingsPatch(input: unknown): Settings {
 export function validateTenantSettings(input: unknown): typeof tenantSettingDefaults {
   const value = object(input)
   if (
-    Object.keys(value).some((key) => !['workspaceEmbedOrigins', 'fiscalYearStart'].includes(key)) ||
+    Object.keys(value).some((key) => !['workspaceEmbedOrigins', 'fiscalYearStart', 'allowedCurrencies', 'defaultCurrency'].includes(key)) ||
     !Array.isArray(value.workspaceEmbedOrigins) ||
     value.workspaceEmbedOrigins.length > 30
   )
@@ -107,7 +108,9 @@ export function validateTenantSettings(input: unknown): typeof tenantSettingDefa
     Number.isNaN(Date.parse(`2025-${fiscalYearStart}T00:00:00Z`)) ||
     new Date(`2025-${fiscalYearStart}T00:00:00Z`).toISOString().slice(5, 10) !== fiscalYearStart)
     throw Error('Choose a valid fiscal-year start month and day.')
-  return { workspaceEmbedOrigins: [...new Set(origins)], fiscalYearStart }
+  return { workspaceEmbedOrigins: [...new Set(origins)], fiscalYearStart,
+    ...validateCurrencyConfig({ allowedCurrencies: value.allowedCurrencies ?? defaultCurrencyConfig.allowedCurrencies,
+      defaultCurrency: value.defaultCurrency ?? defaultCurrencyConfig.defaultCurrency }) }
 }
 
 /** The same loader is used by authenticated administration and public rendering. */

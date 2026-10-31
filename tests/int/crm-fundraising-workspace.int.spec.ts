@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { crmTimelineFixture } from '../helpers/crm-timeline-fixture'
 import { fundraisingSchemaV2 } from '../../src/crm/fundraising-schema-v2'
+import { campaignBoardSchemaV1 } from '../../src/crm/campaign-board-schema-v1'
 import { FundraisingRepository } from '../../src/crm/fundraising'
 import { FundraisingReport } from '../../src/crm/fundraising-report'
 import { FinanceRepository } from '../../src/crm/finance'
@@ -50,6 +51,8 @@ it('deletes unused fundraising records and blocks operational references and sta
   try {
     for (const statement of fundraisingSchemaV2) fixture.sqlite.exec(statement)
     fixture.sqlite.exec('CREATE TABLE review_tasks(id INTEGER PRIMARY KEY,crm_site TEXT,crm_type TEXT,crm_i_d TEXT)')
+    fixture.sqlite.exec('CREATE TABLE task_boards(id INTEGER PRIMARY KEY,platform_site TEXT,archived INTEGER NOT NULL DEFAULT 0)')
+    for (const statement of campaignBoardSchemaV1) fixture.sqlite.exec(statement)
     const fundraising = new FundraisingRepository(fixture.db, 1)
     const fund = String((await fundraising.save({ site: 'default', kind: 'funds', operationKey: key(), values: { name: 'Unused fund' } })).id)
     const preview = await fundraising.deletionPreview('default', 'funds', fund)
@@ -71,6 +74,14 @@ it('deletes unused fundraising records and blocks operational references and sta
     expect((await fundraising.deletionPreview('default', 'campaigns', campaign)).blockers).toContain('appeals')
     fixture.sqlite.exec(`INSERT INTO review_tasks(id,crm_site,crm_type,crm_i_d) VALUES(1,'default','campaign','${campaign}')`)
     expect((await fundraising.deletionPreview('default', 'campaigns', campaign)).blockers).toContain('VortiTasks tasks')
+
+    const boardCampaign = String((await fundraising.save({ site: 'default', kind: 'campaigns', operationKey: key(), values: { name: 'Board campaign' } })).id)
+    fixture.sqlite.exec("INSERT INTO task_boards(id,platform_site) VALUES(10,'default'),(11,'another-site')")
+    expect(() => fixture.sqlite.exec(`INSERT INTO vc_crm_campaign_boards(campaign_id,site_id,board_id,created_at) VALUES('${boardCampaign}','default',11,'2026-10-31')`)).toThrow()
+    fixture.sqlite.exec(`INSERT INTO vc_crm_campaign_boards(campaign_id,site_id,board_id,created_at) VALUES('${boardCampaign}','default',10,'2026-10-31')`)
+    expect((await fundraising.deletionPreview('default', 'campaigns', boardCampaign)).blockers).toContain('a linked VortiTasks board')
+    fixture.sqlite.exec(`DELETE FROM vc_crm_campaign_boards WHERE campaign_id='${boardCampaign}'`)
+    await fundraising.delete({ site: 'default', kind: 'campaigns', id: boardCampaign, expectedRevision: 1, confirmation: 'Delete Board campaign', operationKey: key() })
 
     const fresh = String((await fundraising.save({ site: 'default', kind: 'campaigns', operationKey: key(), values: { name: 'Original' } })).id)
     const emptyAppeal = String((await fundraising.save({ site: 'default', kind: 'appeals', operationKey: key(), values: { name: 'Empty appeal', campaignId: fresh, recipientIds: [] } })).id)

@@ -5,6 +5,7 @@ import { permissions, type Permission } from '../organizations/permission-catalo
 import './system-settings.css'
 import { TenantMemberships } from './TenantMemberships'
 import { WebsiteControls } from '../organizations/WebsiteControls'
+import { currencyExponent } from '../crm/currency-config'
 
 const sections = ['General', 'Reading', 'Privacy', 'Features', 'Roles'] as const
 type Section = (typeof sections)[number]
@@ -68,13 +69,18 @@ export function TenantSettingsHub({
     [savedOrigins, setSavedOrigins] = useState(''),
     [fiscalYearStart, setFiscalYearStart] = useState('01-01'),
     [savedFiscalYearStart, setSavedFiscalYearStart] = useState('01-01'),
+    [allowedCurrencies, setAllowedCurrencies] = useState<string[]>(['USD']),
+    [savedAllowedCurrencies, setSavedAllowedCurrencies] = useState<string[]>(['USD']),
+    [defaultCurrency, setDefaultCurrency] = useState('USD'),
+    [savedDefaultCurrency, setSavedDefaultCurrency] = useState('USD'),
     [tenantRevision, setTenantRevision] = useState<number | null>(null)
   const [websiteDirty, setWebsiteDirty] = useState(false)
   const dirty =
     websiteDirty ||
     JSON.stringify(form) !== baseline ||
     (!!role && JSON.stringify(role) !== roleBaseline) ||
-    origins !== savedOrigins || fiscalYearStart !== savedFiscalYearStart
+    origins !== savedOrigins || fiscalYearStart !== savedFiscalYearStart ||
+    defaultCurrency !== savedDefaultCurrency || allowedCurrencies.join(',') !== savedAllowedCurrencies.join(',')
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
   useEffect(() => {
@@ -95,6 +101,12 @@ export function TenantSettingsHub({
         const fiscal = String(value.settings.fiscalYearStart || '01-01')
         setFiscalYearStart(fiscal)
         setSavedFiscalYearStart(fiscal)
+        const currencies = (value.settings.allowedCurrencies as string[] | undefined) || ['USD']
+        setAllowedCurrencies(currencies)
+        setSavedAllowedCurrencies(currencies)
+        const preferred = String(value.settings.defaultCurrency || 'USD')
+        setDefaultCurrency(preferred)
+        setSavedDefaultCurrency(preferred)
         setTenantRevision(value.revision)
       })
       .catch((cause) => {
@@ -389,6 +401,8 @@ export function TenantSettingsHub({
                       .map((value) => value.trim())
                       .filter(Boolean),
                     fiscalYearStart,
+                    allowedCurrencies,
+                    defaultCurrency,
                   },
                   expectedRevision: tenantRevision,
                 })
@@ -399,6 +413,12 @@ export function TenantSettingsHub({
                   const fiscal = String(result.settings.fiscalYearStart || '01-01')
                   setFiscalYearStart(fiscal)
                   setSavedFiscalYearStart(fiscal)
+                  const currencies = (result.settings.allowedCurrencies as string[]) || ['USD']
+                  setAllowedCurrencies(currencies)
+                  setSavedAllowedCurrencies(currencies)
+                  const preferred = String(result.settings.defaultCurrency || 'USD')
+                  setDefaultCurrency(preferred)
+                  setSavedDefaultCurrency(preferred)
                   setTenantRevision(result.revision)
                   setMessage('Tenant settings saved.')
                 }
@@ -426,7 +446,23 @@ export function TenantSettingsHub({
                   </select>
                 </span>
               </label>
-              <button type="submit" disabled={busy || (origins === savedOrigins && fiscalYearStart === savedFiscalYearStart)}>
+              <label className="settings-hub__field">Allowed VortiCause currencies
+                <select multiple size={7} value={allowedCurrencies} disabled={busy}
+                  onChange={event => {
+                    const selected = Array.from(event.target.selectedOptions, option => option.value).sort()
+                    setAllowedCurrencies(selected)
+                    if (!selected.includes(defaultCurrency)) setDefaultCurrency(selected[0] || '')
+                  }}>
+                  {Intl.supportedValuesOf('currency').filter(code => currencyExponent(code) <= 4).map(code =>
+                    <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+              <label className="settings-hub__field">Default VortiCause currency
+                <select value={defaultCurrency} disabled={busy || !allowedCurrencies.length} onChange={event => setDefaultCurrency(event.target.value)}>
+                  {allowedCurrencies.map(code => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+              <button type="submit" disabled={busy || !allowedCurrencies.length || (origins === savedOrigins && fiscalYearStart === savedFiscalYearStart && defaultCurrency === savedDefaultCurrency && allowedCurrencies.join(',') === savedAllowedCurrencies.join(','))}>
                 Save tenant settings
               </button>
             </form>

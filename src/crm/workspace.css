@@ -937,8 +937,10 @@
 .vc-fund-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .vc-fund-heading h2 { margin: 0; color: #172d4b; font-size: 1.25rem; }
 .vc-fund-heading p { margin: 5px 0 0; color: #60738b; }
-.vc-fund-section-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid #dce5ed; border-radius: 9px; background: #fff; }
-.vc-fund-section-bar .vc-crm-toolbar { border: 0; padding: 0; }
+.vc-fund-section-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vc-fund-section-bar .vc-crm-toolbar { display: flex; align-items: center; gap: 20px; border: 0; padding: 0; margin: 0; }
+.vc-fund-section-bar .vc-crm-toolbar button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: #526b86; min-height: 48px; padding: 8px 2px 5px; }
+.vc-fund-section-bar .vc-crm-toolbar button[aria-pressed='true'] { border-bottom-color: #08748a; background: transparent; color: #075d70; }
 .vc-fund-section-bar > label { display: flex; align-items: center; gap: 8px; color: #526b86; font-size: .85rem; font-weight: 650; white-space: nowrap; }
 .vc-fund-guidance { color: #526b86; font-size: .95rem; line-height: 1.5; }
 .vc-fund-actions, .vc-fund-filters, .vc-fund-form-actions, .vc-fund-pager { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; }
@@ -964,7 +966,7 @@
 .vc-fund-form .vc-fund-check { display: flex; align-items: center; gap: 8px; }
 .vc-fund-form .vc-fund-check input { margin: 0; }
 .vc-fund-check-list { display: grid; gap: 8px; max-height: 260px; overflow-y: auto; margin-top: 12px; }
-.vc-fund-form-actions { justify-content: flex-end; position: sticky; bottom: 0; padding: 12px 0; background: #f5f8fb; }
+.vc-fund-form-actions { justify-content: flex-end; padding: 12px 0 0; }
 .vc-fundraising button.vc-fund-delete { margin-right: auto; color: #a32e34; border-color: #e8b9bc; background: #fff7f7; }
 .vc-fundraising button.vc-fund-delete:disabled { opacity: .5; cursor: not-allowed; }
 .vc-fund-delete-confirm { display: grid; gap: 12px; }
@@ -976,6 +978,17 @@
 .vc-fundraising .vc-crm-table-wrap { overflow-x: auto; margin-top: 14px; }
 .vc-fundraising .vc-crm-table-wrap table { min-width: 710px; }
 .vc-fundraising .vc-crm-table-wrap th, .vc-fundraising .vc-crm-table-wrap td { white-space: normal; }
+.vc-crm-task-heading { margin-bottom: 12px; }
+.vc-crm-task-heading h2 { margin: 0; }
+.vc-crm-task-group th { background: #eaf3f7 !important; color: #17435e !important; text-align: left; }
+.vc-crm-task-child { padding-left: 32px !important; }
+.vc-fund-task-workspace { display: grid; gap: 14px; }
+.vc-campaign-board { display: grid; gap: 12px; }
+.vc-campaign-board > p { margin: 0; }
+.vc-campaign-board .vc-fund-actions { align-items: center; }
+.vc-campaign-board .vc-fund-actions label { display: grid; gap: 5px; }
+.vc-campaign-board-review { display: grid; gap: 10px; border-top: 1px solid #dce5ed; padding-top: 12px; }
+.vc-campaign-board-review label { display: flex; gap: 8px; align-items: center; }
 @media (max-width: 800px) { .vc-fund-metrics, .vc-fund-detail-grid { grid-template-columns: 1fr; } .vc-fund-fields { grid-template-columns: 1fr; } .vc-fund-section-bar { align-items: stretch; flex-wrap: wrap; } .vc-fund-section-bar > label { margin-left: auto; } }
 @media (max-width: 700px) {
   .vc-crm-shell .vc-crm-main > .vc-crm { padding-inline: 16px; }
@@ -983,13 +996,13 @@
   .vc-crm-shell .vc-crm-collection > nav.vc-crm-toolbar button { flex: 0 0 auto; }
   .vc-crm-shell .vc-crm-collection > .vc-crm-toolbar label { flex: 1 1 160px; }
 }
-.vc-crm-editor-dialog { width: min(720px, calc(100vw - 24px)); max-height: min(90dvh, 850px); padding: 0; border: 1px solid #cedbe6; border-radius: 13px; background: #fff; color: #172d4b; box-shadow: 0 25px 75px #102a4940; }
+.vc-crm-editor-dialog { width: min(720px, calc(100vw - 24px)); max-height: min(90dvh, 850px); padding: 0; overflow: hidden; border: 1px solid #cedbe6; border-radius: 13px; background: #fff; color: #172d4b; box-shadow: 0 25px 75px #102a4940; }
 .vc-crm-editor-dialog::backdrop { background: #102a4973; backdrop-filter: blur(2px); }
 .vc-crm-editor-dialog__head, .vc-crm-editor-dialog__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: #f8fbfd; }
 .vc-crm-editor-dialog__head { border-bottom: 1px solid #dce5ed; }
 .vc-crm-editor-dialog__head h2 { margin: 0; font-size: 1.2rem; }
 .vc-crm-editor-dialog__head button { font-size: 1.4rem; line-height: 1; }
-.vc-crm-editor-dialog__body { max-height: calc(90dvh - 125px); padding: 20px; overflow-y: auto; }
+.vc-crm-editor-dialog__body { max-height: calc(min(90dvh, 850px) - 65px); padding: 20px; overflow-y: auto; }
 .vc-crm-editor-dialog__body :is(fieldset,form) { min-width: 0; }
 .vc-crm-editor-dialog__body fieldset { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; }
 .vc-crm-editor-dialog__body label { display: grid; gap: 5px; }

@@ -3,6 +3,7 @@ import { SiteConflictError } from '../organizations/atomic'
 import { commitCRM, replayCRM } from './mutations'
 import { givingDate } from './commitment-model'
 import { assertMoney } from './money'
+import { assertConfiguredCurrency, assertHistoricalCurrencyPrecision, currencyConfigForSite } from './currency-config'
 import {
   membershipEnd,
   membershipStatus,
@@ -100,6 +101,10 @@ export class MembershipRepository {
       : null
     if (input.id && !before) throw new SiteAccessError()
     if (before && before.revision !== input.expectedRevision) throw new SiteConflictError()
+    if (!before || before.currency !== currency || before.exponent !== exponent) {
+      assertConfiguredCurrency(await currencyConfigForSite(this.db, input.site), currency, exponent)
+      await assertHistoricalCurrencyPrecision(this.db, input.site, currency, exponent)
+    }
     if (
       before &&
       before.eligibility !== v.eligibility &&

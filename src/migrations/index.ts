@@ -247,6 +247,7 @@ export const migrations = [
   { up: migration_20261030_010000_crm_organization_contacts.up, down: migration_20261030_010000_crm_organization_contacts.down, name: '20261030_010000_crm_organization_contacts' },
   { up: migration_20261031_010000_crm_fundraising_workspace.up, down: migration_20261031_010000_crm_fundraising_workspace.down, name: '20261031_010000_crm_fundraising_workspace' },
   { up: migration_20261031_020000_crm_tasks_everywhere.up, down: migration_20261031_020000_crm_tasks_everywhere.down, name: '20261031_020000_crm_tasks_everywhere' },
+  { up: migration_20261031_030000_crm_campaign_boards.up, down: migration_20261031_030000_crm_campaign_boards.down, name: '20261031_030000_crm_campaign_boards' },
 ];
 import * as migration_20261027_000000_tenant_authority from './20261027_000000_tenant_authority'
 import * as migration_20261027_230000_publishing_audience_compatibility from './20261027_230000_publishing_audience_compatibility'
@@ -255,3 +256,4 @@ import * as migration_20261028_010000_crm_comments from './20261028_010000_crm_c
 import * as migration_20261030_010000_crm_organization_contacts from './20261030_010000_crm_organization_contacts'
 import * as migration_20261031_010000_crm_fundraising_workspace from './20261031_010000_crm_fundraising_workspace'
 import * as migration_20261031_020000_crm_tasks_everywhere from './20261031_020000_crm_tasks_everywhere'
+import * as migration_20261031_030000_crm_campaign_boards from './20261031_030000_crm_campaign_boards'

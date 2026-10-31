@@ -1,6 +1,7 @@
 import { OrganizationRepository, SiteAccessError } from '../organizations/repository'
 import { assertMoney, validateAllocations, type Money } from './money'
 import { commitCRM, replayCRM } from './mutations'
+import { assertConfiguredCurrency, assertHistoricalCurrencyPrecision, currencyConfigForSite } from './currency-config'
 
 export type GiftKind = 'cash' | 'check' | 'external-online' | 'in-kind'
 export interface GiftSummary {
@@ -158,6 +159,8 @@ export class FinanceRepository {
     if (identity.authorityRevision !== site.authorityRevision) throw new SiteAccessError()
     if (!input.amount || typeof input.amount !== 'object') throw new Error('Enter a gift amount.')
     assertMoney(input.amount)
+    assertConfiguredCurrency(await currencyConfigForSite(this.db, input.site), input.amount.currency, input.exponent)
+    await assertHistoricalCurrencyPrecision(this.db, input.site, input.amount.currency, input.exponent)
     if (
       !Number.isInteger(input.exponent) ||
       input.exponent < 0 ||

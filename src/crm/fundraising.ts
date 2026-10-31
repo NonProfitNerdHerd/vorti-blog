@@ -4,6 +4,7 @@ import { calendarDate } from './finance'
 import { assertMoney } from './money'
 import { commitCRM, replayCRM } from './mutations'
 import { requireCRMAction } from './tenant-actions'
+import { assertConfiguredCurrency, assertHistoricalCurrencyPrecision, currencyConfigForSite } from './currency-config'
 
 export type ClassificationKind = 'campaigns' | 'funds' | 'appeals'
 export interface Classification {
@@ -50,6 +51,7 @@ function deletionChecks(kind: ClassificationKind, site: string, id: string): Del
     { label: 'VortiTasks tasks', sql: 'SELECT 1 FROM review_tasks WHERE crm_site=? AND crm_type=? AND crm_i_d=? LIMIT 1', args: [site, taskType, id] },
   ]
   if (kind === 'campaigns') checks.push(
+    { label: 'a linked VortiTasks board', sql: 'SELECT 1 FROM vc_crm_campaign_boards WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
     { label: 'appeals', sql: 'SELECT 1 FROM vc_crm_appeals WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
     { label: 'linked funds', sql: 'SELECT 1 FROM vc_crm_campaign_funds WHERE site_id=? AND campaign_id=? LIMIT 1', args: [site, id] },
     { label: 'attributed gifts', sql: 'SELECT 1 FROM vc_crm_gift_attribution a JOIN vc_crm_gifts g ON g.id=a.gift_id WHERE g.site_id=? AND a.campaign_id=? LIMIT 1', args: [site, id] },
@@ -223,6 +225,11 @@ export class FundraisingRepository {
       goal = text(v.goalMinor, 40, true)
       exponent = Number(v.exponent)
       assertMoney({ currency, minorUnits: goal })
+      const previous = input.id ? await this.db.prepare(`SELECT currency,exponent FROM vc_crm_${input.kind} WHERE site_id=? AND id=?`)
+        .bind(input.site, input.id).first<{ currency: string | null; exponent: number | null }>() : null
+      if (!previous || previous.currency !== currency || previous.exponent !== exponent)
+        { assertConfiguredCurrency(await currencyConfigForSite(this.db, input.site), currency, exponent)
+          await assertHistoricalCurrencyPrecision(this.db, input.site, currency, exponent) }
       if (!Number.isInteger(exponent) || exponent < 0 || exponent > 4 || BigInt(goal) < 0n)
         throw new Error('Enter a valid goal and currency precision.')
     }

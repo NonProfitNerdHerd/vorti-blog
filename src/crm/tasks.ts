@@ -3,7 +3,7 @@ import { cmsSiteContext } from '../organizations/cms-scope'
 import { claimRequest } from '../organizations/identity-authority'
 import { SiteConflictError } from '../organizations/atomic'
 import { OrganizationRepository, SiteAccessError } from '../organizations/repository'
-import { workspaceReq, requireTask } from '../review/workspace-access'
+import { workspaceReq, requireTask, requireBoard } from '../review/workspace-access'
 import { crmRecordLink, type CRMRecordLink } from './record-model'
 import { ContactRepository } from './contacts'
 import { authorizeCRMTaskActor, crmTaskIntentHash, crmTaskWrite } from './task-access'
@@ -99,6 +99,10 @@ export class CRMTasks {
       page: view === 'upcoming' ? 1 : page,
       sort: view === 'upcoming' ? 'dueDate' : '-createdAt',
     })
+    const children = result.docs.length ? await req.payload.find({ collection: 'review-tasks', req,
+      overrideAccess: false, depth: 0, pagination: false, limit: 200,
+      where: { and: [{ parent: { in: result.docs.map(task => task.id) } }, { archived: { not_equals: true } }] },
+      sort: 'createdAt' }) : null
     let canCreate = false
     try {
       await authorizeCRMTaskActor(this.db, this.actor, site, link, 'edit')
@@ -106,9 +110,18 @@ export class CRMTasks {
     } catch (error) {
       if (!(error instanceof SiteAccessError)) throw error
     }
+    if (canCreate && link.type === 'campaign') {
+      const linked = await this.db.prepare('SELECT board_id FROM vc_crm_campaign_boards WHERE site_id=? AND campaign_id=?')
+        .bind(site, link.id).first<{ board_id: number }>()
+      if (linked) {
+        try { await requireBoard(req, linked.board_id, 'edit') }
+        catch { canCreate = false }
+      }
+    }
     await this.fence(site, link, scope.site.authorityRevision)
     return {
       docs: result.docs,
+      children: children?.docs || [],
       total: result.totalDocs,
       page: result.page,
       totalPages: result.totalPages,
@@ -172,6 +185,11 @@ export class CRMTasks {
       !Number.isSafeInteger(input.expectedAuthorityRevision)
     )
       throw new Error('Choose the current CRM record before creating a task.')
+    const linkedBoard = link.type === 'campaign'
+      ? await this.db.prepare('SELECT board_id FROM vc_crm_campaign_boards WHERE site_id=? AND campaign_id=?')
+          .bind(input.site, link.id).first<{ board_id: number }>() : null
+    const req = await this.req(input.site, true)
+    if (linkedBoard) await requireBoard(req, linkedBoard.board_id, 'edit')
     const intent = {
         actor: this.actor,
         site: input.site,
@@ -183,9 +201,10 @@ export class CRMTasks {
         assignee: input.assignee ?? null,
         dueOn: input.dueOn ? calendarDate(input.dueOn) : '',
         activity: input.activity || null,
+        board: linkedBoard?.board_id ?? null,
       },
       hash = await crmTaskIntentHash(intent),
-      req = await this.req(input.site, true)
+      boardID = linkedBoard?.board_id
     const replay = async () => {
       const row = await this.db
         .prepare('SELECT id,creator_id,crm_intent_hash FROM review_tasks WHERE crm_operation_key=?')
@@ -209,7 +228,8 @@ export class CRMTasks {
       description: intent.description,
       status: 'open' as const,
       priority: 'normal' as const,
-      personal: true,
+      personal: !boardID,
+      ...(boardID ? { initialBoard: boardID } : {}),
       documentType: 'none' as const,
       documentID: '',
       assignee: intent.assignee,

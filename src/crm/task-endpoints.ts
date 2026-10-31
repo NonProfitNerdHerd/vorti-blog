@@ -3,11 +3,26 @@ import { readBoundedJSON } from '../forms/security'
 import { crmRecordLink } from './record-model'
 import { CRMTasks } from './tasks'
 import { crmTaskRecordPicker } from './task-record-picker'
+import { OrganizationRepository } from '../organizations/repository'
+import { currencyConfigForSite } from './currency-config'
 export function crmTaskEndpoints(
   db: D1Database,
   errorResponse: (error: unknown) => Response,
 ): Endpoint[] {
   return [
+    {
+      path: '/crm/currencies',
+      method: 'get',
+      handler: async (req) => {
+        if (!req.user || req.user.collection !== 'users')
+          return Response.json({ message: 'Sign in to use CRM.' }, { status: 401 })
+        try {
+          const site = new URL(req.url!).searchParams.get('site') || ''
+          await new OrganizationRepository(db, Number(req.user.id)).require(site, 'workspace', 'read')
+          return Response.json(await currencyConfigForSite(db, site), { headers: { 'Cache-Control': 'private, no-store' } })
+        } catch (error) { return errorResponse(error) }
+      },
+    },
     {
       path: '/crm/tasks/records',
       method: 'get',

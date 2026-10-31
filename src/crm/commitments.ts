@@ -2,6 +2,7 @@ import { OrganizationRepository, SiteAccessError } from '../organizations/reposi
 import { SiteConflictError } from '../organizations/atomic'
 import { commitCRM, replayCRM } from './mutations'
 import { assertMoney } from './money'
+import { assertConfiguredCurrency, assertHistoricalCurrencyPrecision, currencyConfigForSite } from './currency-config'
 import {
   givingDate,
   givingDueOn,
@@ -354,6 +355,8 @@ export class CommitmentRepository {
       amount = text(v.minorUnits, 31, true),
       exponent = Number(v.exponent)
     assertMoney({ currency, minorUnits: amount })
+    assertConfiguredCurrency(await currencyConfigForSite(this.db, input.site), currency, exponent)
+    await assertHistoricalCurrencyPrecision(this.db, input.site, currency, exponent)
     if (
       BigInt(amount) <= 0n ||
       !Number.isInteger(exponent) ||

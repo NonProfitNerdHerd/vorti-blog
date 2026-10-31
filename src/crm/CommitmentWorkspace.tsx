@@ -10,6 +10,7 @@ import { parseMoney } from './money'
 import type { GivingCommitment, CommitmentRepository } from './commitments'
 import type { GiftSummary } from './finance'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useCurrencies } from './useCurrencies'
 type Detail = Awaited<ReturnType<CommitmentRepository['get']>>
 type Draft = {
   name: string
@@ -54,6 +55,7 @@ export function CommitmentWorkspace({
   onDirty?: (dirty: boolean) => void
   onSaving?: (saving: boolean) => void
 }) {
+  const currencySettings = useCurrencies(api, site)
   const [kind, setKind] = useState<'pledge' | 'recurring'>(initialKind || autoCreate || 'pledge'),
     [docs, setDocs] = useState<GivingCommitment[]>([]),
     [next, setNext] = useState<string | null>(null),
@@ -69,6 +71,10 @@ export function CommitmentWorkspace({
     [installments, setInstallments] = useState<
       Array<{ id: string; dueOn: string; amount: string }>
     >([])
+  useEffect(() => {
+    if (creating && !currencySettings.allowedCurrencies.includes(draft.currency))
+      setDraft(value => ({ ...value, currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) }))
+  }, [creating, draft.currency, currencySettings])
   const [through, setThrough] = useState(() => new Intl.DateTimeFormat('en-CA').format(new Date())),
     [offset, setOffset] = useState(0),
     [effective, setEffective] = useState(''),
@@ -91,7 +97,7 @@ export function CommitmentWorkspace({
     autoStarted.current = true
     setCreating(true)
     setDetail(null)
-    setDraft(empty(contact))
+    setDraft({ ...empty(contact), currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) })
     setInstallments([])
   }, [autoCreate, canEdit, contact])
   const mark = (value: boolean) => {
@@ -396,7 +402,7 @@ export function CommitmentWorkspace({
                 if (discard()) {
                   setCreating(true)
                   setDetail(null)
-                  setDraft(empty(contact))
+                  setDraft({ ...empty(contact), currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) })
                   setInstallments([])
                   setOffset(0)
                   mark(false)
@@ -473,21 +479,9 @@ export function CommitmentWorkspace({
             </label>
             <label>
               Currency
-              <input
-                maxLength={3}
-                value={draft.currency}
-                onChange={(e) => change('currency', e.target.value.toUpperCase())}
-              />
-            </label>
-            <label>
-              Currency decimal places
-              <select
-                value={draft.exponent}
-                onChange={(e) => change('exponent', Number(e.target.value))}
-              >
-                {[0, 1, 2, 3, 4].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
+              <select value={currencySettings.allowedCurrencies.includes(draft.currency) ? draft.currency : currencySettings.defaultCurrency}
+                onChange={e => { setDraft(value => ({ ...value, currency: e.target.value, exponent: currencySettings.exponent(e.target.value) })); mark(true) }}>
+                {currencySettings.allowedCurrencies.map(code => <option key={code} value={code}>{code}</option>)}
               </select>
             </label>
             <label>

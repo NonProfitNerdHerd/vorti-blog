@@ -1,12 +1,13 @@
 'use client'
 /* eslint-disable react-hooks/set-state-in-effect -- Clear private drafts and lookups when the explicitly pinned CRM record changes. */
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { crmRead } from './HouseholdWorkspace'
 import { statuses, type Task } from '../review/client'
 import type { CRMRecordLink } from './record-model'
 type TaskPage = {
   docs: Task[]
+  children: Task[]
   total: number
   page: number
   totalPages: number
@@ -266,35 +267,27 @@ export function RecordTasks({
     `${task.title} ${task.description || ''} ${task.assigneePerson?.label || task.assigneeLabel || ''}`
       .toLocaleLowerCase().includes(taskSearch.trim().toLocaleLowerCase()),
   )
-  const selectedTask = result?.docs.find(task => task.id === selectedId) || result?.docs[0]
+  const selectedTask = [...(result?.docs || []), ...(result?.children || [])].find(task => task.id === selectedId) || result?.docs[0]
+  const groups = (['open', 'in-progress', 'ready-for-review', 'done'] as const)
+    .map(status => ({ status, tasks: visibleTasks.filter(task => task.status === status) }))
+    .filter(group => group.tasks.length)
   return (
     <section className="vc-crm-domain vc-crm-record-layout" aria-label="CRM follow-up tasks">
       <div className="vc-crm-record-main">
+      <div className="vc-fund-heading vc-crm-task-heading"><h2>Tasks</h2>
+        {result?.canCreate && !creating && <button type="button" className="vc-crm-primary" disabled={saving}
+          onClick={() => { setTitle(defaultTitle); setCreating(true); setPeopleAfter(0); setQuery(''); setPeople({ docs: [], next: null }) }}>+ Add task</button>}
+      </div>
       <div className="vc-crm-toolbar">
         <button type="button" disabled={saving} onClick={() => setRefresh((value) => value + 1)}>
           Refresh tasks
         </button>
-        {result?.canCreate && !creating && (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => {
-              setTitle(defaultTitle)
-              setCreating(true)
-              setPeopleAfter(0)
-              setQuery('')
-              setPeople({ docs: [], next: null })
-            }}
-          >
-            New follow-up
-          </button>
-        )}
       </div>
-      <p>Follow-up work linked to {result?.record.label || 'this VortiCause record'}. Open a task to manage it in VortiTasks.</p>
+      <p>Tasks linked to {result?.record.label || 'this VortiCause record'}. Open the full task in VortiTasks for discussion, files, and board settings.</p>
       {error && <p role="alert">{error}</p>}
       {creating && (
         <fieldset disabled={saving}>
-          <legend>Assign a follow-up</legend>
+          <legend>Add a task</legend>
           <p>Linked to {result?.record.label || 'this CRM record'}.</p>
           <label>
             Task title
@@ -357,7 +350,7 @@ export function RecordTasks({
           )}
           {peopleError && <p role="alert">{peopleError}</p>}
           <label>
-            Follow-up due date
+            Due date
             <input
               type="date"
               value={dueOn}
@@ -373,19 +366,19 @@ export function RecordTasks({
               disabled={!title.trim() || !result?.canCreate}
               onClick={() => void create()}
             >
-              Create follow-up task
+              Create task
             </button>
             <button
               type="button"
               onClick={() => {
-                if (window.confirm('Discard this follow-up draft?')) {
+                if (window.confirm('Discard this task draft?')) {
                   setCreating(false)
                   onDirty(false)
                   operation.current = null
                 }
               }}
             >
-              Cancel follow-up
+              Cancel
             </button>
           </div>
         </fieldset>
@@ -419,8 +412,10 @@ export function RecordTasks({
             </tr>
           </thead>
           <tbody>
-            {visibleTasks.map((task) => (
-              <tr key={task.id} data-selected={selectedTask?.id === task.id ? 'true' : undefined}>
+            {groups.map(group => <Fragment key={group.status}>
+              <tr className="vc-crm-task-group"><th colSpan={5}>{statuses[group.status]} · {group.tasks.length}</th></tr>
+              {group.tasks.map((task) => <Fragment key={task.id}>
+              <tr data-selected={selectedTask?.id === task.id ? 'true' : undefined}>
                 <td>
                   <Link
                     target="_blank"
@@ -451,7 +446,16 @@ export function RecordTasks({
                   )}
                 </td>
               </tr>
-            ))}
+              {(result?.children || []).filter(child => String(child.parent) === String(task.id)).map(child =>
+                <tr key={child.id} data-selected={selectedTask?.id === child.id ? 'true' : undefined}>
+                  <td className="vc-crm-task-child"><button type="button" onClick={() => setSelectedId(child.id)}>↳ {child.title}</button></td>
+                  <td>{statuses[child.status as keyof typeof statuses] || child.status}</td>
+                  <td>{child.assigneePerson?.label || child.assigneeLabel || 'Unassigned'}</td>
+                  <td>{child.dueDate?.slice(0, 10) || '—'}</td>
+                  <td><Link href={`${admin}/collections/review-tasks?${new URLSearchParams({ site, task: String(child.id) })}`}>Open in VortiTasks</Link></td>
+                </tr>)}
+              </Fragment>)}
+            </Fragment>)}
             {!visibleTasks.length && (
               <tr>
                 <td colSpan={5}>
@@ -493,7 +497,7 @@ export function RecordTasks({
             <div><dt>Priority</dt><dd>{selectedTask.priority || 'Not set'}</dd></div>
           </dl>
           {selectedTask.description && <div className="vc-crm-record-note"><strong>Description</strong><p>{selectedTask.description}</p></div>}
-          <Link href={`${admin}/collections/review-tasks?${new URLSearchParams({ site, task: String(selectedTask.id) })}`}>Open in Tasks</Link>
+          <Link href={`${admin}/collections/review-tasks?${new URLSearchParams({ site, task: String(selectedTask.id) })}`}>Open in VortiTasks</Link>
         </> : <p>Select a task to see its details.</p>}
       </aside>
     </section>

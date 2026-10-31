@@ -7,6 +7,7 @@ import { ClassificationPicker } from './ClassificationPicker'
 import { CommitmentWorkspace } from './CommitmentWorkspace'
 import { parseMoney } from './money'
 import { CRMEditorDialog } from './CRMEditorDialog'
+import { useCurrencies } from './useCurrencies'
 import { useSearchParams } from 'next/navigation'
 import {
   opportunityOutcomes,
@@ -66,6 +67,7 @@ export function OpportunityWorkspace({
   onDirty?: (dirty: boolean) => void
   onSaving?: (busy: boolean) => void
 }) {
+  const currencySettings = useCurrencies(api, site)
   const params = useSearchParams()
   const fromOverview = params.get('openOnly') === 'true'
   const [pipelines, setPipelines] = useState<OpportunityPipeline[]>([]),
@@ -95,6 +97,10 @@ export function OpportunityWorkspace({
       outcome: string
       archived: boolean
     } | null>(null)
+  useEffect(() => {
+    if (editor === 'new' && !currencySettings.allowedCurrencies.includes(draft.currency))
+      setDraft(value => ({ ...value, currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) }))
+  }, [editor, draft.currency, currencySettings])
   const [owners, setOwners] = useState<Array<{ id: number; label: string }>>([]),
     [ownerNext, setOwnerNext] = useState<number | null>(null),
     [gifts, setGifts] = useState<GiftSummary[]>([]),
@@ -282,11 +288,11 @@ export function OpportunityWorkspace({
               archived: !!record.archived,
               reason: '',
             }
-          : empty(
+          : { ...empty(
               contact,
               pipeline,
               stages.find((s) => s.pipeline_id === pipeline && !s.archived)?.id || '',
-            ),
+            ), currency: currencySettings.defaultCurrency, exponent: currencySettings.exponent(currencySettings.defaultCurrency) },
       )
       mark(false)
       void loadOwners()
@@ -841,21 +847,9 @@ export function OpportunityWorkspace({
             </label>
             <label>
               Estimate currency
-              <input
-                value={draft.currency}
-                maxLength={3}
-                onChange={(e) => change('currency', e.target.value.toUpperCase())}
-              />
-            </label>
-            <label>
-              Estimate decimal places
-              <select
-                value={draft.exponent}
-                onChange={(e) => change('exponent', Number(e.target.value))}
-              >
-                {[0, 1, 2, 3, 4].map((n) => (
-                  <option key={n}>{n}</option>
-                ))}
+              <select value={draft.currency} onChange={e => { change('currency', e.target.value); change('exponent', currencySettings.exponent(e.target.value)) }}>
+                {[...new Set([...currencySettings.allowedCurrencies, draft.currency])].map(code =>
+                  <option key={code} value={code}>{code}{!currencySettings.allowedCurrencies.includes(code) ? ' (historical)' : ''}</option>)}
               </select>
             </label>
             <ClassificationPicker
